@@ -74,6 +74,8 @@ Verificado em local: um job em `agents` processado pelo Horizon e um broadcast a
 
 ## Escolhas provisórias para questões em aberto (reversíveis)
 
+Respostas já dadas pela direcção: ver [DECISOES.md](DECISOES.md).
+
 | # | Questão | Provisório | Onde mudar |
 |---|---|---|---|
 | 6 | Alojamento e deploy | nenhum; só local e CI | — |
