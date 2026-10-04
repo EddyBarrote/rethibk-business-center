@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Ai\Templates\AgentTemplates;
+use App\Ai\Templates\TemplateInstaller;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
 use App\Enums\MailboxStatus;
@@ -50,6 +52,26 @@ class AgentController extends AdminController
         AuditLog::record($admin, 'agent.created', ['key' => $agent->key, 'autonomy_level' => $agent->autonomy_level->value, 'skills' => $data['skills'] ?? []], subject: $agent);
 
         return redirect()->route('admin.tenants.agents.edit', [$tenant, $agent])->with('success', 'Agente criado.');
+    }
+
+    /**
+     * Creates one or all of the six agents of section 6.3 from their
+     * templates; agents that already exist are left alone.
+     */
+    public function installTemplates(Request $request, Tenant $tenant, TemplateInstaller $installer): RedirectResponse
+    {
+        $data = $request->validate(['template' => ['nullable', Rule::in(array_keys(AgentTemplates::all()))]]);
+        $templates = isset($data['template']) ? [AgentTemplates::all()[$data['template']]] : array_values(AgentTemplates::all());
+        $created = 0;
+        $missing = [];
+
+        foreach ($templates as $template) {
+            $result = $installer->install($template, $this->admin($request));
+            $created += $result['created'] ? 1 : 0;
+            $missing = [...$missing, ...$result['missing_skills']];
+        }
+
+        return back()->with('success', "{$created} agente(s) criado(s) a partir dos modelos.".($missing !== [] ? ' Skills em falta (sincronize o ERP): '.implode(', ', array_unique($missing)).'.' : ''));
     }
 
     public function edit(Tenant $tenant, Agent $agent): Response

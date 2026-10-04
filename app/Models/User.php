@@ -43,6 +43,14 @@ class User extends Authenticatable
         return $this->role->canManageTenant();
     }
 
+    /**
+     * Owners, admins and department managers see their area's work.
+     */
+    public function isManager(): bool
+    {
+        return $this->role->canManageTenant() || $this->role === Role::Manager;
+    }
+
     protected function casts(): array
     {
         return [

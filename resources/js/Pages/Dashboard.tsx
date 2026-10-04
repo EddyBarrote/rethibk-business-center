@@ -1,9 +1,10 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Bot, CheckSquare, FileText } from 'lucide-react';
+import { AlertTriangle, Bot, CheckSquare, FileText } from 'lucide-react';
 
 import { ApprovalCard } from '@/Components/ApprovalCard';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EmptyState } from '@/Components/EmptyState';
+import { Markdown } from '@/Components/Markdown';
 import { PageHeader } from '@/Components/PageHeader';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { Badge } from '@/Components/ui/badge';
@@ -11,15 +12,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Com
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
 import { dateTime } from '@/lib/format';
-import type { AgentSummary, ApprovalSummary, RunSummary, SharedProps } from '@/types';
+import type { AgentSummary, ApprovalSummary, BriefingSummary, Issue, RunSummary, SharedProps } from '@/types';
 
 interface Props {
     approvals: ApprovalSummary[];
     agents: AgentSummary[];
     runs: RunSummary[];
+    briefing: BriefingSummary | null;
+    issues: Issue[];
 }
 
-export default function Dashboard({ approvals, agents, runs }: Props) {
+export default function Dashboard({ approvals, agents, runs, briefing, issues }: Props) {
     const { auth, tenant } = usePage<SharedProps>().props;
     const firstName = auth.user?.name.split(' ')[0];
     const hour = new Date().getHours();
@@ -38,11 +41,44 @@ export default function Dashboard({ approvals, agents, runs }: Props) {
             <div className="grid gap-6 lg:grid-cols-3">
                 <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Briefing do dia</CardTitle>
-                        <CardDescription>Preparado todas as manhãs pelo Chief of Staff.</CardDescription>
+                        <CardTitle className="flex items-center justify-between gap-2">
+                            {briefing ? briefing.title : 'Briefing do dia'}
+                            {briefing && (
+                                <Link href={`/briefings/${briefing.id}`} className="text-sm font-normal text-primary hover:underline">
+                                    Abrir
+                                </Link>
+                            )}
+                        </CardTitle>
+                        <CardDescription>{briefing ? `${briefing.agent ?? 'Chief of Staff'} · ${dateTime(briefing.created_at)}` : 'Preparado todas as manhãs pelo Chief of Staff.'}</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <EmptyState icon={FileText} title="Ainda sem briefings" description="O Chief of Staff prepara o briefing diário às 06:30 dos dias úteis quando estiver activo." />
+                    <CardContent className="mt-4">
+                        {briefing ? (
+                            <div className="grid gap-4">
+                                {briefing.decisions_pending.length > 0 && (
+                                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+                                        <p className="mb-1 text-sm font-medium text-amber-900">Precisa da sua decisão</p>
+                                        <ul className="grid gap-1 text-sm">
+                                            {briefing.decisions_pending.map((decision, index) => (
+                                                <li key={index}>
+                                                    {decision.link ? (
+                                                        <Link href={decision.link} className="text-amber-900 underline">
+                                                            {decision.title}
+                                                        </Link>
+                                                    ) : (
+                                                        decision.title
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                <div className="max-h-96 overflow-y-auto">
+                                    <Markdown>{briefing.content ?? ''}</Markdown>
+                                </div>
+                            </div>
+                        ) : (
+                            <EmptyState icon={FileText} title="Ainda sem briefings" description="O Chief of Staff prepara o briefing diário às 06:30 dos dias úteis quando estiver activo." />
+                        )}
                     </CardContent>
                 </Card>
 
@@ -70,6 +106,34 @@ export default function Dashboard({ approvals, agents, runs }: Props) {
                     </CardContent>
                 </Card>
             </div>
+
+            {issues.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <AlertTriangle className="size-4 text-amber-500" />
+                            Bloqueios e inconsistências
+                        </CardTitle>
+                        <CardDescription>O que está parado ou não bate certo entre áreas.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="mt-4">
+                        <ul className="grid gap-2">
+                            {issues.slice(0, 12).map((issue, index) => (
+                                <li key={index} className="flex items-start gap-3 text-sm">
+                                    <Badge variant={issue.severity === 'alta' ? 'destructive' : 'secondary'}>{issue.area}</Badge>
+                                    {issue.link ? (
+                                        <Link href={issue.link} className="hover:underline">
+                                            {issue.issue}
+                                        </Link>
+                                    ) : (
+                                        <span>{issue.issue}</span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    </CardContent>
+                </Card>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-2">
                 <Card>

@@ -7,6 +7,7 @@ export interface AuthUser {
     role: Role;
     role_label: string;
     can_manage_tenant: boolean;
+    is_manager: boolean;
 }
 
 export interface SharedProps {
@@ -14,7 +15,7 @@ export interface SharedProps {
     app: { name: string; locale: string };
     tenant: { id: number; name: string; slug: string } | null;
     admin: { id: number; name: string; email: string } | null;
-    auth: { user: AuthUser | null; pending_approvals: number };
+    auth: { user: AuthUser | null; pending_approvals: number; unread_notifications: number };
     flash: { success: string | null; error: string | null };
 }
 
@@ -94,4 +95,26 @@ export interface Paginated<T> {
     last_page: number;
     total: number;
     links: { url: string | null; label: string; active: boolean }[];
+}
+
+export interface BriefingSummary {
+    id: number;
+    type: string;
+    type_label: string;
+    title: string;
+    highlights: string[];
+    decisions_pending: { title: string; link?: string | null; owner?: string | null }[];
+    agent: string | null;
+    for: string | null;
+    run_id: number | null;
+    read: boolean;
+    created_at: string;
+    content?: string;
+}
+
+export interface Issue {
+    area: string;
+    severity: string;
+    issue: string;
+    link: string | null;
 }

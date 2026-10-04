@@ -22,6 +22,7 @@ Route::middleware('auth:admin')->group(function () {
     Route::resource('tenants', TenantController::class)->only(['index', 'create', 'store', 'show', 'update']);
 
     Route::prefix('tenants/{tenant}')->name('tenants.')->group(function () {
+        Route::post('agents/templates', [AgentController::class, 'installTemplates'])->name('agents.templates');
         Route::resource('agents', AgentController::class)->only(['create', 'store', 'edit', 'update']);
         Route::put('agents/{agent}/mailbox', [AgentController::class, 'updateMailbox'])->name('agents.mailbox');
         Route::resource('agents.routines', AgentRoutineController::class)->only(['store', 'update', 'destroy']);

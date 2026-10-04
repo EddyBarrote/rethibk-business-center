@@ -1,18 +1,25 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     Activity,
+    Bell,
     Bot,
+    Briefcase,
     Building2,
     CheckSquare,
     ChevronsUpDown,
+    FileSignature,
     FileText,
+    Files,
+    Gavel,
     Inbox,
     LayoutDashboard,
+    Landmark,
     Library,
     LogOut,
     type LucideIcon,
     Menu,
     PlugZap,
+    ShoppingCart,
     Users,
     X,
 } from 'lucide-react';
@@ -43,12 +50,21 @@ interface NavItem {
 
 const mainNav: NavItem[] = [
     { label: 'Painel', href: '/', icon: LayoutDashboard },
-    { label: 'Agentes', href: '/agents', icon: Bot },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
+    { label: 'Caixa', href: '/inbox', icon: Inbox },
+    { label: 'Briefings', href: '/briefings', icon: FileText },
+    { label: 'Documentos', href: '/reports', icon: Files },
+    { label: 'Agentes', href: '/agents', icon: Bot },
     { label: 'Execuções', href: '/runs', icon: Activity },
-    { label: 'Caixa', href: '/inbox', icon: Inbox, soon: 'E03' },
     { label: 'Memória', href: '/knowledge', icon: Library },
-    { label: 'Briefings', href: '/briefings', icon: FileText, soon: 'E04' },
+];
+
+const areasNav: NavItem[] = [
+    { label: 'Concursos', href: '/tenders', icon: Gavel },
+    { label: 'Clientes', href: '/clients', icon: Briefcase, managersOnly: true },
+    { label: 'Finanças', href: '/finance', icon: Landmark, managersOnly: true },
+    { label: 'Compras', href: '/procurement', icon: ShoppingCart },
+    { label: 'Contratos', href: '/contracts', icon: FileSignature, managersOnly: true },
 ];
 
 const settingsNav: NavItem[] = [
@@ -101,21 +117,40 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
     const isActive = (href: string) => (href === '/' ? url === '/' : url.startsWith(href));
     const visibleSettings = settingsNav.filter((item) => !item.managersOnly || user?.can_manage_tenant);
+    const visibleAreas = areasNav.filter((item) => !item.managersOnly || user?.is_manager);
+    const bell = (
+        <Link href="/notifications" className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Notificações">
+            <Bell className="size-5" />
+            {auth.unread_notifications > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums">
+                    {auth.unread_notifications > 99 ? '99+' : auth.unread_notifications}
+                </span>
+            )}
+        </Link>
+    );
 
     const sidebar = (
-        <div className="flex h-full flex-col gap-6 p-4">
+        <div className="flex h-full flex-col gap-6 overflow-y-auto p-4">
             <div className="flex items-center gap-3 px-1">
                 <RethinkMark />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{tenant?.name ?? 'Plataforma'}</p>
                     <p className="text-xs text-muted-foreground">Plataforma de Agentes</p>
                 </div>
+                <span className="hidden lg:block">{bell}</span>
             </div>
 
             <nav className="flex flex-1 flex-col gap-6">
                 <div className="flex flex-col gap-1">
                     {mainNav.map((item) => (
                         <NavLink key={item.href} item={item} active={isActive(item.href)} count={item.badge ? auth.pending_approvals : 0} />
+                    ))}
+                </div>
+
+                <div className="flex flex-col gap-1">
+                    <p className="px-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Áreas</p>
+                    {visibleAreas.map((item) => (
+                        <NavLink key={item.href} item={item} active={isActive(item.href)} />
                     ))}
                 </div>
 
@@ -171,7 +206,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     <button type="button" onClick={() => setOpen(!open)} className="rounded-md p-2 hover:bg-accent" aria-label="Menu">
                         {open ? <X className="size-5" /> : <Menu className="size-5" />}
                     </button>
-                    <p className="text-sm font-semibold">{tenant?.name}</p>
+                    <p className="flex-1 text-sm font-semibold">{tenant?.name}</p>
+                    {bell}
                 </header>
 
                 <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6 lg:p-8">

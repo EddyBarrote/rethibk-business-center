@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Ai\Budget\AiBudget;
 use App\Ai\Budget\BudgetGuard;
+use App\Ai\Templates\AgentTemplate;
+use App\Ai\Templates\AgentTemplates;
 use App\Enums\TenantStatus;
 use App\Models\Agent;
 use App\Models\AgentRun;
@@ -11,6 +13,7 @@ use App\Models\AuditLog;
 use App\Models\BudgetEvent;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\TenantSettings;
 use App\Tenancy\TenantManager;
 use App\Tenancy\TenantProvisioner;
 use Illuminate\Http\RedirectResponse;
@@ -90,7 +93,15 @@ class TenantController extends AdminController
                 'mail_domain' => $tenant->settings['mail_domain'] ?? null,
                 'email_retention_days' => (int) ($tenant->settings['email_retention_days'] ?? config('mail_ingest.retention_days')),
                 'tender_sources' => array_values($tenant->settings['tender_sources'] ?? []),
+                'business' => TenantSettings::allBusiness($tenant),
             ],
+            'templates' => array_values(array_map(fn (AgentTemplate $t) => [
+                'key' => $t->key,
+                'name' => $t->name,
+                'delivery' => $t->delivery,
+                'description' => $t->description,
+                'installed' => Agent::query()->where('key', $t->key)->orWhere('settings->template', $t->key)->exists(),
+            ], AgentTemplates::all())),
             'usage' => [
                 'month' => now()->format('Y-m'),
                 'spent_usd' => round($budget->tenantSpent(), 4),
@@ -137,6 +148,8 @@ class TenantController extends AdminController
             'tender_sources.*.url' => ['required', 'url', 'max:2000'],
             'tender_sources.*.keywords' => ['nullable', 'string', 'max:1000'],
             'tender_sources.*.active' => ['boolean'],
+            'business' => ['array'],
+            ...collect(array_keys((array) config('business')))->mapWithKeys(fn (string $key) => ["business.{$key}" => ['nullable', 'integer', 'between:0,100000']])->all(),
         ]);
 
         $before = AiBudget::for($tenant)->toArray();
@@ -145,6 +158,7 @@ class TenantController extends AdminController
         $settings['ai_budget'] = AiBudget::fromArray($data['budget'] ?? [])->toArray();
         $settings['mail_domain'] = filled($data['mail_domain'] ?? null) ? Str::lower($data['mail_domain']) : null;
         $settings['email_retention_days'] = (int) $data['email_retention_days'];
+        $settings['business'] = array_map(fn ($value) => (int) $value, array_filter($data['business'] ?? [], fn ($value) => $value !== null && $value !== ''));
         $settings['tender_sources'] = array_map(fn (array $source) => [
             'name' => $source['name'],
             'url' => $source['url'],

@@ -51,7 +51,9 @@ class HandleInertiaRequests extends Middleware
                     'role' => $user->role->value,
                     'role_label' => $user->role->label(),
                     'can_manage_tenant' => $user->canManageTenant(),
+                    'is_manager' => $user->isManager(),
                 ] : null,
+                'unread_notifications' => fn () => $user instanceof User && $tenant !== null ? $user->unreadNotifications()->count() : 0,
                 'pending_approvals' => fn () => $user instanceof User && $tenant !== null ? Approval::query()->visibleTo($user)->pending()->count() : 0,
             ],
             'flash' => [

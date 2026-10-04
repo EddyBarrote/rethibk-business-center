@@ -1,5 +1,5 @@
-import { Link, useForm } from '@inertiajs/react';
-import { Bot, ExternalLink, Plus, Puzzle, Trash2 } from 'lucide-react';
+import { Link, router, useForm } from '@inertiajs/react';
+import { Bot, ExternalLink, Plus, Puzzle, Sparkles, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
@@ -36,7 +36,9 @@ interface Props {
         mail_domain: string | null;
         email_retention_days: number;
         tender_sources: TenderSource[];
+        business: Record<string, number>;
     };
+    templates: { key: string; name: string; delivery: string; description: string; installed: boolean }[];
     usage: { month: string; spent_usd: number; runs: number };
     agents: {
         id: number;
@@ -60,10 +62,19 @@ interface Props {
     }[];
 }
 
+const businessFields: [string, string, string][] = [
+    ['sla_response_hours', 'SLA de resposta a clientes (h)', 'Quando o contrato não define outro.'],
+    ['deadline_warning_hours', 'Aviso de prazos (h antes)', 'Emails e concursos.'],
+    ['contract_notice_days', 'Aviso de contratos (dias)', 'Por omissão em contratos novos.'],
+    ['min_margin_pct', 'Margem mínima por projecto (%)', 'Abaixo disto, alerta.'],
+    ['budget_alert_pct', 'Alerta de orçamento consumido (%)', 'Por projecto.'],
+    ['unreconciled_days', 'Banco por reconciliar (dias)', 'Depois disto é um bloqueio.'],
+];
+
 const scopeLabel: Record<string, string> = { tenant: 'Organização', agent: 'Agente', run: 'Execução' };
 const num = (value: number | null) => (value === null ? '' : String(value));
 
-export default function TenantsShow({ tenant, usage, agents, budgetEvents }: Props) {
+export default function TenantsShow({ tenant, usage, agents, budgetEvents, templates }: Props) {
     const form = useForm({
         name: tenant.name,
         domain: tenant.domain ?? '',
@@ -81,6 +92,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents }: Pro
         mail_domain: tenant.mail_domain ?? '',
         email_retention_days: String(tenant.email_retention_days),
         tender_sources: tenant.tender_sources,
+        business: Object.fromEntries(Object.entries(tenant.business).map(([key, value]) => [key, String(value)])) as Record<string, string>,
     });
 
     const errors = form.errors as Record<string, string | undefined>;
@@ -153,6 +165,40 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents }: Pro
                     </CardHeader>
                 </Card>
             </div>
+
+            {templates.some((t) => !t.installed) && (
+                <Card>
+                    <CardHeader className="flex flex-row items-start justify-between gap-4">
+                        <div className="space-y-1.5">
+                            <CardTitle>Modelos de agentes</CardTitle>
+                            <CardDescription>Os seis agentes da especificação, prontos a criar: instruções, skills, rotinas e caixa (desligada até ter credenciais). Depois de criados, ajuste o que quiser.</CardDescription>
+                        </div>
+                        <Button size="sm" onClick={() => router.post(`/tenants/${tenant.id}/agents/templates`, {}, { preserveScroll: true })}>
+                            <Sparkles />
+                            Criar todos
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="mt-4 grid gap-2 sm:grid-cols-2">
+                        {templates.map((t) => (
+                            <div key={t.key} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium">
+                                        {t.name} <span className="text-xs text-muted-foreground">{t.delivery}</span>
+                                    </p>
+                                    <p className="line-clamp-2 text-xs text-muted-foreground">{t.description}</p>
+                                </div>
+                                {t.installed ? (
+                                    <Badge variant="secondary">criado</Badge>
+                                ) : (
+                                    <Button size="sm" variant="outline" onClick={() => router.post(`/tenants/${tenant.id}/agents/templates`, { template: t.key }, { preserveScroll: true })}>
+                                        Criar
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
 
             <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -346,6 +392,26 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents }: Pro
                                 </Button>
                             </div>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Regras de negócio</CardTitle>
+                        <CardDescription>Limites que os agentes e as vigilâncias usam. Vazio volta ao valor por omissão.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="mt-4 grid gap-4 sm:grid-cols-3">
+                        {businessFields.map(([key, label, hint]) => (
+                            <Field key={key} id={`business-${key}`} label={label} hint={hint} error={errors[`business.${key}`]}>
+                                <Input
+                                    id={`business-${key}`}
+                                    type="number"
+                                    min="0"
+                                    value={form.data.business[key] ?? ''}
+                                    onChange={(e) => form.setData('business', { ...form.data.business, [key]: e.target.value })}
+                                />
+                            </Field>
+                        ))}
                     </CardContent>
                     <CardFooter className="mt-6 justify-end">
                         <Button type="submit" disabled={form.processing}>

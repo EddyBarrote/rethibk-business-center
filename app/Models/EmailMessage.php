@@ -9,6 +9,8 @@ use App\Support\TextExtractor;
 use Database\Factories\EmailMessageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -68,6 +70,23 @@ class EmailMessage extends Model
     /**
      * The body as plain text, whichever part the sender used.
      */
+    /**
+     * Owners and admins see every email; anyone else, the emails routed to
+     * them or to their department.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        if ($user->canManageTenant()) {
+            return;
+        }
+
+        $query->where(fn (Builder $q) => $q->where('routed_to_user_id', $user->id)
+            ->when($user->department_id !== null, fn (Builder $q) => $q->orWhere('department_id', $user->department_id)));
+    }
+
     public function plainText(): string
     {
         return trim($this->text_body ?: TextExtractor::htmlToText((string) $this->html_body));
