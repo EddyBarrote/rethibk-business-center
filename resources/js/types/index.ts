@@ -17,6 +17,7 @@ export interface SharedProps {
     admin: { id: number; name: string; email: string } | null;
     auth: { user: AuthUser | null; pending_approvals: number; unread_notifications: number };
     flash: { success: string | null; error: string | null };
+    sidebar_agents: { id: number; name: string; status: 'active' | 'suspended'; running: number }[];
 }
 
 export interface Option {

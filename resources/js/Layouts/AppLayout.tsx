@@ -17,45 +17,87 @@ import {
     Library,
     LogOut,
     type LucideIcon,
-    Menu,
+    Monitor,
+    Moon,
     PlugZap,
     ShoppingCart,
+    Sun,
     Users,
-    X,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { Fragment, type ReactNode, useEffect } from 'react';
+import { toast } from 'sonner';
 
+import { Monogram } from '@/Components/Blocks';
 import { RethinkMark } from '@/Components/RethinkMark';
-import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
+import { StatusDot } from '@/Components/Status';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/Components/ui/breadcrumb';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/Components/ui/dropdown-menu';
+import { Separator } from '@/Components/ui/separator';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarInset,
+    SidebarMenu,
+    SidebarMenuBadge,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarProvider,
+    SidebarRail,
+    SidebarTrigger,
+    useSidebar,
+} from '@/Components/ui/sidebar';
+import { Toaster } from '@/Components/ui/sonner';
+import { TooltipProvider } from '@/Components/ui/tooltip';
+import { type Appearance, useAppearance } from '@/lib/appearance';
 import { cn } from '@/lib/utils';
 import type { SharedProps } from '@/types';
+
+/*
+ * Operator-console shell modelled on Paperclip (MIT): a dense sectioned sidebar
+ * with live agent status, a breadcrumb top bar, and content that answers
+ * "what is happening, does it need me, what do I do about it".
+ */
 
 interface NavItem {
     label: string;
     href: string;
     icon: LucideIcon;
-    // Modules that land in later deliveries are shown but not yet clickable.
-    soon?: string;
     managersOnly?: boolean;
-    badge?: 'approvals';
+    tenantManagersOnly?: boolean;
+    badge?: 'approvals' | 'notifications';
 }
 
-const mainNav: NavItem[] = [
+const topNav: NavItem[] = [
     { label: 'Painel', href: '/', icon: LayoutDashboard },
+    { label: 'Caixa de entrada', href: '/inbox', icon: Inbox },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
-    { label: 'Caixa', href: '/inbox', icon: Inbox },
+    { label: 'Notificações', href: '/notifications', icon: Bell, badge: 'notifications' },
+];
+
+const workNav: NavItem[] = [
+    { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Briefings', href: '/briefings', icon: FileText },
     { label: 'Documentos', href: '/reports', icon: Files },
-    { label: 'Agentes', href: '/agents', icon: Bot },
-    { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Memória', href: '/knowledge', icon: Library },
 ];
 
@@ -67,118 +109,143 @@ const areasNav: NavItem[] = [
     { label: 'Contratos', href: '/contracts', icon: FileSignature, managersOnly: true },
 ];
 
-const settingsNav: NavItem[] = [
-    { label: 'Utilizadores', href: '/settings/users', icon: Users, managersOnly: true },
+const companyNav: NavItem[] = [
+    { label: 'Utilizadores', href: '/settings/users', icon: Users, tenantManagersOnly: true },
     { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
-    { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, managersOnly: true },
+    { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, tenantManagersOnly: true },
 ];
 
-function initials(name: string) {
-    return name
-        .split(' ')
-        .filter((part) => /^\p{L}/u.test(part))
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join('');
+export interface Crumb {
+    label: string;
+    href?: string;
 }
 
-function NavLink({ item, active, count = 0 }: { item: NavItem; active: boolean; count?: number }) {
-    const Icon = item.icon;
-    const classes = cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-        active ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60',
-    );
+const appearanceOptions: { value: Appearance; label: string; icon: LucideIcon }[] = [
+    { value: 'light', label: 'Claro', icon: Sun },
+    { value: 'dark', label: 'Escuro', icon: Moon },
+    { value: 'system', label: 'Sistema', icon: Monitor },
+];
 
-    if (item.soon) {
-        return (
-            <span className={cn(classes, 'cursor-not-allowed opacity-50 hover:bg-transparent')} title={`Disponível na ${item.soon}`}>
-                <Icon className="size-4" />
-                <span className="flex-1">{item.label}</span>
-                <span className="text-[10px] tracking-wide uppercase">{item.soon}</span>
-            </span>
-        );
+function sidebarCookieOpen() {
+    if (typeof document === 'undefined') {
+        return true;
+    }
+
+    return !document.cookie.split('; ').includes('sidebar_state=false');
+}
+
+function NavGroup({ label, items, isActive, counts }: { label?: string; items: NavItem[]; isActive: (href: string) => boolean; counts: Record<string, number> }) {
+    if (items.length === 0) {
+        return null;
     }
 
     return (
-        <Link href={item.href} className={classes}>
-            <Icon className="size-4" />
-            <span className="flex-1">{item.label}</span>
-            {count > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white tabular-nums">{count}</span>}
-        </Link>
+        <SidebarGroup className="py-1">
+            {label && <SidebarGroupLabel className="h-7 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">{label}</SidebarGroupLabel>}
+            <SidebarMenu className="gap-0.5">
+                {items.map((item) => {
+                    const count = item.badge ? (counts[item.badge] ?? 0) : 0;
+
+                    return (
+                        <SidebarMenuItem key={item.href}>
+                            <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.label} className="h-8 rounded-lg font-medium text-sidebar-foreground/85">
+                                <Link href={item.href}>
+                                    <item.icon />
+                                    <span>{item.label}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                            {count > 0 && (
+                                <SidebarMenuBadge
+                                    className={cn(
+                                        'rounded-full px-1.5 font-mono text-[11px]',
+                                        item.badge === 'approvals' ? 'bg-status-warning/20 text-foreground' : 'bg-primary text-primary-foreground',
+                                    )}
+                                >
+                                    {count > 99 ? '99+' : count}
+                                </SidebarMenuBadge>
+                            )}
+                        </SidebarMenuItem>
+                    );
+                })}
+            </SidebarMenu>
+        </SidebarGroup>
     );
 }
 
-export default function AppLayout({ children }: { children: ReactNode }) {
-    const page = usePage<SharedProps>();
-    const { auth, tenant, flash } = page.props;
-    const url = page.url;
-    const [open, setOpen] = useState(false);
+function AgentsGroup({ url }: { url: string }) {
+    const { sidebar_agents: agents } = usePage<SharedProps>().props;
+    const live = agents.filter((agent) => agent.running > 0).length;
+
+    return (
+        <SidebarGroup className="py-1">
+            <SidebarGroupLabel className="h-7 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">
+                Agentes
+                {live > 0 && <span className="ml-auto font-mono text-[10px] tracking-normal text-status-running normal-case">{live} a trabalhar</span>}
+            </SidebarGroupLabel>
+            <SidebarMenu className="gap-0.5">
+                {agents.map((agent) => (
+                    <SidebarMenuItem key={agent.id}>
+                        <SidebarMenuButton asChild isActive={url.startsWith(`/agents/${agent.id}`)} tooltip={agent.name} className="h-8 rounded-lg text-sidebar-foreground/85">
+                            <Link href={`/agents/${agent.id}`}>
+                                <Monogram name={agent.name} agent className="size-4 rounded-[5px] text-[8px]" />
+                                <span className={cn(agent.status === 'suspended' && 'text-muted-foreground line-through')}>{agent.name}</span>
+                                {agent.running > 0 && <StatusDot tone="running" className="ml-auto" />}
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                ))}
+                <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={url === '/agents'} tooltip="Ver todos os agentes" className="h-8 rounded-lg text-muted-foreground">
+                        <Link href="/agents">
+                            <Bot />
+                            <span>Ver todos</span>
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarGroup>
+    );
+}
+
+function UserMenu() {
+    const { auth } = usePage<SharedProps>().props;
+    const { appearance, setAppearance } = useAppearance();
+    const { isMobile } = useSidebar();
     const user = auth.user;
 
-    const isActive = (href: string) => (href === '/' ? url === '/' : url.startsWith(href));
-    const visibleSettings = settingsNav.filter((item) => !item.managersOnly || user?.can_manage_tenant);
-    const visibleAreas = areasNav.filter((item) => !item.managersOnly || user?.is_manager);
-    const bell = (
-        <Link href="/notifications" className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Notificações">
-            <Bell className="size-5" />
-            {auth.unread_notifications > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums">
-                    {auth.unread_notifications > 99 ? '99+' : auth.unread_notifications}
-                </span>
-            )}
-        </Link>
-    );
+    if (!user) {
+        return null;
+    }
 
-    const sidebar = (
-        <div className="flex h-full flex-col gap-6 overflow-y-auto p-4">
-            <div className="flex items-center gap-3 px-1">
-                <RethinkMark />
-                <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{tenant?.name ?? 'Plataforma'}</p>
-                    <p className="text-xs text-muted-foreground">Plataforma de Agentes</p>
-                </div>
-                <span className="hidden lg:block">{bell}</span>
-            </div>
-
-            <nav className="flex flex-1 flex-col gap-6">
-                <div className="flex flex-col gap-1">
-                    {mainNav.map((item) => (
-                        <NavLink key={item.href} item={item} active={isActive(item.href)} count={item.badge ? auth.pending_approvals : 0} />
-                    ))}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                    <p className="px-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Áreas</p>
-                    {visibleAreas.map((item) => (
-                        <NavLink key={item.href} item={item} active={isActive(item.href)} />
-                    ))}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                    <p className="px-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Definições</p>
-                    {visibleSettings.map((item) => (
-                        <NavLink key={item.href} item={item} active={isActive(item.href)} />
-                    ))}
-                </div>
-            </nav>
-
-            {user && (
+    return (
+        <SidebarMenu>
+            <SidebarMenuItem>
                 <DropdownMenu>
-                    <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-md p-2 text-left outline-none hover:bg-sidebar-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring/50">
-                        <Avatar>
-                            <AvatarFallback>{initials(user.name)}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{user.name}</p>
-                            <p className="truncate text-xs text-muted-foreground">{user.role_label}</p>
-                        </div>
-                        <ChevronsUpDown className="size-4 text-muted-foreground" />
+                    <DropdownMenuTrigger asChild>
+                        <SidebarMenuButton size="lg" className="rounded-lg data-[state=open]:bg-sidebar-accent">
+                            <Monogram name={user.name} className="size-8" />
+                            <div className="grid flex-1 text-left leading-tight">
+                                <span className="truncate text-sm font-medium">{user.name}</span>
+                                <span className="truncate text-xs text-muted-foreground">{user.role_label}</span>
+                            </div>
+                            <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+                        </SidebarMenuButton>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuContent side={isMobile ? 'bottom' : 'right'} align="end" className="w-60">
                         <DropdownMenuLabel className="font-normal">
                             <p className="text-sm font-medium">{user.name}</p>
                             <p className="text-xs text-muted-foreground">{user.email}</p>
                         </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Aparência</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={appearance} onValueChange={(value) => setAppearance(value as Appearance)}>
+                            {appearanceOptions.map((option) => (
+                                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                                    <option.icon className="text-muted-foreground" />
+                                    {option.label}
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onSelect={() => router.post('/logout')}>
                             <LogOut />
@@ -186,40 +253,103 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            )}
-        </div>
+            </SidebarMenuItem>
+        </SidebarMenu>
     );
+}
+
+export default function AppLayout({ children, breadcrumbs, wide = false }: { children: ReactNode; breadcrumbs?: Crumb[]; wide?: boolean }) {
+    const page = usePage<SharedProps>();
+    const { auth, tenant, flash } = page.props;
+    const url = page.url.split('?')[0];
+    const user = auth.user;
+
+    useEffect(() => {
+        if (flash.success) {
+            toast.success(flash.success);
+        }
+        if (flash.error) {
+            toast.error(flash.error);
+        }
+    }, [flash.success, flash.error]);
+
+    const isActive = (href: string) => (href === '/' ? url === '/' : url === href || url.startsWith(`${href}/`));
+    const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications };
+    const allNav = [...topNav, ...workNav, ...areasNav, ...companyNav];
+    const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
+    const trail: Crumb[] = breadcrumbs ?? (current ? [{ label: current.label }] : url.startsWith('/agents') ? [{ label: 'Agentes' }] : []);
 
     return (
-        <div className="min-h-screen bg-background">
-            <aside className="fixed inset-y-0 left-0 hidden w-64 border-r bg-sidebar lg:block">{sidebar}</aside>
+        <TooltipProvider delayDuration={300}>
+            <SidebarProvider defaultOpen={sidebarCookieOpen()}>
+                <Sidebar collapsible="icon" variant="sidebar">
+                    <SidebarHeader className="px-3 pt-3 pb-1">
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton size="lg" asChild className="rounded-lg">
+                                    <Link href="/">
+                                        <RethinkMark className="size-8" />
+                                        <div className="grid flex-1 text-left leading-tight">
+                                            <span className="truncate text-sm font-semibold">{tenant?.name ?? 'Plataforma'}</span>
+                                            <span className="truncate text-xs text-muted-foreground">Plataforma de Agentes</span>
+                                        </div>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarHeader>
 
-            {open && (
-                <div className="fixed inset-0 z-40 lg:hidden">
-                    <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-                    <aside className="absolute inset-y-0 left-0 w-64 border-r bg-sidebar">{sidebar}</aside>
-                </div>
-            )}
+                    <SidebarContent className="gap-1 px-1">
+                        <NavGroup items={topNav} isActive={isActive} counts={counts} />
+                        <NavGroup label="Trabalho" items={workNav} isActive={isActive} counts={counts} />
+                        <AgentsGroup url={url} />
+                        <NavGroup label="Áreas" items={areasNav.filter((item) => !item.managersOnly || user?.is_manager)} isActive={isActive} counts={counts} />
+                        <NavGroup
+                            label="Empresa"
+                            items={companyNav.filter((item) => !item.tenantManagersOnly || user?.can_manage_tenant)}
+                            isActive={isActive}
+                            counts={counts}
+                        />
+                    </SidebarContent>
 
-            <div className="lg:pl-64">
-                <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur lg:hidden">
-                    <button type="button" onClick={() => setOpen(!open)} className="rounded-md p-2 hover:bg-accent" aria-label="Menu">
-                        {open ? <X className="size-5" /> : <Menu className="size-5" />}
-                    </button>
-                    <p className="flex-1 text-sm font-semibold">{tenant?.name}</p>
-                    {bell}
-                </header>
+                    <SidebarFooter className="border-t border-sidebar-border/60 p-2">
+                        <UserMenu />
+                    </SidebarFooter>
+                    <SidebarRail />
+                </Sidebar>
 
-                <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
-                    {flash.success && (
-                        <div className="rounded-md border border-primary/20 bg-accent px-4 py-3 text-sm text-accent-foreground">{flash.success}</div>
-                    )}
-                    {flash.error && (
-                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{flash.error}</div>
-                    )}
-                    {children}
-                </main>
-            </div>
-        </div>
+                <SidebarInset className="min-w-0">
+                    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur">
+                        <SidebarTrigger className="-ml-1 text-muted-foreground" />
+                        <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
+                        <Breadcrumb className="min-w-0">
+                            <BreadcrumbList className="flex-nowrap">
+                                {trail.map((crumb, index) => {
+                                    const last = index === trail.length - 1;
+
+                                    return (
+                                        <Fragment key={index}>
+                                            {index > 0 && <BreadcrumbSeparator />}
+                                            <BreadcrumbItem className={cn('min-w-0', !last && 'hidden sm:inline-flex')}>
+                                                {last || !crumb.href ? (
+                                                    <BreadcrumbPage className="truncate font-medium">{crumb.label}</BreadcrumbPage>
+                                                ) : (
+                                                    <BreadcrumbLink asChild>
+                                                        <Link href={crumb.href}>{crumb.label}</Link>
+                                                    </BreadcrumbLink>
+                                                )}
+                                            </BreadcrumbItem>
+                                        </Fragment>
+                                    );
+                                })}
+                            </BreadcrumbList>
+                        </Breadcrumb>
+                    </header>
+
+                    <main className={cn('mx-auto flex w-full flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8', wide ? 'max-w-[90rem]' : 'max-w-6xl')}>{children}</main>
+                </SidebarInset>
+                <Toaster position="bottom-right" />
+            </SidebarProvider>
+        </TooltipProvider>
     );
 }

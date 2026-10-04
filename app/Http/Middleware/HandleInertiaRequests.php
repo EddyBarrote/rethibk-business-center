@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\AgentStatus;
+use App\Enums\RunStatus;
+use App\Models\Agent;
 use App\Models\Approval;
 use App\Models\PlatformAdmin;
 use App\Models\Tenant;
@@ -56,6 +59,20 @@ class HandleInertiaRequests extends Middleware
                 'unread_notifications' => fn () => $user instanceof User && $tenant !== null ? $user->unreadNotifications()->count() : 0,
                 'pending_approvals' => fn () => $user instanceof User && $tenant !== null ? Approval::query()->visibleTo($user)->pending()->count() : 0,
             ],
+            // Agents listed in the sidebar with a live "running" marker (Paperclip-style navigation).
+            'sidebar_agents' => fn () => $user instanceof User && $tenant !== null
+                ? Agent::query()
+                    ->where('status', '!=', AgentStatus::Draft)
+                    ->withCount(['runs as running_count' => fn ($query) => $query->whereIn('status', [RunStatus::Queued, RunStatus::Running])])
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'status'])
+                    ->map(fn (Agent $agent) => [
+                        'id' => $agent->id,
+                        'name' => $agent->name,
+                        'status' => $agent->status->value,
+                        'running' => (int) $agent->running_count,
+                    ])
+                : [],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

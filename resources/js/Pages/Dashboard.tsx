@@ -1,197 +1,299 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { AlertTriangle, Bot, CheckSquare, FileText } from 'lucide-react';
+import { AlertTriangle, Bot, CheckSquare, CircleDollarSign, FileText, Loader } from 'lucide-react';
 
 import { ApprovalCard } from '@/Components/ApprovalCard';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
+import { EntityRow, ListPanel, MetricCard, Monogram, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Markdown } from '@/Components/Markdown';
+import { MiniBars } from '@/Components/MiniBars';
 import { PageHeader } from '@/Components/PageHeader';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
-import { Badge } from '@/Components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { agentTone, StatusBadge, StatusDot } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { dateTime } from '@/lib/format';
+import { ago, dateTime, usd } from '@/lib/format';
 import type { AgentSummary, ApprovalSummary, BriefingSummary, Issue, RunSummary, SharedProps } from '@/types';
+
+interface Metrics {
+    agents_active: number;
+    agents_suspended: number;
+    runs_running: number;
+    runs_waiting: number;
+    runs_failed_week: number;
+    month_spend_usd: number;
+    month_budget_usd: number | null;
+}
+
+interface Day {
+    date: string;
+    completed: number;
+    failed: number;
+    waiting: number;
+    other: number;
+    cost_usd: number;
+}
 
 interface Props {
     approvals: ApprovalSummary[];
     agents: AgentSummary[];
     runs: RunSummary[];
+    live: RunSummary[];
+    metrics: Metrics;
+    activity: Day[];
     briefing: BriefingSummary | null;
     issues: Issue[];
 }
 
-export default function Dashboard({ approvals, agents, runs, briefing, issues }: Props) {
-    const { auth, tenant } = usePage<SharedProps>().props;
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+            <div>
+                <p className="text-sm font-medium">{title}</p>
+                <p className="text-xs text-muted-foreground">Últimos 14 dias</p>
+            </div>
+            {children}
+        </div>
+    );
+}
+
+export default function Dashboard({ approvals, agents, runs, live, metrics, activity, briefing, issues }: Props) {
+    const { auth, tenant, sidebar_agents } = usePage<SharedProps>().props;
     const firstName = auth.user?.name.split(' ')[0];
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Bom dia' : hour < 19 ? 'Boa tarde' : 'Boa noite';
+    const running = new Set(sidebar_agents.filter((agent) => agent.running > 0).map((agent) => agent.id));
 
     useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished', 'BudgetThresholdReached'], () =>
-        router.reload({ only: ['runs', 'agents', 'approvals', 'auth'] }),
+        router.reload({ only: ['runs', 'live', 'metrics', 'activity', 'agents', 'approvals', 'auth', 'sidebar_agents'] }),
     );
 
+    const finished = activity.reduce((sum, day) => sum + day.completed + day.failed, 0);
+    const succeeded = activity.reduce((sum, day) => sum + day.completed, 0);
+    const budget = metrics.month_budget_usd;
+
     return (
-        <AppLayout>
+        <AppLayout wide>
             <Head title="Painel" />
 
-            <PageHeader title={`${greeting}, ${firstName}`} description="O resumo do dia, as decisões pendentes e o estado dos agentes." />
+            <PageHeader title={`${greeting}, ${firstName}`} description="O que está a acontecer, o que precisa de si e o estado dos agentes." />
 
-            <div className="grid gap-6 lg:grid-cols-3">
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-between gap-2">
-                            {briefing ? briefing.title : 'Briefing do dia'}
-                            {briefing && (
-                                <Link href={`/briefings/${briefing.id}`} className="text-sm font-normal text-primary hover:underline">
-                                    Abrir
-                                </Link>
-                            )}
-                        </CardTitle>
-                        <CardDescription>{briefing ? `${briefing.agent ?? 'Chief of Staff'} · ${dateTime(briefing.created_at)}` : 'Preparado todas as manhãs pelo Chief of Staff.'}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="mt-4">
-                        {briefing ? (
-                            <div className="grid gap-4">
-                                {briefing.decisions_pending.length > 0 && (
-                                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
-                                        <p className="mb-1 text-sm font-medium text-amber-900">Precisa da sua decisão</p>
-                                        <ul className="grid gap-1 text-sm">
-                                            {briefing.decisions_pending.map((decision, index) => (
-                                                <li key={index}>
-                                                    {decision.link ? (
-                                                        <Link href={decision.link} className="text-amber-900 underline">
-                                                            {decision.title}
-                                                        </Link>
-                                                    ) : (
-                                                        decision.title
-                                                    )}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-                                <div className="max-h-96 overflow-y-auto">
-                                    <Markdown>{briefing.content ?? ''}</Markdown>
+            {live.length > 0 && (
+                <Section title="A trabalhar agora" action={<Link href="/runs" className="text-muted-foreground hover:text-foreground">Ver execuções</Link>}>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {live.map((run) => (
+                            <Link key={run.id} href={`/runs/${run.id}`} className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/60">
+                                <div className="flex items-center gap-2">
+                                    <Monogram name={run.agent.name} agent />
+                                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{run.agent.name}</span>
                                 </div>
-                            </div>
-                        ) : (
-                            <EmptyState icon={FileText} title="Ainda sem briefings" description="O Chief of Staff prepara o briefing diário às 06:30 dos dias úteis quando estiver activo." />
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                            Aprovações pendentes
-                            {auth.pending_approvals > 0 && <Badge className="bg-amber-500">{auth.pending_approvals}</Badge>}
-                        </CardTitle>
-                        <CardDescription>Acções dos agentes à espera de decisão.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="mt-4 grid gap-3">
-                        {approvals.length === 0 ? (
-                            <EmptyState icon={CheckSquare} title="Nada à espera" description="Quando um agente tentar uma acção acima do seu nível de autonomia, ela aparece aqui." />
-                        ) : (
-                            <>
-                                {approvals.map((approval) => (
-                                    <ApprovalCard key={approval.id} approval={approval} compact />
-                                ))}
-                                <Link href="/approvals" className="text-sm text-primary hover:underline">
-                                    Ver todas
-                                </Link>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {issues.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <AlertTriangle className="size-4 text-amber-500" />
-                            Bloqueios e inconsistências
-                        </CardTitle>
-                        <CardDescription>O que está parado ou não bate certo entre áreas.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="mt-4">
-                        <ul className="grid gap-2">
-                            {issues.slice(0, 12).map((issue, index) => (
-                                <li key={index} className="flex items-start gap-3 text-sm">
-                                    <Badge variant={issue.severity === 'alta' ? 'destructive' : 'secondary'}>{issue.area}</Badge>
-                                    {issue.link ? (
-                                        <Link href={issue.link} className="hover:underline">
-                                            {issue.issue}
-                                        </Link>
-                                    ) : (
-                                        <span>{issue.issue}</span>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    </CardContent>
-                </Card>
+                                <RunStatusBadge status={run.status} label={run.status_label} />
+                                <p className="line-clamp-2 text-sm text-muted-foreground">{run.input}</p>
+                                <p className="font-mono text-[11px] text-muted-foreground">
+                                    #{run.id} · {ago(run.created_at)}
+                                </p>
+                            </Link>
+                        ))}
+                    </div>
+                </Section>
             )}
 
-            <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Agentes</CardTitle>
-                        <CardDescription>Estado e nível de autonomia.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="mt-4">
-                        {agents.length === 0 ? (
-                            <EmptyState icon={Bot} title="Nenhum agente activo" description="Os agentes são criados pela Rethink na consola de administração." />
-                        ) : (
-                            <ul className="grid gap-2">
-                                {agents.map((agent) => (
-                                    <li key={agent.id}>
-                                        <Link href={`/agents/${agent.id}`} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-muted">
-                                            <span className="min-w-0">
-                                                <span className="block truncate text-sm font-medium">{agent.name}</span>
-                                                <span className="block truncate text-xs text-muted-foreground">{agent.title}</span>
-                                            </span>
-                                            <span className="flex items-center gap-1.5">
-                                                {agent.status !== 'active' && <Badge variant="destructive">{agent.status_label}</Badge>}
-                                                <AutonomyBadge level={agent.autonomy_level} />
-                                            </span>
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </CardContent>
-                </Card>
+            <div className="grid grid-cols-2 divide-border rounded-xl border bg-card lg:grid-cols-4 lg:divide-x [&>*]:min-w-0">
+                <MetricCard
+                    icon={Bot}
+                    value={metrics.agents_active}
+                    label="Agentes activos"
+                    description={`${running.size} a trabalhar · ${metrics.agents_suspended} suspensos`}
+                    href="/agents"
+                />
+                <MetricCard
+                    icon={Loader}
+                    value={metrics.runs_running}
+                    label="Execuções em curso"
+                    description={`${metrics.runs_waiting} à espera de aprovação · ${metrics.runs_failed_week} falharam em 7 dias`}
+                    href="/runs"
+                />
+                <MetricCard
+                    icon={CircleDollarSign}
+                    value={<span className="font-mono">{usd(metrics.month_spend_usd)}</span>}
+                    label="Gasto de IA no mês"
+                    description={budget ? `de ${usd(budget)} (${Math.round((metrics.month_spend_usd / budget) * 100)}%)` : 'Sem tecto mensal definido'}
+                    tone={budget && metrics.month_spend_usd >= budget ? 'danger' : budget && metrics.month_spend_usd >= budget * 0.8 ? 'warning' : undefined}
+                />
+                <MetricCard
+                    icon={CheckSquare}
+                    value={auth.pending_approvals}
+                    label="Aprovações pendentes"
+                    description="À espera de decisão humana"
+                    href="/approvals"
+                    tone={auth.pending_approvals > 0 ? 'warning' : undefined}
+                />
+            </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Actividade recente</CardTitle>
-                        <CardDescription>As últimas execuções dos agentes.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="mt-4">
-                        {runs.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Sem actividade.</p>
-                        ) : (
-                            <ul className="grid gap-2">
-                                {runs.map((run) => (
-                                    <li key={run.id}>
-                                        <Link href={`/runs/${run.id}`} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-muted">
-                                            <span className="min-w-0">
-                                                <span className="block truncate text-sm">
-                                                    <span className="font-medium">{run.agent.name}</span> · {run.input}
-                                                </span>
-                                                <span className="block text-xs text-muted-foreground">{dateTime(run.created_at)}</span>
-                                            </span>
-                                            <RunStatusBadge status={run.status} label={run.status_label} />
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
+            <div className="grid gap-3 md:grid-cols-3">
+                <ChartCard title="Execuções">
+                    <MiniBars
+                        data={activity}
+                        series={[
+                            { key: 'completed', label: 'Concluídas', className: 'bg-status-success' },
+                            { key: 'waiting', label: 'À espera', className: 'bg-status-warning' },
+                            { key: 'failed', label: 'Falharam', className: 'bg-status-danger' },
+                            { key: 'other', label: 'Outras', className: 'bg-status-idle' },
+                        ]}
+                    />
+                </ChartCard>
+                <ChartCard title="Gasto de IA">
+                    <MiniBars data={activity} series={[{ key: 'cost_usd', label: 'Gasto', className: 'bg-primary' }]} format={(value) => usd(value)} />
+                </ChartCard>
+                <ChartCard title="Taxa de sucesso">
+                    <div className="flex flex-1 flex-col justify-center gap-2">
+                        <span className="text-3xl font-semibold tracking-tight tabular-nums">{finished ? `${Math.round((succeeded / finished) * 100)}%` : '—'}</span>
+                        <span className="text-xs text-muted-foreground">
+                            {finished ? `${succeeded} de ${finished} execuções terminadas acabaram bem` : 'Ainda sem execuções terminadas'}
+                        </span>
+                        {finished > 0 && (
+                            <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
+                                <div className="bg-status-success" style={{ width: `${(succeeded / finished) * 100}%` }} />
+                                <div className="bg-status-danger" style={{ width: `${((finished - succeeded) / finished) * 100}%` }} />
+                            </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </ChartCard>
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-5">
+                <Section
+                    title="Precisa de si"
+                    className="lg:col-span-3"
+                    action={
+                        approvals.length > 0 && (
+                            <Link href="/approvals" className="text-muted-foreground hover:text-foreground">
+                                Ver todas
+                            </Link>
+                        )
+                    }
+                >
+                    {approvals.length === 0 && issues.length === 0 ? (
+                        <EmptyState icon={CheckSquare} title="Nada à espera" description="Quando um agente tentar uma acção acima do seu nível de autonomia, ela aparece aqui." />
+                    ) : (
+                        <div className="grid gap-3">
+                            {approvals.map((approval) => (
+                                <ApprovalCard key={approval.id} approval={approval} compact />
+                            ))}
+                            {issues.length > 0 && (
+                                <ListPanel>
+                                    {issues.slice(0, 8).map((issue, index) => (
+                                        <EntityRow
+                                            key={index}
+                                            href={issue.link ?? undefined}
+                                            leading={<AlertTriangle className={issue.severity === 'alta' ? 'size-4 text-status-danger' : 'size-4 text-status-warning'} />}
+                                            title={issue.issue}
+                                            trailing={<span className="text-xs text-muted-foreground">{issue.area}</span>}
+                                        />
+                                    ))}
+                                </ListPanel>
+                            )}
+                        </div>
+                    )}
+                </Section>
+
+                <Section
+                    title="Briefing do dia"
+                    className="lg:col-span-2"
+                    action={
+                        briefing && (
+                            <Link href={`/briefings/${briefing.id}`} className="text-muted-foreground hover:text-foreground">
+                                Abrir
+                            </Link>
+                        )
+                    }
+                >
+                    {briefing ? (
+                        <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+                            <div>
+                                <p className="text-sm font-medium">{briefing.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {briefing.agent ?? 'Chief of Staff'} · {dateTime(briefing.created_at)}
+                                </p>
+                            </div>
+                            {briefing.decisions_pending.length > 0 && (
+                                <div className="rounded-lg bg-status-warning/10 p-3">
+                                    <p className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Decisões pendentes</p>
+                                    <ul className="grid gap-1 text-sm">
+                                        {briefing.decisions_pending.map((decision, index) => (
+                                            <li key={index}>
+                                                {decision.link ? (
+                                                    <Link href={decision.link} className="underline-offset-2 hover:underline">
+                                                        {decision.title}
+                                                    </Link>
+                                                ) : (
+                                                    decision.title
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            <div className="max-h-80 overflow-y-auto">
+                                <Markdown>{briefing.content ?? ''}</Markdown>
+                            </div>
+                        </div>
+                    ) : (
+                        <EmptyState icon={FileText} title="Ainda sem briefings" description="O Chief of Staff prepara o briefing diário às 06:30 dos dias úteis quando estiver activo." />
+                    )}
+                </Section>
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-2">
+                <Section title="Actividade recente" action={<Link href="/runs" className="text-muted-foreground hover:text-foreground">Ver todas</Link>}>
+                    {runs.length === 0 ? (
+                        <EmptyState icon={Loader} title="Sem actividade" description="As execuções dos agentes aparecem aqui assim que começarem." />
+                    ) : (
+                        <ListPanel>
+                            {runs.map((run) => (
+                                <EntityRow
+                                    key={run.id}
+                                    href={`/runs/${run.id}`}
+                                    leading={<Monogram name={run.agent.name} agent />}
+                                    title={run.input}
+                                    subtitle={run.agent.name}
+                                    meta={<span title={dateTime(run.created_at)}>{ago(run.created_at)}</span>}
+                                    trailing={<RunStatusBadge status={run.status} label={run.status_label} />}
+                                />
+                            ))}
+                        </ListPanel>
+                    )}
+                </Section>
+
+                <Section title="Agentes" action={<Link href="/agents" className="text-muted-foreground hover:text-foreground">Ver todos</Link>}>
+                    {agents.length === 0 ? (
+                        <EmptyState icon={Bot} title="Nenhum agente activo" description="Os agentes são criados pela Rethink na consola de administração." />
+                    ) : (
+                        <ListPanel>
+                            {agents.map((agent) => (
+                                <EntityRow
+                                    key={agent.id}
+                                    href={`/agents/${agent.id}`}
+                                    leading={<Monogram name={agent.name} agent />}
+                                    title={agent.name}
+                                    subtitle={agent.title ?? agent.department}
+                                    trailing={
+                                        <>
+                                            {running.has(agent.id) ? (
+                                                <StatusBadge tone="running">A trabalhar</StatusBadge>
+                                            ) : agent.status !== 'active' ? (
+                                                <StatusBadge tone={agentTone(agent.status)}>{agent.status_label}</StatusBadge>
+                                            ) : (
+                                                <StatusDot tone="success" pulse={false} />
+                                            )}
+                                            <AutonomyBadge level={agent.autonomy_level} />
+                                        </>
+                                    }
+                                />
+                            ))}
+                        </ListPanel>
+                    )}
+                </Section>
             </div>
         </AppLayout>
     );

@@ -9,3 +9,28 @@ export const date = (value: string | null | undefined) => (value ? dateFormat.fo
 export const time = (value: string | null | undefined) => (value ? timeFormat.format(new Date(value)) : '—');
 export const usd = (value: number | null | undefined) => (value === null || value === undefined ? '—' : usdFormat.format(value));
 export const mzn = (value: number | null | undefined) => (value === null || value === undefined ? '—' : mznFormat.format(value));
+
+const relativeFormat = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto', style: 'short' });
+const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 31_536_000],
+    ['month', 2_592_000],
+    ['week', 604_800],
+    ['day', 86_400],
+    ['hour', 3_600],
+    ['minute', 60],
+];
+
+/** "há 5 min", "ontem": for timestamps in dense lists, with the exact time in a title. */
+export const ago = (value: string | null | undefined) => {
+    if (!value) {
+        return '—';
+    }
+
+    const seconds = (new Date(value).getTime() - Date.now()) / 1000;
+    const unit = units.find(([, size]) => Math.abs(seconds) >= size);
+
+    return unit ? relativeFormat.format(Math.round(seconds / unit[1]), unit[0]) : 'agora';
+};
+
+export const compact = (value: number | null | undefined) =>
+    value === null || value === undefined ? '—' : new Intl.NumberFormat('pt-PT', { notation: 'compact' }).format(value);

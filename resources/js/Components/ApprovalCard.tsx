@@ -3,10 +3,10 @@ import { Check, Lock, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { Badge } from '@/Components/ui/badge';
+import { approvalTone, StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Textarea } from '@/Components/ui/textarea';
-import { dateTime } from '@/lib/format';
+import { ago, dateTime } from '@/lib/format';
 import type { ApprovalSummary } from '@/types';
 
 const executionLabel = { not_executed: 'por executar', executed: 'executada', failed: 'falhou' };
@@ -23,33 +23,37 @@ export function ApprovalCard({ approval, compact = false }: { approval: Approval
         form.post(`/approvals/${approval.id}/${action}`, { preserveScroll: true, onSuccess: () => form.reset() });
 
     return (
-        <div className="grid gap-3 rounded-lg border bg-card p-4">
+        <div className="grid gap-3 rounded-xl border bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-1">
-                    <p className="font-medium">{approval.action_summary}</p>
+                    <p className="text-sm font-medium">{approval.action_summary}</p>
                     <p className="text-xs text-muted-foreground">
                         <Link href={`/agents/${approval.agent.id}`} className="hover:underline">
                             {approval.agent.name}
                         </Link>{' '}
                         · <span className="font-mono">{approval.action_type}</span> ·{' '}
                         <Link href={`/runs/${approval.run_id}`} className="hover:underline">
-                            execução #{approval.run_id}
+                            execução <span className="font-mono">#{approval.run_id}</span>
                         </Link>{' '}
-                        · {dateTime(approval.created_at)}
+                        · <span title={dateTime(approval.created_at)}>{ago(approval.created_at)}</span>
                     </p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    {approval.status !== 'pending' && <Badge variant={approval.status === 'approved' ? 'secondary' : 'destructive'}>{approval.status_label}</Badge>}
-                    {approval.status === 'approved' && <Badge variant="outline">{executionLabel[approval.execution_status]}</Badge>}
+                    <StatusBadge tone={approvalTone(approval.status)}>{approval.status_label}</StatusBadge>
+                    {approval.status === 'approved' && (
+                        <StatusBadge tone={approval.execution_status === 'failed' ? 'danger' : approval.execution_status === 'executed' ? 'success' : 'idle'} dot={false}>
+                            {executionLabel[approval.execution_status]}
+                        </StatusBadge>
+                    )}
                 </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-xs">
                 {approval.ceiling_reason ? (
-                    <Badge variant="destructive">
-                        <Lock />
+                    <StatusBadge tone="danger" dot={false}>
+                        <Lock className="size-3" />
                         Tecto absoluto: {approval.ceiling_reason}
-                    </Badge>
+                    </StatusBadge>
                 ) : (
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                         O agente está em <AutonomyBadge level={approval.agent_level} /> e esta acção pede <AutonomyBadge level={approval.required_level} />
@@ -60,7 +64,7 @@ export function ApprovalCard({ approval, compact = false }: { approval: Approval
                 </button>
             </div>
 
-            {showPayload && <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(approval.payload, null, 2)}</pre>}
+            {showPayload && <pre className="max-h-64 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">{JSON.stringify(approval.payload, null, 2)}</pre>}
 
             {approval.decided_by && (
                 <p className="text-sm text-muted-foreground">
