@@ -104,45 +104,68 @@ export default function TaskShow({ task, messages, children, runs, working, can,
     const spent = runs.reduce((sum, run) => sum + run.cost_usd, 0);
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Tarefas', href: '/tasks' }, { label: task.ref }]}>
-            <Head title={`${task.ref} · ${task.title}`} />
+        <AppLayout
+            breadcrumbs={
+                task.is_conversation
+                    ? [{ label: 'Conversas', href: '/tasks?view=chats' }, { label: agentName }]
+                    : [{ label: 'Tarefas', href: '/tasks' }, { label: task.ref }]
+            }
+        >
+            <Head title={task.is_conversation ? `Conversa com ${agentName}` : `${task.ref} · ${task.title}`} />
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <div className="flex min-w-0 flex-col gap-8">
-                    <header className="flex flex-col gap-3">
-                        <div className="flex flex-wrap items-center gap-2 text-sm">
-                            <TaskStatusIcon status={task.status} label={task.status_label} />
-                            <span className="font-mono text-muted-foreground">{task.ref}</span>
-                            <span className="text-xs text-muted-foreground">{task.status_label}</span>
-                            {task.priority !== 'normal' && (
-                                <span className="text-xs text-muted-foreground">
-                                    <PriorityIcon priority={task.priority} label={task.priority_label} withLabel />
-                                </span>
-                            )}
-                            {task.kind === 'chat' && <ChatBadge />}
-                            {task.goal && (
-                                <Link href={`/tasks?view=all&goal=${task.goal.id}`}>
-                                    <GoalChip goal={task.goal} />
+                    {task.is_conversation ? (
+                        <header className="flex items-center gap-3">
+                            <Monogram name={agentName} agent className="size-10 rounded-xl text-sm" />
+                            <div className="min-w-0 flex-1">
+                                <h1 className="truncate text-xl font-semibold tracking-tight">{agentName}</h1>
+                                <p className="truncate text-sm text-muted-foreground">
+                                    {task.agent?.title ?? 'Assistente'} · uma só conversa contínua, com todo o histórico
+                                </p>
+                            </div>
+                            {task.assignee && (
+                                <Link href={`/agents/${task.assignee.id}`} className="shrink-0 text-sm text-muted-foreground hover:text-foreground">
+                                    Ver agente
                                 </Link>
                             )}
-                        </div>
-                        <h1 className="text-xl font-semibold tracking-tight text-balance">{task.title}</h1>
-                        {task.parent && (
-                            <Link
-                                href={`/tasks/${task.parent.id}`}
-                                className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                <CornerLeftUp className="size-3.5" />
-                                Sub-tarefa de <span className="font-mono">{task.parent.ref}</span>
-                                <span className="max-w-72 truncate">{task.parent.title}</span>
-                            </Link>
-                        )}
-                        {task.description && (
-                            <div className="text-foreground/90">
-                                <Markdown>{task.description}</Markdown>
+                        </header>
+                    ) : (
+                        <header className="flex flex-col gap-3">
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <TaskStatusIcon status={task.status} label={task.status_label} />
+                                <span className="font-mono text-muted-foreground">{task.ref}</span>
+                                <span className="text-xs text-muted-foreground">{task.status_label}</span>
+                                {task.priority !== 'normal' && (
+                                    <span className="text-xs text-muted-foreground">
+                                        <PriorityIcon priority={task.priority} label={task.priority_label} withLabel />
+                                    </span>
+                                )}
+                                {task.kind === 'chat' && <ChatBadge />}
+                                {task.goal && (
+                                    <Link href={`/tasks?view=all&goal=${task.goal.id}`}>
+                                        <GoalChip goal={task.goal} />
+                                    </Link>
+                                )}
                             </div>
-                        )}
-                    </header>
+                            <h1 className="text-xl font-semibold tracking-tight text-balance">{task.title}</h1>
+                            {task.parent && (
+                                <Link
+                                    href={`/tasks/${task.parent.id}`}
+                                    className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                    <CornerLeftUp className="size-3.5" />
+                                    Sub-tarefa de <span className="font-mono">{task.parent.ref}</span>
+                                    <span className="max-w-72 truncate">{task.parent.title}</span>
+                                </Link>
+                            )}
+                            {task.description && (
+                                <div className="text-foreground/90">
+                                    <Markdown>{task.description}</Markdown>
+                                </div>
+                            )}
+                        </header>
+                    )}
 
                     {children.length > 0 && (
                         <Section title="Sub-tarefas delegadas">
@@ -277,85 +300,105 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                 </div>
 
                 <div className="flex flex-col gap-8 self-start">
-                    <Properties>
-                        <Property label="Estado">
-                            {can.update ? (
-                                <InlineSelect
-                                    value={task.status}
-                                    onChange={(status) => update({ status })}
-                                    options={statuses.map((s) => ({ value: s.value, label: <StatusOption status={s.value} label={s.label} /> }))}
-                                />
-                            ) : (
+                    {task.is_conversation ? (
+                        <Properties title="Conversa">
+                            <Property label="Agente">
+                                {task.assignee && (
+                                    <Link href={`/agents/${task.assignee.id}`} className="hover:underline">
+                                        <AgentOption name={task.assignee.name} />
+                                    </Link>
+                                )}
+                            </Property>
+                            <Property label="Com">{task.user}</Property>
+                            <Property label="Estado">
                                 <StatusOption status={task.status} label={task.status_label} />
-                            )}
-                        </Property>
-                        <Property label="Prioridade">
-                            {can.update ? (
-                                <InlineSelect
-                                    value={task.priority}
-                                    onChange={(priority) => update({ priority })}
-                                    options={priorities.map((p) => ({
-                                        value: p.value,
-                                        label: <PriorityIcon priority={p.value} label={p.label} withLabel />,
-                                    }))}
-                                />
-                            ) : (
-                                <PriorityIcon priority={task.priority} label={task.priority_label} withLabel />
-                            )}
-                        </Property>
-                        <Property label="Agente">
-                            {can.update ? (
-                                <InlineSelect
-                                    value={task.assignee ? String(task.assignee.id) : NONE}
-                                    onChange={(value) => update({ assignee_agent_id: value === NONE ? null : Number(value) })}
-                                    options={[
-                                        { value: NONE, label: <span className="text-muted-foreground">Sem agente</span> },
-                                        ...withCurrent(agents, task.assignee).map((agent) => ({
-                                            value: String(agent.id),
-                                            label: <AgentOption name={agent.name} />,
-                                        })),
-                                    ]}
-                                />
-                            ) : task.assignee ? (
-                                <Link href={`/agents/${task.assignee.id}`} className="hover:underline">
-                                    <AgentOption name={task.assignee.name} />
-                                </Link>
-                            ) : null}
-                        </Property>
-                        <Property label="Objectivo">
-                            {can.update ? (
-                                <InlineSelect
-                                    value={task.goal ? String(task.goal.id) : NONE}
-                                    onChange={(value) => update({ goal_id: value === NONE ? null : Number(value) })}
-                                    options={[
-                                        { value: NONE, label: <span className="text-muted-foreground">Nenhum</span> },
-                                        ...withCurrent(
-                                            goals.map((g) => ({ id: g.id, name: g.title })),
-                                            task.goal ? { id: task.goal.id, name: task.goal.title } : null,
-                                        ).map((goal) => ({ value: String(goal.id), label: goal.name })),
-                                    ]}
-                                />
-                            ) : (
-                                task.goal?.title
-                            )}
-                        </Property>
-                        <div className="my-2 border-t" />
-                        <Property label="Com">{task.user}</Property>
-                        <Property label="Criada por">
-                            {task.created_by && (
-                                <span className="inline-flex items-center gap-1.5">
-                                    {task.created_by_agent && <Monogram name={task.created_by} agent className="size-5 rounded-md text-[9px]" />}
-                                    {task.created_by}
-                                </span>
-                            )}
-                        </Property>
-                        <Property label="Criada">
-                            <span title={dateTime(task.created_at)}>{dateTime(task.created_at)}</span>
-                        </Property>
-                        <Property label="Iniciada">{task.started_at ? dateTime(task.started_at) : null}</Property>
-                        <Property label="Concluída">{task.completed_at ? dateTime(task.completed_at) : null}</Property>
-                        <Property label="Prazo">{task.due_at ? date(task.due_at) : null}</Property>
-                    </Properties>
+                            </Property>
+                            <Property label="Desde">{dateTime(task.created_at)}</Property>
+                            <Property label="Mensagens">
+                                <span className="font-mono tabular-nums">{messages.length}</span>
+                            </Property>
+                        </Properties>
+                    ) : (
+                        <Properties>
+                            <Property label="Estado">
+                                {can.update ? (
+                                    <InlineSelect
+                                        value={task.status}
+                                        onChange={(status) => update({ status })}
+                                        options={statuses.map((s) => ({ value: s.value, label: <StatusOption status={s.value} label={s.label} /> }))}
+                                    />
+                                ) : (
+                                    <StatusOption status={task.status} label={task.status_label} />
+                                )}
+                            </Property>
+                            <Property label="Prioridade">
+                                {can.update ? (
+                                    <InlineSelect
+                                        value={task.priority}
+                                        onChange={(priority) => update({ priority })}
+                                        options={priorities.map((p) => ({
+                                            value: p.value,
+                                            label: <PriorityIcon priority={p.value} label={p.label} withLabel />,
+                                        }))}
+                                    />
+                                ) : (
+                                    <PriorityIcon priority={task.priority} label={task.priority_label} withLabel />
+                                )}
+                            </Property>
+                            <Property label="Agente">
+                                {can.update ? (
+                                    <InlineSelect
+                                        value={task.assignee ? String(task.assignee.id) : NONE}
+                                        onChange={(value) => update({ assignee_agent_id: value === NONE ? null : Number(value) })}
+                                        options={[
+                                            { value: NONE, label: <span className="text-muted-foreground">Sem agente</span> },
+                                            ...withCurrent(agents, task.assignee).map((agent) => ({
+                                                value: String(agent.id),
+                                                label: <AgentOption name={agent.name} />,
+                                            })),
+                                        ]}
+                                    />
+                                ) : task.assignee ? (
+                                    <Link href={`/agents/${task.assignee.id}`} className="hover:underline">
+                                        <AgentOption name={task.assignee.name} />
+                                    </Link>
+                                ) : null}
+                            </Property>
+                            <Property label="Objectivo">
+                                {can.update ? (
+                                    <InlineSelect
+                                        value={task.goal ? String(task.goal.id) : NONE}
+                                        onChange={(value) => update({ goal_id: value === NONE ? null : Number(value) })}
+                                        options={[
+                                            { value: NONE, label: <span className="text-muted-foreground">Nenhum</span> },
+                                            ...withCurrent(
+                                                goals.map((g) => ({ id: g.id, name: g.title })),
+                                                task.goal ? { id: task.goal.id, name: task.goal.title } : null,
+                                            ).map((goal) => ({ value: String(goal.id), label: goal.name })),
+                                        ]}
+                                    />
+                                ) : (
+                                    task.goal?.title
+                                )}
+                            </Property>
+                            <div className="my-2 border-t" />
+                            <Property label="Com">{task.user}</Property>
+                            <Property label="Criada por">
+                                {task.created_by && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        {task.created_by_agent && <Monogram name={task.created_by} agent className="size-5 rounded-md text-[9px]" />}
+                                        {task.created_by}
+                                    </span>
+                                )}
+                            </Property>
+                            <Property label="Criada">
+                                <span title={dateTime(task.created_at)}>{dateTime(task.created_at)}</span>
+                            </Property>
+                            <Property label="Iniciada">{task.started_at ? dateTime(task.started_at) : null}</Property>
+                            <Property label="Concluída">{task.completed_at ? dateTime(task.completed_at) : null}</Property>
+                            <Property label="Prazo">{task.due_at ? date(task.due_at) : null}</Property>
+                        </Properties>
+                    )}
 
                     <Section
                         title="Execuções"

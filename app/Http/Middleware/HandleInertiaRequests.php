@@ -64,7 +64,7 @@ class HandleInertiaRequests extends Middleware
                 'pending_approvals' => fn () => $user instanceof User && $tenant !== null ? Approval::query()->visibleTo($user)->pending()->count() : 0,
             ],
             // Agents listed in the sidebar with a live "running" marker (Paperclip-style navigation).
-            'sidebar_agents' => fn () => $user instanceof User && $tenant !== null ? $this->sidebarAgents() : [],
+            'sidebar_agents' => fn () => $user instanceof User && $tenant !== null ? $this->sidebarAgents($user) : [],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
@@ -75,10 +75,14 @@ class HandleInertiaRequests extends Middleware
     /**
      * Agents for the sidebar, each with how many of its runs are queued or running.
      *
-     * @return list<array{id: int, name: string, status: string, running: int}>
+     * Each agent links to the person's one conversation with it, Grok-style.
+     *
+     * @return list<array{id: int, name: string, status: string, running: int, chat_id: int|null, can_chat: bool, chat_waiting: bool}>
      */
-    private function sidebarAgents(): array
+    private function sidebarAgents(User $user): array
     {
+        $chats = Task::query()->where('chat_key', 'like', $user->id.':%')->get(['id', 'assignee_agent_id', 'status'])->keyBy('assignee_agent_id');
+
         $running = AgentRun::query()
             ->whereIn('status', [RunStatus::Queued, RunStatus::Running])
             ->selectRaw('agent_id, count(*) as total')
@@ -88,12 +92,15 @@ class HandleInertiaRequests extends Middleware
         return Agent::query()
             ->where('status', '!=', AgentStatus::Draft)
             ->orderBy('name')
-            ->get(['id', 'name', 'status'])
+            ->get()
             ->map(fn (Agent $agent) => [
                 'id' => $agent->id,
                 'name' => $agent->name,
                 'status' => $agent->status->value,
                 'running' => (int) ($running[$agent->id] ?? 0),
+                'chat_id' => $chats[$agent->id]->id ?? null,
+                'can_chat' => $user->can('run', $agent),
+                'chat_waiting' => ($chats[$agent->id]->status ?? null) === TaskStatus::WaitingHuman,
             ])
             ->values()
             ->all();

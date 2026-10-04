@@ -216,3 +216,28 @@ it('puts the Chief of Staff on top of the org chart, whatever is installed first
             ->and($chief->fresh()->reports_to_agent_id)->toBeNull();
     });
 });
+
+it('keeps one persistent conversation per person and agent', function () {
+    $this->actingAs($this->boss)->post(tenantUrl($this->a, "agents/{$this->chief->id}/chat"), ['message' => 'Olá'])->assertRedirect();
+    $this->actingAs($this->boss)->post(tenantUrl($this->a, "agents/{$this->chief->id}/chat"), ['message' => 'Outra coisa'])->assertRedirect();
+    $this->actingAs($this->boss)->post(tenantUrl($this->a, 'tasks'), ['kind' => 'chat', 'assignee_agent_id' => $this->chief->id, 'message' => 'E mais esta'])->assertRedirect();
+
+    $chat = asTenant($this->a, fn () => Task::query()->sole());
+    expect($chat->chat_key)->toBe("{$this->boss->id}:{$this->chief->id}")
+        ->and(asTenant($this->a, fn () => $chat->messages()->count()))->toBe(3);
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "agents/{$this->chief->id}/chat"))->assertRedirect(tenantUrl($this->a, "tasks/{$chat->id}"));
+
+    // Another person gets their own conversation with the same agent.
+    $this->actingAs($this->owner)->get(tenantUrl($this->a, "agents/{$this->chief->id}/chat"))->assertRedirect();
+    expect(asTenant($this->a, fn () => Task::query()->count()))->toBe(2);
+
+    // An agent asking that person writes in the same conversation.
+    asTenant($this->a, fn () => runCapability($this->chief, 'tasks.ask_human', ['question' => 'Confirma a reunião?', 'to' => $this->boss->email]));
+    expect(asTenant($this->a, fn () => [$chat->fresh()->status, $chat->messages()->count(), Task::query()->count()]))
+        ->toBe([TaskStatus::WaitingHuman, 5, 2]);
+
+    // A conversation keeps its agent.
+    $this->actingAs($this->boss)->patch(tenantUrl($this->a, "tasks/{$chat->id}"), ['assignee_agent_id' => $this->finance->id])->assertRedirect();
+    expect(asTenant($this->a, fn () => $chat->fresh()->assignee_agent_id))->toBe($this->chief->id);
+});

@@ -215,14 +215,19 @@ function AgentsGroup({ url }: { url: string }) {
                     <SidebarMenuItem key={agent.id}>
                         <SidebarMenuButton
                             asChild
-                            isActive={url.startsWith(`/agents/${agent.id}`)}
-                            tooltip={agent.name}
+                            isActive={agent.chat_id !== null && url === `/tasks/${agent.chat_id}`}
+                            tooltip={agent.can_chat ? `Conversar com ${agent.name}` : agent.name}
                             className="h-8 rounded-lg text-sidebar-foreground/85"
                         >
-                            <Link href={`/agents/${agent.id}`}>
+                            {/* Grok-style: an agent in the sidebar is your conversation with it. */}
+                            <Link href={!agent.can_chat ? `/agents/${agent.id}` : agent.chat_id !== null ? `/tasks/${agent.chat_id}` : `/agents/${agent.id}/chat`}>
                                 <Monogram name={agent.name} agent className="size-4 rounded-[5px] text-[8px]" />
                                 <span className={cn(agent.status === 'suspended' && 'text-muted-foreground line-through')}>{agent.name}</span>
-                                {agent.running > 0 && <StatusDot tone="running" className="ml-auto" />}
+                                {agent.running > 0 ? (
+                                    <StatusDot tone="running" className="ml-auto" />
+                                ) : (
+                                    agent.chat_waiting && <StatusDot tone="warning" pulse={false} className="ml-auto" />
+                                )}
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

@@ -28,6 +28,7 @@ export interface TaskSummary {
     id: number;
     ref: string;
     kind: 'task' | 'chat';
+    is_conversation: boolean;
     title: string;
     status: TaskStatus;
     status_label: string;
