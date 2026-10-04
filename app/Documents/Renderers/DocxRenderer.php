@@ -9,6 +9,7 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Shared\Html;
 use PhpOffice\PhpWord\SimpleType\Jc;
+use PhpOffice\PhpWord\Style\Language;
 
 /**
  * Word through PhpWord: the Markdown becomes HTML and PhpWord lays it out
@@ -20,7 +21,7 @@ final class DocxRenderer implements Renderer
     {
         $spec = $spec->withoutRepeatedTitle();
         $word = new PhpWord;
-        $word->getSettings()->setThemeFontLang(new \PhpOffice\PhpWord\Style\Language('pt-PT'));
+        $word->getSettings()->setThemeFontLang(new Language('pt-PT'));
         $word->setDefaultFontName('Calibri');
         $word->setDefaultFontSize(10);
         $word->getDocInfo()->setTitle($spec->title)->setCreator($brand->name)->setCompany($brand->name);

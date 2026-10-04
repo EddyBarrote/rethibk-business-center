@@ -94,7 +94,7 @@ it('finds blockers and inconsistencies across areas', function () {
         PurchaseRequest::factory()->create(['status' => 'ordered', 'erp_po_id' => null, 'title' => 'Cimento']);
         Approval::factory()->create(['created_at' => now()->subDays(2), 'action_summary' => 'Enviar email ao cliente']);
 
-        $issues = collect(json_decode(runSkill($this->cos, 'platform.detect_issues')->content, true)['issues']);
+        $issues = collect(json_decode(runCapability($this->cos, 'platform.detect_issues')->content, true)['issues']);
 
         expect($issues->pluck('area')->all())->toContain('Comercial', 'Compras', 'Aprovações')
             ->and($issues->firstWhere('area', 'Comercial')['link'])->toStartWith('/inbox/');

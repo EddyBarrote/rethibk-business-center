@@ -3,9 +3,9 @@
 namespace App\Ai\Runs;
 
 use App\Ai\Autonomy\GateDecision;
-use App\Ai\Skills\SkillContext;
-use App\Ai\Skills\SkillExecutor;
-use App\Ai\Skills\SkillRegistry;
+use App\Ai\Capabilities\CapabilityContext;
+use App\Ai\Capabilities\CapabilityExecutor;
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Enums\ApprovalStatus;
 use App\Enums\AuditResult;
 use App\Enums\ExecutionStatus;
@@ -17,7 +17,7 @@ use App\Events\ApprovalRequested;
 use App\Jobs\ExecuteApprovedAction;
 use App\Models\Approval;
 use App\Models\AuditLog;
-use App\Models\Skill;
+use App\Models\Capability;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -31,22 +31,22 @@ final class ApprovalService
 {
     public function __construct(
         private readonly RunRecorder $recorder,
-        private readonly SkillRegistry $registry,
+        private readonly CapabilityRegistry $registry,
     ) {}
 
     /**
      * @param  array<string, mixed>  $arguments
      */
-    public function request(Skill $skill, array $arguments, GateDecision $decision, SkillContext $context): Approval
+    public function request(Capability $capability, array $arguments, GateDecision $decision, CapabilityContext $context): Approval
     {
         $agent = $context->agent;
 
         $approval = Approval::query()->create([
             'agent_run_id' => $context->run->id,
             'agent_id' => $agent->id,
-            'skill_id' => $skill->id,
-            'action_type' => $skill->key,
-            'action_summary' => Str::limit($this->summarise($skill, $arguments), 250),
+            'capability_id' => $capability->id,
+            'action_type' => $capability->key,
+            'action_summary' => Str::limit($this->summarise($capability, $arguments), 250),
             'payload' => $arguments,
             'required_level' => $decision->requiredLevel,
             'agent_level' => $agent->autonomy_level,
@@ -55,7 +55,7 @@ final class ApprovalService
             'assigned_to_user_id' => $agent->reports_to_user_id,
         ]);
 
-        AuditLog::record($agent, $skill->key, [
+        AuditLog::record($agent, $capability->key, [
             'agent_run_id' => $context->run->id,
             'arguments' => $arguments,
             'approval_id' => $approval->id,
@@ -67,7 +67,7 @@ final class ApprovalService
             'status' => 'pending',
             'summary' => $approval->action_summary,
             'reason' => $decision->reason(),
-        ], $skill->key);
+        ], $capability->key);
 
         $notify = array_values(array_unique(array_filter([
             $agent->reports_to_user_id,
@@ -122,21 +122,21 @@ final class ApprovalService
 
         $approval->refresh();
         $run = $approval->run;
-        $skill = $approval->skill;
+        $capability = $approval->capability;
 
-        if ($skill === null) {
+        if ($capability === null) {
             $approval->forceFill(['execution_status' => ExecutionStatus::Failed, 'execution_result' => ['error' => 'A competência já não existe.']])->save();
         } else {
-            $context = new SkillContext($approval->agent, $run, $approval);
-            $result = app(SkillExecutor::class)->execute($skill, $approval->payload ?? [], $context);
+            $context = new CapabilityContext($approval->agent, $run, $approval);
+            $result = app(CapabilityExecutor::class)->execute($capability, $approval->payload ?? [], $context);
 
             $approval->forceFill([
                 'execution_status' => $result->ok ? ExecutionStatus::Executed : ExecutionStatus::Failed,
                 'execution_result' => ['ok' => $result->ok, 'content' => Str::limit($result->content, 4000), 'data' => $result->data],
             ])->save();
 
-            if ($skill->source->value === 'local') {
-                AuditLog::record($approval->agent, $skill->key, [
+            if ($capability->source->value === 'local') {
+                AuditLog::record($approval->agent, $capability->key, [
                     'agent_run_id' => $run->id,
                     'approval_id' => $approval->id,
                     'arguments' => $approval->payload,
@@ -149,7 +149,7 @@ final class ApprovalService
                 'approval_id' => $approval->id,
                 'ok' => $result->ok,
                 'content' => Str::limit($result->content, 4000),
-            ], $skill->key);
+            ], $capability->key);
         }
 
         ApprovalDecided::live($approval);
@@ -214,9 +214,9 @@ final class ApprovalService
     /**
      * @param  array<string, mixed>  $arguments
      */
-    private function summarise(Skill $skill, array $arguments): string
+    private function summarise(Capability $capability, array $arguments): string
     {
-        $local = $this->registry->find($skill->key);
+        $local = $this->registry->find($capability->key);
 
         if ($local !== null) {
             return $local->summarise($arguments);
@@ -228,6 +228,6 @@ final class ApprovalService
             ->take(4)
             ->implode(', ');
 
-        return $skill->name.($details !== '' ? " ({$details})" : '');
+        return $capability->name.($details !== '' ? " ({$details})" : '');
     }
 }

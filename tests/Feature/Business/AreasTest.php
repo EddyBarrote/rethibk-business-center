@@ -1,8 +1,8 @@
 <?php
 
 use App\Ai\Agents\GenericAgent;
-use App\Ai\Skills\Local\CompareQuotes;
-use App\Ai\Skills\Local\MatchCandidate;
+use App\Ai\Capabilities\Local\CompareQuotes;
+use App\Ai\Capabilities\Local\MatchCandidate;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
 use App\Clients\ClientSheetBuilder;
@@ -54,7 +54,7 @@ it('installs the six agent templates once, each with its mailbox, from the super
                 'clientes@agentes.micomoc.test', 'compras@agentes.micomoc.test', 'direccao@agentes.micomoc.test',
                 'financas@agentes.micomoc.test', 'rh@agentes.micomoc.test', 'triagem@agentes.micomoc.test',
             ])
-            ->and(Agent::query()->where('key', 'finance')->sole()->skills()->pluck('key')->all())->toContain('bank.import_statement', 'finance.project_margins');
+            ->and(Agent::query()->where('key', 'finance')->sole()->capabilities()->pluck('key')->all())->toContain('bank.import_statement', 'finance.project_margins');
     });
 });
 
@@ -123,7 +123,7 @@ it('scores a CV received by email against the opening requirements', function ()
         GenericAgent::fake(['Lido.']);
         $email = app(InboundEmailIngestor::class)->ingest($mailbox, mailFixture('job-application'));
 
-        $result = json_decode(runSkill($hr, 'hr.match_candidate', [
+        $result = json_decode(runCapability($hr, 'hr.match_candidate', [
             'email_id' => $email->id,
             'requirements' => ['Curso técnico de electromecânica', 'Experiência em geradores', 'Carta de condução', 'Inglês', 'Certificação em soldadura'],
         ])->content, true);

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Ai\Skills\Local\SuggestBankMatch;
+use App\Ai\Capabilities\Local\SuggestBankMatch;
 use App\Console\Concerns\DispatchesRoles;
 use App\Enums\BankTransactionStatus;
 use App\Enums\TriggerType;

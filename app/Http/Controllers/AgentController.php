@@ -12,7 +12,7 @@ use App\Models\AgentRoutine;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
-use App\Models\Skill;
+use App\Models\Capability;
 use App\Models\User;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
@@ -58,12 +58,12 @@ class AgentController extends Controller
                 'model' => $agent->model ?: (config('agents.model') ?: 'por omissão'),
                 'assignees' => $agent->assignees()->orderBy('name')->get(['users.id', 'users.name'])->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name]),
             ],
-            'skills' => $agent->skills()->wherePivot('enabled', true)->orderBy('key')->get()->map(fn (Skill $skill) => [
-                'key' => $skill->key,
-                'name' => $skill->name,
-                'is_mutating' => $skill->is_mutating,
-                'risk' => $skill->risk->value,
-                'ceiling' => config('autonomy.ceiling.'.$skill->key) !== null,
+            'capabilities' => $agent->capabilities()->wherePivot('enabled', true)->orderBy('key')->get()->map(fn (Capability $capability) => [
+                'key' => $capability->key,
+                'name' => $capability->name,
+                'is_mutating' => $capability->is_mutating,
+                'risk' => $capability->risk->value,
+                'ceiling' => config('autonomy.ceiling.'.$capability->key) !== null,
             ]),
             'routines' => $agent->routines()->orderBy('name')->get()->map(fn (AgentRoutine $routine) => [
                 'id' => $routine->id,

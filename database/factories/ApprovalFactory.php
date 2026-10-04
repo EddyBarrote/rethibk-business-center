@@ -22,7 +22,7 @@ class ApprovalFactory extends Factory
             'tenant_id' => fn () => Tenant::current()->id ?? Tenant::factory(),
             'agent_run_id' => AgentRun::factory(),
             'agent_id' => Agent::factory(),
-            'skill_id' => null,
+            'capability_id' => null,
             'action_type' => 'erp.leads.create',
             'action_summary' => 'Criar uma lead',
             'payload' => [],

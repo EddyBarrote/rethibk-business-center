@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Ai\Skills\Local\DraftReport;
+use App\Ai\Capabilities\Local\DraftReport;
 use App\Documents\DocumentFormat;
 use App\Models\AuditLog;
 use App\Models\Report;

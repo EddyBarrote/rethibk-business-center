@@ -2,16 +2,16 @@
 
 namespace App\Ai\Templates;
 
-use App\Ai\Skills\SkillCatalog;
+use App\Ai\Capabilities\CapabilityCatalog;
 use App\Enums\AgentStatus;
 use App\Enums\MailboxStatus;
 use App\Enums\Role;
 use App\Erp\Exceptions\ErpException;
 use App\Models\Agent;
 use App\Models\AuditLog;
+use App\Models\Capability;
 use App\Models\Department;
 use App\Models\Mailbox;
-use App\Models\Skill;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -20,27 +20,27 @@ use Illuminate\Support\Str;
 
 /**
  * Creates an agent from a template in the current tenant: department,
- * skills, routines and a disabled mailbox waiting for credentials. An agent
+ * capabilities, routines and a disabled mailbox waiting for credentials. An agent
  * that already exists for the template is left as the admin configured it.
  */
 final class TemplateInstaller
 {
     private const CHIEF = 'chief_of_staff';
 
-    public function __construct(private readonly SkillCatalog $catalog) {}
+    public function __construct(private readonly CapabilityCatalog $catalog) {}
 
     /**
-     * @return array{agent: Agent, created: bool, missing_skills: list<string>, mailbox: string|null}
+     * @return array{agent: Agent, created: bool, missing_capabilities: list<string>, mailbox: string|null}
      */
     public function install(AgentTemplate $template, ?Model $actor = null, AgentStatus $status = AgentStatus::Active): array
     {
         $existing = Agent::query()->where('key', $template->key)->orWhere('settings->template', $template->key)->first();
 
         if ($existing !== null) {
-            return ['agent' => $existing, 'created' => false, 'missing_skills' => [], 'mailbox' => Mailbox::query()->where('agent_id', $existing->id)->value('address')];
+            return ['agent' => $existing, 'created' => false, 'missing_capabilities' => [], 'mailbox' => Mailbox::query()->where('agent_id', $existing->id)->value('address')];
         }
 
-        $this->ensureSkills($template);
+        $this->ensureCapabilities($template);
 
         return DB::transaction(function () use ($template, $actor, $status) {
             $department = Department::query()->where('name', $template->department)->first()
@@ -65,8 +65,8 @@ final class TemplateInstaller
 
             $this->placeInOrgChart($agent, $template);
 
-            $skills = Skill::query()->whereIn('key', $template->skills)->pluck('id', 'key');
-            $agent->skills()->sync(array_fill_keys($skills->values()->all(), ['enabled' => true]));
+            $capabilities = Capability::query()->whereIn('key', $template->capabilities)->pluck('id', 'key');
+            $agent->capabilities()->sync(array_fill_keys($capabilities->values()->all(), ['enabled' => true]));
 
             foreach ($template->routines as $routine) {
                 $agent->routines()->create([...$routine, 'is_active' => true]);
@@ -74,31 +74,31 @@ final class TemplateInstaller
 
             $address = $this->mailbox($agent, $template);
 
-            AuditLog::record($actor, 'agent.installed_from_template', ['template' => $template->key, 'skills' => $skills->keys()->all()], subject: $agent);
+            AuditLog::record($actor, 'agent.installed_from_template', ['template' => $template->key, 'capabilities' => $capabilities->keys()->all()], subject: $agent);
 
             return [
                 'agent' => $agent,
                 'created' => true,
-                'missing_skills' => array_values(array_diff($template->skills, $skills->keys()->all())),
+                'missing_capabilities' => array_values(array_diff($template->capabilities, $capabilities->keys()->all())),
                 'mailbox' => $address,
             ];
         });
     }
 
     /**
-     * Local skills are always synced; ERP ones only when the ERP answers.
+     * Local capabilities are always synced; ERP ones only when the ERP answers.
      */
-    private function ensureSkills(AgentTemplate $template): void
+    private function ensureCapabilities(AgentTemplate $template): void
     {
         $this->catalog->syncLocal();
 
-        $needsErp = collect($template->skills)->contains(fn (string $key) => str_starts_with($key, 'erp.'));
+        $needsErp = collect($template->capabilities)->contains(fn (string $key) => str_starts_with($key, 'erp.'));
 
-        if ($needsErp && Skill::query()->where('key', 'like', 'erp.%')->doesntExist()) {
+        if ($needsErp && Capability::query()->where('key', 'like', 'erp.%')->doesntExist()) {
             try {
                 $this->catalog->syncErp();
             } catch (ErpException) {
-                // Installed without ERP skills; "Sincronizar" in the admin adds them later.
+                // Installed without ERP capabilities; "Sincronizar" in the admin adds them later.
             }
         }
     }

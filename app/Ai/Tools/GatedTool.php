@@ -3,16 +3,16 @@
 namespace App\Ai\Tools;
 
 use App\Ai\Autonomy\AutonomyGate;
+use App\Ai\Capabilities\CapabilityContext;
+use App\Ai\Capabilities\CapabilityExecutor;
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Runs\ApprovalService;
 use App\Ai\Runs\RunRecorder;
-use App\Ai\Skills\SkillContext;
-use App\Ai\Skills\SkillExecutor;
-use App\Ai\Skills\SkillRegistry;
 use App\Enums\AuditResult;
-use App\Enums\SkillSource;
+use App\Enums\CapabilitySource;
 use App\Enums\StepType;
 use App\Models\AuditLog;
-use App\Models\Skill;
+use App\Models\Capability;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
 use Illuminate\JsonSchema\Types\ObjectType;
@@ -24,15 +24,15 @@ use Laravel\Ai\Tools\Request;
 use Throwable;
 
 /**
- * Every skill reaches the model wrapped in a GatedTool (section 12.2): the
+ * Every capability reaches the model wrapped in a GatedTool (section 12.2): the
  * call is logged on the run, checked by the autonomy gate, and either runs
- * or becomes an approval request. No agent code calls a skill directly.
+ * or becomes an approval request. No agent code calls a capability directly.
  */
 final class GatedTool implements Tool
 {
     public function __construct(
-        private readonly Skill $skill,
-        private readonly SkillContext $context,
+        private readonly Capability $capability,
+        private readonly CapabilityContext $context,
     ) {}
 
     /**
@@ -40,27 +40,27 @@ final class GatedTool implements Tool
      */
     public function name(): string
     {
-        return Str::limit((string) preg_replace('/[^a-zA-Z0-9_-]/', '_', $this->skill->key), 64, '');
+        return Str::limit((string) preg_replace('/[^a-zA-Z0-9_-]/', '_', $this->capability->key), 64, '');
     }
 
     public function description(): string
     {
-        $description = $this->skill->description ?: $this->skill->name;
+        $description = $this->capability->description ?: $this->capability->name;
 
-        return $this->skill->is_mutating && $this->context->agent->autonomy_level->value < $this->skill->risk->value
+        return $this->capability->is_mutating && $this->context->agent->autonomy_level->value < $this->capability->risk->value
             ? $description.' (Precisa de aprovação humana: ao chamar, a acção fica pendente.)'
             : $description;
     }
 
     public function schema(JsonSchema $schema): array
     {
-        if ($this->skill->source === SkillSource::Local) {
-            return app(SkillRegistry::class)->find($this->skill->key)?->schema($schema) ?? [];
+        if ($this->capability->source === CapabilitySource::Local) {
+            return app(CapabilityRegistry::class)->find($this->capability->key)?->schema($schema) ?? [];
         }
 
-        $input = $this->skill->input_schema ?? [];
+        $input = $this->capability->input_schema ?? [];
 
-        // The platform supplies the idempotency key itself (SkillExecutor).
+        // The platform supplies the idempotency key itself (CapabilityExecutor).
         unset($input['properties']['idempotency_key']);
 
         if (isset($input['required']) && is_array($input['required'])) {
@@ -86,24 +86,24 @@ final class GatedTool implements Tool
         $recorder = app(RunRecorder::class);
         $run = $this->context->run;
 
-        $recorder->step($run, StepType::ToolCall, ['arguments' => $arguments], $this->skill->key);
+        $recorder->step($run, StepType::ToolCall, ['arguments' => $arguments], $this->capability->key);
 
-        $decision = app(AutonomyGate::class)->evaluate($this->skill, $arguments, $this->context);
+        $decision = app(AutonomyGate::class)->evaluate($this->capability, $arguments, $this->context);
 
         if (! $decision->allowed) {
-            $approval = app(ApprovalService::class)->request($this->skill, $arguments, $decision, $this->context);
+            $approval = app(ApprovalService::class)->request($this->capability, $arguments, $decision, $this->context);
 
             return "Acção suspensa e enviada para aprovação humana (#{$approval->id}): {$decision->reason()} "
                 .'Não voltes a tentar executá-la nesta execução. Continua com o resto do trabalho e diz no fim que ficou à espera de aprovação.';
         }
 
         $started = hrtime(true);
-        $result = app(SkillExecutor::class)->execute($this->skill, $arguments, $this->context);
+        $result = app(CapabilityExecutor::class)->execute($this->capability, $arguments, $this->context);
         $duration = (int) round((hrtime(true) - $started) / 1_000_000);
 
         // ERP calls are audited by the ErpGateway, with the run id.
-        if ($this->skill->source === SkillSource::Local) {
-            AuditLog::record($this->context->agent, $this->skill->key, [
+        if ($this->capability->source === CapabilitySource::Local) {
+            AuditLog::record($this->context->agent, $this->capability->key, [
                 'agent_run_id' => $run->id,
                 'arguments' => $arguments,
                 'result' => $result->ok ? Str::limit($result->content, 2000) : null,
@@ -114,7 +114,7 @@ final class GatedTool implements Tool
         $recorder->step($run, $result->ok ? StepType::ToolResult : StepType::Error, [
             'ok' => $result->ok,
             'content' => Str::limit($result->content, 4000),
-        ], $this->skill->key, $duration);
+        ], $this->capability->key, $duration);
 
         return $result->content;
     }

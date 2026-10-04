@@ -4,8 +4,8 @@ namespace App\Ai\Knowledge;
 
 use App\Enums\KnowledgeType;
 use App\Jobs\EmbedKnowledgeItem;
-use App\Models\KnowledgeEmbedding;
 use App\Models\Agent;
+use App\Models\KnowledgeEmbedding;
 use App\Models\KnowledgeItem;
 use App\Models\User;
 use App\Support\TextExtractor;

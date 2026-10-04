@@ -4,8 +4,8 @@ use App\Enums\ActorType;
 use App\Enums\AutonomyLevel;
 use App\Models\Agent;
 use App\Models\AuditLog;
+use App\Models\Capability;
 use App\Models\PlatformAdmin;
-use App\Models\Skill;
 use App\Models\Tenant;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -38,7 +38,7 @@ it('does not let a super admin session into a tenant console', function () {
     $this->get(tenantUrl($this->tenant, '/'))->assertRedirect(route('login'));
 });
 
-it('creates a tenant with its owner and local skills, and refuses reserved slugs', function () {
+it('creates a tenant with its owner and local capabilities, and refuses reserved slugs', function () {
     $this->actingAs($this->admin, 'admin')->post(adminUrl('tenants'), [
         'name' => 'Admin Lda', 'slug' => 'admin', 'owner_name' => 'X', 'owner_email' => 'x@x.co.mz', 'owner_password' => 'segredo-123',
     ])->assertSessionHasErrors('slug');
@@ -51,7 +51,7 @@ it('creates a tenant with its owner and local skills, and refuses reserved slugs
 
     asTenant($tenant, function () {
         expect(User::query()->sole()->email)->toBe('ana@nova.co.mz')
-            ->and(Skill::query()->pluck('key')->all())->toContain('memory.search', 'comms.send_email');
+            ->and(Capability::query()->pluck('key')->all())->toContain('memory.search', 'comms.send_email');
     });
 });
 
@@ -74,25 +74,25 @@ it('saves the profile and the AI budget, and audits it', function () {
     expect($log->actor_type)->toBe(ActorType::PlatformAdmin);
 });
 
-it('defines an agent inside the right tenant, with skills from that tenant only', function () {
+it('defines an agent inside the right tenant, with capabilities from that tenant only', function () {
     $other = Tenant::factory()->create();
-    $foreignSkill = asTenant($other, fn () => Skill::factory()->create());
-    $skill = asTenant($this->tenant, fn () => Skill::factory()->create(['key' => 'erp.leads.create', 'is_mutating' => true]));
+    $foreignCapability = asTenant($other, fn () => Capability::factory()->create());
+    $capability = asTenant($this->tenant, fn () => Capability::factory()->create(['key' => 'erp.leads.create', 'is_mutating' => true]));
 
     $payload = [
         'key' => 'triagem', 'name' => 'Triagem', 'status' => 'active', 'autonomy_level' => 2,
-        'instructions' => 'Classifica emails.', 'skills' => [$foreignSkill->id],
+        'instructions' => 'Classifica emails.', 'capabilities' => [$foreignCapability->id],
     ];
 
-    $this->actingAs($this->admin, 'admin')->post(adminUrl("tenants/{$this->tenant->id}/agents"), $payload)->assertSessionHasErrors('skills.0');
-    $this->actingAs($this->admin, 'admin')->post(adminUrl("tenants/{$this->tenant->id}/agents"), [...$payload, 'skills' => [$skill->id]])->assertRedirect();
+    $this->actingAs($this->admin, 'admin')->post(adminUrl("tenants/{$this->tenant->id}/agents"), $payload)->assertSessionHasErrors('capabilities.0');
+    $this->actingAs($this->admin, 'admin')->post(adminUrl("tenants/{$this->tenant->id}/agents"), [...$payload, 'capabilities' => [$capability->id]])->assertRedirect();
 
-    asTenant($this->tenant, function () use ($skill) {
+    asTenant($this->tenant, function () use ($capability) {
         $agent = Agent::query()->sole();
 
         expect($agent->autonomy_level)->toBe(AutonomyLevel::ExecuteWithApproval)
             ->and($agent->created_by_admin_id)->toBe($this->admin->id)
-            ->and($agent->skills()->pluck('skills.id')->all())->toBe([$skill->id]);
+            ->and($agent->capabilities()->pluck('capabilities.id')->all())->toBe([$capability->id]);
     });
 
     expect(asTenant($other, fn () => Agent::query()->count()))->toBe(0);

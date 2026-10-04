@@ -2,7 +2,7 @@
 
 namespace App\Tenancy;
 
-use App\Ai\Skills\SkillCatalog;
+use App\Ai\Capabilities\CapabilityCatalog;
 use App\Enums\Role;
 use App\Enums\TenantStatus;
 use App\Models\Tenant;
@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * Creates a tenant with its owner and its local skills. Used by the
+ * Creates a tenant with its owner and its local capabilities. Used by the
  * tenant:create command and by the super admin console.
  */
 final class TenantProvisioner
@@ -57,7 +57,7 @@ final class TenantProvisioner
                     'role' => Role::Owner,
                 ]);
 
-                app(SkillCatalog::class)->syncLocal();
+                app(CapabilityCatalog::class)->syncLocal();
             });
 
             return $model;

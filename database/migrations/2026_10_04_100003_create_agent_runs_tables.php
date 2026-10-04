@@ -56,7 +56,7 @@ return new class extends Migration
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('agent_run_id')->constrained()->cascadeOnDelete();
             $table->foreignId('agent_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('skill_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('capability_id')->nullable()->constrained()->nullOnDelete();
             $table->string('action_type');
             $table->string('action_summary');
             $table->json('payload')->nullable();

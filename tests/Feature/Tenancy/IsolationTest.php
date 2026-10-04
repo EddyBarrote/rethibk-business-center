@@ -9,13 +9,13 @@
  */
 
 use App\Ai\Agents\ToolResolver;
-use App\Ai\Skills\SkillContext;
+use App\Ai\Capabilities\CapabilityContext;
 use App\Concerns\BelongsToTenant;
 use App\Enums\Role;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\Capability;
 use App\Models\Department;
-use App\Models\Skill;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\Exceptions\NoTenantException;
@@ -192,16 +192,16 @@ describe('via HTTP', function () {
 it('isolates agent tools', function () {
     [$a, $b] = Tenant::factory()->count(2)->create();
 
-    $skillB = asTenant($b, fn () => Skill::factory()->create(['key' => 'erp.crm.search_accounts']));
+    $capabilityB = asTenant($b, fn () => Capability::factory()->create(['key' => 'erp.crm.search_accounts']));
 
-    asTenant($a, function () use ($skillB) {
+    asTenant($a, function () use ($capabilityB) {
         $agent = Agent::factory()->create();
         $run = AgentRun::factory()->create(['agent_id' => $agent->id]);
 
-        // A pivot row pointing at another tenant's skill must not surface it.
-        DB::table('agent_skill')->insert(['tenant_id' => $agent->tenant_id, 'agent_id' => $agent->id, 'skill_id' => $skillB->id, 'enabled' => true]);
+        // A pivot row pointing at another tenant's capability must not surface it.
+        DB::table('agent_capability')->insert(['tenant_id' => $agent->tenant_id, 'agent_id' => $agent->id, 'capability_id' => $capabilityB->id, 'enabled' => true]);
 
-        $names = collect(app(ToolResolver::class)->for(new SkillContext($agent, $run)))->map->name()->all();
+        $names = collect(app(ToolResolver::class)->for(new CapabilityContext($agent, $run)))->map->name()->all();
 
         expect($names)->not->toContain('erp_crm_search_accounts');
     });

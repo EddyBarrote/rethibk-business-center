@@ -1,8 +1,8 @@
 <?php
 
 use App\Ai\Agents\ToolResolver;
+use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Runs\AgentRunner;
-use App\Ai\Skills\SkillContext;
 use App\Ai\Templates\AgentTemplates;
 use App\Enums\TriggerType;
 use App\Models\Tenant;
@@ -10,14 +10,14 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Gateway\Gemini\Concerns\MapsTools;
 
 // Gemini only accepts a subset of JSON Schema for function parameters: an
-// object must declare its properties and an array its items. One bad skill
+// object must declare its properties and an array its items. One bad capability
 // makes every run of every agent that has it fail, so check them all.
 
 beforeEach(fn () => $this->store = freshFakeErp());
 
 afterEach(fn () => @unlink($this->store));
 
-it('gives Gemini a valid declaration for every skill of every template agent', function () {
+it('gives Gemini a valid declaration for every capability of every template agent', function () {
     $mapper = new class
     {
         use MapsTools;
@@ -59,7 +59,7 @@ it('gives Gemini a valid declaration for every skill of every template agent', f
             $agent = templateAgent($template);
             $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual);
 
-            foreach (app(ToolResolver::class)->for(new SkillContext($agent, $run)) as $tool) {
+            foreach (app(ToolResolver::class)->for(new CapabilityContext($agent, $run)) as $tool) {
                 $declaration = $mapper->declaration($tool);
                 $count++;
 

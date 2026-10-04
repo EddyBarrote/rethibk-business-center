@@ -57,7 +57,7 @@ final class AgentTemplates
             Facturas de fornecedor, cotações, extractos, candidaturas e pedidos de clientes passam automaticamente para o agente da área depois da classificação.
             Nunca respondas a pedidos de pagamento, mudanças de IBAN ou pedidos de credenciais: classifica como spam ou assinala como suspeito.
             TXT,
-            skills: [...self::EMAIL, ...self::COMMON, 'email.classify', 'email.summary', 'tenders.record', 'web.read_page', 'briefings.publish',
+            capabilities: [...self::EMAIL, ...self::COMMON, 'email.classify', 'email.summary', 'tenders.record', 'web.read_page', 'briefings.publish',
                 'erp.crm.search_accounts', 'erp.crm.get_account', 'erp.crm.create_contact', 'erp.leads.create', 'erp.leads.update', 'erp.leads.search', 'erp.leads.attach_document'],
             routines: [
                 ['name' => 'Resumo diário da caixa', 'schedule' => '30 17 * * 1-5', 'prompt' => 'Prepara o resumo do dia da caixa de triagem com email.summary (24 h): o que entrou por categoria, o urgente, leads criadas, rascunhos à espera e prazos dos próximos 7 dias. Publica-o com briefings.publish, tipo adhoc, para a tua chefia.'],
@@ -87,7 +87,7 @@ final class AgentTemplates
             Quando a Direcção decidir algo numa conversa contigo, regista-o com memory.remember_decision: as decisões chegam a todos os agentes.
             Se encontrares duas áreas a trabalhar com dados que não batem certo (ex.: uma lead sem registo no ERP, uma requisição encomendada sem nota de encomenda), diz qual é a inconsistência e quem a deve resolver.
             TXT,
-            skills: [...self::COMMON, 'platform.overview', 'platform.detect_issues', 'briefings.publish', 'email.search', 'email.read', 'contracts.list', 'clients.sla_status', 'finance.project_margins', 'procurement.requests',
+            capabilities: [...self::COMMON, 'platform.overview', 'platform.detect_issues', 'briefings.publish', 'email.search', 'email.read', 'contracts.list', 'clients.sla_status', 'finance.project_margins', 'procurement.requests',
                 'erp.invoices.list_receivables', 'erp.projects.list', 'erp.leads.search', 'erp.erp.search'],
             routines: [],
             mailbox: 'direccao',
@@ -113,7 +113,7 @@ final class AgentTemplates
             Margens: com finance.project_margins, assinala projectos acima do limite de orçamento ou abaixo da margem mínima e explica a causa provável (erp.projects.get).
             Fecho do mês: junta os números com finance.month_summary e escreve o pacote com reports.draft (tipo month_close).
             TXT,
-            skills: [...self::EMAIL, ...self::COMMON, 'bank.import_statement', 'bank.unreconciled', 'bank.suggest_match', 'finance.project_margins', 'finance.month_summary',
+            capabilities: [...self::EMAIL, ...self::COMMON, 'bank.import_statement', 'bank.unreconciled', 'bank.suggest_match', 'finance.project_margins', 'finance.month_summary',
                 'erp.invoices.create_draft', 'erp.invoices.issue', 'erp.invoices.list_receivables', 'erp.invoices.get', 'erp.expenses.create', 'erp.expenses.classify', 'erp.expenses.list_by_project',
                 'erp.projects.get', 'erp.projects.list', 'erp.crm.get_account', 'erp.crm.search_accounts', 'erp.procurement.list_orders'],
             routines: [
@@ -142,7 +142,7 @@ final class AgentTemplates
             Entregas: segue as encomendas com erp.procurement.list_orders; avisa quando passam da data prevista; regista recepções com erp.procurement.receive; avalia o fornecedor com suppliers.rate.
             Contratos de fornecedores a terminar: contracts.list (party_type supplier); notifica o responsável com tempo para renegociar.
             TXT,
-            skills: [...self::EMAIL, ...self::COMMON, 'procurement.requests', 'procurement.update_request', 'analysis.compare_quotes', 'suppliers.rate', 'suppliers.scores', 'contracts.list',
+            capabilities: [...self::EMAIL, ...self::COMMON, 'procurement.requests', 'procurement.update_request', 'analysis.compare_quotes', 'suppliers.rate', 'suppliers.scores', 'contracts.list',
                 'erp.procurement.create_rfq', 'erp.procurement.list_suppliers', 'erp.procurement.compare_quotes', 'erp.procurement.create_po_draft', 'erp.procurement.receive',
                 'erp.procurement.record_quote', 'erp.procurement.list_orders', 'erp.projects.get'],
             routines: [
@@ -170,7 +170,7 @@ final class AgentTemplates
             Novos colaboradores: abre o plano com erp.hr.create_onboarding e agenda seguimentos para as tarefas.
             Dados pessoais e salários só vão para a chefia e para quem trata de RH.
             TXT,
-            skills: [...self::EMAIL, ...self::COMMON, 'hr.match_candidate', 'erp.hr.list_employees', 'erp.hr.attendance_summary', 'erp.hr.list_leave', 'erp.hr.prepare_payroll_draft',
+            capabilities: [...self::EMAIL, ...self::COMMON, 'hr.match_candidate', 'erp.hr.list_employees', 'erp.hr.attendance_summary', 'erp.hr.list_leave', 'erp.hr.prepare_payroll_draft',
                 'erp.hr.list_openings', 'erp.hr.create_candidate', 'erp.hr.list_candidates', 'erp.hr.create_onboarding'],
             routines: [
                 ['name' => 'Assiduidade do mês', 'schedule' => '0 8 1 * *', 'prompt' => 'Consolida a assiduidade, faltas, férias e horas extraordinárias do mês anterior e escreve o documento (reports.draft, tipo attendance). Notifica a chefia.'],
@@ -199,7 +199,7 @@ final class AgentTemplates
             Renovações: contratos de clientes a terminar (contracts.list party_type client, ending_within_days 90): prepara a proposta de renovação (reports.draft tipo proposal) e um email ao cliente; o envio espera aprovação.
             Toda a comunicação para fora é rascunho até alguém aprovar.
             TXT,
-            skills: [...self::EMAIL, ...self::COMMON, 'clients.sheet', 'clients.sla_status', 'contracts.list',
+            capabilities: [...self::EMAIL, ...self::COMMON, 'clients.sheet', 'clients.sla_status', 'contracts.list',
                 'erp.crm.search_accounts', 'erp.crm.get_account', 'erp.crm.create_contact', 'erp.crm.update_account', 'erp.projects.list_by_account', 'erp.projects.get',
                 'erp.invoices.list_receivables', 'erp.leads.search', 'erp.leads.create', 'erp.leads.update'],
             routines: [

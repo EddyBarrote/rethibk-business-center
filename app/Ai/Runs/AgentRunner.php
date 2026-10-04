@@ -8,7 +8,7 @@ use App\Ai\Agents\ToolResolver;
 use App\Ai\Budget\BudgetExceeded;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Budget\Pricing;
-use App\Ai\Skills\SkillContext;
+use App\Ai\Capabilities\CapabilityContext;
 use App\Enums\AuditResult;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
@@ -99,7 +99,7 @@ final class AgentRunner
             $this->budget->assertCanRun($agent);
             $this->assertProviderConfigured($agent);
 
-            $context = new SkillContext($agent, $run);
+            $context = new CapabilityContext($agent, $run);
             $generic = new GenericAgent($agent, $run, $this->composer->for($agent, $run), $this->tools->for($context), $this->threads->history($run));
 
             $this->runCosts[$run->id] = 0.0;

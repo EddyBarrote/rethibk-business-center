@@ -3,7 +3,7 @@
 use App\Http\Controllers\Admin\AgentController;
 use App\Http\Controllers\Admin\AgentRoutineController;
 use App\Http\Controllers\Admin\AuthController;
-use App\Http\Controllers\Admin\SkillController;
+use App\Http\Controllers\Admin\CapabilityController;
 use App\Http\Controllers\Admin\TenantController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,8 +27,8 @@ Route::middleware('auth:admin')->group(function () {
         Route::put('agents/{agent}/mailbox', [AgentController::class, 'updateMailbox'])->name('agents.mailbox');
         Route::resource('agents.routines', AgentRoutineController::class)->only(['store', 'update', 'destroy']);
 
-        Route::get('skills', [SkillController::class, 'index'])->name('skills.index');
-        Route::put('skills/{skill}', [SkillController::class, 'update'])->name('skills.update');
-        Route::post('skills/sync', [SkillController::class, 'sync'])->middleware('throttle:10,1')->name('skills.sync');
+        Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');
+        Route::put('capabilities/{capability}', [CapabilityController::class, 'update'])->name('capabilities.update');
+        Route::post('capabilities/sync', [CapabilityController::class, 'sync'])->middleware('throttle:10,1')->name('capabilities.sync');
     });
 });

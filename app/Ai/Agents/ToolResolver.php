@@ -2,13 +2,13 @@
 
 namespace App\Ai\Agents;
 
-use App\Ai\Skills\SkillContext;
-use App\Ai\Skills\SkillRegistry;
+use App\Ai\Capabilities\CapabilityContext;
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Tools\GatedTool;
-use App\Models\Skill;
+use App\Models\Capability;
 
 /**
- * The agent's tools: its enabled, available skills plus the ones every agent
+ * The agent's tools: its enabled, available capabilities plus the ones every agent
  * gets, each wrapped in a GatedTool (section 12.2).
  */
 final class ToolResolver
@@ -16,19 +16,19 @@ final class ToolResolver
     /**
      * @return list<GatedTool>
      */
-    public function for(SkillContext $context): array
+    public function for(CapabilityContext $context): array
     {
-        $enabled = $context->agent->skills()
+        $enabled = $context->agent->capabilities()
             ->wherePivot('enabled', true)
             ->where('is_available', true)
             ->get();
 
-        $always = Skill::query()->whereIn('key', SkillRegistry::ALWAYS_ON)->where('is_available', true)->get();
+        $always = Capability::query()->whereIn('key', CapabilityRegistry::alwaysOn())->where('is_available', true)->get();
 
         return $enabled->merge($always)
             ->unique('id')
             ->values()
-            ->map(fn (Skill $skill) => new GatedTool($skill, $context))
+            ->map(fn (Capability $capability) => new GatedTool($capability, $context))
             ->all();
     }
 }
