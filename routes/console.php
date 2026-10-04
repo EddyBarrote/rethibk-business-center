@@ -7,3 +7,5 @@ use Illuminate\Support\Facades\Schedule;
 // TenantManager::eachActive() and dispatches per tenant.
 
 Schedule::command('erp:health-check')->everyFifteenMinutes()->withoutOverlapping();
+
+Schedule::command('agents:run-routines')->everyMinute()->withoutOverlapping();

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Console\Commands\Erp;
+namespace App\Console\Concerns;
 
 use App\Models\Tenant;
 use App\Tenancy\TenantManager;

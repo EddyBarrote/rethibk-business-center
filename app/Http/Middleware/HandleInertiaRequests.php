@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\PlatformAdmin;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -21,7 +22,8 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        // On the admin host the default guard is 'admin' (UseAdminGuard).
+        $user = $request->user('web');
         $tenant = Tenant::current();
 
         return [
@@ -34,6 +36,11 @@ class HandleInertiaRequests extends Middleware
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
             ],
+            'admin' => fn () => ($admin = $request->user('admin')) instanceof PlatformAdmin ? [
+                'id' => $admin->id,
+                'name' => $admin->name,
+                'email' => $admin->email,
+            ] : null,
             'auth' => [
                 'user' => $user instanceof User ? [
                     'id' => $user->id,

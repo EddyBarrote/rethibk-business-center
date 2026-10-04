@@ -2,10 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Ai\Skills\SkillCatalog;
 use App\Enums\ErpTransport;
 use App\Enums\Role;
 use App\Models\Department;
 use App\Models\ErpConnection;
+use App\Models\PlatformAdmin;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantManager;
@@ -19,6 +21,8 @@ class DatabaseSeeder extends Seeder
 {
     public function run(TenantManager $tenants): void
     {
+        PlatformAdmin::query()->firstOrCreate(['email' => 'admin@rethink.test'], ['name' => 'Super admin (dev)', 'password' => 'password']);
+
         $tenant = Tenant::query()->firstOrCreate(['slug' => 'micomoc'], ['name' => 'MICOMOC', 'settings' => []]);
 
         $tenants->run($tenant, function () {
@@ -44,6 +48,8 @@ class DatabaseSeeder extends Seeder
             ErpConnection::query()->firstOrCreate(['name' => 'Rethink ERP (servidor falso)'], [
                 'transport' => ErpTransport::Local,
             ]);
+
+            app(SkillCatalog::class)->syncLocal();
         });
     }
 }

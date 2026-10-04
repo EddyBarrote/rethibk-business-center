@@ -23,7 +23,12 @@ class AppServiceProvider extends ServiceProvider
         Model::shouldBeStrict(! $this->app->isProduction());
 
         // A long-running worker must never carry one job's tenant into the next.
-        Event::listen(JobProcessing::class, fn () => $this->app->make(TenantManager::class)->forget());
+        // A sync job runs inside its caller, whose tenant must survive it.
+        Event::listen(JobProcessing::class, function (JobProcessing $event): void {
+            if ($event->connectionName !== 'sync') {
+                $this->app->make(TenantManager::class)->forget();
+            }
+        });
 
         RateLimiter::for('login', function (Request $request) {
             $email = strtolower((string) $request->input('email'));

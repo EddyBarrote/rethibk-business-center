@@ -12,17 +12,28 @@ Registo das respostas da direcção. Quando uma resposta altera a especificaçã
 | 1 | Provedor de email e DNS | Hostinger, com entrada por **IMAP** (decidido a 04.10.2026). | Ver "Entrada de email com Hostinger" abaixo. Altera a secção 9.2: sem webhooks. |
 | 10 | Extractos bancários | Por email (extractos recebidos) e por upload na plataforma. | E05: duas entradas, a caixa do agente de Finanças e um ecrã de upload. |
 
+## Respostas de 04.10.2026, à tarde (Barrote)
+
+| # | Questão | Decisão | Consequência na implementação |
+|---|---|---|---|
+| 3 | Orçamento mensal de IA | **Definido no perfil do tenant**, com tectos por tenant, por agente e por execução. | Os três tectos ficam em `tenants.settings.ai_budget` e editam-se no perfil do tenant. Aviso aos 80%, corte aos 100% (secção 14.3). Valores em USD, como `agent_runs.cost_usd`. |
+| 12 | Autonomia inicial dos agentes | **Agentes genéricos, criados pelo super admin**, com personalidade, prompts, ferramentas permitidas, acções de rotina, etc. Flexibilidade na criação. | Deixa de haver seis classes PHP fixas (secção 6.3): há um agente genérico configurado por registo em `agents`. O nível de autonomia é um campo dessa configuração, sem valor fixo por agente. Os seis agentes da proposta passam a ser configurações criadas pelo super admin. Acções de rotina em `agent_routines` (expressão cron + prompt). O tecto absoluto (secção 12.3) continua a aplicar-se acima de qualquer configuração. |
+
+Escolhas por omissão, reversíveis, tomadas para avançar (a confirmar):
+
+- **Super admin** é um operador da plataforma (Rethink), fora de qualquer tenant: tabela e sessão próprias, consola em `admin.{domínio central}`. Gere tenants, o perfil (incluindo o orçamento) e a definição dos agentes de cada tenant.
+- **Dentro do tenant**, proprietários e administradores podem suspender e reactivar agentes, afectá-los a pessoas e aprovar acções; não alteram a definição nem o nível de autonomia.
+- Quem aprova uma acção: proprietário, administrador, a pessoa a quem o agente responde, ou uma pessoa afecta ao agente.
+
 ## Ainda em aberto
 
 | # | Questão | Bloqueia |
 |---|---|---|
 | 2 | Domínio das caixas dos agentes | E03 |
-| 3 | Orçamento mensal de consumo de IA (tecto por tenant, por agente, por run) | E02 |
 | 4 | Prazo da equipa do ERP para o servidor MCP | E01 (mitigado) |
 | 6 | Alojamento e deploy da plataforma (também Hostinger?) | staging |
 | 9 | Fontes de concursos a monitorizar | E03 |
 | 11 | Retenção de email bruto e anexos | E03 |
-| 12 | Níveis de autonomia iniciais de cada agente | E02 |
 | — | `invoices.issue`: a emissão fica sempre no ERP, ou o ERP emite com uma aprovação da plataforma? (contradição na secção 8.3; ver `ERP-MCP-CONTRACT.md`, secção 5) | contrato do ERP |
 
 ## Entrada de email com Hostinger (decidido: IMAP)

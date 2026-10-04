@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Erp;
 
+use App\Console\Concerns\InteractsWithTenant;
 use App\Erp\ErpGateway;
 use App\Erp\Exceptions\ErpException;
 use App\Models\AuditLog;

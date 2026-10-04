@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
-            $table->enum('actor_type', ['user', 'agent', 'system']);
+            $table->enum('actor_type', ['user', 'agent', 'system', 'platform_admin']);
             $table->unsignedBigInteger('actor_id')->nullable();
             $table->string('action');
             $table->nullableMorphs('subject');

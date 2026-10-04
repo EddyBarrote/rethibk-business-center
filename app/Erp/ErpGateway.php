@@ -52,12 +52,13 @@ final class ErpGateway
 
     /**
      * @param  array<string, mixed>  $arguments
+     * @param  array<string, mixed>  $context  extra audit fields, e.g. the agent run
      */
-    public function call(string $tool, array $arguments = [], ?Model $actor = null): ErpCallResult
+    public function call(string $tool, array $arguments = [], ?Model $actor = null, array $context = []): ErpCallResult
     {
         $started = hrtime(true);
 
-        return $this->audited('erp.tool_call', ['tool' => $tool, 'arguments' => $arguments], $actor, function (Client $client) use ($tool, $arguments, $started): array {
+        return $this->audited('erp.tool_call', [...array_filter($context, fn ($value) => $value !== null), 'tool' => $tool, 'arguments' => $arguments], $actor, function (Client $client) use ($tool, $arguments, $started): array {
             $result = $client->callTool($tool, $arguments);
             $text = $result->text();
             $data = $result->structuredContent ?? (Str::isJson($text) ? (array) json_decode($text, true) : null);

@@ -12,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
  * Base class for every queued job that touches tenant data.
  *
  * The tenant id travels in the payload. The SetTenantForJob middleware sets the
- * tenant before handle() runs and forgets it in a finally block, so subclasses
+ * tenant before handle() runs and restores the previous one afterwards, so subclasses
  * keep their own handle() signature with dependency injection.
  */
 abstract class TenantAwareJob implements ShouldQueue

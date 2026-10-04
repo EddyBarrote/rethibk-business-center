@@ -72,6 +72,7 @@ class AuditLog extends Model
         return match (true) {
             $actor === null => ActorType::System,
             $actor instanceof User => ActorType::User,
+            $actor instanceof PlatformAdmin => ActorType::PlatformAdmin,
             default => ActorType::Agent,
         };
     }

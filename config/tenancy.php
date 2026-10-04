@@ -10,4 +10,12 @@ return [
 
     'central_domain' => env('TENANCY_CENTRAL_DOMAIN', 'localhost'),
 
+    /*
+    | The super admin console. Never a tenant: the slugs below are reserved.
+    */
+
+    'admin_domain' => env('TENANCY_ADMIN_DOMAIN') ?: 'admin.'.env('TENANCY_CENTRAL_DOMAIN', 'localhost'),
+
+    'reserved_slugs' => ['admin', 'www', 'api', 'app', 'mail', 'static'],
+
 ];

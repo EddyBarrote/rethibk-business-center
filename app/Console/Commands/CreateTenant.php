@@ -2,14 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\Role;
-use App\Models\Tenant;
-use App\Models\User;
-use App\Tenancy\TenantManager;
+use App\Tenancy\TenantProvisioner;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -19,7 +15,7 @@ use function Laravel\Prompts\password;
 #[Description('Cria um tenant e o seu utilizador proprietário')]
 class CreateTenant extends Command
 {
-    public function handle(TenantManager $tenants): int
+    public function handle(TenantProvisioner $provisioner): int
     {
         $data = [
             'name' => $this->argument('name'),
@@ -30,9 +26,7 @@ class CreateTenant extends Command
         ];
 
         $validator = Validator::make($data, [
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'alpha_dash', 'max:63', 'unique:tenants,slug'],
-            'domain' => ['nullable', 'string', 'max:255', 'unique:tenants,domain'],
+            ...TenantProvisioner::rules(),
             'owner_name' => ['required', 'string', 'max:255'],
             'owner_email' => ['required', 'email'],
         ]);
@@ -47,23 +41,10 @@ class CreateTenant extends Command
 
         $password = password('Palavra-passe do proprietário', required: true, validate: fn (string $value) => strlen($value) < 8 ? 'Mínimo de 8 caracteres.' : null);
 
-        $tenant = DB::transaction(function () use ($data, $password, $tenants) {
-            $tenant = Tenant::query()->create([
-                'name' => $data['name'],
-                'slug' => $data['slug'],
-                'domain' => $data['domain'],
-                'settings' => [],
-            ]);
-
-            $tenants->run($tenant, fn () => User::query()->create([
-                'name' => $data['owner_name'],
-                'email' => $data['owner_email'],
-                'password' => $password,
-                'role' => Role::Owner,
-            ]));
-
-            return $tenant;
-        });
+        $tenant = $provisioner->create(
+            ['name' => $data['name'], 'slug' => $data['slug'], 'domain' => $data['domain']],
+            ['name' => $data['owner_name'], 'email' => $data['owner_email'], 'password' => $password],
+        );
 
         $this->info("Tenant {$tenant->slug} criado (id {$tenant->id}).");
 
