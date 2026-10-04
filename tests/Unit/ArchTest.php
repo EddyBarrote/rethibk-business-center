@@ -12,6 +12,6 @@ arch('tenant-aware jobs extend the base job')
     ->expect('App\Jobs')
     ->toExtend('App\Tenancy\TenantAwareJob');
 
-arch('the platform reaches the ERP only through the audited gateway (E01)')
+arch('the platform reaches MCP servers only through the audited gateways (E01, connectors)')
     ->expect('Laravel\Mcp\Client')
-    ->toOnlyBeUsedIn(['App\Erp', 'App\Providers\McpServiceProvider']);
+    ->toOnlyBeUsedIn(['App\Erp', 'App\Connectors\ConnectorGateway', 'App\Providers\McpServiceProvider']);

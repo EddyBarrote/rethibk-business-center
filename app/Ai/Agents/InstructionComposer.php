@@ -2,12 +2,14 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Skills\AgentSkills;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
 use App\Enums\KnowledgeType;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\KnowledgeItem;
+use App\Models\Skill;
 use App\Models\Tenant;
 use Illuminate\Support\Str;
 
@@ -28,6 +30,7 @@ final class InstructionComposer
             $agent->department !== null ? "Trabalhas com o departamento {$agent->department->name}." : null,
             $agent->personality ? "## Personalidade\n".$agent->personality : null,
             $agent->instructions ? "## Instruções\n".$agent->instructions : null,
+            $this->skills($agent),
             $this->team($agent),
             $run?->task !== null ? $this->task($run) : null,
             $this->decisions(),
@@ -43,6 +46,22 @@ final class InstructionComposer
         ];
 
         return implode("\n\n", array_filter($sections));
+    }
+
+    /**
+     * Progressive disclosure, as in Claude's Agent Skills: only the name and
+     * when to use each skill; the agent loads the instructions with skills.load.
+     */
+    private function skills(Agent $agent): ?string
+    {
+        $skills = app(AgentSkills::class)->for($agent);
+
+        if ($skills->isEmpty()) {
+            return null;
+        }
+
+        return "## Skills\nTens estas skills: instruções da organização para tipos de trabalho concretos. Quando uma se aplicar ao que te pedem, carrega-a primeiro com skills.load (chave entre parênteses) e segue-a.\n"
+            .$skills->map(fn (Skill $skill) => "- {$skill->displayName()} ({$skill->key}): ".Str::limit($skill->displayDescription(), 400))->implode("\n");
     }
 
     /**

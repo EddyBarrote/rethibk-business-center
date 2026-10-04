@@ -17,6 +17,7 @@ use App\Ai\Capabilities\Local\ListContracts;
 use App\Ai\Capabilities\Local\ListPurchaseRequests;
 use App\Ai\Capabilities\Local\ListTasks;
 use App\Ai\Capabilities\Local\ListUnreconciled;
+use App\Ai\Capabilities\Local\LoadSkill;
 use App\Ai\Capabilities\Local\MatchCandidate;
 use App\Ai\Capabilities\Local\MonthSummary;
 use App\Ai\Capabilities\Local\NotifyUser;
@@ -26,6 +27,7 @@ use App\Ai\Capabilities\Local\PublishBriefing;
 use App\Ai\Capabilities\Local\RateSupplier;
 use App\Ai\Capabilities\Local\ReadAttachment;
 use App\Ai\Capabilities\Local\ReadEmail;
+use App\Ai\Capabilities\Local\ReadSkillFile;
 use App\Ai\Capabilities\Local\ReadWebPage;
 use App\Ai\Capabilities\Local\RecordTender;
 use App\Ai\Capabilities\Local\RememberDecision;
@@ -91,6 +93,9 @@ final class CapabilityRegistry
         AskHuman::class,
         UpdateTaskStatus::class,
         ListTasks::class,
+        // Skills (docs/CAPACIDADES.md): given to agents that have skills.
+        LoadSkill::class,
+        ReadSkillFile::class,
         // Requested by the platform when a cap runs out; never given to agents.
         BudgetOverride::class,
     ];
@@ -100,6 +105,9 @@ final class CapabilityRegistry
 
     /** @var list<string> */
     private static array $alwaysOn = [];
+
+    /** Given to every agent that has at least one usable skill. */
+    public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
     public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list'];

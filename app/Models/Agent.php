@@ -41,11 +41,13 @@ use Illuminate\Support\Carbon;
  * @property int|null $max_steps
  * @property array<string, mixed>|null $settings
  * @property int|null $created_by_admin_id
+ * @property int|null $created_by_user_id
+ * @property string|null $avatar_path
  * @property Carbon $created_at
  */
 #[Fillable([
     'key', 'name', 'title', 'description', 'personality', 'instructions', 'department_id', 'reports_to_user_id', 'reports_to_agent_id',
-    'status', 'suspended_reason', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps', 'settings',
+    'status', 'suspended_reason', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps', 'settings', 'avatar_path',
 ])]
 class Agent extends Model
 {
@@ -102,6 +104,27 @@ class Agent extends Model
             ->using(AgentCapability::class)
             ->withPivot(['id', 'tenant_id', 'enabled', 'config'])
             ->withTimestamps();
+    }
+
+    /**
+     * Instruction packages (docs/CAPACIDADES.md), loaded when they apply.
+     *
+     * @return BelongsToMany<Skill, $this, AgentSkill>
+     */
+    public function skills(): BelongsToMany
+    {
+        return $this->belongsToMany(Skill::class)
+            ->using(AgentSkill::class)
+            ->withPivot(['id', 'tenant_id'])
+            ->withTimestamps();
+    }
+
+    /**
+     * The photo, or null for initials. Served by AgentAvatarController.
+     */
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_path === null ? null : '/agents/'.$this->id.'/avatar?v='.substr(md5($this->avatar_path), 0, 8);
     }
 
     /**

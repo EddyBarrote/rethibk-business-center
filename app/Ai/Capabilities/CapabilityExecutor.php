@@ -2,6 +2,8 @@
 
 namespace App\Ai\Capabilities;
 
+use App\Connectors\ConnectorException;
+use App\Connectors\ConnectorGateway;
 use App\Enums\CapabilitySource;
 use App\Erp\ErpGateway;
 use App\Erp\Exceptions\ErpException;
@@ -18,6 +20,7 @@ final class CapabilityExecutor
         private readonly CapabilityRegistry $registry,
         private readonly ErpGateway $erp,
         private readonly RecordLinker $linker,
+        private readonly ConnectorGateway $connectors,
     ) {}
 
     /**
@@ -25,13 +28,15 @@ final class CapabilityExecutor
      */
     public function execute(Capability $capability, array $arguments, CapabilityContext $context): CapabilityResult
     {
-        if (! $capability->is_available) {
-            return CapabilityResult::error("A competência {$capability->key} não está disponível.");
+        if (! $capability->isUsable()) {
+            return CapabilityResult::error("A capacidade {$capability->key} não está disponível.");
         }
 
-        return $capability->source === CapabilitySource::Mcp
-            ? $this->erp($capability, $arguments, $context)
-            : $this->local($capability, $arguments, $context);
+        return match ($capability->source) {
+            CapabilitySource::Mcp => $this->erp($capability, $arguments, $context),
+            CapabilitySource::Connector => $this->connector($capability, $arguments, $context),
+            CapabilitySource::Local => $this->local($capability, $arguments, $context),
+        };
     }
 
     /**
@@ -83,6 +88,33 @@ final class CapabilityExecutor
     }
 
     /**
+     * A tool of a remote MCP server or an HTTP action. What comes back is
+     * someone else's content: data for the model, never instructions.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private function connector(Capability $capability, array $arguments, CapabilityContext $context): CapabilityResult
+    {
+        $connector = $capability->connectorDefinition();
+
+        if ($connector === null) {
+            return CapabilityResult::error("o conector de {$capability->key} já não existe.");
+        }
+
+        try {
+            $result = $this->connectors->call($connector, (string) $capability->mcp_tool_name, $arguments, $context->agent, ['agent_run_id' => $context->run->id, 'approval_id' => $context->approval?->id]);
+        } catch (ConnectorException $e) {
+            return CapabilityResult::error($e->getMessage());
+        }
+
+        if (! $result['ok']) {
+            return CapabilityResult::error($result['text']);
+        }
+
+        return new CapabilityResult(true, "<resposta_externa_nao_confiavel origem=\"{$connector->name}\">\n{$result['text']}\n</resposta_externa_nao_confiavel>", $result['data']);
+    }
+
+    /**
      * @param  array<string, mixed>  $arguments
      */
     private function local(Capability $capability, array $arguments, CapabilityContext $context): CapabilityResult
@@ -90,7 +122,7 @@ final class CapabilityExecutor
         $local = $this->registry->find($capability->key);
 
         if ($local === null) {
-            return CapabilityResult::error("A competência {$capability->key} não existe nesta versão da plataforma.");
+            return CapabilityResult::error("A capacidade {$capability->key} não existe nesta versão da plataforma.");
         }
 
         try {
