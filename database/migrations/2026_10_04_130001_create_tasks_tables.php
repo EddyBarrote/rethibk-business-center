@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -80,6 +81,16 @@ return new class extends Migration
         Schema::table('agent_runs', function (Blueprint $table) {
             $table->foreignId('task_id')->nullable()->after('agent_id')->constrained()->nullOnDelete();
         });
+
+        // Agents installed from templates before the org chart existed report to their tenant's Chief of Staff.
+        foreach (DB::table('agents')->whereJsonContains('settings->template', 'chief_of_staff')->get(['id', 'tenant_id']) as $chief) {
+            DB::table('agents')
+                ->where('tenant_id', $chief->tenant_id)
+                ->where('id', '!=', $chief->id)
+                ->whereNull('reports_to_agent_id')
+                ->whereNotNull('settings->template')
+                ->update(['reports_to_agent_id' => $chief->id]);
+        }
     }
 
     public function down(): void
