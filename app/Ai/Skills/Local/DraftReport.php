@@ -57,7 +57,8 @@ final class DraftReport extends LocalSkill
             'type' => $schema->string()->enum(array_keys(self::TYPES))->required(),
             'title' => $schema->string()->required(),
             'content' => $schema->string()->description('Markdown. Tabelas são bem-vindas.')->required(),
-            'data' => $schema->object()->description('Números estruturados que suportam o documento (opcional).'),
+            // A JSON string, not a free-form object: Gemini refuses objects without declared properties.
+            'data' => $schema->string()->description('Opcional: os números que suportam o documento, como JSON (ex.: {"total": 1200000}).'),
             'subject_ref' => $schema->string()->description('Referência do assunto: id do cliente, do projecto, do pedido de cotação...'),
             'period_start' => $schema->string()->format('date'),
             'period_end' => $schema->string()->format('date'),
@@ -67,6 +68,11 @@ final class DraftReport extends LocalSkill
 
     public function execute(array $arguments, SkillContext $context): SkillResult
     {
+        if (is_string($arguments['data'] ?? null)) {
+            $decoded = json_decode($arguments['data'], true);
+            $arguments['data'] = is_array($decoded) ? $decoded : ['texto' => $arguments['data']];
+        }
+
         $data = Validator::make($arguments, [
             'type' => 'required|in:'.implode(',', array_keys(self::TYPES)),
             'title' => 'required|string|max:255',
