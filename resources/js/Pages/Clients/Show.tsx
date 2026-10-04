@@ -25,6 +25,22 @@ interface Sheet {
 
 const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 
+// Estados do ERP (projectos e leads) em português.
+const ERP_STATUS: Record<string, string> = {
+    planned: 'planeado',
+    in_progress: 'em curso',
+    on_hold: 'suspenso',
+    completed: 'concluído',
+    cancelled: 'cancelado',
+    new: 'nova',
+    contacted: 'contactada',
+    qualified: 'qualificada',
+    proposal: 'proposta',
+    won: 'ganha',
+    lost: 'perdida',
+};
+const status = (v: unknown) => ERP_STATUS[s(v)] ?? s(v);
+
 export default function ClientShow({ sheet, accountId, briefs }: { sheet: Sheet; accountId: string; briefs: { id: number; title: string; created_at: string }[] }) {
     const form = useForm({ meeting: '' });
     const submit = (event: FormEvent) => {
@@ -100,12 +116,12 @@ export default function ClientShow({ sheet, accountId, briefs }: { sheet: Sheet;
                     <CardContent className="mt-2 grid gap-1 text-sm">
                         {(sheet.projects ?? []).map((p, i) => (
                             <p key={i}>
-                                {s(p.name)} <Badge variant="outline">{s(p.status)}</Badge>
+                                {s(p.name)} <Badge variant="outline">{status(p.status)}</Badge>
                             </p>
                         ))}
                         {(sheet.leads ?? []).map((l, i) => (
                             <p key={`l${i}`} className="text-muted-foreground">
-                                Lead: {s(l.title)} · {s(l.status)}
+                                Lead: {s(l.title)} · {status(l.status)}
                                 {l.estimated_value ? ` · ${mzn(Number(l.estimated_value))}` : ''}
                             </p>
                         ))}
