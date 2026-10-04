@@ -9,3 +9,5 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command('erp:health-check')->everyFifteenMinutes()->withoutOverlapping();
 
 Schedule::command('agents:run-routines')->everyMinute()->withoutOverlapping();
+Schedule::command('mail:fetch')->everyMinute()->withoutOverlapping();
+Schedule::command('mail:prune')->dailyAt('02:30');

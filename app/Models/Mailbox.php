@@ -26,6 +26,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $imap_username
  * @property string|null $imap_password
  * @property string|null $imap_encryption
+ * @property string $imap_folder
+ * @property int|null $imap_last_uid
  * @property string|null $smtp_host
  * @property int|null $smtp_port
  * @property string|null $smtp_username
@@ -38,7 +40,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'agent_id', 'address', 'display_name', 'inbound_provider', 'imap_host', 'imap_port', 'imap_username', 'imap_password',
-    'imap_encryption', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'status',
+    'imap_encryption', 'imap_folder', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'status',
 ])]
 #[Hidden(['inbound_secret', 'imap_password', 'smtp_password'])]
 class Mailbox extends Model
@@ -67,6 +69,7 @@ class Mailbox extends Model
             'imap_password' => 'encrypted',
             'smtp_password' => 'encrypted',
             'imap_port' => 'integer',
+            'imap_last_uid' => 'integer',
             'smtp_port' => 'integer',
             'last_inbound_at' => 'datetime',
             'last_outbound_at' => 'datetime',

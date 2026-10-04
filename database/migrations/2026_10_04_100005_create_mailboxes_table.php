@@ -25,6 +25,8 @@ return new class extends Migration
             $table->string('imap_username')->nullable();
             $table->text('imap_password')->nullable();
             $table->string('imap_encryption')->nullable();
+            $table->string('imap_folder')->default('INBOX');
+            $table->unsignedBigInteger('imap_last_uid')->nullable();
             $table->string('smtp_host')->nullable();
             $table->unsignedSmallInteger('smtp_port')->nullable();
             $table->string('smtp_username')->nullable();

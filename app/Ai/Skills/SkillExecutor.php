@@ -17,6 +17,7 @@ final class SkillExecutor
     public function __construct(
         private readonly SkillRegistry $registry,
         private readonly ErpGateway $erp,
+        private readonly RecordLinker $linker,
     ) {}
 
     /**
@@ -75,6 +76,8 @@ final class SkillExecutor
         if (! $result->ok) {
             return SkillResult::error((string) $result->error());
         }
+
+        $this->linker->afterErpWrite($skill, $result->data, $context);
 
         return $result->data !== null ? SkillResult::data($result->data) : SkillResult::text($result->text);
     }

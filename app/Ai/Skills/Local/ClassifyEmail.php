@@ -1,0 +1,153 @@
+<?php
+
+namespace App\Ai\Skills\Local;
+
+use App\Ai\Skills\LocalSkill;
+use App\Ai\Skills\SkillContext;
+use App\Ai\Skills\SkillResult;
+use App\Enums\EmailCategory;
+use App\Models\Department;
+use App\Models\EmailMessage;
+use App\Models\User;
+use App\Support\Notifier;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Throwable;
+
+/**
+ * The triage verdict on an email (E03): category, priority, summary, the
+ * fields that matter, who handles it and by when. Organising platform data
+ * only, so it runs at any autonomy level (N0, "observa e organiza").
+ */
+final class ClassifyEmail extends LocalSkill
+{
+    public function __construct(private readonly Notifier $notifier) {}
+
+    public function key(): string
+    {
+        return 'email.classify';
+    }
+
+    public function name(): string
+    {
+        return 'Triar email';
+    }
+
+    public function description(): string
+    {
+        return 'Regista a triagem de um email: categoria, prioridade, resumo, campos extraídos, prazo e encaminhamento (departamento e/ou pessoa, que é notificada).';
+    }
+
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'email_id' => $schema->integer()->required(),
+            'category' => $schema->string()->enum(array_column(EmailCategory::cases(), 'value'))->required(),
+            'confidence' => $schema->number()->min(0)->max(1)->required(),
+            'priority' => $schema->string()->enum(['low', 'normal', 'high', 'urgent'])->required(),
+            'summary' => $schema->string()->description('Uma ou duas frases, em português.')->required(),
+            'fields' => $schema->object([
+                'company' => $schema->string(),
+                'contact_name' => $schema->string(),
+                'contact_email' => $schema->string(),
+                'phone' => $schema->string(),
+                'nuit' => $schema->string(),
+                'reference' => $schema->string(),
+                'estimated_value' => $schema->number(),
+                'currency' => $schema->string(),
+                'location' => $schema->string(),
+                'invoice_number' => $schema->string(),
+                'due_date' => $schema->string(),
+            ])->description('Campos extraídos, só os que existirem.'),
+            'deadline' => $schema->string()->description('Prazo de resposta ou de submissão, AAAA-MM-DD ou AAAA-MM-DD HH:MM.'),
+            'department' => $schema->string()->description('Nome ou slug do departamento que deve tratar.'),
+            'route_to' => $schema->string()->description('Email da pessoa que deve tratar.'),
+            'flags' => $schema->array()->items($schema->string())->description('Sinais: prompt_injection, phishing, urgent_client, duplicate…'),
+        ];
+    }
+
+    public function execute(array $arguments, SkillContext $context): SkillResult
+    {
+        $data = Validator::make($arguments, [
+            'email_id' => 'required|integer',
+            'category' => ['required', Rule::enum(EmailCategory::class)],
+            'confidence' => 'required|numeric|between:0,1',
+            'priority' => 'required|in:low,normal,high,urgent',
+            'summary' => 'required|string|max:2000',
+            'fields' => 'nullable|array',
+            'deadline' => 'nullable|string|max:40',
+            'department' => 'nullable|string|max:255',
+            'route_to' => 'nullable|string|max:255',
+            'flags' => 'nullable|array',
+            'flags.*' => 'string|max:50',
+        ])->validate();
+
+        $message = EmailMessage::query()->find($data['email_id']);
+
+        if ($message === null) {
+            return SkillResult::error('email não encontrado.');
+        }
+
+        $department = filled($data['department'] ?? null)
+            ? Department::query()->where('slug', $data['department'])->orWhere('name', $data['department'])->first()
+            : null;
+        $user = filled($data['route_to'] ?? null) ? User::query()->where('email', mb_strtolower($data['route_to']))->where('is_active', true)->first() : null;
+        $deadline = $this->date($data['deadline'] ?? null);
+
+        $message->forceFill([
+            'classification' => $data['category'],
+            'classification_confidence' => round((float) $data['confidence'], 3),
+            'priority' => $data['priority'],
+            'summary' => $data['summary'],
+            'extracted' => array_filter(Arr::wrap($data['fields'] ?? []), fn ($v) => filled($v)),
+            'flags' => array_values(array_unique([...($message->flags ?? []), ...($data['flags'] ?? [])])) ?: null,
+            'deadline_at' => $deadline,
+            'department_id' => $department?->id,
+            'routed_to_user_id' => $user->id ?? $message->routed_to_user_id,
+        ])->save();
+
+        $notified = null;
+        $recipient = $user ?? $department?->users()->where('is_active', true)->whereIn('role', ['owner', 'admin', 'manager'])->first();
+
+        if ($recipient !== null && $data['category'] !== EmailCategory::Spam->value) {
+            $label = EmailCategory::from($data['category'])->label();
+            $this->notifier->notify(
+                $recipient,
+                "{$label}: {$message->subject}",
+                $data['summary'].($deadline ? ' Prazo: '.$deadline->format('d/m/Y').'.' : ''),
+                "/inbox/{$message->id}",
+                $context->agent->name,
+                in_array($data['priority'], ['high', 'urgent'], true) ? 'warning' : 'info',
+            );
+            $notified = $recipient->name;
+        }
+
+        return SkillResult::data([
+            'email_id' => $message->id,
+            'category' => $data['category'],
+            'routed_to' => $notified,
+            'department' => $department?->name,
+            'deadline' => $deadline?->toIso8601String(),
+            'warnings' => array_values(array_filter([
+                filled($data['route_to'] ?? null) && $user === null ? "Não existe utilizador activo {$data['route_to']}." : null,
+                filled($data['department'] ?? null) && $department === null ? "Não existe o departamento {$data['department']}." : null,
+            ])),
+        ]);
+    }
+
+    private function date(?string $value): ?Carbon
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value, (string) config('agents.schedule_timezone'))->utc();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+}

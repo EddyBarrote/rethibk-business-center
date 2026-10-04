@@ -6,8 +6,10 @@ use App\Ai\Skills\LocalSkill;
 use App\Ai\Skills\SkillContext;
 use App\Ai\Skills\SkillResult;
 use App\Enums\AuditResult;
+use App\Enums\EmailStatus;
 use App\Mail\AgentMessage;
 use App\Models\AuditLog;
+use App\Models\EmailMessage;
 use App\Models\Mailbox;
 use App\Models\Tenant;
 use App\Models\User;
@@ -50,6 +52,7 @@ final class SendEmail extends LocalSkill
             'cc' => $schema->array()->items($schema->string()),
             'subject' => $schema->string()->required(),
             'body' => $schema->string()->description('Corpo em texto simples.')->required(),
+            'reply_to_email_id' => $schema->integer()->description('Se for resposta, o email a que responde (mantém a conversa).'),
         ];
     }
 
@@ -62,6 +65,9 @@ final class SendEmail extends LocalSkill
             return SkillResult::error('o agente não tem uma caixa de correio activa com SMTP configurado.');
         }
 
+        $original = isset($arguments['reply_to_email_id']) ? EmailMessage::query()->find($arguments['reply_to_email_id']) : null;
+        $references = $original ? trim(($original->references ?? '').' '.$original->message_id_header) : null;
+
         try {
             Mail::mailer($this->configureMailer($mailbox))->send(new AgentMessage(
                 $mailbox->address,
@@ -70,6 +76,8 @@ final class SendEmail extends LocalSkill
                 $arguments['cc'] ?? [],
                 $arguments['subject'],
                 $arguments['body'],
+                $original?->message_id_header,
+                $references,
             ));
         } catch (Throwable $e) {
             $mailbox->forceFill(['last_error' => Str::limit($e->getMessage(), 500)])->save();
@@ -78,6 +86,24 @@ final class SendEmail extends LocalSkill
         }
 
         $mailbox->forceFill(['last_outbound_at' => now(), 'last_error' => null])->save();
+
+        // The conversation in the inbox shows what the agent sent.
+        EmailMessage::query()->create([
+            'mailbox_id' => $mailbox->id,
+            'direction' => 'outbound',
+            'thread_id' => $original?->thread_id,
+            'in_reply_to' => $original?->message_id_header,
+            'references' => $references,
+            'from_address' => $mailbox->address,
+            'from_name' => $mailbox->display_name,
+            'to' => $arguments['to'],
+            'cc' => $arguments['cc'] ?? [],
+            'subject' => $arguments['subject'],
+            'text_body' => $arguments['body'],
+            'status' => EmailStatus::Sent,
+            'agent_run_id' => $context->run->id,
+            'sent_at' => now(),
+        ]);
 
         return SkillResult::data(['sent' => true, 'from' => $mailbox->address, 'to' => $arguments['to'], 'cc' => $arguments['cc'] ?? []]);
     }
@@ -106,11 +132,11 @@ final class SendEmail extends LocalSkill
 
     /**
      * @param  array<string, mixed>  $arguments
-     * @return array{to: list<string>, cc?: list<string>, subject: string, body: string}
+     * @return array{to: list<string>, cc?: list<string>, subject: string, body: string, reply_to_email_id?: int|null}
      */
     private function validate(array $arguments): array
     {
-        /** @var array{to: list<string>, cc?: list<string>, subject: string, body: string} */
+        /** @var array{to: list<string>, cc?: list<string>, subject: string, body: string, reply_to_email_id?: int|null} */
         return Validator::make($arguments, [
             'to' => 'required|array|min:1|max:20',
             'to.*' => 'required|email',
@@ -118,6 +144,7 @@ final class SendEmail extends LocalSkill
             'cc.*' => 'email',
             'subject' => 'required|string|max:255',
             'body' => 'required|string|max:50000',
+            'reply_to_email_id' => 'nullable|integer',
         ])->validate();
     }
 
@@ -161,10 +188,11 @@ final class SendEmail extends LocalSkill
 
     private function wasContacted(string $address): bool
     {
-        return AuditLog::query()
-            ->where('action', $this->key())
-            ->where('result', AuditResult::Ok)
-            ->where('payload', 'like', '%"'.str_replace(['%', '_'], ['\%', '\_'], $address).'"%')
-            ->exists();
+        return EmailMessage::query()->where('direction', 'outbound')->where('status', EmailStatus::Sent)->whereJsonContains('to', $address)->exists()
+            || AuditLog::query()
+                ->where('action', $this->key())
+                ->where('result', AuditResult::Ok)
+                ->where('payload', 'like', '%"'.str_replace(['%', '_'], ['\%', '\_'], $address).'"%')
+                ->exists();
     }
 }
