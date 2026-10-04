@@ -15,6 +15,7 @@ import AppLayout from '@/Layouts/AppLayout';
 interface Props extends AgentFormOptions {
     agent: AgentData | null;
     draft: AgentDraft | null;
+    can_draft?: boolean;
     can_generate_avatar: boolean;
 }
 
@@ -25,7 +26,7 @@ const examples = [
 ];
 
 /** Describe the colleague you need; the AI drafts the definition below. */
-function Assistant({ brief }: { brief?: string }) {
+function Assistant({ brief, available }: { brief?: string; available: boolean }) {
     const form = useForm({ brief: brief ?? '' });
 
     const submit = (event: FormEvent) => {
@@ -55,6 +56,12 @@ function Assistant({ brief }: { brief?: string }) {
                     aria-label="Descrição do colega"
                 />
                 {form.errors.brief && <p className="text-sm text-destructive">{form.errors.brief}</p>}
+                {!available && (
+                    <p className="rounded-lg border border-status-warning/30 bg-status-warning/10 px-3 py-2 text-sm">
+                        O assistente precisa da chave do provedor de IA (por exemplo <span className="font-mono">GEMINI_API_KEY</span> no .env). Até lá, pode
+                        preencher a definição à mão abaixo.
+                    </p>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap gap-1.5">
                         {examples.map((example, index) => (
@@ -68,7 +75,7 @@ function Assistant({ brief }: { brief?: string }) {
                             </button>
                         ))}
                     </div>
-                    <Button type="submit" disabled={form.processing || form.data.brief.trim().length < 15}>
+                    <Button type="submit" disabled={!available || form.processing || form.data.brief.trim().length < 15}>
                         <WandSparkles />
                         {form.processing ? 'A preparar a proposta…' : brief ? 'Propor de novo' : 'Propor colega'}
                     </Button>
@@ -131,7 +138,7 @@ function AvatarPanel({ agent, canGenerate }: { agent: AgentData; canGenerate: bo
     );
 }
 
-export default function AgentFormPage({ agent, draft, can_generate_avatar, ...options }: Props) {
+export default function AgentFormPage({ agent, draft, can_draft = false, can_generate_avatar, ...options }: Props) {
     const title = agent ? `Editar ${agent.name}` : 'Novo agente';
     const statusLabel = options.statuses.find((status) => status.value === agent?.status)?.label ?? agent?.status;
 
@@ -168,7 +175,7 @@ export default function AgentFormPage({ agent, draft, can_generate_avatar, ...op
                 capabilitiesHref="/capabilities"
                 extraSections={agent ? [] : [{ id: 'assistente', label: 'Assistente', icon: Sparkles }]}
                 navNote={agent ? undefined : 'A foto fica disponível depois de criar o agente.'}
-                before={!agent && <Assistant brief={draft?.brief} />}
+                before={!agent && <Assistant brief={draft?.brief} available={can_draft} />}
                 identityAside={agent && <AvatarPanel agent={agent} canGenerate={can_generate_avatar} />}
                 after={
                     draft &&

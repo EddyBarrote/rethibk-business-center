@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Capabilities\CapabilityCatalog;
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Connectors\ConnectorException;
 use App\Enums\AutonomyLevel;
 use App\Enums\Scope;
@@ -31,7 +32,7 @@ class CapabilityController extends Controller
     {
         Gate::authorize('manage-catalog');
 
-        $capabilities = Capability::query()->withCount('agents')->orderBy('key')->get();
+        $capabilities = Capability::query()->whereNotIn('key', CapabilityRegistry::hidden())->withCount('agents')->orderBy('key')->get();
         $activeGlobal = $capabilities->where('is_enabled', true)->whereNotNull('platform_connector_id')->pluck('platform_connector_id')->unique();
 
         return Inertia::render('Capabilities/Index', [

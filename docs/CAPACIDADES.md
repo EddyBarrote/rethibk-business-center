@@ -27,6 +27,38 @@ As capacidades locais (escritas em PHP) e as ferramentas do ERP são globais e v
 | `mcp` | Automático | Ferramentas do ERP da empresa, descobertas por MCP (`capabilities:sync`) |
 | `connector` | Super admin (global) ou admins da empresa | Um conector: servidor MCP remoto (todas as ferramentas dele) ou um pedido HTTP |
 
+## Quem faz o quê
+
+| | Super admin (consola `admin.`) | Proprietários e administradores da empresa |
+|---|---|---|
+| Skills | Skills globais: Plataforma › Skills globais | Skills (menu Empresa): escrever as suas, activar as globais |
+| Conectores | Conectores globais: Plataforma › Conectores globais | Capacidades › Novo conector; activar os globais no separador "Globais" |
+| Capacidades | Risco das capacidades da plataforma e do ERP (Organização › Capacidades) | Ligar e desligar qualquer capacidade; risco das dos seus conectores |
+| Agentes | Organização › agente | Agentes › Novo agente (com o assistente) e Editar |
+
+Membros e chefias não vêem estes ecrãs (`Gate::define('manage-catalog')`).
+
+## Skills em tempo de execução
+
+1. `InstructionComposer` junta ao prompt uma secção "Skills" com `nome (chave): quando usar` de cada skill utilizável do agente (atribuída, ligada na empresa e, se global, ainda oferecida).
+2. Se o agente tem pelo menos uma skill, o `ToolResolver` dá-lhe `skills.load` e `skills.read_file`.
+3. O agente chama `skills.load` com a chave e recebe as instruções e a lista de ficheiros; lê um ficheiro com `skills.read_file` (12 000 caracteres por página).
+
+Ficheiros aceites: md, txt, csv, json, xml, html, pdf, docx, xlsx (até 10 MB). O texto é extraído no upload com `TextExtractor`; um ficheiro sem texto legível fica guardado mas o agente não o consegue ler (o ecrã avisa).
+
+## Conectores
+
+- **Servidor MCP:** URL do endpoint (transporte HTTP do MCP) e, opcionalmente, um token Bearer. Ao guardar, a plataforma lista as ferramentas e cria uma capacidade `conn.<chave>.<ferramenta>` (da empresa) ou `global.<chave>.<ferramenta>` (global) por cada uma. Ferramentas com `readOnlyHint` são de leitura; as outras contam como escrita.
+- **Pedido HTTP:** método, URL, token opcional e os argumentos em JSON Schema (`type: object`). Em GET os argumentos vão na query string; nos outros métodos como corpo JSON. Uma capacidade `conn.<chave>`. "Altera dados" decide se passa pelo portão de autonomia como escrita.
+- Tudo passa por `App\Connectors\ConnectorGateway`: guarda de endereço, timeout de 30 s, resposta cortada a 12 000 caracteres e embrulhada em `<resposta_externa_nao_confiavel>`, auditoria em `audit_logs` (`connector.tool_call`, `connector.tools_list`).
+- Um conector global activado numa empresa copia as ferramentas para o catálogo dela (com risco próprio por empresa). Desactivá-lo desliga essas capacidades sem perder o risco. Se o super admin desligar o conector, fica indisponível em todas as empresas.
+
+## Agentes como colegas
+
+- Nome, função, personalidade e **foto** (`agents.avatar_path`, disco privado `local`). `AgentAvatar` no frontend mostra a foto ou as iniciais em toda a consola.
+- **Assistente:** `POST /agents/new/draft` com a descrição → `AgentDrafting` chama `AgentDrafter` (saída estruturada) com o catálogo da empresa → o formulário abre preenchido em rascunho. Testes: `AgentDrafter::fake([[...campos...]])`.
+- **Gerar foto:** `AgentAvatars::generate()` usa `Laravel\Ai\Image` com o provedor de imagens por omissão (`ai.default_for_images`, Gemini). Testes: `Image::fake()`.
+
 ## Registar uma capacidade local
 
 1. Criar uma classe que estende `App\Ai\Capabilities\LocalCapability`:

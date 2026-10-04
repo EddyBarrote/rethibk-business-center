@@ -32,6 +32,7 @@ class AgentDefinitionController extends Controller
             ...$this->editor->options(),
             'agent' => null,
             'draft' => $request->session()->get('agent_draft'),
+            'can_draft' => AgentDrafting::available(),
             'can_generate_avatar' => AgentAvatars::canGenerate(),
         ]);
     }

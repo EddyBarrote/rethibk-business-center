@@ -23,7 +23,7 @@ export function Field({
     children: ReactNode;
 }) {
     return (
-        <div className={cn('grid gap-2', className)}>
+        <div className={cn('grid content-start gap-2', className)}>
             <Label htmlFor={id}>{label}</Label>
             {children}
             {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}

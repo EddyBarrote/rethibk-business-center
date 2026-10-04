@@ -81,3 +81,19 @@ O Barrote pediu para adaptar o MICOMOC ao modelo do [Paperclip](https://github.c
 | Excepção de orçamento | A paragem a 100% já existia. Agora, ao atingir o tecto, nasce uma aprovação `budget.override` (tecto absoluto: decide sempre um proprietário ou administrador) que propõe +50% do tecto até ao fim do mês. Aprovada, aumenta o tecto do mês (`tenants.settings.ai_budget_extra`) e reactiva os agentes que o tecto parou. | `BudgetGuard::grantExtra`, skill `budget.override` |
 | Canais externos | WhatsApp, Telegram e afins ficam para depois; tudo acontece na consola, com notificações. | — |
 | Interface | Regras de desenho em [UI.md](UI.md). | — |
+
+## Capacidades, skills e agentes como colegas (04.10.2026)
+
+Pedido do Barrote: qualquer administrador de uma empresa deve conseguir criar ferramentas e skills, com as globais criadas pelo super admin e usadas pelos tenants, "como o Claude faz"; os agentes são colegas de trabalho, com nome e foto, e a própria IA ajuda a criá-los. Escolhas por omissão (guia técnico em [CAPACIDADES.md](CAPACIDADES.md)):
+
+| Tema | Decisão | Onde está |
+|---|---|---|
+| Nomes | O que se chamava "skill" (ferramenta executável) passa a **capacidade** (`capabilities`, `App\Ai\Capabilities`). **Skill** passa a ser um pacote de instruções ao estilo das Agent Skills do Claude. As chaves das capacidades não mudaram. | Migração `rename_skills_to_capabilities` |
+| Skills | Nome, "quando usar" (o agente decide por isto), instruções em markdown e ficheiros anexos (o texto é extraído no upload). O prompt lista só nome e "quando usar"; o agente carrega o resto com `skills.load` e lê ficheiros com `skills.read_file`, que só recebe quem tem skills. | `AgentSkills`, `LoadSkill`, `ReadSkillFile` |
+| Âmbitos | **Global** (super admin, todas as empresas; cada uma activa as que quer) e **da empresa** (proprietários e administradores, privadas). Uma skill global activada lê sempre a versão actual da Rethink. | `platform_skills`, `platform_connectors`; `skills`, `connectors` |
+| Capacidades novas sem código | **Conectores**: um servidor MCP remoto (cada ferramenta vira uma capacidade) ou um pedido HTTP com argumentos em JSON Schema. Token Bearer cifrado, nunca volta ao browser. As respostas chegam ao modelo marcadas como conteúdo externo não confiável. | `App\Connectors\ConnectorGateway` |
+| Segurança dos conectores | Os da empresa só chegam a endereços https públicos (como o `SafeHttp`); os globais são confiáveis. Cada chamada fica em `audit_logs`. Escritas de um conector começam com risco N4 (pedem aprovação a quase todos os agentes) até um administrador o baixar. O risco das capacidades da plataforma e do ERP continua com a Rethink. | `CapabilityCatalog::syncConnector` |
+| Quem cria agentes | Proprietários e administradores da empresa criam e editam agentes (identidade, personalidade, instruções, modelo, autonomia, capacidades, skills), além do super admin. Os rascunhos só aparecem a quem os pode editar. | `AgentDefinitionController`, `AgentEditor` |
+| Cara do agente | Foto carregada, ou gerada com o modelo de imagem do Gemini quando há chave; sem foto, as iniciais. Ficheiro privado, servido só a pessoas do mesmo tenant. | `AgentAvatars`, `AgentAvatarController` |
+| Assistente de criação | "Descreva o colega de que precisa": a IA propõe nome (próprio, de pessoa), função, personalidade, instruções, nível de autonomia, capacidades e skills existentes, e sugere skills que fariam falta. Fica em rascunho no formulário; nada é guardado sem rever. Sem chave de IA, o formulário funciona à mão. O custo desta chamada não entra no orçamento mensal (é pequena); a chamada é recusada se o orçamento já estiver esgotado. | `AgentDrafting`, `AgentDrafter` |
+| Para outros módulos | Capacidades locais registam-se com `CapabilityRegistry::register()` num service provider, e `giveToEveryAgent()` dá-as a todos os agentes. | [CAPACIDADES.md](CAPACIDADES.md) |

@@ -4,6 +4,7 @@ namespace App\Ai\Agents;
 
 use App\Ai\Budget\BudgetExceeded;
 use App\Ai\Budget\BudgetGuard;
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Runs\MissingProviderKey;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
@@ -30,7 +31,7 @@ final class AgentDrafting
     {
         $this->assertCanCall();
 
-        $capabilities = Capability::query()->usable()->orderBy('key')->get();
+        $capabilities = Capability::query()->usable()->whereNotIn('key', CapabilityRegistry::hidden())->orderBy('key')->get();
         $skills = Skill::query()->with('platformSkill')->get()->filter(fn (Skill $skill) => $skill->isUsable())->values();
 
         $response = (new AgentDrafter($this->catalogue($capabilities, $skills)))
@@ -61,15 +62,24 @@ final class AgentDrafting
     }
 
     /**
+     * The default text provider has a key (or tests fake the drafter).
+     */
+    public static function available(): bool
+    {
+        $config = config('ai.providers.'.config('ai.default'));
+
+        return AgentDrafter::isFaked() || ! is_array($config) || ! array_key_exists('key', $config) || filled($config['key']);
+    }
+
+    /**
      * Same checks as an agent run: a key must exist and the tenant's monthly
      * AI budget must not be spent.
      */
     private function assertCanCall(): void
     {
         $provider = (string) config('ai.default');
-        $config = config("ai.providers.{$provider}");
 
-        if (! AgentDrafter::isFaked() && is_array($config) && array_key_exists('key', $config) && blank($config['key'])) {
+        if (! self::available()) {
             throw new MissingProviderKey("Falta a chave da API do provedor {$provider} no ficheiro .env (por exemplo GEMINI_API_KEY). Depois de a pôr, reinicie o composer dev.");
         }
 

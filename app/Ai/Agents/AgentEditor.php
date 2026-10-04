@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
 use App\Models\Agent;
@@ -135,7 +136,7 @@ final class AgentEditor
             'departments' => Department::query()->orderBy('name')->get(['id', 'name']),
             'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'agents' => Agent::query()->when($agent, fn ($q) => $q->whereKeyNot($agent->id))->orderBy('name')->get(['id', 'name', 'title']),
-            'capabilities' => Capability::query()->orderBy('source')->orderBy('key')->get()->map(fn (Capability $capability) => [
+            'capabilities' => Capability::query()->whereNotIn('key', CapabilityRegistry::hidden())->orderBy('source')->orderBy('key')->get()->map(fn (Capability $capability) => [
                 'id' => $capability->id,
                 'key' => $capability->key,
                 'name' => $capability->name,

@@ -106,6 +106,9 @@ final class CapabilityRegistry
     /** @var list<string> */
     private static array $alwaysOn = [];
 
+    /** Used by the platform itself, never given to agents nor listed for admins. */
+    public const INTERNAL = ['budget.override'];
+
     /** Given to every agent that has at least one usable skill. */
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
@@ -129,6 +132,17 @@ final class CapabilityRegistry
     public static function register(string ...$classes): void
     {
         self::$registered = array_values(array_unique([...self::$registered, ...$classes]));
+    }
+
+    /**
+     * Keys admins never assign by hand: internal ones and the skill tools,
+     * which come with the skills.
+     *
+     * @return list<string>
+     */
+    public static function hidden(): array
+    {
+        return [...self::INTERNAL, ...self::SKILL_TOOLS];
     }
 
     /**
