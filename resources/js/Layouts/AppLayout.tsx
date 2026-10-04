@@ -2,6 +2,10 @@ import { Link, router, usePage } from '@inertiajs/react';
 import {
     Activity,
     Bell,
+    CircleDot,
+    MessagesSquare,
+    Network,
+    Target,
     Bot,
     Briefcase,
     Building2,
@@ -84,17 +88,20 @@ interface NavItem {
     icon: LucideIcon;
     managersOnly?: boolean;
     tenantManagersOnly?: boolean;
-    badge?: 'approvals' | 'notifications';
+    badge?: 'approvals' | 'notifications' | 'waiting';
 }
 
 const topNav: NavItem[] = [
     { label: 'Painel', href: '/', icon: LayoutDashboard },
+    { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
     { label: 'Caixa de entrada', href: '/inbox', icon: Inbox },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
     { label: 'Notificações', href: '/notifications', icon: Bell, badge: 'notifications' },
 ];
 
 const workNav: NavItem[] = [
+    { label: 'Conversas', href: '/tasks?view=chats', icon: MessagesSquare },
+    { label: 'Objectivos', href: '/goals', icon: Target },
     { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Briefings', href: '/briefings', icon: FileText },
     { label: 'Documentos', href: '/reports', icon: Files },
@@ -110,6 +117,7 @@ const areasNav: NavItem[] = [
 ];
 
 const companyNav: NavItem[] = [
+    { label: 'Organigrama', href: '/org', icon: Network },
     { label: 'Utilizadores', href: '/settings/users', icon: Users, tenantManagersOnly: true },
     { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
     { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, tenantManagersOnly: true },
@@ -158,7 +166,7 @@ function NavGroup({ label, items, isActive, counts }: { label?: string; items: N
                                 <SidebarMenuBadge
                                     className={cn(
                                         'rounded-full px-1.5 font-mono text-[11px]',
-                                        item.badge === 'approvals' ? 'bg-status-warning/20 text-foreground' : 'bg-primary text-primary-foreground',
+                                        item.badge === 'approvals' || item.badge === 'waiting' ? 'bg-status-warning/20 text-foreground' : 'bg-primary text-primary-foreground',
                                     )}
                                 >
                                     {count > 99 ? '99+' : count}
@@ -273,8 +281,18 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
         }
     }, [flash.success, flash.error]);
 
-    const isActive = (href: string) => (href === '/' ? url === '/' : url === href || url.startsWith(`${href}/`));
-    const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications };
+    const fullUrl = page.url;
+    const isActive = (href: string) => {
+        if (href.includes('?')) {
+            return fullUrl.startsWith(href);
+        }
+        if (href === '/') {
+            return url === '/';
+        }
+
+        return (url === href || url.startsWith(`${href}/`)) && !(href === '/tasks' && fullUrl.includes('view=chats'));
+    };
+    const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks };
     const allNav = [...topNav, ...workNav, ...areasNav, ...companyNav];
     const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
     const trail: Crumb[] = breadcrumbs ?? (current ? [{ label: current.label }] : url.startsWith('/agents') ? [{ label: 'Agentes' }] : []);

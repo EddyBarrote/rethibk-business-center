@@ -15,7 +15,7 @@ export interface SharedProps {
     app: { name: string; locale: string };
     tenant: { id: number; name: string; slug: string } | null;
     admin: { id: number; name: string; email: string } | null;
-    auth: { user: AuthUser | null; pending_approvals: number; unread_notifications: number };
+    auth: { user: AuthUser | null; pending_approvals: number; unread_notifications: number; waiting_tasks: number };
     flash: { success: string | null; error: string | null };
     sidebar_agents: { id: number; name: string; status: 'active' | 'suspended'; running: number }[];
 }

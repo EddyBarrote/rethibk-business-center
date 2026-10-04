@@ -2,8 +2,10 @@
 
 use App\Ai\Agents\GenericAgent;
 use App\Ai\Agents\ToolResolver;
+use App\Ai\Budget\BudgetGuard;
 use App\Ai\Knowledge\KnowledgeBase;
 use App\Ai\Runs\AgentRunner;
+use App\Ai\Runs\ApprovalService;
 use App\Ai\Skills\SkillCatalog;
 use App\Ai\Skills\SkillContext;
 use App\Enums\AgentStatus;
@@ -16,11 +18,13 @@ use App\Mail\AgentMessage;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
 use App\Models\AgentRun;
+use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\BudgetEvent;
 use App\Models\Mailbox;
 use App\Models\Skill;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -50,6 +54,42 @@ it('cuts an agent off when its monthly budget is spent, and warns at 80%', funct
         expect($next->fresh()->status)->toBe(RunStatus::Failed)
             ->and($next->fresh()->error)->toContain('orçamento')
             ->and($agent->fresh()->status)->toBe(AgentStatus::Suspended);
+    });
+});
+
+it('asks for a budget exception when the cap runs out, and resumes the agent once an owner approves', function () {
+    $this->tenant->update(['settings' => ['ai_budget' => ['agent_monthly_usd' => 10]]]);
+    Queue::fake();
+
+    asTenant($this->tenant->fresh(), function () {
+        app(SkillCatalog::class)->syncLocal();
+        $owner = User::factory()->owner()->create();
+        $boss = User::factory()->create();
+        $agent = Agent::factory()->create(['reports_to_user_id' => $boss->id]);
+        AgentRun::factory()->create(['agent_id' => $agent->id, 'cost_usd' => 10.5]);
+
+        GenericAgent::fake(['Não devia correr.']);
+        app(AgentRunner::class)->run(app(AgentRunner::class)->create($agent, 'Olá', TriggerType::Manual));
+
+        $approval = Approval::query()->where('action_type', 'budget.override')->sole();
+        expect($agent->fresh()->status)->toBe(AgentStatus::Suspended)
+            ->and($approval->payload['extra_usd'])->toBe(5)
+            ->and($approval->ceiling_reason)->not->toBeNull()
+            ->and($boss->can('decide', $approval))->toBeFalse()
+            ->and($owner->can('decide', $approval))->toBeTrue();
+
+        $approvals = app(ApprovalService::class);
+        $approvals->approve($approval, $owner);
+        $approvals->execute($approval->fresh());
+
+        expect($approval->fresh()->execution_status->value)->toBe('executed')
+            ->and($agent->fresh()->status)->toBe(AgentStatus::Active)
+            ->and(app(BudgetGuard::class)->agentCap($agent))->toBe(15.0);
+
+        GenericAgent::fake(['Já posso.']);
+        $next = app(AgentRunner::class)->create($agent->fresh(), 'Outra vez', TriggerType::Manual);
+        app(AgentRunner::class)->run($next);
+        expect($next->fresh()->status)->toBe(RunStatus::Completed);
     });
 });
 

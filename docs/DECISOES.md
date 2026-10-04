@@ -65,3 +65,19 @@ Alternativa descartada: Mailgun/Postmark só nas caixas dos agentes.
 | Ecrãs de Finanças, Contratos e Clientes | Só chefias (proprietário, administrador, responsável de departamento). Requisições: cada pessoa vê as suas, as chefias vêem todas. Caixa: membros vêem os emails encaminhados a si ou ao seu departamento. | Controladores |
 | RH no ERP | O contrato do ERP não tinha RH nem margens por projecto. Pedidas 11 ferramentas novas (`projects.list`, `procurement.record_quote`, `procurement.list_orders`, `hr.*`), já no servidor falso. | [ERP-MCP-CONTRACT.md](ERP-MCP-CONTRACT.md) § 4.1 |
 | Decisões em vigor | As decisões registadas nos últimos 90 dias (até 8) entram nas instruções de todos os agentes. | `InstructionComposer` |
+
+## Inspiração Paperclip: tarefas, organigrama, objectivos e orçamento (04.10.2026)
+
+O Barrote pediu para adaptar o MICOMOC ao modelo do [Paperclip](https://github.com/paperclipai/paperclip) (licença MIT) e aprovou quatro mudanças, com uma precisão: os agentes funcionam como assistentes, em conversa ou em acção directa, como o Hermes.
+
+| Tema | Decisão | Onde está |
+|---|---|---|
+| Tarefas | A unidade de trabalho é a tarefa (`tasks`), e cada tarefa é também uma conversa (`task_messages`). Uma "Conversa" é uma tarefa `kind=chat`, sem fluxo de estados. Estados: por fazer, em curso, à tua espera, em revisão, bloqueada, feita, cancelada. Identificador por tenant (MIC-12). | `App\Tasks\TaskThread`, `TaskController` |
+| Conversar e executar | Cada mensagem acorda o agente atribuído, que responde com o histórico do fio (`GenericAgent` implementa `Conversational`). O modo "Executar" envia uma acção directa: o agente executa já e reporta. Uma execução de cada vez por tarefa; mensagens que chegam entretanto são respondidas a seguir. | `TaskThread::wake`, `recordReply` |
+| Agente fala primeiro | `tasks.ask_human` faz uma pergunta a uma pessoa: dentro de uma tarefa põe-na "à tua espera"; fora abre uma conversa nova. A resposta acorda o agente. | Skill `tasks.ask_human` |
+| Entre agentes | `tasks.create` delega trabalho a outro agente seguindo o organigrama (para baixo, ou à chefia directa; um agente fora do organigrama pode pedir a qualquer um). Profundidade máxima 3. Quando a tarefa delegada fica feita, o relatório entra no fio de origem e acorda o agente que delegou. | Skills `tasks.*` (sempre activas), `OrgChart` |
+| Organigrama | `agents.reports_to_agent_id` (o agente reporta a outro agente), além de `reports_to_user_id` (a pessoa responsável). Sem ciclos. Editável por proprietários e administradores no ecrã Organigrama. | `OrgController` |
+| Objectivos | `goals` em árvore; as tarefas ligam-se a um objectivo e o progresso é tarefas feitas / total. Chefias criam e editam. | `GoalController` |
+| Excepção de orçamento | A paragem a 100% já existia. Agora, ao atingir o tecto, nasce uma aprovação `budget.override` (tecto absoluto: decide sempre um proprietário ou administrador) que propõe +50% do tecto até ao fim do mês. Aprovada, aumenta o tecto do mês (`tenants.settings.ai_budget_extra`) e reactiva os agentes que o tecto parou. | `BudgetGuard::grantExtra`, skill `budget.override` |
+| Canais externos | WhatsApp, Telegram e afins ficam para depois; tudo acontece na consola, com notificações. | — |
+| Interface | Regras de desenho em [UI.md](UI.md). | — |

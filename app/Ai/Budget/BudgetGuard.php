@@ -2,13 +2,18 @@
 
 namespace App\Ai\Budget;
 
+use App\Ai\Autonomy\GateDecision;
+use App\Ai\Runs\ApprovalService;
+use App\Ai\Skills\SkillContext;
 use App\Enums\AgentStatus;
 use App\Enums\AuditResult;
+use App\Enums\AutonomyLevel;
 use App\Events\BudgetThresholdReached;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
 use App\Models\BudgetEvent;
+use App\Models\Skill;
 use App\Tenancy\TenantManager;
 use Illuminate\Database\UniqueConstraintViolationException;
 
@@ -19,7 +24,83 @@ use Illuminate\Database\UniqueConstraintViolationException;
  */
 final class BudgetGuard
 {
+    private const AGENT_REASON = 'Orçamento mensal do agente esgotado.';
+
+    private const TENANT_REASON = 'Orçamento mensal da organização esgotado.';
+
     public function __construct(private readonly TenantManager $tenants) {}
+
+    /**
+     * The organisation's monthly cap plus any exception approved this month.
+     */
+    public function tenantCap(): float
+    {
+        return (float) $this->budget()->tenantMonthly + $this->extra('tenant');
+    }
+
+    public function agentCap(Agent $agent): float
+    {
+        return (float) $this->budget()->agentMonthly + $this->extra('agent:'.$agent->id);
+    }
+
+    /**
+     * Apply an approved budget exception: raise the cap for the period and
+     * wake the agents the cap had stopped.
+     *
+     * @return list<string> names of the agents reactivated
+     */
+    public function grantExtra(string $scope, ?int $agentId, float $amount, string $period): array
+    {
+        $tenant = $this->tenants->currentOrFail();
+        $key = $scope === 'tenant' ? 'tenant' : 'agent:'.$agentId;
+        $settings = $tenant->settings ?? [];
+        $settings['ai_budget_extra'][$period][$key] = round((float) ($settings['ai_budget_extra'][$period][$key] ?? 0) + $amount, 4);
+        $tenant->forceFill(['settings' => $settings])->save();
+
+        AuditLog::record(null, 'budget.extra_granted', ['scope' => $key, 'extra_usd' => $amount, 'period' => $period]);
+
+        $suspended = Agent::query()
+            ->where('status', AgentStatus::Suspended)
+            ->where('suspended_reason', $scope === 'tenant' ? self::TENANT_REASON : self::AGENT_REASON)
+            ->when($scope === 'agent', fn ($q) => $q->whereKey($agentId))
+            ->get();
+
+        $suspended->each(function (Agent $agent) {
+            $agent->forceFill(['status' => AgentStatus::Active, 'suspended_reason' => null])->save();
+            AuditLog::record(null, 'agent.reactivated', ['reason' => 'Excepção de orçamento aprovada.'], AuditResult::Ok, $agent);
+        });
+
+        return $suspended->pluck('name')->values()->all();
+    }
+
+    private function extra(string $key): float
+    {
+        $tenant = $this->tenants->currentOrFail();
+
+        return (float) ($tenant->settings['ai_budget_extra'][now()->format('Y-m')][$key] ?? 0);
+    }
+
+    /**
+     * Ask a person whether to allow more spend this month (Paperclip's budget
+     * override approval). Half the cap again by default, at least 1 USD.
+     */
+    private function requestOverride(AgentRun $run, string $scope, float $cap): void
+    {
+        $skill = Skill::query()->where('key', 'budget.override')->first();
+
+        if ($skill === null) {
+            return;
+        }
+
+        $arguments = [
+            'scope' => $scope,
+            'agent_id' => $scope === 'agent' ? $run->agent_id : null,
+            'extra_usd' => max(1.0, round($cap * 0.5, 2)),
+            'period' => now()->format('Y-m'),
+        ];
+
+        app(ApprovalService::class)->request($skill, $arguments, new GateDecision(false, AutonomyLevel::ExecuteAndReport, 'aumentar o orçamento de IA é sempre uma decisão humana'), new SkillContext($run->agent, $run));
+    }
 
     public function budget(): AiBudget
     {
@@ -43,12 +124,12 @@ final class BudgetGuard
     {
         $budget = $this->budget();
 
-        if ($budget->tenantMonthly !== null && $this->tenantSpent() >= $budget->tenantMonthly) {
+        if ($budget->tenantMonthly !== null && $this->tenantSpent() >= $this->tenantCap()) {
             throw new BudgetExceeded('tenant', 'O orçamento mensal de IA da organização está esgotado.');
         }
 
-        if ($budget->agentMonthly !== null && $this->agentSpent($agent) >= $budget->agentMonthly) {
-            $this->suspend($agent, 'Orçamento mensal do agente esgotado.');
+        if ($budget->agentMonthly !== null && $this->agentSpent($agent) >= $this->agentCap($agent)) {
+            $this->suspend($agent, self::AGENT_REASON);
 
             throw new BudgetExceeded('agent', 'O orçamento mensal deste agente está esgotado.');
         }
@@ -78,11 +159,13 @@ final class BudgetGuard
 
         if ($budget->tenantMonthly !== null) {
             $spent = $this->tenantSpent();
+            $cap = $this->tenantCap();
 
             foreach ([100 => 1.0, (int) round($ratio * 100) => $ratio] as $threshold => $share) {
-                if ($spent >= $budget->tenantMonthly * $share) {
-                    if ($this->record($run, null, 'tenant', 'tenant', $threshold, $spent, $budget->tenantMonthly) && $threshold === 100) {
-                        Agent::query()->where('status', AgentStatus::Active)->each(fn (Agent $a) => $this->suspend($a, 'Orçamento mensal da organização esgotado.'));
+                if ($spent >= $cap * $share) {
+                    if ($this->record($run, null, 'tenant', 'tenant', $threshold, $spent, $cap) && $threshold === 100) {
+                        Agent::query()->where('status', AgentStatus::Active)->each(fn (Agent $a) => $this->suspend($a, self::TENANT_REASON));
+                        $this->requestOverride($run, 'tenant', $cap);
                     }
 
                     break;
@@ -92,11 +175,13 @@ final class BudgetGuard
 
         if ($budget->agentMonthly !== null) {
             $spent = $this->agentSpent($agent);
+            $cap = $this->agentCap($agent);
 
             foreach ([100 => 1.0, (int) round($ratio * 100) => $ratio] as $threshold => $share) {
-                if ($spent >= $budget->agentMonthly * $share) {
-                    if ($this->record($run, $agent, 'agent', 'agent:'.$agent->id, $threshold, $spent, $budget->agentMonthly) && $threshold === 100) {
-                        $this->suspend($agent, 'Orçamento mensal do agente esgotado.');
+                if ($spent >= $cap * $share) {
+                    if ($this->record($run, $agent, 'agent', 'agent:'.$agent->id, $threshold, $spent, $cap) && $threshold === 100) {
+                        $this->suspend($agent, self::AGENT_REASON);
+                        $this->requestOverride($run, 'agent', $cap);
                     }
 
                     break;

@@ -39,6 +39,11 @@ class ApprovalPolicy
             return true;
         }
 
+        // Spending more than the organisation decided is for owners and admins.
+        if ($approval->action_type === 'budget.override') {
+            return false;
+        }
+
         $agent = $approval->agent;
 
         return $agent->reports_to_user_id === $actor->id

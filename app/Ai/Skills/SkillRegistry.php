@@ -3,6 +3,7 @@
 namespace App\Ai\Skills;
 
 use App\Ai\Skills\Local\AskHuman;
+use App\Ai\Skills\Local\BudgetOverride;
 use App\Ai\Skills\Local\ClassifyEmail;
 use App\Ai\Skills\Local\ClientSheet;
 use App\Ai\Skills\Local\CompareQuotes;
@@ -88,6 +89,8 @@ final class SkillRegistry
         AskHuman::class,
         UpdateTaskStatus::class,
         ListTasks::class,
+        // Requested by the platform when a cap runs out; never given to agents.
+        BudgetOverride::class,
     ];
 
     /** Given to every agent, whatever its configuration (section 13.2). */

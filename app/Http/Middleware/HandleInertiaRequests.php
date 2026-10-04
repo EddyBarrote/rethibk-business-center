@@ -4,10 +4,12 @@ namespace App\Http\Middleware;
 
 use App\Enums\AgentStatus;
 use App\Enums\RunStatus;
+use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\PlatformAdmin;
+use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -58,6 +60,7 @@ class HandleInertiaRequests extends Middleware
                     'is_manager' => $user->isManager(),
                 ] : null,
                 'unread_notifications' => fn () => $user instanceof User && $tenant !== null ? $user->unreadNotifications()->count() : 0,
+                'waiting_tasks' => fn () => $user instanceof User && $tenant !== null ? Task::query()->where('user_id', $user->id)->where('status', TaskStatus::WaitingHuman)->count() : 0,
                 'pending_approvals' => fn () => $user instanceof User && $tenant !== null ? Approval::query()->visibleTo($user)->pending()->count() : 0,
             ],
             // Agents listed in the sidebar with a live "running" marker (Paperclip-style navigation).
