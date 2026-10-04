@@ -94,6 +94,7 @@ final class AgentRunner
             }
 
             $this->budget->assertCanRun($agent);
+            $this->assertProviderConfigured($agent);
 
             $context = new SkillContext($agent, $run);
             $generic = new GenericAgent($agent, $run, $this->composer->for($agent), $this->tools->for($context));
@@ -118,7 +119,7 @@ final class AgentRunner
                 'cost_usd' => $this->pricing->cost($provider, $model, $input, $output),
             ]);
         } catch (Throwable $e) {
-            $message = $e instanceof BudgetExceeded ? $e->getMessage() : 'O agente falhou: '.Str::limit($e->getMessage(), 500);
+            $message = $e instanceof BudgetExceeded || $e instanceof MissingProviderKey ? $e->getMessage() : 'O agente falhou: '.Str::limit($e->getMessage(), 500);
 
             $this->recorder->step($run, StepType::Error, ['message' => $message]);
 
@@ -128,7 +129,7 @@ final class AgentRunner
                 'cost_usd' => $this->runCosts[$run->id] ?? 0.0,
             ]);
 
-            if (! $e instanceof BudgetExceeded) {
+            if (! $e instanceof BudgetExceeded && ! $e instanceof MissingProviderKey) {
                 report($e);
             }
         } finally {
@@ -157,6 +158,21 @@ final class AgentRunner
      * Per-run cap (section 14.3): checked after every model step, so a run
      * that loops on tools is stopped mid-way.
      */
+    /**
+     * A clear message instead of the provider's 401/403 when the key is missing.
+     */
+    private function assertProviderConfigured(Agent $agent): void
+    {
+        $provider = $agent->provider ?: (string) config('ai.default');
+        $config = config("ai.providers.{$provider}");
+
+        if (GenericAgent::isFaked() || ! is_array($config) || ! array_key_exists('key', $config) || filled($config['key'])) {
+            return;
+        }
+
+        throw new MissingProviderKey("Falta a chave da API do provedor {$provider} no ficheiro .env (por exemplo GEMINI_API_KEY ou ANTHROPIC_API_KEY). Depois de a pôr, reinicie o composer dev.");
+    }
+
     public function onStepCompleted(StepCompleted $event): void
     {
         if (! $event->agent instanceof GenericAgent || ! isset($this->runCosts[$event->agent->run->id])) {
