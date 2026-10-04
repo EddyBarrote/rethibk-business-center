@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\EmailCategory;
 use App\Enums\EmailStatus;
 use App\Enums\RunStatus;
+use App\Mail\AgentMessage;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Department;
@@ -148,5 +149,5 @@ it('lets a person send the draft reply the agent prepared', function () {
             ->and($sent->thread_id)->toBe(EmailMessage::query()->find(1)->thread_id);
     });
 
-    Mail::assertSent(App\Mail\AgentMessage::class, fn ($mail) => $mail->inReplyTo === '<req-1@baiaazul.co.mz>');
+    Mail::assertSent(AgentMessage::class, fn ($mail) => $mail->inReplyTo === '<req-1@baiaazul.co.mz>');
 });

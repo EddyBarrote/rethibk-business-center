@@ -1,5 +1,16 @@
 <?php
 
+use App\Ai\Runs\AgentRunner;
+use App\Ai\Skills\SkillCatalog;
+use App\Ai\Skills\SkillContext;
+use App\Ai\Skills\SkillRegistry;
+use App\Ai\Skills\SkillResult;
+use App\Ai\Templates\AgentTemplates;
+use App\Ai\Templates\TemplateInstaller;
+use App\Enums\TriggerType;
+use App\Models\Agent;
+use App\Models\ErpConnection;
+use App\Models\Skill;
 use App\Models\Tenant;
 use App\Tenancy\TenantManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -64,20 +75,20 @@ function mailFixture(string $name): string
  * In the current tenant: the local fake ERP, the full skill catalogue, and
  * the agent created from the given template (section 6.3).
  */
-function templateAgent(string $template, array $overrides = []): App\Models\Agent
+function templateAgent(string $template, array $overrides = []): Agent
 {
-    if (App\Models\ErpConnection::query()->doesntExist()) {
-        App\Models\ErpConnection::factory()->local()->create();
+    if (ErpConnection::query()->doesntExist()) {
+        ErpConnection::factory()->local()->create();
     }
 
-    $catalog = app(App\Ai\Skills\SkillCatalog::class);
+    $catalog = app(SkillCatalog::class);
     $catalog->syncLocal();
 
-    if (App\Models\Skill::query()->where('key', 'like', 'erp.%')->doesntExist()) {
+    if (Skill::query()->where('key', 'like', 'erp.%')->doesntExist()) {
         $catalog->syncErp();
     }
 
-    $agent = app(App\Ai\Templates\TemplateInstaller::class)->install(App\Ai\Templates\AgentTemplates::find($template))['agent'];
+    $agent = app(TemplateInstaller::class)->install(AgentTemplates::find($template))['agent'];
     $agent->update(['max_steps' => 12, ...$overrides]);
 
     return $agent->fresh();
@@ -86,9 +97,9 @@ function templateAgent(string $template, array $overrides = []): App\Models\Agen
 /**
  * Runs one skill as the agent, inside a fresh run.
  */
-function runSkill(App\Models\Agent $agent, string $key, array $arguments = []): App\Ai\Skills\SkillResult
+function runSkill(Agent $agent, string $key, array $arguments = []): SkillResult
 {
-    $run = app(App\Ai\Runs\AgentRunner::class)->create($agent, 'teste', App\Enums\TriggerType::Manual);
+    $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual);
 
-    return app(App\Ai\Skills\SkillRegistry::class)->find($key)->execute($arguments, new App\Ai\Skills\SkillContext($agent, $run));
+    return app(SkillRegistry::class)->find($key)->execute($arguments, new SkillContext($agent, $run));
 }

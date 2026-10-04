@@ -11,8 +11,11 @@ use App\Models\Approval;
 use App\Models\Briefing;
 use App\Models\Contract;
 use App\Models\Department;
+use App\Models\EmailMessage;
+use App\Models\PurchaseRequest;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Ai\Responses\Data\ToolCall;
 
@@ -34,11 +37,13 @@ beforeEach(function () {
 afterEach(fn () => @unlink($this->store));
 
 it('is scheduled at 06:30 on working days and weekly on Mondays', function () {
-    $events = collect(app(Illuminate\Console\Scheduling\Schedule::class)->events())->keyBy(fn ($e) => trim(Illuminate\Support\Str::after($e->command, 'artisan')));
+    $events = collect(app(Schedule::class)->events())->filter(fn ($e) => str_contains((string) $e->command, 'agents:daily-briefing'));
+    $daily = $events->first(fn ($e) => ! str_contains((string) $e->command, '--weekly'));
+    $weekly = $events->first(fn ($e) => str_contains((string) $e->command, '--weekly'));
 
-    expect($events["'agents:daily-briefing'"]->expression)->toBe('30 6 * * 1-5')
-        ->and($events["'agents:daily-briefing'"]->timezone)->toBe('Africa/Maputo')
-        ->and($events["'agents:daily-briefing' --weekly"]->expression)->toBe('0 7 * * 1');
+    expect($daily->expression)->toBe('30 6 * * 1-5')
+        ->and($daily->timezone)->toBe('Africa/Maputo')
+        ->and($weekly->expression)->toBe('0 7 * * 1');
 });
 
 it('writes the daily briefing, delivers it by email and console, and links the decisions', function () {
@@ -84,8 +89,8 @@ it('writes the daily briefing, delivers it by email and console, and links the d
 
 it('finds blockers and inconsistencies across areas', function () {
     asTenant($this->tenant, function () {
-        App\Models\EmailMessage::factory()->create(['classification' => 'lead', 'status' => 'processed', 'erp_lead_id' => null, 'subject' => 'Proposta sem lead']);
-        App\Models\PurchaseRequest::factory()->create(['status' => 'ordered', 'erp_po_id' => null, 'title' => 'Cimento']);
+        EmailMessage::factory()->create(['classification' => 'lead', 'status' => 'processed', 'erp_lead_id' => null, 'subject' => 'Proposta sem lead']);
+        PurchaseRequest::factory()->create(['status' => 'ordered', 'erp_po_id' => null, 'title' => 'Cimento']);
         Approval::factory()->create(['created_at' => now()->subDays(2), 'action_summary' => 'Enviar email ao cliente']);
 
         $issues = collect(json_decode(runSkill($this->cos, 'platform.detect_issues')->content, true)['issues']);
