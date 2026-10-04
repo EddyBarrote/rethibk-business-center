@@ -1,14 +1,16 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { Head, useForm } from '@inertiajs/react';
+import { FileSignature, FileText, Mail, Sparkles } from 'lucide-react';
 import { type FormEvent } from 'react';
 
+import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
+import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
-import { Badge } from '@/Components/ui/badge';
+import { StatusBadge, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import AppLayout from '@/Layouts/AppLayout';
-import { date, dateTime, mzn } from '@/lib/format';
+import { ago, date, dateTime, mzn } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 type Row = Record<string, unknown>;
 
@@ -20,7 +22,15 @@ interface Sheet {
     receivables: (Row & { id?: string; number?: string; outstanding?: number; days_overdue?: number; due_date?: string })[] | null;
     leads: (Row & { id?: string; title?: string; status?: string; estimated_value?: number })[] | null;
     contracts: { id: number; title: string; value: number | null; ends_at: string | null; status: string; sla_response_hours: number | null }[];
-    recent_emails: { id: number; subject: string | null; from: string | null; category: string | null; summary: string | null; received_at: string | null; link: string }[];
+    recent_emails: {
+        id: number;
+        subject: string | null;
+        from: string | null;
+        category: string | null;
+        summary: string | null;
+        received_at: string | null;
+        link: string;
+    }[];
 }
 
 const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
@@ -41,130 +51,241 @@ const ERP_STATUS: Record<string, string> = {
 };
 const status = (v: unknown) => ERP_STATUS[s(v)] ?? s(v);
 
-export default function ClientShow({ sheet, accountId, briefs }: { sheet: Sheet; accountId: string; briefs: { id: number; title: string; created_at: string }[] }) {
+const erpTone = (v: unknown): Tone =>
+    (({
+        planned: 'idle',
+        in_progress: 'running',
+        on_hold: 'warning',
+        completed: 'success',
+        cancelled: 'idle',
+        new: 'idle',
+        contacted: 'running',
+        qualified: 'running',
+        proposal: 'warning',
+        won: 'success',
+        lost: 'danger',
+    })[s(v)] as Tone) ?? 'idle';
+
+const CONTRACT_STATUS: Record<string, { label: string; tone: Tone }> = {
+    active: { label: 'Activo', tone: 'success' },
+    renewing: { label: 'Em renovação', tone: 'warning' },
+    ended: { label: 'Terminado', tone: 'idle' },
+    cancelled: { label: 'Cancelado', tone: 'idle' },
+};
+const contract = (v: string) => CONTRACT_STATUS[v] ?? { label: v, tone: 'idle' as Tone };
+
+export default function ClientShow({
+    sheet,
+    accountId,
+    briefs,
+}: {
+    sheet: Sheet;
+    accountId: string;
+    briefs: { id: number; title: string; created_at: string }[];
+}) {
     const form = useForm({ meeting: '' });
     const submit = (event: FormEvent) => {
         event.preventDefault();
         form.post(`/clients/${accountId}/brief`);
     };
 
+    const name = s(sheet.account.name);
+    const receivables = sheet.receivables ?? [];
+    const projects = sheet.projects ?? [];
+    const leads = sheet.leads ?? [];
+
     return (
-        <AppLayout>
-            <Head title={s(sheet.account.name)} />
-            <div>
-                <Link href="/clients" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                    <ArrowLeft className="size-4" />
-                    Clientes
-                </Link>
-            </div>
-            <PageHeader title={s(sheet.account.name)} description={[accountId, sheet.account.sector, sheet.account.city, sheet.account.nuit && `NUIT ${sheet.account.nuit}`].filter(Boolean).join(' · ')} />
+        <AppLayout wide breadcrumbs={[{ label: 'Clientes', href: '/clients' }, { label: name }]}>
+            <Head title={name} />
+            <PageHeader title={name} description={[sheet.account.sector, sheet.account.city].filter(Boolean).join(' · ') || undefined} />
 
-            <Card>
-                <form onSubmit={submit}>
-                    <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <Input placeholder="Reunião (ex.: 5 de Outubro, revisão do contrato de manutenção)" value={form.data.meeting} onChange={(e) => form.setData('meeting', e.target.value)} />
-                        <Button type="submit" disabled={form.processing}>
-                            <Sparkles />
-                            Preparar briefing de reunião
-                        </Button>
-                    </CardContent>
-                </form>
-            </Card>
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <div className="flex min-w-0 flex-col gap-8">
+                    <form onSubmit={submit} className="rounded-xl border bg-card p-5">
+                        <h2 className="mb-3 text-sm font-semibold">Briefing de reunião</h2>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                            <Field id="meeting" label="Reunião" error={form.errors.meeting} className="flex-1">
+                                <Input
+                                    id="meeting"
+                                    placeholder="Ex.: 5 de Outubro, revisão do contrato de manutenção"
+                                    value={form.data.meeting}
+                                    onChange={(e) => form.setData('meeting', e.target.value)}
+                                />
+                            </Field>
+                            <Button type="submit" disabled={form.processing}>
+                                <Sparkles />
+                                Preparar briefing de reunião
+                            </Button>
+                        </div>
+                    </form>
 
-            <div className="grid gap-6 lg:grid-cols-3">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Contactos</CardTitle>
-                        <CardDescription>
-                            {s(sheet.account.email)} · {s(sheet.account.phone)} · pagamento a {s(sheet.account.payment_terms_days)} dias
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="mt-2 grid gap-2 text-sm">
-                        {sheet.contacts.map((c, i) => (
-                            <p key={i}>
-                                <span className="font-medium">{s(c.name)}</span> · {s(c.role)}
-                                <span className="block text-xs text-muted-foreground">
-                                    {s(c.email)} {s(c.phone)}
-                                </span>
+                    <Section
+                        title="Facturas por receber"
+                        action={<span className="font-mono text-sm font-medium tabular-nums">{mzn(sheet.balance_due)}</span>}
+                    >
+                        {receivables.length === 0 ? (
+                            <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">Sem facturas por receber.</p>
+                        ) : (
+                            <ListPanel>
+                                {receivables.map((r, i) => {
+                                    const overdue = Number(r.days_overdue ?? 0);
+
+                                    return (
+                                        <EntityRow
+                                            key={i}
+                                            title={<span className="font-mono">{s(r.number ?? r.id)}</span>}
+                                            subtitle={r.due_date ? `Vence ${date(s(r.due_date))}` : undefined}
+                                            meta={
+                                                <span className="font-mono text-sm text-foreground tabular-nums">
+                                                    {mzn(Number(r.outstanding ?? 0))}
+                                                </span>
+                                            }
+                                            trailing={
+                                                overdue > 0 ? (
+                                                    <StatusBadge tone="danger" className="tabular-nums">
+                                                        {overdue} dias
+                                                    </StatusBadge>
+                                                ) : (
+                                                    <StatusBadge tone="idle">no prazo</StatusBadge>
+                                                )
+                                            }
+                                        />
+                                    );
+                                })}
+                            </ListPanel>
+                        )}
+                    </Section>
+
+                    {(projects.length > 0 || leads.length > 0) && (
+                        <Section title="Projectos e oportunidades">
+                            <ListPanel>
+                                {projects.map((p, i) => (
+                                    <EntityRow
+                                        key={`p${i}`}
+                                        title={s(p.name)}
+                                        subtitle="Projecto"
+                                        meta={p.id ? <span className="font-mono">{s(p.id)}</span> : undefined}
+                                        trailing={<StatusBadge tone={erpTone(p.status)}>{status(p.status)}</StatusBadge>}
+                                    />
+                                ))}
+                                {leads.map((l, i) => (
+                                    <EntityRow
+                                        key={`l${i}`}
+                                        title={s(l.title)}
+                                        subtitle="Lead"
+                                        meta={
+                                            l.estimated_value ? (
+                                                <span className="font-mono tabular-nums">{mzn(Number(l.estimated_value))}</span>
+                                            ) : undefined
+                                        }
+                                        trailing={<StatusBadge tone={erpTone(l.status)}>{status(l.status)}</StatusBadge>}
+                                    />
+                                ))}
+                            </ListPanel>
+                        </Section>
+                    )}
+
+                    <Section title="Emails recentes">
+                        {sheet.recent_emails.length === 0 ? (
+                            <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                                Sem emails deste cliente nas caixas dos agentes.
                             </p>
-                        ))}
-                    </CardContent>
-                </Card>
+                        ) : (
+                            <ListPanel>
+                                {sheet.recent_emails.map((e) => (
+                                    <EntityRow
+                                        key={e.id}
+                                        href={e.link}
+                                        leading={<Mail className="size-4 text-muted-foreground" />}
+                                        title={e.subject ?? '(sem assunto)'}
+                                        subtitle={e.summary ?? e.from}
+                                        meta={
+                                            <span className="tabular-nums" title={dateTime(e.received_at)}>
+                                                {ago(e.received_at)}
+                                            </span>
+                                        }
+                                    />
+                                ))}
+                            </ListPanel>
+                        )}
+                    </Section>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Em dívida: {mzn(sheet.balance_due)}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="mt-2 grid gap-1 text-sm">
-                        {(sheet.receivables ?? []).length === 0 && <p className="text-muted-foreground">Sem facturas por receber.</p>}
-                        {(sheet.receivables ?? []).map((r, i) => (
-                            <p key={i} className="flex justify-between gap-2">
-                                <span>{s(r.number ?? r.id)}</span>
-                                <span className="tabular-nums">
-                                    {mzn(Number(r.outstanding ?? 0))}
-                                    {Number(r.days_overdue ?? 0) > 0 && <Badge variant="destructive" className="ml-2">{s(r.days_overdue)} dias</Badge>}
-                                </span>
-                            </p>
-                        ))}
-                    </CardContent>
-                </Card>
+                    <Section title="Contratos e briefings">
+                        {sheet.contracts.length === 0 && briefs.length === 0 ? (
+                            <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">Sem contratos registados.</p>
+                        ) : (
+                            <ListPanel>
+                                {sheet.contracts.map((c) => (
+                                    <EntityRow
+                                        key={c.id}
+                                        href={`/contracts/${c.id}`}
+                                        leading={<FileSignature className="size-4 text-muted-foreground" />}
+                                        title={c.title}
+                                        subtitle={[`fim ${date(c.ends_at)}`, c.sla_response_hours && `SLA ${c.sla_response_hours} h`]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                        meta={<span className="font-mono tabular-nums">{mzn(c.value)}</span>}
+                                        trailing={<StatusBadge tone={contract(c.status).tone}>{contract(c.status).label}</StatusBadge>}
+                                    />
+                                ))}
+                                {briefs.map((b) => (
+                                    <EntityRow
+                                        key={`b${b.id}`}
+                                        href={`/reports/${b.id}`}
+                                        leading={<FileText className="size-4 text-primary" />}
+                                        title={b.title}
+                                        subtitle="Briefing de reunião"
+                                        meta={
+                                            <span className="tabular-nums" title={dateTime(b.created_at)}>
+                                                {ago(b.created_at)}
+                                            </span>
+                                        }
+                                    />
+                                ))}
+                            </ListPanel>
+                        )}
+                    </Section>
+                </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Projectos e oportunidades</CardTitle>
-                    </CardHeader>
-                    <CardContent className="mt-2 grid gap-1 text-sm">
-                        {(sheet.projects ?? []).map((p, i) => (
-                            <p key={i}>
-                                {s(p.name)} <Badge variant="outline">{status(p.status)}</Badge>
-                            </p>
-                        ))}
-                        {(sheet.leads ?? []).map((l, i) => (
-                            <p key={`l${i}`} className="text-muted-foreground">
-                                Lead: {s(l.title)} · {status(l.status)}
-                                {l.estimated_value ? ` · ${mzn(Number(l.estimated_value))}` : ''}
-                            </p>
-                        ))}
-                    </CardContent>
-                </Card>
-            </div>
+                <div className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
+                    <Properties title="Cliente">
+                        <Property label="ID">
+                            <span className="font-mono text-xs">{accountId}</span>
+                        </Property>
+                        <Property label="NUIT">{sheet.account.nuit && <span className="font-mono text-xs">{s(sheet.account.nuit)}</span>}</Property>
+                        <Property label="Sector">{sheet.account.sector && s(sheet.account.sector)}</Property>
+                        <Property label="Cidade">{sheet.account.city && s(sheet.account.city)}</Property>
+                        <Property label="Email">{sheet.account.email && s(sheet.account.email)}</Property>
+                        <Property label="Telefone">{sheet.account.phone && <span className="tabular-nums">{s(sheet.account.phone)}</span>}</Property>
+                        <Property label="Pagamento">
+                            {sheet.account.payment_terms_days !== undefined && sheet.account.payment_terms_days !== null && (
+                                <span className="tabular-nums">{s(sheet.account.payment_terms_days)} dias</span>
+                            )}
+                        </Property>
+                        <Property label="Em dívida">
+                            <span className={cn('font-mono tabular-nums', (sheet.balance_due ?? 0) > 0 && 'font-medium')}>
+                                {mzn(sheet.balance_due)}
+                            </span>
+                        </Property>
+                    </Properties>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Emails recentes</CardTitle>
-                    </CardHeader>
-                    <CardContent className="mt-2 grid gap-2 text-sm">
-                        {sheet.recent_emails.length === 0 && <p className="text-muted-foreground">Sem emails deste cliente nas caixas dos agentes.</p>}
-                        {sheet.recent_emails.map((e) => (
-                            <Link key={e.id} href={e.link} className="hover:underline">
-                                <span className="block">{e.subject}</span>
-                                <span className="block text-xs text-muted-foreground">
-                                    {dateTime(e.received_at)} · {e.summary}
-                                </span>
-                            </Link>
-                        ))}
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Contratos e briefings</CardTitle>
-                    </CardHeader>
-                    <CardContent className="mt-2 grid gap-2 text-sm">
-                        {sheet.contracts.map((c) => (
-                            <Link key={c.id} href={`/contracts/${c.id}`} className="hover:underline">
-                                {c.title} · {mzn(c.value)} · fim {date(c.ends_at)}
-                                {c.sla_response_hours && ` · SLA ${c.sla_response_hours} h`}
-                            </Link>
-                        ))}
-                        {briefs.map((b) => (
-                            <Link key={b.id} href={`/reports/${b.id}`} className="text-primary hover:underline">
-                                {b.title} · {dateTime(b.created_at)}
-                            </Link>
-                        ))}
-                        {sheet.contracts.length === 0 && briefs.length === 0 && <p className="text-muted-foreground">Sem contratos registados.</p>}
-                    </CardContent>
-                </Card>
+                    <Section title="Contactos">
+                        {sheet.contacts.length === 0 ? (
+                            <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">Sem contactos no ERP.</p>
+                        ) : (
+                            <ListPanel>
+                                {sheet.contacts.map((c, i) => (
+                                    <EntityRow
+                                        key={i}
+                                        leading={<Monogram name={s(c.name)} />}
+                                        title={s(c.name)}
+                                        subtitle={[c.role, c.email, c.phone].filter(Boolean).map(s).join(' · ')}
+                                    />
+                                ))}
+                            </ListPanel>
+                        )}
+                    </Section>
+                </div>
             </div>
         </AppLayout>
     );

@@ -1,15 +1,14 @@
 import { Head, router } from '@inertiajs/react';
 import { Activity } from 'lucide-react';
 
+import { EntityRow, ListPanel, Monogram, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
-import { Card, CardContent } from '@/Components/ui/card';
 import { NativeSelect } from '@/Components/ui/native-select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import AppLayout from '@/Layouts/AppLayout';
-import { dateTime, usd } from '@/lib/format';
+import { ago, dateTime, usd } from '@/lib/format';
 import type { Paginated, RunSummary } from '@/types';
 
 const statuses = [
@@ -20,7 +19,11 @@ const statuses = [
     ['failed', 'Falhadas'],
 ];
 
+const duration = (ms: number | null) => (ms === null ? null : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
+
 export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummary>; filters: { status: string | null } }) {
+    const current = statuses.find(([value]) => value === (filters.status ?? ''))?.[1] ?? 'Todas';
+
     return (
         <AppLayout>
             <Head title="Execuções" />
@@ -28,7 +31,11 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                 title="Execuções"
                 description="Tudo o que os agentes fizeram, com custo e resultado."
                 actions={
-                    <NativeSelect value={filters.status ?? ''} onChange={(e) => router.get('/runs', e.target.value ? { status: e.target.value } : {}, { preserveState: true })}>
+                    <NativeSelect
+                        aria-label="Filtrar por estado"
+                        value={filters.status ?? ''}
+                        onChange={(e) => router.get('/runs', e.target.value ? { status: e.target.value } : {}, { preserveState: true })}
+                    >
                         {statuses.map(([value, label]) => (
                             <option key={value} value={value}>
                                 {label}
@@ -37,44 +44,50 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                     </NativeSelect>
                 }
             />
-            <Card>
-                <CardContent className="grid gap-4">
-                    {runs.data.length === 0 ? (
-                        <EmptyState icon={Activity} title="Sem execuções" description="As execuções dos agentes aparecem aqui." />
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>#</TableHead>
-                                    <TableHead>Agente</TableHead>
-                                    <TableHead>Pedido</TableHead>
-                                    <TableHead>Origem</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead className="text-right">Custo</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {runs.data.map((run) => (
-                                    <TableRow key={run.id} className="cursor-pointer" onClick={() => router.visit(`/runs/${run.id}`)}>
-                                        <TableCell className="tabular-nums">{run.id}</TableCell>
-                                        <TableCell className="font-medium">{run.agent.name}</TableCell>
-                                        <TableCell className="max-w-sm">
-                                            <p className="truncate">{run.input}</p>
-                                            <p className="text-xs text-muted-foreground">{dateTime(run.created_at)}</p>
-                                        </TableCell>
-                                        <TableCell>{run.trigger_label}</TableCell>
-                                        <TableCell>
-                                            <RunStatusBadge status={run.status} label={run.status_label} />
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">{usd(run.cost_usd)}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                    <Pagination page={runs} />
-                </CardContent>
-            </Card>
+
+            <Section title={current} action={<span className="text-xs text-muted-foreground tabular-nums">{runs.total} execuções</span>}>
+                {runs.data.length === 0 ? (
+                    <EmptyState
+                        icon={Activity}
+                        title="Sem execuções"
+                        description={
+                            filters.status
+                                ? 'Nenhuma execução com este estado. Escolha outro filtro.'
+                                : 'Abra um agente e faça-lhe um pedido; as execuções aparecem aqui assim que começarem.'
+                        }
+                    />
+                ) : (
+                    <ListPanel>
+                        {runs.data.map((run) => (
+                            <EntityRow
+                                key={run.id}
+                                href={`/runs/${run.id}`}
+                                leading={
+                                    <div className="flex items-center gap-3">
+                                        <span className="w-12 font-mono text-xs text-muted-foreground tabular-nums">#{run.id}</span>
+                                        <Monogram name={run.agent.name} agent />
+                                    </div>
+                                }
+                                title={run.input}
+                                subtitle={`${run.agent.name} · ${run.trigger_label}${run.requested_by ? ` · ${run.requested_by}` : ''}`}
+                                meta={
+                                    <>
+                                        <span className="hidden w-16 text-right font-mono tabular-nums lg:block">
+                                            {duration(run.duration_ms) ?? '—'}
+                                        </span>
+                                        <span className="w-16 text-right font-mono tabular-nums">{usd(run.cost_usd)}</span>
+                                        <span className="w-20 text-right" title={dateTime(run.created_at)}>
+                                            {ago(run.created_at)}
+                                        </span>
+                                    </>
+                                }
+                                trailing={<RunStatusBadge status={run.status} label={run.status_label} />}
+                            />
+                        ))}
+                    </ListPanel>
+                )}
+            </Section>
+            <Pagination page={runs} />
         </AppLayout>
     );
 }

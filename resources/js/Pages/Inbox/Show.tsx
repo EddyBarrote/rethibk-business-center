@@ -1,19 +1,20 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Download, RefreshCw, Send, ShieldAlert, Trash2 } from 'lucide-react';
+import { Download, FileText, PenLine, RefreshCw, Send, ShieldAlert, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
+import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { CategoryBadge } from '@/Components/CategoryBadge';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
-import { Badge } from '@/Components/ui/badge';
+import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
-import { date, dateTime } from '@/lib/format';
-import type { EmailSummary } from '@/Pages/Inbox/Index';
+import { ago, date, dateTime } from '@/lib/format';
+import { cn } from '@/lib/utils';
+import { emailTone, type EmailSummary } from '@/Pages/Inbox/Index';
 import type { Option } from '@/types';
 
 interface ConversationMessage extends EmailSummary {
@@ -36,6 +37,15 @@ interface Props {
     categories: Option[];
 }
 
+const priorities: Record<string, { label: string; tone: Tone }> = {
+    urgent: { label: 'Urgente', tone: 'danger' },
+    high: { label: 'Alta', tone: 'warning' },
+    normal: { label: 'Normal', tone: 'idle' },
+    low: { label: 'Baixa', tone: 'idle' },
+};
+
+const bytes = (size: number) => (size >= 1_048_576 ? `${(size / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(size / 1024))} KB`);
+
 function DraftEditor({ draft }: { draft: ConversationMessage }) {
     const form = useForm({ to: draft.to, subject: draft.subject, body: draft.body });
 
@@ -45,51 +55,120 @@ function DraftEditor({ draft }: { draft: ConversationMessage }) {
     };
 
     return (
-        <Card className="border-amber-300">
-            <form onSubmit={submit}>
-                <CardHeader>
-                    <CardTitle>Rascunho do agente</CardTitle>
-                    <CardDescription>Reveja e edite antes de enviar. Sai da caixa {draft.mailbox}.</CardDescription>
-                </CardHeader>
-                <CardContent className="mt-4 grid gap-4">
-                    <Field id={`to-${draft.id}`} label="Para" error={form.errors.to}>
-                        <Input id={`to-${draft.id}`} value={form.data.to.join(', ')} onChange={(e) => form.setData('to', e.target.value.split(',').map((a) => a.trim()).filter(Boolean))} />
-                    </Field>
-                    <Field id={`subject-${draft.id}`} label="Assunto" error={form.errors.subject}>
-                        <Input id={`subject-${draft.id}`} value={form.data.subject} onChange={(e) => form.setData('subject', e.target.value)} />
-                    </Field>
-                    <Field id={`body-${draft.id}`} label="Texto" error={form.errors.body}>
-                        <Textarea id={`body-${draft.id}`} rows={10} value={form.data.body} onChange={(e) => form.setData('body', e.target.value)} />
-                    </Field>
-                </CardContent>
-                <CardFooter className="mt-4 justify-between">
-                    <Button type="button" variant="ghost" onClick={() => confirm('Descartar este rascunho?') && router.delete(`/inbox/${draft.id}`)}>
-                        <Trash2 />
-                        Descartar
-                    </Button>
-                    <Button type="submit" disabled={form.processing}>
-                        <Send />
-                        Enviar
-                    </Button>
-                </CardFooter>
-            </form>
-        </Card>
+        <form id={`draft-${draft.id}`} onSubmit={submit} className="scroll-mt-20 rounded-xl border border-status-warning/40 bg-card">
+            <div className="flex items-center gap-2 border-b px-5 py-3">
+                <PenLine className="size-4 text-status-warning" />
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">Rascunho do agente</p>
+                    <p className="truncate text-xs text-muted-foreground">Reveja e edite antes de enviar. Sai da caixa {draft.mailbox}.</p>
+                </div>
+                <StatusBadge tone="warning">{draft.status_label}</StatusBadge>
+            </div>
+            <div className="grid gap-4 p-5">
+                <Field id={`to-${draft.id}`} label="Para" error={form.errors.to}>
+                    <Input
+                        id={`to-${draft.id}`}
+                        value={form.data.to.join(', ')}
+                        onChange={(e) =>
+                            form.setData(
+                                'to',
+                                e.target.value
+                                    .split(',')
+                                    .map((a) => a.trim())
+                                    .filter(Boolean),
+                            )
+                        }
+                    />
+                </Field>
+                <Field id={`subject-${draft.id}`} label="Assunto" error={form.errors.subject}>
+                    <Input id={`subject-${draft.id}`} value={form.data.subject} onChange={(e) => form.setData('subject', e.target.value)} />
+                </Field>
+                <Field id={`body-${draft.id}`} label="Texto" error={form.errors.body}>
+                    <Textarea id={`body-${draft.id}`} rows={10} value={form.data.body} onChange={(e) => form.setData('body', e.target.value)} />
+                </Field>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t px-5 py-3">
+                <Button type="button" variant="ghost" onClick={() => confirm('Descartar este rascunho?') && router.delete(`/inbox/${draft.id}`)}>
+                    <Trash2 />
+                    Descartar
+                </Button>
+                <Button type="submit" disabled={form.processing}>
+                    <Send />
+                    Enviar
+                </Button>
+            </div>
+        </form>
+    );
+}
+
+function MessageBlock({ m, current }: { m: ConversationMessage; current: boolean }) {
+    const outbound = m.direction === 'outbound';
+    const sender = outbound ? `Enviado por ${m.mailbox}` : (m.from ?? m.from_address ?? '—');
+
+    return (
+        <article className={cn('rounded-xl border bg-card', outbound && 'bg-accent/30', current && 'ring-1 ring-primary/20')}>
+            <header className="flex items-start gap-3 border-b px-5 py-3">
+                <Monogram name={(outbound ? m.mailbox : m.from) ?? '?'} agent={outbound} />
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="truncate text-sm font-medium">{sender}</span>
+                        {!outbound && m.from_address && m.from_address !== m.from && (
+                            <span className="truncate text-xs text-muted-foreground">&lt;{m.from_address}&gt;</span>
+                        )}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                        Para: {m.to.join(', ')}
+                        {m.cc.length > 0 && ` · Cc: ${m.cc.join(', ')}`}
+                    </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                    {outbound && <StatusBadge tone={emailTone(m.status)}>{m.status_label}</StatusBadge>}
+                    <span className="text-xs whitespace-nowrap text-muted-foreground" title={dateTime(m.date)}>
+                        {ago(m.date)}
+                    </span>
+                </div>
+            </header>
+            <div className="grid gap-4 px-5 py-4">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.body}</p>
+                {m.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {m.attachments.map((a) =>
+                            a.downloadable ? (
+                                <a
+                                    key={a.id}
+                                    href={`/attachments/${a.id}`}
+                                    className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors hover:bg-accent/60"
+                                >
+                                    <Download className="size-3" />
+                                    {a.filename}
+                                    <span className="font-mono text-[11px] text-muted-foreground">{bytes(a.size_bytes)}</span>
+                                </a>
+                            ) : (
+                                <span
+                                    key={a.id}
+                                    className="inline-flex h-7 items-center rounded-md border border-dashed px-2 text-xs text-muted-foreground line-through"
+                                    title="Apagado pela retenção ou descartado"
+                                >
+                                    {a.filename}
+                                </span>
+                            ),
+                        )}
+                    </div>
+                )}
+            </div>
+        </article>
     );
 }
 
 export default function InboxShow({ message, conversation, tenders, followUps, categories }: Props) {
     const [category, setCategory] = useState(message.category ?? '');
     const current = conversation.find((m) => m.id === message.id) ?? conversation[0];
+    const draftsInThread = conversation.filter((m) => m.status === 'draft');
+    const priority = current?.priority ? priorities[current.priority] : null;
 
     return (
-        <AppLayout>
+        <AppLayout wide breadcrumbs={[{ label: 'Caixa', href: '/inbox' }, { label: message.subject }]}>
             <Head title={message.subject} />
-            <div>
-                <Link href="/inbox" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                    <ArrowLeft className="size-4" />
-                    Caixa
-                </Link>
-            </div>
 
             <PageHeader
                 title={message.subject}
@@ -104,127 +183,169 @@ export default function InboxShow({ message, conversation, tenders, followUps, c
                 }
             />
 
-            {current?.direction === 'inbound' && (
-                <Card>
-                    <CardContent className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-                        <div className="grid gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <CategoryBadge category={current.category} label={current.category_label} />
-                                {current.priority && <Badge variant="outline">prioridade {current.priority}</Badge>}
-                                {current.injection && (
-                                    <Badge variant="destructive">
-                                        <ShieldAlert />
-                                        possível tentativa de manipulação do agente
-                                    </Badge>
-                                )}
-                            </div>
-                            {current.summary && <p className="text-sm">{current.summary}</p>}
-                            {current.extracted && Object.keys(current.extracted).length > 0 && (
-                                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                                    {Object.entries(current.extracted).map(([key, value]) => (
-                                        <div key={key} className="contents">
-                                            <dt className="text-muted-foreground">{key}</dt>
-                                            <dd>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</dd>
-                                        </div>
-                                    ))}
-                                </dl>
-                            )}
-                        </div>
-                        <div className="grid content-start gap-2 text-sm">
-                            {current.routed_to && <p>Encaminhado a <strong>{current.routed_to}</strong></p>}
-                            {current.department && <p>Departamento: {current.department}</p>}
-                            {current.deadline_at && <p>Prazo: {dateTime(current.deadline_at)}</p>}
-                            {current.erp_lead_id && <p>Lead no ERP: {current.erp_lead_id}</p>}
-                            {current.agent_run_id && (
-                                <Link href={`/runs/${current.agent_run_id}`} className="text-primary hover:underline">
-                                    Ver o que o agente fez
-                                </Link>
-                            )}
-                            <div className="flex gap-2 pt-2">
-                                <NativeSelect value={category} onChange={(e) => setCategory(e.target.value)}>
-                                    {categories.map((c) => (
-                                        <option key={c.value} value={c.value}>
-                                            {c.label}
-                                        </option>
-                                    ))}
-                                </NativeSelect>
-                                <Button size="sm" variant="outline" disabled={!category || category === current.category} onClick={() => router.put(`/inbox/${message.id}/category`, { category })}>
-                                    Corrigir
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {(tenders.length > 0 || followUps.length > 0) && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                    {tenders.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Concurso</CardTitle>
-                            </CardHeader>
-                            <CardContent className="mt-2 grid gap-1 text-sm">
-                                {tenders.map((t) => (
-                                    <Link key={t.id} href="/tenders" className="hover:underline">
-                                        {t.title} · {t.status_label} · prazo {date(t.deadline_at)}
-                                    </Link>
-                                ))}
-                            </CardContent>
-                        </Card>
-                    )}
-                    {followUps.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Seguimentos</CardTitle>
-                            </CardHeader>
-                            <CardContent className="mt-2 grid gap-1 text-sm">
-                                {followUps.map((f) => (
-                                    <p key={f.id} className={f.done ? 'text-muted-foreground line-through' : ''}>
-                                        {dateTime(f.due_at)} · {f.title}
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <div className="flex min-w-0 flex-col gap-8">
+                    {current?.direction === 'inbound' && (current.injection || current.summary) && (
+                        <div className="flex flex-col gap-3">
+                            {current.injection && (
+                                <div className="flex items-start gap-3 rounded-xl border border-status-danger/30 bg-status-danger/8 px-4 py-3 text-sm">
+                                    <ShieldAlert className="mt-0.5 size-4 shrink-0 text-status-danger" />
+                                    <p>
+                                        <span className="font-medium text-status-danger">Possível tentativa de manipulação do agente.</span>{' '}
+                                        <span className="text-muted-foreground">Leia com cuidado antes de agir sobre este email.</span>
                                     </p>
+                                </div>
+                            )}
+                            {current.summary && (
+                                <div className="rounded-xl border bg-card px-5 py-4">
+                                    <p className="mb-1 text-xs font-medium tracking-widest text-muted-foreground uppercase">Resumo do agente</p>
+                                    <p className="text-sm leading-relaxed">{current.summary}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <Section title="Conversa">
+                        <div className="flex flex-col gap-4">
+                            {conversation.map((m) =>
+                                m.status === 'draft' ? (
+                                    <DraftEditor key={m.id} draft={m} />
+                                ) : (
+                                    <MessageBlock key={m.id} m={m} current={m.id === message.id} />
+                                ),
+                            )}
+                        </div>
+                    </Section>
+                </div>
+
+                <div className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
+                    {current?.direction === 'inbound' && (
+                        <Properties title="Triagem">
+                            <Property label="Categoria">
+                                <CategoryBadge category={current.category} label={current.category_label} />
+                            </Property>
+                            <Property label="Prioridade">
+                                {priority ? (
+                                    <StatusBadge tone={priority.tone} dot={priority.tone !== 'idle'}>
+                                        {priority.label}
+                                    </StatusBadge>
+                                ) : (
+                                    current.priority
+                                )}
+                            </Property>
+                            <Property label="Estado">
+                                <StatusBadge tone={emailTone(current.status)}>{current.status_label}</StatusBadge>
+                            </Property>
+                            <Property label="Encaminhado a">{current.routed_to}</Property>
+                            <Property label="Departamento">{current.department}</Property>
+                            <Property label="Prazo">
+                                {current.deadline_at && (
+                                    <span className="tabular-nums" title={dateTime(current.deadline_at)}>
+                                        {dateTime(current.deadline_at)}
+                                    </span>
+                                )}
+                            </Property>
+                            <Property label="Lead no ERP">
+                                {current.erp_lead_id && <span className="font-mono text-xs">{current.erp_lead_id}</span>}
+                            </Property>
+                            <Property label="Caixa">{current.mailbox}</Property>
+                            {current.agent_run_id && (
+                                <Property label="Execução">
+                                    <Link href={`/runs/${current.agent_run_id}`} className="font-mono text-xs text-primary hover:underline">
+                                        #{current.agent_run_id}
+                                    </Link>
+                                </Property>
+                            )}
+
+                            <div className="mt-3 grid gap-2 border-t pt-3">
+                                <p className="text-xs text-muted-foreground">Corrigir a categoria</p>
+                                <div className="flex gap-2">
+                                    <NativeSelect
+                                        className="h-8 min-w-0 flex-1 text-sm"
+                                        value={category}
+                                        onChange={(e) => setCategory(e.target.value)}
+                                    >
+                                        {categories.map((c) => (
+                                            <option key={c.value} value={c.value}>
+                                                {c.label}
+                                            </option>
+                                        ))}
+                                    </NativeSelect>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={!category || category === current.category}
+                                        onClick={() => router.put(`/inbox/${message.id}/category`, { category })}
+                                    >
+                                        Corrigir
+                                    </Button>
+                                </div>
+                            </div>
+                        </Properties>
+                    )}
+
+                    {draftsInThread.length > 0 && (
+                        <div className="flex flex-col gap-2 rounded-xl border border-status-warning/40 bg-status-warning/8 p-4">
+                            <p className="flex items-center gap-2 text-sm font-semibold">
+                                <StatusDot tone="warning" pulse={false} />
+                                Resposta por enviar
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                O agente preparou {draftsInThread.length === 1 ? 'um rascunho' : `${draftsInThread.length} rascunhos`}. Reveja e
+                                envie.
+                            </p>
+                            {draftsInThread.map((d) => (
+                                <Button key={d.id} size="sm" variant="outline" className="justify-start" asChild>
+                                    <a href={`#draft-${d.id}`}>
+                                        <PenLine />
+                                        Rever rascunho
+                                    </a>
+                                </Button>
+                            ))}
+                        </div>
+                    )}
+
+                    {current?.extracted && Object.keys(current.extracted).length > 0 && (
+                        <Properties title="Dados extraídos">
+                            {Object.entries(current.extracted).map(([key, value]) => (
+                                <Property key={key} label={key}>
+                                    <span className="text-xs">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                                </Property>
+                            ))}
+                        </Properties>
+                    )}
+
+                    {tenders.length > 0 && (
+                        <Section title="Concurso">
+                            <ListPanel>
+                                {tenders.map((t) => (
+                                    <EntityRow
+                                        key={t.id}
+                                        href="/tenders"
+                                        leading={<FileText className="size-4 text-muted-foreground" />}
+                                        title={t.title}
+                                        subtitle={`${t.status_label} · prazo ${date(t.deadline_at)}`}
+                                    />
                                 ))}
-                            </CardContent>
-                        </Card>
+                            </ListPanel>
+                        </Section>
+                    )}
+
+                    {followUps.length > 0 && (
+                        <Section title="Seguimentos">
+                            <ListPanel>
+                                {followUps.map((f) => (
+                                    <EntityRow
+                                        key={f.id}
+                                        leading={<StatusDot tone={f.done ? 'success' : 'warning'} pulse={false} />}
+                                        title={<span className={f.done ? 'text-muted-foreground line-through' : ''}>{f.title}</span>}
+                                        subtitle={<span title={dateTime(f.due_at)}>{dateTime(f.due_at)}</span>}
+                                    />
+                                ))}
+                            </ListPanel>
+                        </Section>
                     )}
                 </div>
-            )}
-
-            <div className="grid gap-4">
-                {conversation.map((m) =>
-                    m.status === 'draft' ? (
-                        <DraftEditor key={m.id} draft={m} />
-                    ) : (
-                        <Card key={m.id} className={m.direction === 'outbound' ? 'border-primary/30 bg-accent/30' : ''}>
-                            <CardHeader>
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <CardTitle className="text-sm">{m.direction === 'outbound' ? `Enviado por ${m.mailbox}` : m.from}</CardTitle>
-                                    <span className="text-xs text-muted-foreground">{dateTime(m.date)}</span>
-                                </div>
-                                <CardDescription>Para: {m.to.join(', ')}{m.cc.length > 0 && ` · Cc: ${m.cc.join(', ')}`}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="mt-3 grid gap-3">
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.body}</p>
-                                {m.attachments.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {m.attachments.map((a) =>
-                                            a.downloadable ? (
-                                                <a key={a.id} href={`/attachments/${a.id}`} className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted">
-                                                    <Download className="size-3" />
-                                                    {a.filename}
-                                                </a>
-                                            ) : (
-                                                <span key={a.id} className="rounded-md border px-2 py-1 text-xs text-muted-foreground" title="Apagado pela retenção ou descartado">
-                                                    {a.filename}
-                                                </span>
-                                            ),
-                                        )}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ),
-                )}
             </div>
         </AppLayout>
     );

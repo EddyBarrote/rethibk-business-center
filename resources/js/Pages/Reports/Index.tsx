@@ -1,14 +1,14 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { Files } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { FileText, Files } from 'lucide-react';
 
+import { EntityRow, ListPanel } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
-import { Badge } from '@/Components/ui/badge';
-import { Card } from '@/Components/ui/card';
+import { StatusBadge } from '@/Components/Status';
 import { NativeSelect } from '@/Components/ui/native-select';
 import AppLayout from '@/Layouts/AppLayout';
-import { dateTime } from '@/lib/format';
+import { ago, dateTime } from '@/lib/format';
 import type { Option, Paginated } from '@/types';
 
 export interface ReportSummary {
@@ -27,6 +27,10 @@ export interface ReportSummary {
     content?: string;
 }
 
+export function ReportStatusBadge({ status }: { status: ReportSummary['status'] }) {
+    return status === 'draft' ? <StatusBadge tone="warning">Por rever</StatusBadge> : <StatusBadge tone="success">Revisto</StatusBadge>;
+}
+
 export default function ReportsIndex({ reports, types, filter }: { reports: Paginated<ReportSummary>; types: Option[]; filter: string | null }) {
     return (
         <AppLayout>
@@ -35,7 +39,11 @@ export default function ReportsIndex({ reports, types, filter }: { reports: Pagi
                 title="Documentos"
                 description="Preparados pelos agentes para rever: fecho do mês, mapas comparativos, folha de salários, fichas de cliente, briefings de reunião."
                 actions={
-                    <NativeSelect className="w-56" value={filter ?? ''} onChange={(e) => router.get('/reports', e.target.value ? { type: e.target.value } : {})}>
+                    <NativeSelect
+                        className="h-8 w-56 text-sm"
+                        value={filter ?? ''}
+                        onChange={(e) => router.get('/reports', e.target.value ? { type: e.target.value } : {})}
+                    >
                         <option value="">Todos os tipos</option>
                         {types.map((t) => (
                             <option key={t.value} value={t.value}>
@@ -48,18 +56,26 @@ export default function ReportsIndex({ reports, types, filter }: { reports: Pagi
             {reports.data.length === 0 ? (
                 <EmptyState icon={Files} title="Sem documentos" description="Os agentes guardam aqui o que preparam para alguém rever." />
             ) : (
-                <Card className="divide-y py-0">
+                <ListPanel>
                     {reports.data.map((r) => (
-                        <Link key={r.id} href={`/reports/${r.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-muted/50">
-                            <Badge variant="secondary">{r.type_label}</Badge>
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.title}</span>
-                            {r.status === 'draft' ? <Badge className="bg-amber-500">por rever</Badge> : <Badge variant="outline">revisto</Badge>}
-                            <span className="text-xs text-muted-foreground">
-                                {r.agent} · {dateTime(r.created_at)}
-                            </span>
-                        </Link>
+                        <EntityRow
+                            key={r.id}
+                            href={`/reports/${r.id}`}
+                            leading={<FileText className="size-4 text-muted-foreground" />}
+                            title={r.title}
+                            subtitle={[r.agent, r.period, r.subject_ref].filter(Boolean).join(' · ')}
+                            meta={
+                                <>
+                                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-muted-foreground">{r.type_label}</span>
+                                    <span className="w-16 text-right tabular-nums" title={dateTime(r.created_at)}>
+                                        {ago(r.created_at)}
+                                    </span>
+                                </>
+                            }
+                            trailing={<ReportStatusBadge status={r.status} />}
+                        />
                     ))}
-                </Card>
+                </ListPanel>
             )}
             <Pagination page={reports} />
         </AppLayout>

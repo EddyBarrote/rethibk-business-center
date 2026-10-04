@@ -1,13 +1,15 @@
 import { Head, Link } from '@inertiajs/react';
 import { Plus, Users } from 'lucide-react';
 
+import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
-import { Badge } from '@/Components/ui/badge';
+import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
-import { Card, CardContent } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import AppLayout from '@/Layouts/AppLayout';
+import { ago, dateTime } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import type { Role } from '@/types';
 
 interface UserRow {
@@ -21,7 +23,7 @@ interface UserRow {
     last_seen_at: string | null;
 }
 
-const dateFormat = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'medium', timeStyle: 'short' });
+const head = 'h-9 px-4 text-xs font-medium tracking-wide text-muted-foreground uppercase';
 
 export default function UsersIndex({ users }: { users: UserRow[] }) {
     const addButton = (
@@ -40,47 +42,55 @@ export default function UsersIndex({ users }: { users: UserRow[] }) {
             <PageHeader title="Utilizadores" description="Pessoas com acesso à plataforma nesta organização." actions={addButton} />
 
             {users.length === 0 ? (
-                <EmptyState icon={Users} title="Sem utilizadores" description="Convide as pessoas que vão acompanhar e aprovar o trabalho dos agentes." action={addButton} />
+                <EmptyState
+                    icon={Users}
+                    title="Sem utilizadores"
+                    description="Convide as pessoas que vão acompanhar e aprovar o trabalho dos agentes."
+                    action={addButton}
+                />
             ) : (
-                <Card className="py-0">
-                    <CardContent className="px-0">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="pl-6">Nome</TableHead>
-                                    <TableHead>Papel</TableHead>
-                                    <TableHead>Departamento</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead>Última actividade</TableHead>
-                                    <TableHead className="pr-6" />
+                <div className="overflow-hidden rounded-xl border bg-card">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/40 hover:bg-muted/40">
+                                <TableHead className={head}>Nome</TableHead>
+                                <TableHead className={head}>Papel</TableHead>
+                                <TableHead className={head}>Departamento</TableHead>
+                                <TableHead className={head}>Estado</TableHead>
+                                <TableHead className={head}>Última actividade</TableHead>
+                                <TableHead className={head} />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {users.map((user) => (
+                                <TableRow key={user.id} className={cn(!user.is_active && 'text-muted-foreground')}>
+                                    <TableCell className="px-4 py-2">
+                                        <div className="flex items-center gap-3">
+                                            <Monogram name={user.name} />
+                                            <div className="min-w-0">
+                                                <p className="truncate font-medium">{user.name}</p>
+                                                <p className="truncate font-mono text-[11px] text-muted-foreground">{user.email}</p>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="px-4 py-2">{user.role_label}</TableCell>
+                                    <TableCell className="px-4 py-2">{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                                    <TableCell className="px-4 py-2">
+                                        <StatusBadge tone={user.is_active ? 'success' : 'idle'}>{user.is_active ? 'Activo' : 'Inactivo'}</StatusBadge>
+                                    </TableCell>
+                                    <TableCell className="px-4 py-2 text-xs whitespace-nowrap text-muted-foreground">
+                                        {user.last_seen_at ? <span title={dateTime(user.last_seen_at)}>{ago(user.last_seen_at)}</span> : 'Nunca'}
+                                    </TableCell>
+                                    <TableCell className="px-4 py-2 text-right">
+                                        <Button variant="ghost" size="sm" asChild>
+                                            <Link href={`/settings/users/${user.id}/edit`}>Editar</Link>
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {users.map((user) => (
-                                    <TableRow key={user.id}>
-                                        <TableCell className="pl-6">
-                                            <p className="font-medium">{user.name}</p>
-                                            <p className="text-xs text-muted-foreground">{user.email}</p>
-                                        </TableCell>
-                                        <TableCell>{user.role_label}</TableCell>
-                                        <TableCell>{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.is_active ? 'secondary' : 'outline'}>{user.is_active ? 'Activo' : 'Inactivo'}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {user.last_seen_at ? dateFormat.format(new Date(user.last_seen_at)) : 'Nunca'}
-                                        </TableCell>
-                                        <TableCell className="pr-6 text-right">
-                                            <Button variant="ghost" size="sm" asChild>
-                                                <Link href={`/settings/users/${user.id}/edit`}>Editar</Link>
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             )}
         </AppLayout>
     );

@@ -1,18 +1,16 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Inbox, Paperclip, Search, ShieldAlert } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type ReactNode, useState } from 'react';
 
-import { CategoryBadge, PriorityDot } from '@/Components/CategoryBadge';
+import { CategoryBadge } from '@/Components/CategoryBadge';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
-import { Badge } from '@/Components/ui/badge';
-import { Button } from '@/Components/ui/button';
-import { Card } from '@/Components/ui/card';
+import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import AppLayout from '@/Layouts/AppLayout';
-import { dateTime } from '@/lib/format';
+import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Option, Paginated } from '@/types';
 
@@ -51,10 +49,44 @@ const views = [
     { value: 'sent', label: 'Enviados' },
 ] as const;
 
+/** Email lifecycle (EmailStatus) mapped to the shared tones. */
+export const emailTone = (status: string): Tone =>
+    (({
+        received: 'idle',
+        processing: 'running',
+        processed: 'success',
+        failed: 'danger',
+        draft: 'warning',
+        queued: 'running',
+        sent: 'success',
+        bounced: 'danger',
+    })[status] as Tone) ?? 'idle';
+
+const priorityTone = (priority: string | null): Tone | null => (priority === 'urgent' ? 'danger' : priority === 'high' ? 'warning' : null);
+
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors',
+                active ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+            )}
+        >
+            {children}
+        </button>
+    );
+}
+
 export default function InboxIndex({ messages, filters, categories, mailboxes, drafts }: Props) {
     const [query, setQuery] = useState(filters.q);
     const apply = (changes: Partial<Props['filters']>) =>
-        router.get('/inbox', Object.fromEntries(Object.entries({ ...filters, ...changes }).filter(([, v]) => v !== null && v !== '' && v !== undefined)), { preserveState: true });
+        router.get(
+            '/inbox',
+            Object.fromEntries(Object.entries({ ...filters, ...changes }).filter(([, v]) => v !== null && v !== '' && v !== undefined)),
+            { preserveState: true },
+        );
 
     const search = (event: FormEvent) => {
         event.preventDefault();
@@ -62,56 +94,88 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
     };
 
     return (
-        <AppLayout>
+        <AppLayout wide>
             <Head title="Caixa" />
-            <PageHeader title="Caixa de entrada" description="O correio das caixas dos agentes, já triado: categoria, resumo, prazo e a quem foi encaminhado." />
+            <PageHeader
+                title="Caixa de entrada"
+                description="O correio das caixas dos agentes, já triado: categoria, resumo, prazo e a quem foi encaminhado."
+            />
 
-            <div className="flex flex-wrap items-center gap-2">
-                {views.map((view) => (
-                    <Button key={view.value} size="sm" variant={filters.view === view.value ? 'default' : 'outline'} onClick={() => apply({ view: view.value, category: null })}>
-                        {view.label}
-                        {view.value === 'drafts' && drafts > 0 && <Badge className="ml-1 bg-amber-500">{drafts}</Badge>}
-                    </Button>
-                ))}
-                <form onSubmit={search} className="ml-auto flex gap-2">
-                    <Input placeholder="Assunto, remetente…" value={query} onChange={(e) => setQuery(e.target.value)} className="w-56" />
-                    <Button type="submit" size="sm" variant="outline">
-                        <Search />
-                    </Button>
-                </form>
-            </div>
-
-            {filters.view === 'inbound' && (
+            <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={() => apply({ category: null })} className={cn('rounded-full border px-3 py-1 text-xs', !filters.category && 'border-primary bg-accent')}>
-                        Todas
-                    </button>
-                    <button type="button" onClick={() => apply({ category: 'none' })} className={cn('rounded-full border px-3 py-1 text-xs', filters.category === 'none' && 'border-primary bg-accent')}>
-                        Por triar
-                    </button>
-                    {categories.map((category) => (
-                        <button
-                            key={category.value}
-                            type="button"
-                            onClick={() => apply({ category: category.value })}
-                            className={cn('rounded-full border px-3 py-1 text-xs', filters.category === category.value && 'border-primary bg-accent')}
-                        >
-                            {category.label}
-                            {category.count > 0 && <span className="ml-1 text-muted-foreground">{category.count}</span>}
-                        </button>
-                    ))}
-                    {mailboxes.length > 1 && (
-                        <NativeSelect className="ml-auto w-56" value={filters.mailbox ?? ''} onChange={(e) => apply({ mailbox: e.target.value ? Number(e.target.value) : null })}>
-                            <option value="">Todas as caixas</option>
-                            {mailboxes.map((mailbox) => (
-                                <option key={mailbox.id} value={mailbox.id}>
-                                    {mailbox.address}
-                                </option>
-                            ))}
-                        </NativeSelect>
-                    )}
+                    <div className="inline-flex items-center gap-0.5 rounded-lg border bg-card p-0.5">
+                        {views.map((view) => (
+                            <button
+                                key={view.value}
+                                type="button"
+                                onClick={() => apply({ view: view.value, category: null })}
+                                className={cn(
+                                    'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-sm transition-colors',
+                                    filters.view === view.value
+                                        ? 'bg-accent font-medium text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground',
+                                )}
+                            >
+                                {view.label}
+                                {view.value === 'drafts' && drafts > 0 && (
+                                    <span className="rounded-full bg-status-warning/15 px-1.5 font-mono text-[11px] text-status-warning tabular-nums">
+                                        {drafts}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                        {filters.view === 'inbound' && mailboxes.length > 1 && (
+                            <NativeSelect
+                                className="h-8 w-56 text-sm"
+                                value={filters.mailbox ?? ''}
+                                onChange={(e) => apply({ mailbox: e.target.value ? Number(e.target.value) : null })}
+                            >
+                                <option value="">Todas as caixas</option>
+                                {mailboxes.map((mailbox) => (
+                                    <option key={mailbox.id} value={mailbox.id}>
+                                        {mailbox.address}
+                                    </option>
+                                ))}
+                            </NativeSelect>
+                        )}
+                        <form onSubmit={search} className="relative">
+                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Assunto, remetente…"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                className="h-8 w-60 pl-8 text-sm"
+                            />
+                        </form>
+                    </div>
                 </div>
-            )}
+
+                {filters.view === 'inbound' && (
+                    <div className="-mx-1 flex items-center gap-0.5 overflow-x-auto px-1 pb-1">
+                        <Chip active={!filters.category} onClick={() => apply({ category: null })}>
+                            Todas
+                        </Chip>
+                        <Chip active={filters.category === 'none'} onClick={() => apply({ category: 'none' })}>
+                            Por triar
+                        </Chip>
+                        {categories.map((category) => (
+                            <Chip
+                                key={category.value}
+                                active={filters.category === category.value}
+                                onClick={() => apply({ category: category.value })}
+                            >
+                                {category.label}
+                                {category.count > 0 && (
+                                    <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{category.count}</span>
+                                )}
+                            </Chip>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {messages.data.length === 0 ? (
                 <EmptyState
@@ -124,38 +188,87 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                     }
                 />
             ) : (
-                <Card className="divide-y py-0">
-                    {messages.data.map((message) => (
-                        <Link key={message.id} href={`/inbox/${message.id}`} className="flex flex-col gap-1 px-4 py-3 hover:bg-muted/50 sm:flex-row sm:items-start sm:gap-4">
-                            <div className="flex items-center gap-2 sm:w-56 sm:shrink-0">
-                                <PriorityDot priority={message.priority} />
-                                <span className={cn('truncate text-sm', message.unread && 'font-semibold')}>{message.direction === 'inbound' ? message.from : message.mailbox}</span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className={cn('truncate text-sm', message.unread && 'font-semibold')}>{message.subject}</span>
-                                    {message.direction === 'inbound' && <CategoryBadge category={message.category} label={message.category_label} />}
-                                    {message.direction === 'outbound' && <Badge variant="secondary">{message.status_label}</Badge>}
-                                    {message.injection && (
-                                        <Badge variant="destructive">
-                                            <ShieldAlert />
-                                            suspeito
-                                        </Badge>
+                <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                    {messages.data.map((message) => {
+                        const tone = priorityTone(message.priority);
+                        const inbound = message.direction === 'inbound';
+
+                        return (
+                            <Link
+                                key={message.id}
+                                href={`/inbox/${message.id}`}
+                                className={cn(
+                                    'group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/60',
+                                    message.unread && 'bg-primary/[0.03]',
+                                )}
+                            >
+                                <span
+                                    className="flex w-2 shrink-0 justify-center"
+                                    title={tone === 'danger' ? 'Urgente' : tone === 'warning' ? 'Prioridade alta' : undefined}
+                                >
+                                    {tone ? (
+                                        <StatusDot tone={tone} pulse={false} />
+                                    ) : message.unread ? (
+                                        <span className="size-1.5 rounded-full bg-primary" />
+                                    ) : null}
+                                </span>
+
+                                <span
+                                    className={cn(
+                                        'w-40 shrink-0 truncate text-sm lg:w-52',
+                                        message.unread ? 'font-semibold' : 'text-muted-foreground',
                                     )}
-                                    {(message.attachments_count ?? 0) > 0 && <Paperclip className="size-3.5 text-muted-foreground" />}
+                                    title={message.from_address ?? undefined}
+                                >
+                                    {inbound ? message.from : message.mailbox}
+                                </span>
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <span className={cn('truncate text-sm', message.unread ? 'font-semibold' : 'font-medium')}>
+                                            {message.subject}
+                                        </span>
+                                        {message.injection && (
+                                            <StatusBadge tone="danger" dot={false} title="Possível tentativa de manipulação do agente">
+                                                <ShieldAlert className="size-3" />
+                                                suspeito
+                                            </StatusBadge>
+                                        )}
+                                        {(message.attachments_count ?? 0) > 0 && <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />}
+                                        {message.summary && (
+                                            <span className="hidden min-w-0 truncate text-sm text-muted-foreground xl:inline">
+                                                — {message.summary}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="truncate text-xs text-muted-foreground">
+                                        {[
+                                            message.routed_to && `Encaminhado a ${message.routed_to}`,
+                                            message.deadline_at && `Prazo ${dateTime(message.deadline_at)}`,
+                                            message.mailbox,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </div>
                                 </div>
-                                {message.summary && <p className="line-clamp-1 text-sm text-muted-foreground">{message.summary}</p>}
-                                <p className="text-xs text-muted-foreground">
-                                    {message.routed_to && <>Encaminhado a {message.routed_to} · </>}
-                                    {message.deadline_at && <>Prazo {dateTime(message.deadline_at)} · </>}
-                                    {message.status === 'processing' && <>Em triagem · </>}
-                                    {message.mailbox}
-                                </p>
-                            </div>
-                            <span className="text-xs whitespace-nowrap text-muted-foreground">{dateTime(message.date)}</span>
-                        </Link>
-                    ))}
-                </Card>
+
+                                <div className="hidden shrink-0 items-center gap-2 md:flex">
+                                    {inbound && <CategoryBadge category={message.category} label={message.category_label} />}
+                                    {(!inbound || message.status === 'processing' || message.status === 'failed') && (
+                                        <StatusBadge tone={emailTone(message.status)}>{message.status_label}</StatusBadge>
+                                    )}
+                                </div>
+
+                                <span
+                                    className="w-16 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums"
+                                    title={dateTime(message.date)}
+                                >
+                                    {ago(message.date)}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </div>
             )}
 
             <Pagination page={messages} />

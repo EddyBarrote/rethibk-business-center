@@ -1,12 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Briefcase, Search } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
+import { EntityRow, ListPanel, Monogram, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
-import { Badge } from '@/Components/ui/badge';
+import { StatusBadge, StatusDot } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import AppLayout from '@/Layouts/AppLayout';
 
@@ -37,51 +37,72 @@ export default function ClientsIndex({ accounts, q, error, pending }: { accounts
     return (
         <AppLayout>
             <Head title="Clientes" />
-            <PageHeader title="Clientes" description="A ficha viva de cada cliente: ERP, emails, contratos, pedidos em aberto. O gestor de clientes prepara briefings antes das reuniões." />
+            <PageHeader
+                title="Clientes"
+                description="A ficha viva de cada cliente: ERP, emails, contratos, pedidos em aberto. O gestor de clientes prepara briefings antes das reuniões."
+            />
 
             {pending.length > 0 && (
-                <Card className={pending.some((p) => p.breached) ? 'border-amber-300' : ''}>
-                    <CardHeader>
-                        <CardTitle>Pedidos de clientes por responder</CardTitle>
-                        <CardDescription>Contados desde a chegada do email; SLA do contrato ou o da organização.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="mt-2 grid gap-1 text-sm">
+                <Section
+                    title="Pedidos por responder"
+                    action={<span className="text-xs text-muted-foreground">Desde a chegada do email; SLA do contrato ou da organização</span>}
+                >
+                    <ListPanel>
                         {pending.map((p) => (
-                            <Link key={p.email_id} href={`/inbox/${p.email_id}`} className="flex flex-wrap items-center gap-2 hover:underline">
-                                {p.breached ? <Badge variant="destructive">{p.hours_waiting} h</Badge> : <Badge variant="secondary">{p.hours_waiting} h</Badge>}
-                                <span>{p.subject}</span>
-                                <span className="text-muted-foreground">· {p.from} · SLA {p.sla_hours} h</span>
-                            </Link>
+                            <EntityRow
+                                key={p.email_id}
+                                href={`/inbox/${p.email_id}`}
+                                leading={<StatusDot tone={p.breached ? 'danger' : 'warning'} pulse={false} />}
+                                title={p.subject ?? '(sem assunto)'}
+                                subtitle={p.from}
+                                meta={<span className="font-mono tabular-nums">SLA {p.sla_hours} h</span>}
+                                trailing={
+                                    <StatusBadge tone={p.breached ? 'danger' : 'idle'} dot={false} className="font-mono tabular-nums">
+                                        {p.hours_waiting} h
+                                    </StatusBadge>
+                                }
+                            />
                         ))}
-                    </CardContent>
-                </Card>
+                    </ListPanel>
+                </Section>
             )}
 
-            <form onSubmit={search} className="flex gap-2">
-                <Input placeholder="Nome, NUIT, cidade ou sector…" value={query} onChange={(e) => setQuery(e.target.value)} />
-                <Button type="submit" variant="outline">
-                    <Search />
-                    Procurar no ERP
-                </Button>
-            </form>
+            <Section title="Clientes no ERP">
+                <form onSubmit={search} className="flex gap-2">
+                    <div className="relative flex-1">
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Nome, NUIT, cidade ou sector…"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            className="pl-8"
+                        />
+                    </div>
+                    <Button type="submit" variant="outline">
+                        Procurar no ERP
+                    </Button>
+                </form>
 
-            {error ? (
-                <EmptyState icon={Briefcase} title="ERP indisponível" description={error} />
-            ) : accounts.length === 0 ? (
-                <EmptyState icon={Briefcase} title="Sem resultados" description="Tente outro nome ou NUIT." />
-            ) : (
-                <Card className="divide-y py-0">
-                    {accounts.map((a) => (
-                        <Link key={a.id} href={`/clients/${a.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-muted/50">
-                            <span className="min-w-0 flex-1">
-                                <span className="block text-sm font-medium">{a.name}</span>
-                                <span className="block text-xs text-muted-foreground">{[a.id, a.sector, a.city].filter(Boolean).join(' · ')}</span>
-                            </span>
-                            {a.status && a.status !== 'active' && <Badge variant="outline">{a.status}</Badge>}
-                        </Link>
-                    ))}
-                </Card>
-            )}
+                {error ? (
+                    <EmptyState icon={Briefcase} title="ERP indisponível" description={error} />
+                ) : accounts.length === 0 ? (
+                    <EmptyState icon={Briefcase} title="Sem resultados" description="Tente outro nome ou NUIT." />
+                ) : (
+                    <ListPanel>
+                        {accounts.map((a) => (
+                            <EntityRow
+                                key={a.id}
+                                href={`/clients/${a.id}`}
+                                leading={<Monogram name={a.name} />}
+                                title={a.name}
+                                subtitle={[a.sector, a.city].filter(Boolean).join(' · ') || undefined}
+                                meta={<span className="font-mono">{a.id}</span>}
+                                trailing={a.status && a.status !== 'active' ? <StatusBadge tone="idle">{a.status}</StatusBadge> : undefined}
+                            />
+                        ))}
+                    </ListPanel>
+                )}
+            </Section>
         </AppLayout>
     );
 }
