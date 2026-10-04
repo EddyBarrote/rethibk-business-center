@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, Clock, Lock, Pause, Play, Send, Wrench } from 'lucide-react';
+import { Activity, Clock, ListTodo, Lock, MessagesSquare, Pause, Play, Send, Wrench } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
@@ -10,6 +10,7 @@ import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
@@ -69,7 +70,16 @@ export default function AgentShow({ agent, skills, routines, runs, users, can }:
                         )}
                     </div>
                 </div>
-                <AutonomyBadge level={agent.autonomy_level} withLabel />
+                <div className="flex flex-wrap items-center gap-2">
+                    <AutonomyBadge level={agent.autonomy_level} withLabel />
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/tasks?view=all&agent=${agent.id}`}>
+                            <ListTodo />
+                            Tarefas
+                        </Link>
+                    </Button>
+                    {can.run && <ChatAction agent={agent} />}
+                </div>
             </div>
 
             {agent.status === 'suspended' && agent.suspended_reason && (
@@ -325,5 +335,52 @@ function RunList({ runs }: { runs: RunSummary[] }) {
                 />
             ))}
         </ListPanel>
+    );
+}
+
+/** Start a conversation (kind chat) with this agent; the server redirects to the new thread. */
+function ChatAction({ agent }: { agent: AgentSummary }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm({ message: '' });
+
+    const submit = (event: FormEvent) => {
+        event.preventDefault();
+        form.post(`/agents/${agent.id}/chat`, { onSuccess: () => form.reset() });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm">
+                    <MessagesSquare />
+                    Conversar
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+                <form onSubmit={submit} className="flex flex-col gap-4">
+                    <DialogHeader>
+                        <DialogTitle>Conversar com {agent.name}</DialogTitle>
+                        <DialogDescription>Abre uma conversa: o agente responde e pode continuar a falar com ele na mesma linha.</DialogDescription>
+                    </DialogHeader>
+                    <Textarea
+                        rows={5}
+                        autoFocus
+                        placeholder="Escreva o que precisa…"
+                        value={form.data.message}
+                        onChange={(e) => form.setData('message', e.target.value)}
+                    />
+                    <InputError message={form.errors.message} />
+                    <DialogFooter className="sm:justify-between">
+                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button type="submit" disabled={form.processing || form.data.message.trim() === ''}>
+                            <Send />
+                            Começar conversa
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
