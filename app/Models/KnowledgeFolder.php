@@ -62,19 +62,30 @@ class KnowledgeFolder extends Model
      */
     public function path(): string
     {
-        $names = [$this->name];
-        $folder = $this;
+        return implode(' / ', array_column($this->trail(), 'name'));
+    }
 
-        for ($depth = 0; $depth < 10 && $folder->parent_id !== null; $depth++) {
-            $folder = $folder->parent;
+    /**
+     * This folder and its parents, root first, one query per level.
+     *
+     * @return list<array{id: int, name: string}>
+     */
+    public function trail(): array
+    {
+        $trail = [['id' => $this->id, 'name' => $this->name]];
+        $parentId = $this->parent_id;
 
-            if ($folder === null) {
+        for ($depth = 0; $parentId !== null && $depth < 10; $depth++) {
+            $parent = self::query()->find($parentId, ['id', 'name', 'parent_id']);
+
+            if ($parent === null) {
                 break;
             }
 
-            array_unshift($names, $folder->name);
+            array_unshift($trail, ['id' => $parent->id, 'name' => $parent->name]);
+            $parentId = $parent->parent_id;
         }
 
-        return implode(' / ', $names);
+        return $trail;
     }
 }

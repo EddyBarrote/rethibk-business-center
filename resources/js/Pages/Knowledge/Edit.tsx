@@ -83,7 +83,7 @@ export default function KnowledgeEdit({ item, defaults, domains, folders, types 
                                 <Textarea
                                     id="content"
                                     rows={22}
-                                    className="font-mono text-[13px] leading-relaxed"
+                                    className="min-h-[28rem] font-mono text-[13px] leading-relaxed"
                                     placeholder={'# Procedimento de compras\n\n1. Pedir três cotações…'}
                                     value={form.data.content}
                                     onChange={(e) => form.setData('content', e.target.value)}

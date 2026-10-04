@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Knowledge\KnowledgeBase;
+use App\Documents\MarkdownBlocks;
 use App\Enums\KnowledgeType;
 use App\Jobs\EmbedKnowledgeItem;
 use App\Models\Agent;
@@ -78,7 +79,7 @@ class KnowledgeController extends Controller
                 'items' => (int) ($counts[$d->id] ?? 0),
             ])->values(),
             'domain' => $domain === null ? null : [...$this->domain($domain), 'can_curate' => $this->access->canCurate($user, $domain)],
-            'folder' => $folder === null ? null : ['id' => $folder->id, 'name' => $folder->name, 'parent_id' => $folder->parent_id, 'path' => $this->folderTrail($folder)],
+            'folder' => $folder === null ? null : ['id' => $folder->id, 'name' => $folder->name, 'parent_id' => $folder->parent_id, 'path' => $folder->trail()],
             'folders' => $folders->where('parent_id', $folder?->id)->map(fn (KnowledgeFolder $f) => [
                 'id' => $f->id,
                 'name' => $f->name,
@@ -208,7 +209,7 @@ class KnowledgeController extends Controller
                 'preview' => $this->previewKind($item),
                 'reviewed_by' => $item->reviewer?->name,
                 'reviewed_at' => $item->reviewed_at?->toIso8601String(),
-                'folder_trail' => $item->folder ? $this->folderTrail($item->folder) : [],
+                'folder_trail' => $item->folder ? $item->folder->trail() : [],
             ],
             'can' => [
                 'edit' => $this->canEdit($user, $item),
@@ -344,20 +345,6 @@ class KnowledgeController extends Controller
     }
 
     /**
-     * @return list<array{id: int, name: string}>
-     */
-    private function folderTrail(KnowledgeFolder $folder): array
-    {
-        $trail = [];
-
-        for ($current = $folder, $depth = 0; $current !== null && $depth < 10; $current = $current->parent, $depth++) {
-            array_unshift($trail, ['id' => $current->id, 'name' => $current->name]);
-        }
-
-        return $trail;
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function domain(KnowledgeDomain $d): array
@@ -370,6 +357,16 @@ class KnowledgeController extends Controller
             'color' => $d->color,
             'restricted' => $d->isRestricted(),
         ];
+    }
+
+    /**
+     * One line of plain text out of Markdown, for list excerpts.
+     */
+    private static function plain(string $markdown): string
+    {
+        $text = MarkdownBlocks::inline((string) preg_replace(['/^\s{0,3}(#{1,6}|[-*+]|\d+[.)]|>)\s+/m', '/^\s*\|?[\s:|-]+\|?\s*$/m', '/\|/'], ['', '', ' '], mb_substr($markdown, 0, 1200)));
+
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
     }
 
     /**
@@ -401,7 +398,7 @@ class KnowledgeController extends Controller
                 'type' => $item->type->value,
                 'type_label' => $item->type->label(),
                 'title' => $item->title,
-                'excerpt' => Str::limit(trim((string) preg_replace('/\s+/', ' ', $excerpts[$index] ?? $item->content)), 220),
+                'excerpt' => Str::limit(self::plain($excerpts[$index] ?? $item->content), 220),
                 'score' => $scores[$index] ?? null,
                 'status' => $item->status,
                 'is_external' => $item->is_external,

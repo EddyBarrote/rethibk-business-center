@@ -81,3 +81,19 @@ O Barrote pediu para adaptar o MICOMOC ao modelo do [Paperclip](https://github.c
 | Excepção de orçamento | A paragem a 100% já existia. Agora, ao atingir o tecto, nasce uma aprovação `budget.override` (tecto absoluto: decide sempre um proprietário ou administrador) que propõe +50% do tecto até ao fim do mês. Aprovada, aumenta o tecto do mês (`tenants.settings.ai_budget_extra`) e reactiva os agentes que o tecto parou. | `BudgetGuard::grantExtra`, skill `budget.override` |
 | Canais externos | WhatsApp, Telegram e afins ficam para depois; tudo acontece na consola, com notificações. | — |
 | Interface | Regras de desenho em [UI.md](UI.md). | — |
+
+## Base de conhecimento e geração de documentos (04.10.2026)
+
+Pedido do Barrote: uma base de conhecimento com artigos, uploads, pastas e domínios de informação, onde os agentes também guardam informação nova; e agentes capazes de gerar documentos, apresentações e folhas de cálculo. Valores por omissão escolhidos para avançar sem bloquear (detalhe em [CONHECIMENTO.md](CONHECIMENTO.md)):
+
+| Tema | Decisão | Onde se muda |
+|---|---|---|
+| Domínios | Cinco por omissão, criados na primeira abertura: Geral, Finanças, Recursos Humanos, Clientes, Operações. | Conhecimento › Domínios (proprietários e administradores) |
+| Acesso | Um domínio é aberto a todos ou restrito a departamentos. Finanças e RH nascem restritos aos departamentos cujo identificador contém "financ" e "rh"/"recursos-humanos"; proprietários e administradores vêem tudo. Agentes seguem o departamento do agente. | `KnowledgeAccess` |
+| O que os agentes escrevem | Fica marcado como escrito pelo agente. A partir de N3 é publicado logo; abaixo de N3 fica "para rever": as pessoas vêem-no, os agentes não, até um proprietário, administrador ou chefia com acesso ao domínio o aprovar. A chefia do agente é notificada. O gate de autonomia continua a aplicar-se à capacidade `knowledge.save` (risco N1 por omissão). | `AgentKnowledgeWriter`, Super admin › capacidade |
+| Quem edita | O autor (pessoa) e os curadores do domínio editam e apagam. Qualquer pessoa com acesso ao domínio escreve artigos, carrega ficheiros e cria pastas. Apagar uma pasta move o conteúdo para a raiz; um domínio com documentos não se apaga. | `KnowledgeController`, `FolderController` |
+| Formatos aceites | PDF, Word, Excel, PowerPoint, texto, Markdown, CSV, HTML e imagens (com OCR se o Tesseract existir), até 25 MB e 20 ficheiros de cada vez. | `KnowledgeController::UPLOAD_TYPES` |
+| Geração | Markdown → DOCX (PhpWord), PPTX (PhpPresentation), XLSX (PhpSpreadsheet) e PDF (Dompdf). Três modelos para Word e PDF: documento, relatório com capa, carta. PhpSpreadsheet fica na 3.10 (≥ 3.10.8, sem avisos de segurança) porque o PhpPresentation ainda não aceita a 5. | `App\Documents` |
+| Marca | Cor, logótipo e rodapé por tenant em `settings.brand`; sem marca, azul #1E3A5F e o nome da organização. | Definições › Marca |
+| Ficheiros gerados | Ficam na consola (Ficheiros), nunca saem sozinhos. Vê-os quem os criou, a chefia e o departamento do agente que os gerou, e os administradores. Podem ser arquivados na base de conhecimento. | `DocumentController` |
+| "Memória" | O ecrã passou a chamar-se Conhecimento; `memory.search` mantém a chave e passou a respeitar domínios e estado. | — |

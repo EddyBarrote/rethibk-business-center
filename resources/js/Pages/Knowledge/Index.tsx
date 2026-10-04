@@ -299,7 +299,7 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         </Section>
                     )}
 
-                    {items.length === 0 ? (
+                    {items.length === 0 && browsing && domain && folders.length > 0 ? null : items.length === 0 ? (
                         <EmptyState
                             icon={filters.view === 'review' ? Inbox : Library}
                             title={
