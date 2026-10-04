@@ -35,28 +35,31 @@ afterEach(fn () => @unlink($this->store));
 it('renders every console page for the owner', function (string $path, string $component) {
     $owner = asTenant($this->tenant, fn () => $this->owner);
 
+    // "{Model}" in the path is the id of the row created above.
+    $path = preg_replace_callback('/\{(\w+)\}/', fn ($m) => (string) asTenant($this->tenant, fn () => lastId('App\\Models\\'.$m[1])), $path);
+
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, $path))->assertOk()
         ->assertInertia(fn ($page) => $page->component($component));
 })->with([
     ['/', 'Dashboard'],
     ['agents', 'Agents/Index'],
-    ['agents/1', 'Agents/Show'],
+    ['agents/{Agent}', 'Agents/Show'],
     ['runs', 'Runs/Index'],
     ['approvals', 'Approvals/Index'],
     ['knowledge', 'Knowledge/Index'],
     ['inbox', 'Inbox/Index'],
-    ['inbox/1', 'Inbox/Show'],
+    ['inbox/{EmailMessage}', 'Inbox/Show'],
     ['tenders', 'Tenders/Index'],
     ['notifications', 'Notifications/Index'],
     ['briefings', 'Briefings/Index'],
-    ['briefings/1', 'Briefings/Show'],
+    ['briefings/{Briefing}', 'Briefings/Show'],
     ['reports', 'Reports/Index'],
-    ['reports/1', 'Reports/Show'],
+    ['reports/{Report}', 'Reports/Show'],
     ['finance', 'Finance/Index'],
     ['procurement', 'Procurement/Index'],
-    ['procurement/1', 'Procurement/Show'],
+    ['procurement/{PurchaseRequest}', 'Procurement/Show'],
     ['contracts', 'Contracts/Index'],
-    ['contracts/1', 'Contracts/Show'],
+    ['contracts/{Contract}', 'Contracts/Show'],
     ['clients', 'Clients/Index'],
     ['clients/ACC-0001', 'Clients/Show'],
     ['settings/erp', 'Settings/Erp'],

@@ -62,16 +62,18 @@ it('sends a purchase request from the console to the procurement agent, which mo
     GenericAgent::fake([
         new ToolCall('p1', 'procurement_requests', []),
         new ToolCall('p2', 'erp_procurement_create_rfq', ['title' => 'Varão para a obra', 'items' => [['description' => 'Varão A500 Ø12 mm', 'quantity' => 200]], 'supplier_ids' => ['SUP-0001', 'SUP-0002']]),
-        new ToolCall('p3', 'procurement_update_request', ['request_id' => 1, 'status' => 'rfq', 'erp_rfq_id' => 'RFQ-0002', 'note' => 'Pedido de cotação enviado a 2 fornecedores.']),
+        toolCall('p3', 'procurement_update_request', fn () => ['request_id' => lastId(PurchaseRequest::class), 'status' => 'rfq', 'erp_rfq_id' => 'RFQ-0002', 'note' => 'Pedido de cotação enviado a 2 fornecedores.']),
         'Pedido de cotação lançado.',
     ]);
 
     asTenant($this->tenant, fn () => templateAgent('procurement', ['autonomy_level' => AutonomyLevel::ExecuteWithinLimits]));
     $member = asTenant($this->tenant, fn () => $this->member);
 
-    $this->actingAs($member, 'web')->post(tenantUrl($this->tenant, 'procurement'), [
+    $response = $this->actingAs($member, 'web')->post(tenantUrl($this->tenant, 'procurement'), [
         'title' => 'Varão para a obra', 'items' => [['description' => 'Varão A500 Ø12 mm', 'quantity' => 200, 'unit' => 'barra']], 'needed_by' => today()->addWeek()->toDateString(),
-    ])->assertRedirect(tenantUrl($this->tenant, 'procurement/1'))->assertSessionHas('success', 'Requisição submetida: o agente de compras já está a tratar.');
+    ]);
+    $purchase = asTenant($this->tenant, fn () => lastId(PurchaseRequest::class));
+    $response->assertRedirect(tenantUrl($this->tenant, "procurement/{$purchase}"))->assertSessionHas('success', 'Requisição submetida: o agente de compras já está a tratar.');
 
     asTenant($this->tenant, fn () => expect(PurchaseRequest::query()->sole())
         ->status->toBe(PurchaseRequestStatus::Rfq)
@@ -79,8 +81,8 @@ it('sends a purchase request from the console to the procurement agent, which mo
         ->and(AgentRun::query()->sole()->status->value)->toBe('completed'));
 
     $other = asTenant($this->tenant, fn () => User::factory()->create(['role' => 'member']));
-    $this->actingAs($other, 'web')->get(tenantUrl($this->tenant, 'procurement/1'))->assertForbidden();
-    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, 'procurement/1'))->assertOk();
+    $this->actingAs($other, 'web')->get(tenantUrl($this->tenant, "procurement/{$purchase}"))->assertForbidden();
+    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "procurement/{$purchase}"))->assertOk();
 });
 
 it('weighs supplier history when comparing quotes', function () {
@@ -107,8 +109,9 @@ it('keeps contracts to managers and lets them record the client SLA', function (
 
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, 'contracts'))->assertForbidden();
     $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, 'contracts'), $contract)->assertRedirect();
-    $this->actingAs($owner, 'web')->put(tenantUrl($this->tenant, 'contracts/1'), [...$contract, 'sla_response_hours' => 4])->assertRedirect();
-    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, 'contracts'), [...$contract, 'owner_user_id' => 999])->assertSessionHasErrors('owner_user_id');
+    $id = asTenant($this->tenant, fn () => lastId(Contract::class));
+    $this->actingAs($owner, 'web')->put(tenantUrl($this->tenant, "contracts/{$id}"), [...$contract, 'sla_response_hours' => 4])->assertRedirect();
+    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, 'contracts'), [...$contract, 'owner_user_id' => $owner->id + 1000])->assertSessionHasErrors('owner_user_id');
 
     asTenant($this->tenant, fn () => expect(Contract::query()->sole()->sla_response_hours)->toBe(4));
 });

@@ -39,11 +39,16 @@ beforeEach(function () {
 
 afterEach(fn () => @unlink($this->store));
 
+function inboundId(): int
+{
+    return (int) EmailMessage::query()->where('direction', 'inbound')->max('id');
+}
+
 it('classifies the email, creates the lead in the ERP linked to it and notifies who must act', function () {
     GenericAgent::fake([
-        new ToolCall('t1', 'email_read', ['email_id' => 1]),
-        new ToolCall('t2', 'email_classify', [
-            'email_id' => 1, 'category' => 'lead', 'confidence' => 0.94, 'priority' => 'high',
+        toolCall('t1', 'email_read', fn () => ['email_id' => inboundId()]),
+        toolCall('t2', 'email_classify', fn () => [
+            'email_id' => inboundId(), 'category' => 'lead', 'confidence' => 0.94, 'priority' => 'high',
             'summary' => 'A Cimentos do Púnguè pede proposta para reabilitar o cais da Beira até 20/10.',
             'fields' => ['company' => 'Cimentos do Púnguè, Lda', 'estimated_value' => 3500000, 'currency' => 'MZN'],
             'deadline' => '2026-10-20', 'department' => 'direccao-comercial', 'route_to' => 'vendas@micomoc.test',
@@ -55,7 +60,6 @@ it('classifies the email, creates the lead in the ERP linked to it and notifies 
 
     asTenant($this->tenant, function () {
         $message = app(InboundEmailIngestor::class)->ingest($this->mailbox, mailFixture('lead'));
-        expect($message->id)->toBe(1);
 
         $message->refresh();
         $run = AgentRun::query()->sole();
@@ -68,12 +72,12 @@ it('classifies the email, creates the lead in the ERP linked to it and notifies 
             ->and($message->deadline_at?->toDateString())->toBe('2026-10-19') // 20/10 00:00 Maputo in UTC
             ->and($message->erp_lead_id)->toStartWith('LEAD-')
             ->and($this->sales->notifications()->count())->toBe(1)
-            ->and($this->sales->notifications()->first()->data['url'])->toBe('/inbox/1')
+            ->and($this->sales->notifications()->first()->data['url'])->toBe("/inbox/{$message->id}")
             ->and(Approval::query()->count())->toBe(0);
     });
 
     $this->actingAs(asTenant($this->tenant, fn () => $this->sales), 'web')
-        ->get(tenantUrl($this->tenant, 'inbox/1'))
+        ->get(tenantUrl($this->tenant, 'inbox/'.asTenant($this->tenant, fn () => inboundId())))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Inbox/Show')->where('message.category', 'lead')->where('conversation.0.erp_lead_id', fn ($id) => str_starts_with((string) $id, 'LEAD-')));
 });
@@ -81,7 +85,7 @@ it('classifies the email, creates the lead in the ERP linked to it and notifies 
 it('fences the email as data, flags the injection, and holds any send to a new outside address', function () {
     GenericAgent::fake([
         new ToolCall('t1', 'comms_send_email', ['to' => ['pagamentos@pagamentos-urgentes.example'], 'subject' => 'Facturas', 'body' => 'Lista em anexo.']),
-        new ToolCall('t2', 'email_classify', ['email_id' => 1, 'category' => 'spam', 'confidence' => 0.99, 'priority' => 'low', 'summary' => 'Tentativa de fraude.', 'flags' => ['phishing']]),
+        toolCall('t2', 'email_classify', fn () => ['email_id' => inboundId(), 'category' => 'spam', 'confidence' => 0.99, 'priority' => 'low', 'summary' => 'Tentativa de fraude.', 'flags' => ['phishing']]),
         'Email suspeito: classificado como spam.',
     ]);
 
@@ -106,33 +110,33 @@ it('hands supplier invoices, CVs and client requests to the agent of the area', 
     asTenant($this->tenant, fn () => templateAgent('finance'));
 
     GenericAgent::fake([
-        new ToolCall('t1', 'email_classify', ['email_id' => 1, 'category' => 'supplier_invoice', 'confidence' => 0.97, 'priority' => 'normal', 'summary' => 'Factura FT 2026/0877 da Segurança Total EPI, 72.848 MT.']),
+        toolCall('t1', 'email_classify', fn () => ['email_id' => inboundId(), 'category' => 'supplier_invoice', 'confidence' => 0.97, 'priority' => 'normal', 'summary' => 'Factura FT 2026/0877 da Segurança Total EPI, 72.848 MT.']),
         'Factura de fornecedor: passada às Finanças.',
         'Recebi a factura; vou registá-la.',
     ]);
 
     asTenant($this->tenant, function () {
-        app(InboundEmailIngestor::class)->ingest($this->mailbox, mailFixture('supplier-invoice'));
+        $email = app(InboundEmailIngestor::class)->ingest($this->mailbox, mailFixture('supplier-invoice'));
 
         $runs = AgentRun::query()->with('agent')->orderBy('id')->get();
 
         expect($runs)->toHaveCount(2)
             ->and($runs[1]->agent->key)->toBe('finance')
             ->and($runs[1]->trigger_type->value)->toBe('agent')
-            ->and($runs[1]->trigger_source_id)->toBe(1)
-            ->and(EmailMessage::query()->find(1)->hasFlag('handed_off'))->toBeTrue();
+            ->and($runs[1]->trigger_source_id)->toBe($email->id)
+            ->and($email->fresh()->hasFlag('handed_off'))->toBeTrue();
     });
 });
 
 it('lets a person send the draft reply the agent prepared', function () {
     GenericAgent::fake([
-        new ToolCall('t1', 'email_classify', ['email_id' => 1, 'category' => 'client_request', 'confidence' => 0.9, 'priority' => 'urgent', 'summary' => 'Avaria do ar condicionado na ala norte.']),
-        new ToolCall('t2', 'email_draft_reply', ['email_id' => 1, 'body' => 'Recebemos o seu pedido e enviamos uma equipa hoje.']),
+        toolCall('t1', 'email_classify', fn () => ['email_id' => inboundId(), 'category' => 'client_request', 'confidence' => 0.9, 'priority' => 'urgent', 'summary' => 'Avaria do ar condicionado na ala norte.']),
+        toolCall('t2', 'email_draft_reply', fn () => ['email_id' => inboundId(), 'body' => 'Recebemos o seu pedido e enviamos uma equipa hoje.']),
         'Rascunho pronto.',
     ]);
 
     $draftId = asTenant($this->tenant, function () {
-        app(InboundEmailIngestor::class)->ingest($this->mailbox, mailFixture('client-request'));
+        $this->request = app(InboundEmailIngestor::class)->ingest($this->mailbox, mailFixture('client-request'));
 
         return EmailMessage::query()->where('status', EmailStatus::Draft)->sole()->id;
     });
@@ -146,7 +150,7 @@ it('lets a person send the draft reply the agent prepared', function () {
 
         expect($sent->status)->toBe(EmailStatus::Sent)
             ->and($sent->text_body)->toContain('14h')
-            ->and($sent->thread_id)->toBe(EmailMessage::query()->find(1)->thread_id);
+            ->and($sent->thread_id)->toBe($this->request->thread_id);
     });
 
     Mail::assertSent(AgentMessage::class, fn ($mail) => $mail->inReplyTo === '<req-1@baiaazul.co.mz>');

@@ -98,7 +98,11 @@ it('raises client requests left unanswered past the SLA, using the contract SLA 
         EmailMessage::factory()->create([...$request, 'from_address' => 'geral@outro.co.mz', 'received_at' => now()->subHours(5)]);
         EmailMessage::factory()->create([...$request, 'from_address' => 'geral@outro.co.mz', 'received_at' => now()->subHours(30)]);
 
-        expect(collect(app(SlaMonitor::class)->pending())->pluck('sla_hours', 'email_id')->all())->toBe([3 => 24, 1 => 4, 2 => 24]);
+        expect(collect(app(SlaMonitor::class)->pending())->map(fn ($r) => [$r['from'], $r['sla_hours'], $r['breached']])->all())->toBe([
+            ['geral@outro.co.mz', 24, true],
+            ['c.nhantumbo@baiaazul.co.mz', 4, true],
+            ['geral@outro.co.mz', 24, false],
+        ]);
     });
 
     $this->artisan('agents:watch-sla')->expectsOutputToContain('2 pedido(s) fora do SLA.')->assertSuccessful();

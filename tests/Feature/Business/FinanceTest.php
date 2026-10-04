@@ -37,6 +37,11 @@ beforeEach(function () {
 
 afterEach(fn () => @unlink($this->store));
 
+function hotelTransfer(): BankTransaction
+{
+    return BankTransaction::query()->where('description', 'like', 'TRF HOTEL%')->sole();
+}
+
 it('reads Portuguese CSV statements and never imports a movement twice', function () {
     asTenant($this->tenant, function () {
         $importer = app(BankStatementImporter::class);
@@ -71,20 +76,20 @@ it('offers the ERP invoices a credit can settle, by number or amount', function 
 
 it('imports the statement emailed to the finance mailbox and suggests the matches for a person to confirm', function () {
     GenericAgent::fake([
-        new ToolCall('f1', 'bank_import_statement', ['attachment_id' => 1, 'account_name' => 'BCI conta à ordem MZN', 'bank' => 'BCI']),
+        toolCall('f1', 'bank_import_statement', fn () => ['attachment_id' => lastId(EmailAttachment::class), 'account_name' => 'BCI conta à ordem MZN', 'bank' => 'BCI']),
         new ToolCall('f2', 'bank_unreconciled', []),
-        new ToolCall('f3', 'bank_suggest_match', ['transaction_id' => 1, 'match_type' => 'invoice', 'match_ref' => 'INV-0001', 'note' => 'Número FT 2026/118 e montante iguais.']),
+        toolCall('f3', 'bank_suggest_match', fn () => ['transaction_id' => hotelTransfer()->id, 'match_type' => 'invoice', 'match_ref' => 'INV-0001', 'note' => 'Número FT 2026/118 e montante iguais.']),
         'Extracto importado; 1 reconciliação proposta.',
     ]);
 
     asTenant($this->tenant, function () {
         $mailbox = Mailbox::query()->where('agent_id', $this->finance->id)->sole();
-        $message = app(InboundEmailIngestor::class)->ingest($mailbox, mailFixture('bank-statement'));
+        app(InboundEmailIngestor::class)->ingest($mailbox, mailFixture('bank-statement'));
 
         expect(EmailAttachment::query()->sole()->filename)->toBe('extracto-bci-2026-09.csv');
 
         expect(BankStatement::query()->sole())->source->toBe('email')->transaction_count->toBe(5)
-            ->and(BankTransaction::query()->find(1))->status->toBe(BankTransactionStatus::Suggested)->match_ref->toBe('INV-0001')
+            ->and(hotelTransfer())->status->toBe(BankTransactionStatus::Suggested)->match_ref->toBe('INV-0001')
             ->and(AgentRun::query()->latest('id')->first()->status->value)->toBe('completed');
     });
 
@@ -93,9 +98,10 @@ it('imports the statement emailed to the finance mailbox and suggests the matche
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'finance'))->assertOk()
         ->assertInertia(fn ($page) => $page->component('Finance/Index')->where('totals.suggested', 1)->where('transactions.data.0.match_ref', 'INV-0001'));
 
-    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, 'finance/transactions/1'), ['action' => 'confirm'])->assertRedirect();
+    $transfer = asTenant($this->tenant, fn () => hotelTransfer()->id);
+    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, "finance/transactions/{$transfer}"), ['action' => 'confirm'])->assertRedirect();
 
-    asTenant($this->tenant, fn () => expect(BankTransaction::query()->find(1))
+    asTenant($this->tenant, fn () => expect(hotelTransfer())
         ->status->toBe(BankTransactionStatus::Reconciled)
         ->reconciled_by_user_id->toBe($this->owner->id));
 });

@@ -13,11 +13,24 @@ use App\Models\ErpConnection;
 use App\Models\Skill;
 use App\Models\Tenant;
 use App\Tenancy\TenantManager;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Laravel\Ai\Responses\Data\ToolCall;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function () {
+        // In CI (MySQL) ids keep growing across tests, because rolled-back
+        // transactions do not reset auto-increment. Start SQLite ids far
+        // from 1 too, and different per table, so no test relies on an id.
+        if (DB::getDriverName() === 'sqlite') {
+            foreach (DB::select("select name from sqlite_master where type = 'table' and sql like '%autoincrement%'") as $table) {
+                DB::table('sqlite_sequence')->updateOrInsert(['name' => $table->name], ['seq' => 1000 + crc32($table->name) % 9000]);
+            }
+        }
+    })
     ->in('Feature');
 
 /**
@@ -102,4 +115,22 @@ function runSkill(Agent $agent, string $key, array $arguments = []): SkillResult
     $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual);
 
     return app(SkillRegistry::class)->find($key)->execute($arguments, new SkillContext($agent, $run));
+}
+
+/**
+ * A faked model tool call whose arguments are built when the model "calls"
+ * it, so they can point at rows created during the run. Ids are never
+ * hard-coded: MySQL keeps auto-increment values across rolled-back tests.
+ */
+function toolCall(string $id, string $tool, Closure|array $arguments): Closure
+{
+    return fn () => new ToolCall($id, $tool, $arguments instanceof Closure ? $arguments() : $arguments);
+}
+
+/**
+ * @param  class-string<Model>  $model
+ */
+function lastId(string $model): int
+{
+    return (int) $model::query()->max('id');
 }
