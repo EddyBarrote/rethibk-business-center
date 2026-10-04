@@ -9,14 +9,17 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\GoalController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OrgController;
 use App\Http\Controllers\ProcurementController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\ErpConnectionController;
 use App\Http\Controllers\Settings\UserController;
+use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TenderController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +41,17 @@ Route::middleware('auth')->group(function () {
     Route::put('agents/{agent}/status', [AgentController::class, 'updateStatus'])->name('agents.status');
     Route::put('agents/{agent}/assignees', [AgentController::class, 'updateAssignees'])->name('agents.assignees');
 
+    Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
+    Route::post('tasks', [TaskController::class, 'store'])->middleware('throttle:30,1')->name('tasks.store');
+    Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+    Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+    Route::post('tasks/{task}/messages', [TaskController::class, 'message'])->middleware('throttle:30,1')->name('tasks.message');
+    Route::post('agents/{agent}/chat', [TaskController::class, 'chat'])->middleware('throttle:20,1')->name('agents.chat');
+    Route::get('goals', [GoalController::class, 'index'])->name('goals.index');
+    Route::post('goals', [GoalController::class, 'store'])->name('goals.store');
+    Route::put('goals/{goal}', [GoalController::class, 'update'])->name('goals.update');
+    Route::get('org', [OrgController::class, 'index'])->name('org.index');
+    Route::put('org/{agent}', [OrgController::class, 'update'])->name('org.update');
     Route::get('runs', [AgentRunController::class, 'index'])->name('runs.index');
     Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
 

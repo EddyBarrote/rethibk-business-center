@@ -20,6 +20,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Tasks\TaskThread;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Laravel\Ai\Events\StepCompleted;
@@ -45,14 +46,15 @@ final class AgentRunner
         private readonly RunRecorder $recorder,
         private readonly BudgetGuard $budget,
         private readonly Pricing $pricing,
+        private readonly TaskThread $threads,
     ) {}
 
     /**
      * Queue a run (agents never run inside an HTTP request, section 3.2).
      */
-    public function dispatch(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null): AgentRun
+    public function dispatch(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null, ?int $taskId = null): AgentRun
     {
-        $run = $this->create($agent, $input, $trigger, $requestedBy, $source);
+        $run = $this->create($agent, $input, $trigger, $requestedBy, $source, $taskId);
 
         RunAgent::dispatch($run->tenant_id, $run->id)
             ->onQueue((string) config('agents.queues.'.$trigger->value, 'agents'));
@@ -63,10 +65,11 @@ final class AgentRunner
     /**
      * Record a queued run without dispatching it.
      */
-    public function create(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null): AgentRun
+    public function create(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null, ?int $taskId = null): AgentRun
     {
         return AgentRun::query()->create([
             'agent_id' => $agent->id,
+            'task_id' => $taskId,
             'trigger_type' => $trigger,
             'trigger_source_type' => $source?->getMorphClass(),
             'trigger_source_id' => $source?->getKey(),
@@ -97,7 +100,7 @@ final class AgentRunner
             $this->assertProviderConfigured($agent);
 
             $context = new SkillContext($agent, $run);
-            $generic = new GenericAgent($agent, $run, $this->composer->for($agent), $this->tools->for($context));
+            $generic = new GenericAgent($agent, $run, $this->composer->for($agent, $run), $this->tools->for($context), $this->threads->history($run));
 
             $this->runCosts[$run->id] = 0.0;
             $response = $generic->prompt($run->input);
@@ -149,6 +152,11 @@ final class AgentRunner
         ], $run->status === RunStatus::Failed ? AuditResult::Error : AuditResult::Ok, $run);
 
         $this->budget->afterRun($run);
+
+        if ($run->task_id !== null) {
+            $this->threads->recordReply($run);
+        }
+
         AgentRunFinished::live($run);
 
         return $run;

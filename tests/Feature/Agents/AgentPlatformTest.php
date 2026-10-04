@@ -66,7 +66,7 @@ it('refuses to run a suspended agent', function () {
     });
 });
 
-it('gives an agent only the skills of its own tenant, plus memory search', function () {
+it('gives an agent only the skills of its own tenant, plus memory search and the task tools', function () {
     $other = Tenant::factory()->create();
     asTenant($other, fn () => app(SkillCatalog::class)->syncLocal());
 
@@ -78,7 +78,7 @@ it('gives an agent only the skills of its own tenant, plus memory search', funct
 
         $names = collect(app(ToolResolver::class)->for(new SkillContext($agent, $run)))->map->name()->sort()->values()->all();
 
-        expect($names)->toBe(['comms_send_email', 'memory_search']);
+        expect($names)->toBe(['comms_send_email', 'memory_search', 'tasks_ask_human', 'tasks_create', 'tasks_list', 'tasks_update_status']);
     });
 });
 

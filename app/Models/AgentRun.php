@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $tenant_id
  * @property int $agent_id
+ * @property int|null $task_id
  * @property TriggerType $trigger_type
  * @property int|null $requested_by_user_id
  * @property RunStatus $status
@@ -37,7 +38,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  */
 #[Fillable([
-    'agent_id', 'conversation_id', 'trigger_type', 'trigger_source_type', 'trigger_source_id', 'requested_by_user_id', 'status', 'input', 'output',
+    'agent_id', 'task_id', 'conversation_id', 'trigger_type', 'trigger_source_type', 'trigger_source_id', 'requested_by_user_id', 'status', 'input', 'output',
     'provider', 'model', 'input_tokens', 'output_tokens', 'cost_usd', 'duration_ms', 'error', 'started_at', 'finished_at',
 ])]
 class AgentRun extends Model
@@ -85,6 +86,14 @@ class AgentRun extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(Approval::class);
+    }
+
+    /**
+     * @return BelongsTo<Task, $this>
+     */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
     }
 
     protected function casts(): array

@@ -2,9 +2,11 @@
 
 namespace App\Ai\Skills;
 
+use App\Ai\Skills\Local\AskHuman;
 use App\Ai\Skills\Local\ClassifyEmail;
 use App\Ai\Skills\Local\ClientSheet;
 use App\Ai\Skills\Local\CompareQuotes;
+use App\Ai\Skills\Local\CreateTask;
 use App\Ai\Skills\Local\DetectIssues;
 use App\Ai\Skills\Local\DraftEmailReply;
 use App\Ai\Skills\Local\DraftReport;
@@ -12,6 +14,7 @@ use App\Ai\Skills\Local\ImportBankStatement;
 use App\Ai\Skills\Local\InboxSummary;
 use App\Ai\Skills\Local\ListContracts;
 use App\Ai\Skills\Local\ListPurchaseRequests;
+use App\Ai\Skills\Local\ListTasks;
 use App\Ai\Skills\Local\ListUnreconciled;
 use App\Ai\Skills\Local\MatchCandidate;
 use App\Ai\Skills\Local\MonthSummary;
@@ -33,6 +36,7 @@ use App\Ai\Skills\Local\SlaStatus;
 use App\Ai\Skills\Local\SuggestBankMatch;
 use App\Ai\Skills\Local\SupplierScores;
 use App\Ai\Skills\Local\UpdatePurchaseRequest;
+use App\Ai\Skills\Local\UpdateTaskStatus;
 
 /**
  * The local skills the platform ships (section 7.3). New skills are added
@@ -79,10 +83,15 @@ final class SkillRegistry
         // E08: client manager
         ClientSheet::class,
         SlaStatus::class,
+        // Tasks and conversations (Paperclip-style collaboration)
+        CreateTask::class,
+        AskHuman::class,
+        UpdateTaskStatus::class,
+        ListTasks::class,
     ];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search'];
+    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list'];
 
     /**
      * @return list<LocalSkill>

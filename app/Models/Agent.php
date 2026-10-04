@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $instructions
  * @property int|null $department_id
  * @property int|null $reports_to_user_id
+ * @property int|null $reports_to_agent_id
  * @property AgentStatus $status
  * @property string|null $suspended_reason
  * @property AutonomyLevel $autonomy_level
@@ -43,7 +44,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  */
 #[Fillable([
-    'key', 'name', 'title', 'description', 'personality', 'instructions', 'department_id', 'reports_to_user_id',
+    'key', 'name', 'title', 'description', 'personality', 'instructions', 'department_id', 'reports_to_user_id', 'reports_to_agent_id',
     'status', 'suspended_reason', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps', 'settings',
 ])]
 class Agent extends Model
@@ -101,6 +102,32 @@ class Agent extends Model
             ->using(AgentSkill::class)
             ->withPivot(['id', 'tenant_id', 'enabled', 'config'])
             ->withTimestamps();
+    }
+
+    /**
+     * The agent above this one in the org chart.
+     *
+     * @return BelongsTo<Agent, $this>
+     */
+    public function reportsToAgent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'reports_to_agent_id');
+    }
+
+    /**
+     * @return HasMany<Agent, $this>
+     */
+    public function directReports(): HasMany
+    {
+        return $this->hasMany(Agent::class, 'reports_to_agent_id');
+    }
+
+    /**
+     * @return HasMany<Task, $this>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assignee_agent_id');
     }
 
     /**

@@ -5,27 +5,39 @@ namespace App\Ai\Agents;
 use App\Models\Agent as AgentRecord;
 use App\Models\AgentRun;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Promptable;
 
 /**
  * The one agent class (docs/DECISOES.md): personality, instructions, model,
  * limits and tools all come from the agents row. Only AgentRunner builds it.
  */
-final class GenericAgent implements Agent, HasTools
+final class GenericAgent implements Agent, Conversational, HasTools
 {
     use Promptable;
 
     /**
      * @param  list<Tool>  $tools
+     * @param  list<Message>  $history  The task thread before this turn, when the run belongs to a task.
      */
     public function __construct(
         public readonly AgentRecord $record,
         public readonly AgentRun $run,
         private readonly string $instructions,
         private readonly array $tools,
+        private readonly array $history = [],
     ) {}
+
+    /**
+     * @return list<Message>
+     */
+    public function messages(): iterable
+    {
+        return $this->history;
+    }
 
     public function instructions(): string
     {
