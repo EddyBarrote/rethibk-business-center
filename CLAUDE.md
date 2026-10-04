@@ -13,3 +13,6 @@
 - Interface em português (pt-MZ/pt-PT).
 - Agentes são genéricos (uma linha em `agents`, definida pelo super admin); não criar classes de agente por função. Capacidades novas são skills: locais em `App\Ai\Skills\Local` (registar em `SkillRegistry`) ou ferramentas do ERP.
 - Eventos de consola ao vivo usam `::live(...)` (trait `BroadcastsLive`), nunca `::dispatch`, para uma falha do Reverb não partir execuções.
+- Agentes são genéricos: uma capacidade nova é uma skill em `App\Ai\Skills\SkillRegistry` (local) ou uma ferramenta do ERP. Os seis agentes da proposta são modelos em `App\Ai\Templates\AgentTemplates`; o papel de um agente (`settings.template`) encontra-se com `AgentDirectory::forRole()`.
+- Limiares de negócio lêem-se com `App\Support\TenantSettings::int()` (tenant, depois `config/business.php`), nunca valores fixos.
+- Testes de agentes: `GenericAgent::fake([...ToolCall..., 'texto'])` com os nomes das ferramentas com `_` em vez de `.`; `templateAgent()` e `runSkill()` em `tests/Pest.php`.

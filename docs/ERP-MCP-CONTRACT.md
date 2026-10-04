@@ -2,7 +2,7 @@
 
 **Para:** equipa do Rethink ERP
 **De:** equipa da plataforma de agentes MICOMOC (ref. RT-2026-MCM-01)
-**Versão:** 0.1, 04.10.2026 — base: secção 8.3 da especificação
+**Versão:** 0.2, 04.10.2026 — base: secção 8.3 da especificação, mais 11 ferramentas pedidas para Finanças, Compras e RH (secção 4.1)
 
 A plataforma de agentes liga-se ao ERP como **cliente MCP**. Este documento diz o que o servidor MCP do ERP tem de expor para os agentes funcionarem. Existe uma **implementação de referência** com dados fictícios, o `FakeErpServer`, no repositório da plataforma: em caso de dúvida, o comportamento dele é o esperado.
 
@@ -73,6 +73,24 @@ A plataforma de agentes liga-se ao ERP como **cliente MCP**. Este documento diz 
 | `expenses.create` | escrita | `description`*, `amount`*, `date`*, `project_id`, `supplier` | Regista uma despesa em rascunho. Não paga. |
 | `expenses.classify` | escrita | `expense_id`*, `category`*, `project_id` | Classifica uma despesa por categoria e, opcionalmente, projecto. |
 | `expenses.list_by_project` | leitura | `project_id`* | Lista as despesas de um projecto com o total. |
+
+### 4.1 Ferramentas adicionais (versão 0.2)
+
+Os agentes de Finanças, Compras e RH (entregas E05 a E07) precisam também destas. Sem elas os agentes funcionam, mas sem margens por projecto, sem registo de cotações recebidas por email e sem nada de RH.
+
+| Ferramenta | Tipo | Argumentos | O que faz |
+|---|---|---|---|
+| `projects.list` | leitura | `status` | Lista os projectos com execução orçamental e facturação (`budget`, `spent`, `invoiced`), filtrando por estado. |
+| `procurement.record_quote` | escrita | `rfq_id`*, `supplier_id`*, `total`*, `delivery_days`, `valid_until`, `notes` | Regista uma cotação recebida de um fornecedor para um pedido de cotação. |
+| `procurement.list_orders` | leitura | `status`, `supplier_id` | Lista notas de encomenda com estado, data prevista de entrega (`expected_date`) e recepções. |
+| `hr.list_employees` | leitura | `department` | Lista os colaboradores activos, filtrando por departamento. |
+| `hr.attendance_summary` | leitura | `period`* | Assiduidade de um mês (`AAAA-MM`) por colaborador: presenças, faltas justificadas e injustificadas, atrasos e horas extraordinárias. |
+| `hr.list_leave` | leitura | `status` | Pedidos de férias e ausências, filtrando por estado. |
+| `hr.prepare_payroll_draft` | escrita | `period`* | Prepara o rascunho da folha de salários de um mês a partir da assiduidade. Não processa nem paga: um humano aprova no ERP. |
+| `hr.list_openings` | leitura | — | Vagas abertas com os requisitos. |
+| `hr.create_candidate` | escrita | `opening_id`*, `name`*, `email`, `score`, `summary`, `recommendation` | Regista uma candidatura a uma vaga, com a avaliação da triagem (`shortlist`, `hold` ou `reject`). |
+| `hr.list_candidates` | leitura | `opening_id` | Candidaturas registadas, por vaga. |
+| `hr.create_onboarding` | escrita | `name`*, `position`*, `start_date`*, `department` | Abre o plano de integração de um novo colaborador (rascunho de tarefas). |
 
 Os esquemas completos (tipos, enumerações, campos dos objectos em `lines` e `items`) estão no `FakeErpServer`. Para os ver: `php artisan erp:tools <tenant>` ou `php artisan mcp:inspector fake-erp` no repositório da plataforma.
 
