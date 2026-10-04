@@ -59,6 +59,19 @@ final class Projects implements Module
                     ];
                 }),
 
+            $this->read('projects.list', 'Lista os projectos com execução orçamental e facturação, filtrando por estado.',
+                fn (JsonSchema $s) => ['status' => $s->string()->enum(self::STATUSES)],
+                function (array $args, FakeErpStore $store): array {
+                    $args = $this->validate($args, ['status' => 'nullable|in:'.implode(',', self::STATUSES)]);
+                    $invoices = $store->all('invoices');
+
+                    return ['projects' => array_values(array_map(function (array $p) use ($invoices): array {
+                        $issued = array_filter($invoices, fn (array $i) => $i['project_id'] === $p['id'] && $i['status'] !== 'draft');
+
+                        return [...$p, 'invoiced' => round(array_sum(array_column($issued, 'subtotal')), 2)];
+                    }, array_filter($store->all('projects'), fn (array $p) => ! isset($args['status']) || $p['status'] === $args['status'])))];
+                }),
+
             $this->read('projects.list_by_account', 'Lista os projectos de um cliente.',
                 fn (JsonSchema $s) => [
                     'account_id' => $s->string()->required(),

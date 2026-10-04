@@ -139,7 +139,8 @@ class FakeErpStore
 
         $decoded = json_decode((string) file_get_contents($this->path), true);
 
-        return $this->state = is_array($decoded) ? $decoded : FakeErpFixtures::state();
+        // Collections added in later deliveries start from their fixtures.
+        return $this->state = is_array($decoded) ? [...FakeErpFixtures::state(), ...$decoded] : FakeErpFixtures::state();
     }
 
     /**

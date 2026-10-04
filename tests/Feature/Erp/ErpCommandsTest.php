@@ -34,7 +34,7 @@ it('calls one tool from the console', function () {
 
 it('lists the tools from the console', function () {
     $this->artisan('erp:tools', ['tenant' => 'micomoc'])
-        ->expectsOutputToContain('27 ferramentas')
+        ->expectsOutputToContain('38 ferramentas')
         ->assertSuccessful();
 });
 

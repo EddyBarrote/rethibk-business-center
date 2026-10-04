@@ -33,6 +33,18 @@ class Tenant extends Model
         return app(TenantManager::class)->current();
     }
 
+    /**
+     * The console's base URL, on its own domain or as a subdomain.
+     */
+    public function url(): string
+    {
+        $appUrl = (string) config('app.url');
+        $scheme = parse_url($appUrl, PHP_URL_SCHEME) ?: 'https';
+        $port = parse_url($appUrl, PHP_URL_PORT);
+
+        return $scheme.'://'.($this->domain ?: $this->slug.'.'.config('tenancy.central_domain')).($port ? ':'.$port : '');
+    }
+
     public function isSuspended(): bool
     {
         return $this->status === TenantStatus::Suspended;

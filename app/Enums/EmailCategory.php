@@ -37,6 +37,20 @@ enum EmailCategory: string
     }
 
     /**
+     * The agent role that handles this kind of email after triage.
+     */
+    public function handlerRole(): ?string
+    {
+        return match ($this) {
+            self::SupplierInvoice, self::BankStatement => 'finance',
+            self::SupplierQuote => 'procurement',
+            self::JobApplication => 'hr',
+            self::ClientRequest => 'client_manager',
+            default => null,
+        };
+    }
+
+    /**
      * @return list<array{value: string, label: string}>
      */
     public static function options(): array

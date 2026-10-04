@@ -3,8 +3,11 @@
 namespace App\Ai\Agents;
 
 use App\Enums\AutonomyLevel;
+use App\Enums\KnowledgeType;
 use App\Models\Agent;
+use App\Models\KnowledgeItem;
 use App\Models\Tenant;
+use Illuminate\Support\Str;
 
 /**
  * Builds the system prompt from the agent's configuration, the tenant and
@@ -23,6 +26,7 @@ final class InstructionComposer
             $agent->department !== null ? "Trabalhas com o departamento {$agent->department->name}." : null,
             $agent->personality ? "## Personalidade\n".$agent->personality : null,
             $agent->instructions ? "## Instruções\n".$agent->instructions : null,
+            $this->decisions(),
             "## Autonomia\nO teu nível é {$level->code()} ({$level->label()}). ".$this->autonomyRule($level),
             <<<'TXT'
             ## Regras da plataforma
@@ -35,6 +39,28 @@ final class InstructionComposer
         ];
 
         return implode("\n\n", array_filter($sections));
+    }
+
+    /**
+     * Decisions recorded with RememberDecision reach every agent (E04), so
+     * the Chief of Staff's "we decided X" changes how the others work.
+     */
+    private function decisions(): ?string
+    {
+        $decisions = KnowledgeItem::query()
+            ->where('type', KnowledgeType::Decision)
+            ->where('created_at', '>=', now()->subDays(90))
+            ->latest()
+            ->limit(8)
+            ->get(['title', 'summary', 'content', 'created_at']);
+
+        if ($decisions->isEmpty()) {
+            return null;
+        }
+
+        return "## Decisões em vigor\nA organização decidiu (mais recente primeiro); segue-as:\n".$decisions
+            ->map(fn (KnowledgeItem $d) => '- '.$d->created_at->format('d/m/Y').' '.$d->title.': '.Str::limit((string) ($d->summary ?: $d->content), 300))
+            ->implode("\n");
     }
 
     private function autonomyRule(AutonomyLevel $level): string

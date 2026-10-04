@@ -43,6 +43,45 @@ final class Procurement implements Module
                     ])];
                 }),
 
+            $this->write('procurement.record_quote', 'Regista uma cotação recebida de um fornecedor para um pedido de cotação.',
+                fn (JsonSchema $s) => [
+                    'rfq_id' => $s->string()->required(),
+                    'supplier_id' => $s->string()->required(),
+                    'total' => $s->number()->min(0)->description('Total em MZN, sem IVA.')->required(),
+                    'delivery_days' => $s->integer()->min(0),
+                    'valid_until' => $s->string()->format('date'),
+                    'notes' => $s->string(),
+                ],
+                function (array $args, FakeErpStore $store): array {
+                    $args = $this->validate($args, ['rfq_id' => 'required|string', 'supplier_id' => 'required|string', 'total' => 'required|numeric|min:0', 'delivery_days' => 'nullable|integer|min:0', 'valid_until' => 'nullable|date_format:Y-m-d', 'notes' => 'nullable|string']);
+                    $rfq = $store->find('rfqs', $args['rfq_id'], 'Pedido de cotação');
+                    $store->find('suppliers', $args['supplier_id'], 'Fornecedor');
+
+                    $quote = $store->insert('quotes', 'QUO', [
+                        'rfq_id' => $rfq['id'], 'supplier_id' => $args['supplier_id'], 'total' => (float) $args['total'], 'currency' => 'MZN',
+                        'delivery_days' => $args['delivery_days'] ?? null, 'valid_until' => $args['valid_until'] ?? null, 'notes' => $args['notes'] ?? null,
+                    ]);
+                    $store->update('rfqs', $rfq['id'], ['status' => 'quotes_received']);
+
+                    return ['quote' => $quote];
+                }),
+
+            $this->read('procurement.list_orders', 'Lista notas de encomenda com estado, data prevista de entrega e recepções.',
+                fn (JsonSchema $s) => [
+                    'status' => $s->string()->enum(['draft', 'confirmed', 'received', 'cancelled']),
+                    'supplier_id' => $s->string(),
+                ],
+                function (array $args, FakeErpStore $store): array {
+                    $args = $this->validate($args, ['status' => 'nullable|string', 'supplier_id' => 'nullable|string']);
+                    $receipts = $store->all('receipts');
+
+                    return ['purchase_orders' => array_values(array_map(
+                        fn (array $order) => [...$order, 'receipts' => array_values(array_filter($receipts, fn (array $r) => $r['po_id'] === $order['id']))],
+                        array_filter($store->all('purchase_orders'), fn (array $o) => (! isset($args['status']) || $o['status'] === $args['status'])
+                            && (! isset($args['supplier_id']) || $o['supplier_id'] === $args['supplier_id'])),
+                    ))];
+                }),
+
             $this->read('procurement.list_suppliers', 'Lista fornecedores, filtrando por categoria ou texto.',
                 fn (JsonSchema $s) => [
                     'category' => $s->string()->description('Ex.: aço, cimento, combustível, informática, epi.'),

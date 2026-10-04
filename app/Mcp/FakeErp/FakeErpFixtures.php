@@ -28,6 +28,13 @@ final class FakeErpFixtures
             'purchase_orders' => self::purchaseOrders(),
             'receipts' => [],
             'expenses' => self::expenses(),
+            'employees' => self::employees(),
+            'attendance' => self::attendance(),
+            'leave' => self::leave(),
+            'openings' => self::openings(),
+            'candidates' => [],
+            'payrolls' => [],
+            'onboardings' => [],
             'idempotency' => [],
         ];
     }
@@ -157,7 +164,7 @@ final class FakeErpFixtures
     private static function purchaseOrders(): array
     {
         return [
-            ['id' => 'PO-0001', 'number' => 'NE 2026/044', 'supplier_id' => 'SUP-0002', 'project_id' => 'PRJ-0002', 'rfq_id' => null, 'quote_id' => null, 'status' => 'confirmed', 'lines' => [['description' => 'Cimento Portland 42,5 (saco 50 kg)', 'quantity' => 600, 'unit_price' => 620.00]], 'total' => 372_000.00, 'currency' => 'MZN'],
+            ['id' => 'PO-0001', 'number' => 'NE 2026/044', 'supplier_id' => 'SUP-0002', 'project_id' => 'PRJ-0002', 'rfq_id' => null, 'quote_id' => null, 'status' => 'confirmed', 'lines' => [['description' => 'Cimento Portland 42,5 (saco 50 kg)', 'quantity' => 600, 'unit_price' => 620.00]], 'total' => 372_000.00, 'currency' => 'MZN', 'expected_date' => '2026-10-02'],
         ];
     }
 
@@ -170,6 +177,69 @@ final class FakeErpFixtures
             ['id' => 'EXP-0001', 'description' => 'Gasóleo para gerador de obra', 'amount' => 48_600.00, 'currency' => 'MZN', 'date' => '2026-09-12', 'project_id' => 'PRJ-0001', 'supplier' => 'Combustíveis do Save, SA', 'category' => 'combustível', 'status' => 'classified'],
             ['id' => 'EXP-0002', 'description' => 'Ajudas de custo, deslocação a Quelimane', 'amount' => 18_250.00, 'currency' => 'MZN', 'date' => '2026-09-18', 'project_id' => 'PRJ-0002', 'supplier' => null, 'category' => 'deslocações', 'status' => 'classified'],
             ['id' => 'EXP-0003', 'description' => 'Botas e capacetes', 'amount' => 36_900.00, 'currency' => 'MZN', 'date' => '2026-09-25', 'project_id' => null, 'supplier' => 'Segurança Total EPI, Lda', 'category' => null, 'status' => 'draft'],
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function employees(): array
+    {
+        return [
+            ['id' => 'EMP-0001', 'name' => 'Paula Chissano', 'position' => 'Engenheira de obra', 'department' => 'Operações', 'base_salary' => 85_000.00, 'hire_date' => '2021-03-01', 'status' => 'active', 'email' => 'p.chissano@micomoc.co.mz'],
+            ['id' => 'EMP-0002', 'name' => 'Tomás Langa', 'position' => 'Engenheiro de obra', 'department' => 'Operações', 'base_salary' => 82_000.00, 'hire_date' => '2022-01-10', 'status' => 'active', 'email' => 't.langa@micomoc.co.mz'],
+            ['id' => 'EMP-0003', 'name' => 'Ercília Mabunda', 'position' => 'Técnica de contabilidade', 'department' => 'Finanças', 'base_salary' => 46_000.00, 'hire_date' => '2023-05-02', 'status' => 'active', 'email' => 'e.mabunda@micomoc.co.mz'],
+            ['id' => 'EMP-0004', 'name' => 'Abel Cossa', 'position' => 'Encarregado', 'department' => 'Operações', 'base_salary' => 32_000.00, 'hire_date' => '2020-08-17', 'status' => 'active', 'email' => null],
+            ['id' => 'EMP-0005', 'name' => 'Nádia Tembe', 'position' => 'Assistente administrativa', 'department' => 'Administração', 'base_salary' => 28_500.00, 'hire_date' => '2024-02-05', 'status' => 'active', 'email' => 'n.tembe@micomoc.co.mz'],
+        ];
+    }
+
+    /**
+     * Monthly attendance per employee (working days, absences, late
+     * arrivals, overtime hours).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function attendance(): array
+    {
+        $rows = [];
+        $data = [
+            'EMP-0001' => [22, 0, 0, 1, 12.0],
+            'EMP-0002' => [21, 1, 0, 0, 18.5],
+            'EMP-0003' => [22, 0, 0, 3, 0.0],
+            'EMP-0004' => [18, 2, 2, 4, 26.0],
+            'EMP-0005' => [22, 0, 0, 0, 2.0],
+        ];
+
+        foreach (['2026-08', '2026-09'] as $period) {
+            foreach ($data as $employee => [$present, $justified, $unjustified, $late, $overtime]) {
+                $rows[] = ['employee_id' => $employee, 'period' => $period, 'working_days' => 22, 'days_present' => $present, 'absences_justified' => $justified, 'absences_unjustified' => $unjustified, 'late_arrivals' => $late, 'overtime_hours' => $overtime];
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function leave(): array
+    {
+        return [
+            ['id' => 'LV-0001', 'employee_id' => 'EMP-0002', 'type' => 'férias', 'start_date' => '2026-10-19', 'end_date' => '2026-10-30', 'days' => 10, 'status' => 'pending'],
+            ['id' => 'LV-0002', 'employee_id' => 'EMP-0003', 'type' => 'férias', 'start_date' => '2026-12-21', 'end_date' => '2027-01-08', 'days' => 12, 'status' => 'approved'],
+            ['id' => 'LV-0003', 'employee_id' => 'EMP-0004', 'type' => 'doença', 'start_date' => '2026-09-08', 'end_date' => '2026-09-09', 'days' => 2, 'status' => 'approved'],
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function openings(): array
+    {
+        return [
+            ['id' => 'JOB-0001', 'title' => 'Técnico de manutenção electromecânica', 'department' => 'Operações', 'location' => 'Maputo', 'status' => 'open', 'requirements' => ['curso técnico de electromecânica', 'carta de condução', '3 anos de experiência', 'manutenção preventiva', 'português']],
+            ['id' => 'JOB-0002', 'title' => 'Contabilista', 'department' => 'Finanças', 'location' => 'Maputo', 'status' => 'open', 'requirements' => ['licenciatura em contabilidade', 'OCAM', 'Primavera ou ERP', 'IVA', 'reconciliação bancária']],
         ];
     }
 }

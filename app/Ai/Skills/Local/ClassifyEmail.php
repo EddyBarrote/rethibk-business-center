@@ -2,10 +2,14 @@
 
 namespace App\Ai\Skills\Local;
 
+use App\Ai\Runs\AgentDirectory;
+use App\Ai\Runs\AgentRunner;
 use App\Ai\Skills\LocalSkill;
 use App\Ai\Skills\SkillContext;
 use App\Ai\Skills\SkillResult;
 use App\Enums\EmailCategory;
+use App\Enums\TriggerType;
+use App\Models\Agent;
 use App\Models\Department;
 use App\Models\EmailMessage;
 use App\Models\User;
@@ -24,7 +28,11 @@ use Throwable;
  */
 final class ClassifyEmail extends LocalSkill
 {
-    public function __construct(private readonly Notifier $notifier) {}
+    public function __construct(
+        private readonly Notifier $notifier,
+        private readonly AgentDirectory $agents,
+        private readonly AgentRunner $runner,
+    ) {}
 
     public function key(): string
     {
@@ -125,10 +133,13 @@ final class ClassifyEmail extends LocalSkill
             $notified = $recipient->name;
         }
 
+        $handler = $this->handOff($message, EmailCategory::from($data['category']), $context);
+
         return SkillResult::data([
             'email_id' => $message->id,
             'category' => $data['category'],
             'routed_to' => $notified,
+            'handed_to_agent' => $handler?->name,
             'department' => $department?->name,
             'deadline' => $deadline?->toIso8601String(),
             'warnings' => array_values(array_filter([
@@ -136,6 +147,32 @@ final class ClassifyEmail extends LocalSkill
                 filled($data['department'] ?? null) && $department === null ? "Não existe o departamento {$data['department']}." : null,
             ])),
         ]);
+    }
+
+    /**
+     * Supplier invoices go to the finance agent, quotes to procurement, CVs
+     * to HR and client requests to the client manager, when those agents
+     * exist and are active. Once per email.
+     */
+    private function handOff(EmailMessage $message, EmailCategory $category, SkillContext $context): ?Agent
+    {
+        $role = $category->handlerRole();
+        $agent = $role !== null ? $this->agents->forRole($role) : null;
+
+        if ($agent === null || $agent->id === $context->agent->id || $message->hasFlag('handed_off')) {
+            return null;
+        }
+
+        $message->forceFill(['flags' => [...($message->flags ?? []), 'handed_off']])->save();
+
+        $this->runner->dispatch(
+            $agent,
+            "A triagem classificou o email #{$message->id} como «{$category->label()}». Lê-o com email.read e trata-o dentro das tuas competências.",
+            TriggerType::Agent,
+            source: $message,
+        );
+
+        return $agent;
     }
 
     private function date(?string $value): ?Carbon

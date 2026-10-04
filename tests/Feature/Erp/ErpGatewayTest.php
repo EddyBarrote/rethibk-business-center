@@ -25,7 +25,7 @@ afterEach(fn () => @unlink($this->store));
 it('lists the ERP tools over MCP', function () {
     $tools = asTenant($this->tenant, fn () => $this->gateway->tools());
 
-    expect($tools)->toHaveCount(27)
+    expect($tools)->toHaveCount(38)
         ->and(collect($tools)->firstWhere('name', 'crm.get_account')->readOnly)->toBeTrue()
         ->and(collect($tools)->firstWhere('name', 'leads.create')->readOnly)->toBeFalse();
 });
@@ -106,7 +106,7 @@ it('tests a connection and caches its capabilities', function () {
     $connection = asTenant($this->tenant, fn () => $this->gateway->test($connection));
 
     expect($connection->status)->toBe(ErpConnectionStatus::Ok)
-        ->and($connection->capabilities)->toHaveCount(27)
+        ->and($connection->capabilities)->toHaveCount(38)
         ->and($connection->last_checked_at)->not->toBeNull()
         ->and($connection->last_error)->toBeNull();
 });

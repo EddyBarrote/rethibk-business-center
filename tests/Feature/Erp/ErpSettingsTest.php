@@ -85,7 +85,7 @@ it('tests the connection against the fake ERP', function () {
 
     $this->actingAs($this->admin)
         ->post(tenantUrl($this->tenant, 'settings/erp/test'))
-        ->assertSessionHas('success', 'Ligação ao ERP a funcionar: 27 ferramentas disponíveis.');
+        ->assertSessionHas('success', 'Ligação ao ERP a funcionar: 38 ferramentas disponíveis.');
 
     $connection = asTenant($this->tenant, fn () => ErpConnection::query()->sole());
 

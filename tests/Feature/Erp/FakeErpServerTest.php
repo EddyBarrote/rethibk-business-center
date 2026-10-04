@@ -13,7 +13,7 @@ function fakeErp(string $tool, array $arguments = [])
     return FakeErpServer::tool(FakeErpServer::find($tool), $arguments);
 }
 
-it('exposes every tool of the section 8.3 contract', function () {
+it('exposes every tool of the section 8.3 contract and the proposed extensions', function () {
     $contract = [
         'crm.search_accounts', 'crm.get_account', 'crm.create_contact', 'crm.update_account',
         'leads.create', 'leads.update', 'leads.search', 'leads.attach_document',
@@ -24,9 +24,16 @@ it('exposes every tool of the section 8.3 contract', function () {
         'erp.whoami', 'erp.health', 'erp.search',
     ];
 
+    // Proposed to the ERP team for E05 to E07 (docs/ERP-MCP-CONTRACT.md).
+    $extensions = [
+        'projects.list', 'procurement.record_quote', 'procurement.list_orders',
+        'hr.list_employees', 'hr.attendance_summary', 'hr.list_leave', 'hr.prepare_payroll_draft',
+        'hr.list_openings', 'hr.create_candidate', 'hr.list_candidates', 'hr.create_onboarding',
+    ];
+
     $names = array_map(fn ($tool) => $tool->name(), FakeErpServer::catalogue());
 
-    expect($names)->toEqualCanonicalizing($contract);
+    expect($names)->toEqualCanonicalizing([...$contract, ...$extensions]);
 });
 
 it('requires an idempotency key on every write tool', function () {
@@ -97,4 +104,22 @@ it('compares quotes from cheapest to most expensive', function () {
         ->assertOk()
         ->assertSee('"cheapest_quote_id":"QUO-0002"')
         ->assertSee('"fastest_quote_id":"QUO-0001"');
+});
+
+it('prepares a payroll draft from attendance and never pays', function () {
+    fakeErp('hr.prepare_payroll_draft', ['period' => '2026-09', 'idempotency_key' => 'pay-1'])
+        ->assertOk()
+        ->assertSee('PAY-0001')
+        ->assertSee('EMP-0004');
+
+    fakeErp('hr.prepare_payroll_draft', ['period' => '2025-01', 'idempotency_key' => 'pay-2'])
+        ->assertHasErrors(['Sem assiduidade fechada']);
+});
+
+it('records a supplier quote and lists orders with their receipts', function () {
+    fakeErp('procurement.record_quote', ['rfq_id' => 'RFQ-0001', 'supplier_id' => 'SUP-0002', 'total' => 990000, 'delivery_days' => 7, 'idempotency_key' => 'q-1'])
+        ->assertOk()
+        ->assertSee('QUO-0003');
+
+    fakeErp('procurement.list_orders', ['status' => 'confirmed'])->assertOk()->assertSee('PO-0001')->assertSee('expected_date');
 });

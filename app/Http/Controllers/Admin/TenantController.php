@@ -35,7 +35,7 @@ class TenantController extends AdminController
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'status' => $tenant->status->value,
-            'url' => self::tenantUrl($tenant),
+            'url' => $tenant->url(),
             'users' => User::query()->count(),
             'agents' => Agent::query()->count(),
             'spent_usd' => round(app(BudgetGuard::class)->tenantSpent(), 2),
@@ -80,7 +80,7 @@ class TenantController extends AdminController
                 'slug' => $tenant->slug,
                 'domain' => $tenant->domain,
                 'status' => $tenant->status->value,
-                'url' => self::tenantUrl($tenant),
+                'url' => $tenant->url(),
                 'profile' => [
                     'legal_name' => $tenant->settings['profile']['legal_name'] ?? null,
                     'nuit' => $tenant->settings['profile']['nuit'] ?? null,
@@ -165,14 +165,5 @@ class TenantController extends AdminController
         ], subject: $tenant));
 
         return back()->with('success', 'Perfil guardado.');
-    }
-
-    public static function tenantUrl(Tenant $tenant): string
-    {
-        $appUrl = (string) config('app.url');
-        $scheme = parse_url($appUrl, PHP_URL_SCHEME) ?: 'https';
-        $port = parse_url($appUrl, PHP_URL_PORT);
-
-        return $scheme.'://'.($tenant->domain ?: $tenant->slug.'.'.config('tenancy.central_domain')).($port ? ':'.$port : '');
     }
 }
