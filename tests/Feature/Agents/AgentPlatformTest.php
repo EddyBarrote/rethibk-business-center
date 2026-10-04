@@ -106,7 +106,7 @@ it('refuses to run a suspended agent', function () {
     });
 });
 
-it('gives an agent only the capabilities of its own tenant, plus memory search and the task tools', function () {
+it('gives an agent only the capabilities of its own tenant, plus the knowledge base and task tools', function () {
     $other = Tenant::factory()->create();
     asTenant($other, fn () => app(CapabilityCatalog::class)->syncLocal());
 
@@ -118,7 +118,7 @@ it('gives an agent only the capabilities of its own tenant, plus memory search a
 
         $names = collect(app(ToolResolver::class)->for(new CapabilityContext($agent, $run)))->map->name()->sort()->values()->all();
 
-        expect($names)->toBe(['comms_send_email', 'memory_search', 'tasks_ask_human', 'tasks_create', 'tasks_list', 'tasks_update_status']);
+        expect($names)->toBe(['comms_send_email', 'knowledge_browse', 'knowledge_read', 'memory_search', 'tasks_ask_human', 'tasks_create', 'tasks_list', 'tasks_update_status']);
     });
 });
 

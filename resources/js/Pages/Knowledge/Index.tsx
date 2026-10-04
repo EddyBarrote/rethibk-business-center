@@ -32,11 +32,28 @@ interface Props {
 }
 
 export function DomainDot({ color, className }: { color: string | null; className?: string }) {
-    return <span className={cn('inline-block size-2 shrink-0 rounded-full', className)} style={{ backgroundColor: color ?? 'var(--muted-foreground)' }} />;
+    return (
+        <span
+            className={cn('inline-block size-2 shrink-0 rounded-full', className)}
+            style={{ backgroundColor: color ?? 'var(--muted-foreground)' }}
+        />
+    );
 }
 
 /** A filter row in the left column: icon or dot, label, count. */
-function NavRow({ href, active, children, count, warn }: { href: string; active: boolean; children: React.ReactNode; count?: number; warn?: boolean }) {
+function NavRow({
+    href,
+    active,
+    children,
+    count,
+    warn,
+}: {
+    href: string;
+    active: boolean;
+    children: React.ReactNode;
+    count?: number;
+    warn?: boolean;
+}) {
     return (
         <Link
             href={href}
@@ -194,7 +211,10 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                 </nav>
 
                 <div
-                    className={cn('flex min-w-0 flex-col gap-5 rounded-xl transition-shadow', dragging && 'ring-2 ring-primary/40 ring-offset-4 ring-offset-background')}
+                    className={cn(
+                        'flex min-w-0 flex-col gap-5 rounded-xl transition-shadow',
+                        dragging && 'ring-2 ring-primary/40 ring-offset-4 ring-offset-background',
+                    )}
                     onDragOver={(e) => {
                         e.preventDefault();
                         setDragging(true);
@@ -220,7 +240,10 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                     {domain && browsing && (
                         <div className="flex flex-col gap-1">
                             <div className="flex flex-wrap items-center gap-1 text-sm">
-                                <Link href={`/knowledge?domain=${domain.slug}`} className={cn('hover:underline', folder ? 'text-muted-foreground' : 'font-medium')}>
+                                <Link
+                                    href={`/knowledge?domain=${domain.slug}`}
+                                    className={cn('hover:underline', folder ? 'text-muted-foreground' : 'font-medium')}
+                                >
                                     {domain.name}
                                 </Link>
                                 {folder?.path.map((f, i) => (
@@ -235,7 +258,12 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                                     </span>
                                 ))}
                                 {domain.restricted && (
-                                    <StatusBadge tone="idle" dot={false} className="ml-2" title="Só alguns departamentos, proprietários e administradores vêem este domínio">
+                                    <StatusBadge
+                                        tone="idle"
+                                        dot={false}
+                                        className="ml-2"
+                                        title="Só alguns departamentos, proprietários e administradores vêem este domínio"
+                                    >
                                         <Lock className="size-3" />
                                         restrito
                                     </StatusBadge>
@@ -274,7 +302,15 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                     {items.length === 0 ? (
                         <EmptyState
                             icon={filters.view === 'review' ? Inbox : Library}
-                            title={filters.q ? 'Sem resultados' : filters.view === 'review' ? 'Nada para rever' : domain ? 'Pasta vazia' : 'Base de conhecimento vazia'}
+                            title={
+                                filters.q
+                                    ? 'Sem resultados'
+                                    : filters.view === 'review'
+                                      ? 'Nada para rever'
+                                      : domain
+                                        ? 'Pasta vazia'
+                                        : 'Base de conhecimento vazia'
+                            }
                             description={
                                 filters.q
                                     ? 'Tente outras palavras ou uma pergunta mais curta.'
@@ -308,8 +344,12 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                 <DialogContent>
                     <form onSubmit={submitUpload} className="flex flex-col gap-4">
                         <DialogHeader>
-                            <DialogTitle>Carregar {upload.data.files.length === 1 ? 'ficheiro' : `${upload.data.files.length} ficheiros`}</DialogTitle>
-                            <DialogDescription>O texto é extraído e indexado para pesquisa. O original fica disponível para descarregar.</DialogDescription>
+                            <DialogTitle>
+                                Carregar {upload.data.files.length === 1 ? 'ficheiro' : `${upload.data.files.length} ficheiros`}
+                            </DialogTitle>
+                            <DialogDescription>
+                                O texto é extraído e indexado para pesquisa. O original fica disponível para descarregar.
+                            </DialogDescription>
                         </DialogHeader>
                         <ListPanel>
                             {upload.data.files.map((file) => (
@@ -369,7 +409,12 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                             </DialogDescription>
                         </DialogHeader>
                         <Field id="folder-name" label="Nome" error={folderForm.errors.name}>
-                            <Input id="folder-name" autoFocus value={folderForm.data.name} onChange={(e) => folderForm.setData('name', e.target.value)} />
+                            <Input
+                                id="folder-name"
+                                autoFocus
+                                value={folderForm.data.name}
+                                onChange={(e) => folderForm.setData('name', e.target.value)}
+                            />
                         </Field>
                         <DialogFooter>
                             <Button type="button" variant="ghost" onClick={() => setCreatingFolder(false)}>
@@ -382,7 +427,6 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                     </form>
                 </DialogContent>
             </Dialog>
-
         </AppLayout>
     );
 }
@@ -411,7 +455,10 @@ export function KnowledgeEntry({ item, showDomain }: { item: KnowledgeRow; showD
                             {item.domain.name}
                         </span>
                     )}
-                    <span className="flex max-w-36 items-center gap-1 truncate" title={item.author.kind === 'agent' ? 'Escrito por um agente' : undefined}>
+                    <span
+                        className="flex max-w-36 items-center gap-1 truncate"
+                        title={item.author.kind === 'agent' ? 'Escrito por um agente' : undefined}
+                    >
                         {item.author.kind === 'agent' && <Bot className="size-3.5 shrink-0 text-primary" />}
                         <span className="truncate">{item.author.name}</span>
                     </span>

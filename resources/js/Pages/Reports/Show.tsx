@@ -2,14 +2,22 @@ import { Head, Link, router } from '@inertiajs/react';
 import { CheckCircle2, Printer } from 'lucide-react';
 
 import { Properties, Property } from '@/Components/Blocks';
+import { ExportMenu } from '@/Components/ExportMenu';
 import { Markdown } from '@/Components/Markdown';
 import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime } from '@/lib/format';
 import { ReportStatusBadge, type ReportSummary } from '@/Pages/Reports/Index';
+import type { Option } from '@/types';
 
-export default function ReportShow({ report }: { report: ReportSummary & { content: string; data: Record<string, unknown> | null } }) {
+export default function ReportShow({
+    report,
+    formats,
+}: {
+    report: ReportSummary & { content: string; data: Record<string, unknown> | null };
+    formats: Option[];
+}) {
     return (
         <AppLayout breadcrumbs={[{ label: 'Documentos', href: '/reports' }, { label: report.title }]}>
             <Head title={report.title} />
@@ -18,6 +26,7 @@ export default function ReportShow({ report }: { report: ReportSummary & { conte
                 description={[report.type_label, report.agent, report.period].filter(Boolean).join(' · ')}
                 actions={
                     <div className="flex gap-2 print:hidden">
+                        <ExportMenu action={`/reports/${report.id}/export`} formats={formats} />
                         <Button variant="outline" onClick={() => window.print()}>
                             <Printer />
                             Imprimir

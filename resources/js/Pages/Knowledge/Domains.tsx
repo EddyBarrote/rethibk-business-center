@@ -95,9 +95,15 @@ export default function KnowledgeDomains({ domains, departments }: Props) {
                                             Toda a organização
                                         </span>
                                     ) : (
-                                        <StatusBadge tone="idle" dot={false} title={domain.department_ids.map(departmentName).join(', ') || 'Só proprietários e administradores'}>
+                                        <StatusBadge
+                                            tone="idle"
+                                            dot={false}
+                                            title={domain.department_ids.map(departmentName).join(', ') || 'Só proprietários e administradores'}
+                                        >
                                             <Lock className="size-3" />
-                                            {domain.department_ids.length === 0 ? 'Só direcção' : domain.department_ids.map(departmentName).join(', ')}
+                                            {domain.department_ids.length === 0
+                                                ? 'Só direcção'
+                                                : domain.department_ids.map(departmentName).join(', ')}
                                         </StatusBadge>
                                     )}
                                     <span className="w-24 text-right tabular-nums">
@@ -135,7 +141,13 @@ export default function KnowledgeDomains({ domains, departments }: Props) {
                             <Input id="name" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} placeholder="Jurídico" />
                         </Field>
                         <Field id="color" label="Cor" error={form.errors.color}>
-                            <Input id="color" type="color" className="h-9 p-1" value={form.data.color} onChange={(e) => form.setData('color', e.target.value)} />
+                            <Input
+                                id="color"
+                                type="color"
+                                className="h-9 p-1"
+                                value={form.data.color}
+                                onChange={(e) => form.setData('color', e.target.value)}
+                            />
                         </Field>
                     </div>
                     <Field id="description" label="Descrição" error={form.errors.description}>

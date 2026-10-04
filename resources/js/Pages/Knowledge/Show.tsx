@@ -66,11 +66,16 @@ export default function KnowledgeShow({ item, can }: Props) {
                     <>
                         {can.review && (
                             <>
-                                <Button variant="outline" onClick={() => router.post(`/knowledge/${item.id}/review`, { decision: 'reject' }, { preserveScroll: true })}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => router.post(`/knowledge/${item.id}/review`, { decision: 'reject' }, { preserveScroll: true })}
+                                >
                                     <X />
                                     Rejeitar
                                 </Button>
-                                <Button onClick={() => router.post(`/knowledge/${item.id}/review`, { decision: 'approve' }, { preserveScroll: true })}>
+                                <Button
+                                    onClick={() => router.post(`/knowledge/${item.id}/review`, { decision: 'approve' }, { preserveScroll: true })}
+                                >
                                     <Check />
                                     Aprovar
                                 </Button>
@@ -103,7 +108,8 @@ export default function KnowledgeShow({ item, can }: Props) {
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Apagar “{item.title}”?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Deixa de aparecer nas pesquisas de pessoas e agentes{item.file ? ' e o ficheiro é removido' : ''}. Não pode ser desfeito.
+                                            Deixa de aparecer nas pesquisas de pessoas e agentes{item.file ? ' e o ficheiro é removido' : ''}. Não
+                                            pode ser desfeito.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -135,10 +141,15 @@ export default function KnowledgeShow({ item, can }: Props) {
                     {item.preview === 'text' && (
                         <article className="rounded-xl border bg-card">
                             <div className="border-b px-5 py-2.5 text-xs text-muted-foreground">
-                                Texto extraído de <span className="font-mono">{item.file?.name}</span>; para ver o formato original, descarregue o ficheiro.
+                                Texto extraído de <span className="font-mono">{item.file?.name}</span>; para ver o formato original, descarregue o
+                                ficheiro.
                             </div>
                             <div className="max-h-[70vh] overflow-auto px-5 py-4 text-sm leading-relaxed whitespace-pre-wrap">
-                                {item.content || <span className="text-muted-foreground">Não foi possível extrair texto deste ficheiro; os agentes só o encontram pelo título.</span>}
+                                {item.content || (
+                                    <span className="text-muted-foreground">
+                                        Não foi possível extrair texto deste ficheiro; os agentes só o encontram pelo título.
+                                    </span>
+                                )}
                             </div>
                         </article>
                     )}
@@ -187,7 +198,10 @@ export default function KnowledgeShow({ item, can }: Props) {
                     )}
                     {item.reviewed_by && (
                         <Property label={item.status === 'rejected' ? 'Rejeitado por' : 'Aprovado por'}>
-                            {item.reviewed_by} <span className="text-muted-foreground" title={dateTime(item.reviewed_at)}>· {ago(item.reviewed_at)}</span>
+                            {item.reviewed_by}{' '}
+                            <span className="text-muted-foreground" title={dateTime(item.reviewed_at)}>
+                                · {ago(item.reviewed_at)}
+                            </span>
                         </Property>
                     )}
                     <Property label="Criado">

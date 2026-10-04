@@ -146,7 +146,8 @@ final class TextExtractor
             $name = (string) $zip->getNameIndex($i);
 
             if (preg_match('#^ppt/slides/slide(\d+)\.xml$#', $name, $m)) {
-                $slides[(int) $m[1]] = self::htmlToText((string) preg_replace('#</a:p>#', "\n", (string) $zip->getFromName($name)));
+                $xml = (string) preg_replace_callback('#<!\[CDATA\[(.*?)\]\]>#s', fn (array $c) => htmlspecialchars($c[1], ENT_XML1), (string) $zip->getFromName($name));
+                $slides[(int) $m[1]] = self::htmlToText((string) preg_replace('#</a:p>#', "\n", $xml));
             }
         }
 
