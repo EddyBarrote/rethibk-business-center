@@ -11,7 +11,6 @@ import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
@@ -376,49 +375,14 @@ function RunList({ runs }: { runs: RunSummary[] }) {
     );
 }
 
-/** Start a conversation (kind chat) with this agent; the server redirects to the new thread. */
+/** Open the person's one, continuous conversation with this agent (Grok-style). */
 function ChatAction({ agent }: { agent: AgentSummary }) {
-    const [open, setOpen] = useState(false);
-    const form = useForm({ message: '' });
-
-    const submit = (event: FormEvent) => {
-        event.preventDefault();
-        form.post(`/agents/${agent.id}/chat`, { onSuccess: () => form.reset() });
-    };
-
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm">
-                    <MessagesSquare />
-                    Conversar
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-                <form onSubmit={submit} className="flex flex-col gap-4">
-                    <DialogHeader>
-                        <DialogTitle>Conversar com {agent.name}</DialogTitle>
-                        <DialogDescription>Abre uma conversa: o agente responde e pode continuar a falar com ele na mesma linha.</DialogDescription>
-                    </DialogHeader>
-                    <Textarea
-                        rows={5}
-                        autoFocus
-                        placeholder="Escreva o que precisa…"
-                        value={form.data.message}
-                        onChange={(e) => form.setData('message', e.target.value)}
-                    />
-                    <InputError message={form.errors.message} />
-                    <DialogFooter className="sm:justify-between">
-                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={form.processing || form.data.message.trim() === ''}>
-                            <Send />
-                            Começar conversa
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+        <Button size="sm" asChild>
+            <Link href={`/agents/${agent.id}/chat`}>
+                <MessagesSquare />
+                Conversar
+            </Link>
+        </Button>
     );
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Capabilities\Local\DraftReport;
+use App\Documents\DocumentFormat;
 use App\Models\AuditLog;
 use App\Models\Report;
 use App\Models\User;
@@ -42,6 +43,7 @@ class ReportController extends Controller
 
         return Inertia::render('Reports/Show', [
             'report' => [...$this->present($report->load(['agent:id,name', 'reviewer:id,name'])), 'content' => $report->content, 'data' => $report->data],
+            'formats' => DocumentFormat::options(),
         ]);
     }
 
@@ -54,6 +56,11 @@ class ReportController extends Controller
         AuditLog::record($user, 'report.reviewed', ['type' => $report->type, 'title' => $report->title], subject: $report);
 
         return back()->with('success', 'Marcado como revisto.');
+    }
+
+    public function canSee(User $user, Report $report): bool
+    {
+        return $this->visible($user)->whereKey($report->id)->exists();
     }
 
     /**

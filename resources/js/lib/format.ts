@@ -34,3 +34,15 @@ export const ago = (value: string | null | undefined) => {
 
 export const compact = (value: number | null | undefined) =>
     value === null || value === undefined ? '—' : new Intl.NumberFormat('pt-PT', { notation: 'compact' }).format(value);
+
+/** "1,2 MB" for file sizes. */
+export const bytes = (value: number | null | undefined) => {
+    if (value === null || value === undefined) {
+        return '—';
+    }
+
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const exponent = Math.min(Math.floor(Math.log(Math.max(value, 1)) / Math.log(1024)), units.length - 1);
+
+    return `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: exponent === 0 ? 0 : 1 }).format(value / 1024 ** exponent)} ${units[exponent]}`;
+};

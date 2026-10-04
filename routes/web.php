@@ -12,14 +12,18 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConnectorController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\Knowledge\DomainController;
+use App\Http\Controllers\Knowledge\FolderController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
 use App\Http\Controllers\ProcurementController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\ErpConnectionController;
 use App\Http\Controllers\Settings\UserController;
@@ -60,6 +64,7 @@ Route::middleware('auth')->group(function () {
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('tasks/{task}/messages', [TaskController::class, 'message'])->middleware('throttle:30,1')->name('tasks.message');
+    Route::get('agents/{agent}/chat', [TaskController::class, 'conversation'])->name('agents.conversation');
     Route::post('agents/{agent}/chat', [TaskController::class, 'chat'])->middleware('throttle:20,1')->name('agents.chat');
     Route::get('goals', [GoalController::class, 'index'])->name('goals.index');
     Route::post('goals', [GoalController::class, 'store'])->name('goals.store');
@@ -74,8 +79,31 @@ Route::middleware('auth')->group(function () {
     Route::post('approvals/{approval}/reject', [ApprovalController::class, 'reject'])->name('approvals.reject');
 
     Route::get('knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
+    Route::get('knowledge/new', [KnowledgeController::class, 'create'])->name('knowledge.create');
     Route::post('knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');
+    Route::post('knowledge/upload', [KnowledgeController::class, 'upload'])->middleware('throttle:30,1')->name('knowledge.upload');
+    Route::get('knowledge/domains', [DomainController::class, 'index'])->name('knowledge.domains.index');
+    Route::post('knowledge/domains', [DomainController::class, 'store'])->name('knowledge.domains.store');
+    Route::put('knowledge/domains/{domain}', [DomainController::class, 'update'])->name('knowledge.domains.update');
+    Route::delete('knowledge/domains/{domain}', [DomainController::class, 'destroy'])->name('knowledge.domains.destroy');
+    Route::post('knowledge/folders', [FolderController::class, 'store'])->name('knowledge.folders.store');
+    Route::put('knowledge/folders/{folder}', [FolderController::class, 'update'])->name('knowledge.folders.update');
+    Route::delete('knowledge/folders/{folder}', [FolderController::class, 'destroy'])->name('knowledge.folders.destroy');
     Route::get('knowledge/{item}', [KnowledgeController::class, 'show'])->name('knowledge.show');
+    Route::get('knowledge/{item}/edit', [KnowledgeController::class, 'edit'])->name('knowledge.edit');
+    Route::put('knowledge/{item}', [KnowledgeController::class, 'update'])->name('knowledge.update');
+    Route::delete('knowledge/{item}', [KnowledgeController::class, 'destroy'])->name('knowledge.destroy');
+    Route::post('knowledge/{item}/review', [KnowledgeController::class, 'review'])->name('knowledge.review');
+    Route::get('knowledge/{item}/file', [KnowledgeController::class, 'file'])->name('knowledge.file');
+
+    Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::post('documents', [DocumentController::class, 'store'])->middleware('throttle:20,1')->name('documents.store');
+    Route::get('documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
+    Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
+    Route::post('documents/{document}/convert', [DocumentController::class, 'convert'])->middleware('throttle:20,1')->name('documents.convert');
+    Route::post('documents/{document}/file', [DocumentController::class, 'file'])->name('documents.file');
+    Route::delete('documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+    Route::post('reports/{report}/export', [DocumentController::class, 'fromReport'])->middleware('throttle:20,1')->name('reports.export');
 
     Route::get('inbox', [InboxController::class, 'index'])->name('inbox.index');
     Route::get('inbox/{message}', [InboxController::class, 'show'])->name('inbox.show');
@@ -133,6 +161,10 @@ Route::middleware('auth')->group(function () {
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::resource('users', UserController::class)->except(['show', 'destroy']);
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('brand', [BrandController::class, 'show'])->name('brand.show');
+        Route::post('brand', [BrandController::class, 'update'])->name('brand.update');
+        Route::get('brand/logo', [BrandController::class, 'logo'])->name('brand.logo');
 
         Route::get('erp', [ErpConnectionController::class, 'show'])->name('erp.show');
         Route::put('erp', [ErpConnectionController::class, 'update'])->name('erp.update');

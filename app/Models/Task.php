@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
  * @property int $tenant_id
  * @property int $number
  * @property TaskKind $kind
+ * @property string|null $chat_key
  * @property string $title
  * @property string|null $description
  * @property TaskStatus $status
@@ -45,7 +46,7 @@ use Illuminate\Support\Str;
  * @property Carbon $updated_at
  */
 #[Fillable([
-    'number', 'kind', 'title', 'description', 'status', 'priority', 'assignee_agent_id', 'user_id', 'created_by_user_id',
+    'number', 'kind', 'chat_key', 'title', 'description', 'status', 'priority', 'assignee_agent_id', 'user_id', 'created_by_user_id',
     'created_by_agent_id', 'goal_id', 'parent_id', 'due_at', 'started_at', 'completed_at', 'last_activity_at',
 ])]
 class Task extends Model
