@@ -25,6 +25,8 @@ use Illuminate\Support\Str;
  */
 final class TemplateInstaller
 {
+    private const CHIEF = 'chief_of_staff';
+
     public function __construct(private readonly SkillCatalog $catalog) {}
 
     /**
@@ -60,6 +62,8 @@ final class TemplateInstaller
                 'autonomy_level' => $template->autonomy,
                 'settings' => ['template' => $template->key],
             ]);
+
+            $this->placeInOrgChart($agent, $template);
 
             $skills = Skill::query()->whereIn('key', $template->skills)->pluck('id', 'key');
             $agent->skills()->sync(array_fill_keys($skills->values()->all(), ['enabled' => true]));
@@ -122,5 +126,25 @@ final class TemplateInstaller
         ]);
 
         return $address;
+    }
+
+    /**
+     * The Chief of Staff tops the agent org chart (docs/DECISOES.md): the
+     * other template agents report to it, whichever is installed first.
+     */
+    private function placeInOrgChart(Agent $agent, AgentTemplate $template): void
+    {
+        if ($template->key === self::CHIEF) {
+            Agent::query()->whereKeyNot($agent->id)->whereNull('reports_to_agent_id')->whereNotNull('settings->template')
+                ->update(['reports_to_agent_id' => $agent->id]);
+
+            return;
+        }
+
+        $chief = Agent::query()->where('settings->template', self::CHIEF)->value('id');
+
+        if ($chief !== null) {
+            $agent->forceFill(['reports_to_agent_id' => $chief])->save();
+        }
     }
 }

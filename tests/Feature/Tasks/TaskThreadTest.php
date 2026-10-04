@@ -204,3 +204,15 @@ it('lists goals with progress and keeps the org chart free of cycles', function 
     $this->actingAs($this->owner)->get(tenantUrl($this->a, 'org'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Org/Index')->has('agents', 2));
 });
+
+it('puts the Chief of Staff on top of the org chart, whatever is installed first', function () {
+    asTenant($this->b, function () {
+        $finance = templateAgent('finance');
+        $chief = templateAgent('chief_of_staff');
+        $triage = templateAgent('triage');
+
+        expect($finance->fresh()->reports_to_agent_id)->toBe($chief->id)
+            ->and($triage->fresh()->reports_to_agent_id)->toBe($chief->id)
+            ->and($chief->fresh()->reports_to_agent_id)->toBeNull();
+    });
+});
