@@ -1,7 +1,7 @@
 <?php
 
 use App\Ai\Agents\GenericAgent;
-use App\Ai\Skills\Local\ProjectMargins;
+use App\Ai\Capabilities\Local\ProjectMargins;
 use App\Email\InboundEmailIngestor;
 use App\Enums\BankTransactionStatus;
 use App\Finance\BankReconciler;
@@ -140,7 +140,7 @@ it('flags projects over budget or under the minimum margin, with per-tenant thre
             'Obra apertada: margem sobre facturado 5% (mínimo 60%)',
         ]);
 
-        $live = json_decode(runSkill($this->finance, 'finance.project_margins')->content, true);
+        $live = json_decode(runCapability($this->finance, 'finance.project_margins')->content, true);
         expect($live['projects'])->not->toBeEmpty();
     });
 });

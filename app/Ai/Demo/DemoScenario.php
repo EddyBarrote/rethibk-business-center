@@ -2,11 +2,11 @@
 
 namespace App\Ai\Demo;
 
-use App\Ai\Skills\SkillCatalog;
+use App\Ai\Capabilities\CapabilityCatalog;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
 use App\Models\Agent;
-use App\Models\Skill;
+use App\Models\Capability;
 use App\Models\User;
 use Laravel\Ai\Responses\Data\ToolCall;
 
@@ -21,7 +21,7 @@ final class DemoScenario
 
     public const INPUT = 'Procura clientes na Beira e regista uma oportunidade para a manutenção anual do porto da Beira, valor estimado de 2 500 000 MZN.';
 
-    public function __construct(private readonly SkillCatalog $catalog) {}
+    public function __construct(private readonly CapabilityCatalog $catalog) {}
 
     /**
      * Create or refresh the demo agent in the current tenant.
@@ -44,8 +44,8 @@ final class DemoScenario
             'reports_to_user_id' => $owner?->id,
         ]);
 
-        $skills = Skill::query()->whereIn('key', ['erp.crm.search_accounts', 'erp.leads.create'])->pluck('id');
-        $agent->skills()->syncWithPivotValues($skills, ['enabled' => true]);
+        $capabilities = Capability::query()->whereIn('key', ['erp.crm.search_accounts', 'erp.leads.create'])->pluck('id');
+        $agent->capabilities()->syncWithPivotValues($capabilities, ['enabled' => true]);
 
         return $agent;
     }

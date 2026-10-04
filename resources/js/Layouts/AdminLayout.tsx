@@ -183,7 +183,7 @@ export default function AdminLayout({
     const tenantNav: NavItem[] = tenantId
         ? [
               { label: 'Visão geral', href: `/tenants/${tenantId}`, icon: LayoutDashboard, exact: true },
-              { label: 'Skills', href: `/tenants/${tenantId}/skills`, icon: Puzzle },
+              { label: 'Capacidades', href: `/tenants/${tenantId}/capabilities`, icon: Puzzle },
           ]
         : [];
 

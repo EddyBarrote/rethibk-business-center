@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Ai\Skills\SkillCatalog;
+use App\Ai\Capabilities\CapabilityCatalog;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
 use App\Enums\ContractStatus;
@@ -68,7 +68,7 @@ class DatabaseSeeder extends Seeder
                 'transport' => ErpTransport::Local,
             ]);
 
-            $catalog = app(SkillCatalog::class);
+            $catalog = app(CapabilityCatalog::class);
             $catalog->syncLocal();
 
             try {

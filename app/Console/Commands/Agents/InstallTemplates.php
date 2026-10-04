@@ -34,11 +34,11 @@ class InstallTemplates extends Command
                     $result['agent']->name,
                     $result['created'] ? 'criado' : 'já existia',
                     $result['mailbox'] ?? '—',
-                    $result['missing_skills'] === [] ? '—' : implode(', ', $result['missing_skills']),
+                    $result['missing_capabilities'] === [] ? '—' : implode(', ', $result['missing_capabilities']),
                 ];
             }
 
-            $this->table(['Entrega', 'Agente', 'Estado', 'Caixa', 'Skills em falta'], $rows);
+            $this->table(['Entrega', 'Agente', 'Estado', 'Caixa', 'Capacidades em falta'], $rows);
 
             return self::SUCCESS;
         });

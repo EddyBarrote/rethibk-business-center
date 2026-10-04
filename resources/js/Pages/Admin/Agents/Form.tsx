@@ -17,7 +17,7 @@ import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { LevelOption, Option } from '@/types';
 
-interface SkillOption {
+interface CapabilityOption {
     id: number;
     key: string;
     name: string;
@@ -46,7 +46,7 @@ interface AgentData {
     max_steps: number | null;
     status: string;
     autonomy_level: number;
-    skills: number[];
+    capabilities: number[];
 }
 
 interface Routine {
@@ -81,7 +81,7 @@ interface Props {
     agent: AgentData | null;
     departments: { id: number; name: string }[];
     users: { id: number; name: string }[];
-    skills: SkillOption[];
+    capabilities: CapabilityOption[];
     levels: LevelOption[];
     statuses: Option[];
     providers: string[];
@@ -215,7 +215,7 @@ export default function AgentForm({
     agent,
     departments,
     users,
-    skills,
+    capabilities,
     levels,
     statuses,
     providers,
@@ -240,7 +240,7 @@ export default function AgentForm({
         temperature: str(agent?.temperature),
         max_tokens: str(agent?.max_tokens),
         max_steps: str(agent?.max_steps),
-        skills: agent?.skills ?? [],
+        capabilities: agent?.capabilities ?? [],
     });
     const errors = form.errors as Record<string, string | undefined>;
     const [filter, setFilter] = useState('');
@@ -266,19 +266,19 @@ export default function AgentForm({
     };
 
     const level = Number(form.data.autonomy_level);
-    const visibleSkills = useMemo(
-        () => skills.filter((skill) => `${skill.key} ${skill.name}`.toLowerCase().includes(filter.toLowerCase())),
-        [skills, filter],
+    const visibleCapabilities = useMemo(
+        () => capabilities.filter((capability) => `${capability.key} ${capability.name}`.toLowerCase().includes(filter.toLowerCase())),
+        [capabilities, filter],
     );
 
-    const toggleSkill = (id: number, on: boolean) =>
-        form.setData('skills', on ? [...form.data.skills, id] : form.data.skills.filter((skillId) => skillId !== id));
+    const toggleCapability = (id: number, on: boolean) =>
+        form.setData('capabilities', on ? [...form.data.capabilities, id] : form.data.capabilities.filter((capabilityId) => capabilityId !== id));
 
     const sections: SectionLink[] = [
         { id: 'identidade', label: 'Identidade', icon: Bot },
         { id: 'personalidade', label: 'Personalidade e instruções', icon: Brain },
         { id: 'modelo', label: 'Autonomia e modelo', icon: Cpu },
-        { id: 'skills', label: 'Skills', icon: Puzzle, count: form.data.skills.length },
+        { id: 'capabilities', label: 'Capacidades', icon: Puzzle, count: form.data.capabilities.length },
         ...(agent
             ? [
                   { id: 'rotinas', label: 'Rotinas', icon: CalendarClock, count: routines.length },
@@ -307,7 +307,7 @@ export default function AgentForm({
                         {agent && <StatusBadge tone={agentTone(agent.status)}>{statusLabel}</StatusBadge>}
                     </span>
                 }
-                description="A definição do agente: quem é, como fala, o que faz, com que modelo, que skills usa e até onde pode agir sozinho."
+                description="A definição do agente: quem é, como fala, o que faz, com que modelo, que capacidades usa e até onde pode agir sozinho."
                 actions={agent && <AutonomyBadge level={agent.autonomy_level} withLabel />}
             />
 
@@ -507,12 +507,12 @@ export default function AgentForm({
                         </FormSection>
 
                         <FormSection
-                            id="skills"
-                            title="Skills"
+                            id="capabilities"
+                            title="Capacidades"
                             description={
                                 <>
-                                    <span className="font-mono text-foreground tabular-nums">{form.data.skills.length}</span> seleccionada(s). Sem
-                                    aprovação, o agente só usa uma skill de escrita se o seu nível for igual ou superior ao risco dela.
+                                    <span className="font-mono text-foreground tabular-nums">{form.data.capabilities.length}</span> seleccionada(s). Sem
+                                    aprovação, o agente só usa uma capacidade de escrita se o seu nível for igual ou superior ao risco dela.
                                 </>
                             }
                             action={
@@ -522,59 +522,59 @@ export default function AgentForm({
                                 </div>
                             }
                         >
-                            <InputErrorList errors={errors} prefix="skills" />
-                            {visibleSkills.length === 0 ? (
+                            <InputErrorList errors={errors} prefix="capabilities" />
+                            {visibleCapabilities.length === 0 ? (
                                 <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                                    {skills.length === 0
-                                        ? 'Esta organização ainda não tem skills. Actualize-as do ERP na página de skills.'
-                                        : 'Nenhuma skill corresponde ao filtro.'}
+                                    {capabilities.length === 0
+                                        ? 'Esta organização ainda não tem capabilities. Actualize-as do ERP na página de capabilities.'
+                                        : 'Nenhuma capacidade corresponde ao filtro.'}
                                 </p>
                             ) : (
                                 <ul className="grid max-h-[32rem] gap-px overflow-y-auto rounded-lg border bg-border sm:grid-cols-2">
-                                    {visibleSkills.map((skill) => {
-                                        const checked = form.data.skills.includes(skill.id);
-                                        const gated = skill.ceiling || (skill.is_mutating && level < skill.risk);
+                                    {visibleCapabilities.map((capability) => {
+                                        const checked = form.data.capabilities.includes(capability.id);
+                                        const gated = capability.ceiling || (capability.is_mutating && level < capability.risk);
 
                                         return (
-                                            <li key={skill.id} className="bg-card">
+                                            <li key={capability.id} className="bg-card">
                                                 <label
                                                     className={cn(
                                                         'flex h-full cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors hover:bg-accent/60',
                                                         checked && 'bg-primary/5',
-                                                        !skill.is_available && 'cursor-not-allowed opacity-60',
+                                                        !capability.is_available && 'cursor-not-allowed opacity-60',
                                                     )}
                                                 >
                                                     <Checkbox
                                                         checked={checked}
-                                                        disabled={!skill.is_available}
-                                                        onCheckedChange={(on) => toggleSkill(skill.id, on === true)}
+                                                        disabled={!capability.is_available}
+                                                        onCheckedChange={(on) => toggleCapability(capability.id, on === true)}
                                                         className="mt-0.5"
                                                     />
                                                     <span className="min-w-0 flex-1">
                                                         <span className="flex flex-wrap items-center gap-1.5">
-                                                            <span className="text-sm font-medium">{skill.name}</span>
-                                                            <SourcePill source={skill.source} />
-                                                            {skill.is_mutating ? (
-                                                                <AutonomyBadge level={skill.risk} />
+                                                            <span className="text-sm font-medium">{capability.name}</span>
+                                                            <SourcePill source={capability.source} />
+                                                            {capability.is_mutating ? (
+                                                                <AutonomyBadge level={capability.risk} />
                                                             ) : (
                                                                 <StatusBadge tone="idle" dot={false}>
                                                                     leitura
                                                                 </StatusBadge>
                                                             )}
-                                                            {skill.ceiling && (
+                                                            {capability.ceiling && (
                                                                 <StatusBadge tone="danger" dot={false}>
                                                                     <Lock className="size-3" />
                                                                     tecto
                                                                 </StatusBadge>
                                                             )}
-                                                            {!skill.is_available && (
+                                                            {!capability.is_available && (
                                                                 <StatusBadge tone="idle" dot={false}>
                                                                     indisponível
                                                                 </StatusBadge>
                                                             )}
                                                         </span>
                                                         <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                                                            {skill.key}
+                                                            {capability.key}
                                                         </span>
                                                         {checked && gated && (
                                                             <span className="mt-0.5 flex items-center gap-1.5 text-xs text-status-warning">

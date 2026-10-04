@@ -14,7 +14,7 @@ use Throwable;
 /**
  * Sends from an agent's mailbox over its own SMTP settings and records the
  * message in the inbox, so the conversation shows what was sent. Used by
- * the SendEmail skill and by people sending a draft from the console.
+ * the SendEmail capability and by people sending a draft from the console.
  */
 final class MailboxMailer
 {

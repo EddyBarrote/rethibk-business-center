@@ -94,12 +94,12 @@ class Agent extends Model
     }
 
     /**
-     * @return BelongsToMany<Skill, $this, AgentSkill>
+     * @return BelongsToMany<Capability, $this, AgentCapability>
      */
-    public function skills(): BelongsToMany
+    public function capabilities(): BelongsToMany
     {
-        return $this->belongsToMany(Skill::class)
-            ->using(AgentSkill::class)
+        return $this->belongsToMany(Capability::class)
+            ->using(AgentCapability::class)
             ->withPivot(['id', 'tenant_id', 'enabled', 'config'])
             ->withTimestamps();
     }

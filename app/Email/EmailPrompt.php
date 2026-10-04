@@ -36,7 +36,7 @@ final class EmailPrompt
 
         return <<<TXT
         Chegou um email novo à tua caixa ({$message->mailbox->address}). Email #{$message->id}. {$thread}
-        Faz a triagem: classifica-o com a skill de triagem, extrai os campos relevantes, encaminha para quem deve tratar e, se for uma oportunidade ou concurso, regista-a.
+        Faz a triagem: classifica-o com a capacidade de triagem, extrai os campos relevantes, encaminha para quem deve tratar e, se for uma oportunidade ou concurso, regista-a.
         {$warning}
         <email_externo_nao_confiavel>
         De: {$message->from_name} <{$message->from_address}>

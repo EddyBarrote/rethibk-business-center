@@ -3,11 +3,11 @@
 use App\Ai\Agents\GenericAgent;
 use App\Ai\Agents\ToolResolver;
 use App\Ai\Budget\BudgetGuard;
+use App\Ai\Capabilities\CapabilityCatalog;
+use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Knowledge\KnowledgeBase;
 use App\Ai\Runs\AgentRunner;
 use App\Ai\Runs\ApprovalService;
-use App\Ai\Skills\SkillCatalog;
-use App\Ai\Skills\SkillContext;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
 use App\Enums\KnowledgeType;
@@ -21,8 +21,8 @@ use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\BudgetEvent;
+use App\Models\Capability;
 use App\Models\Mailbox;
-use App\Models\Skill;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
@@ -62,7 +62,7 @@ it('asks for a budget exception when the cap runs out, and resumes the agent onc
     Queue::fake();
 
     asTenant($this->tenant->fresh(), function () {
-        app(SkillCatalog::class)->syncLocal();
+        app(CapabilityCatalog::class)->syncLocal();
         $owner = User::factory()->owner()->create();
         $boss = User::factory()->create();
         $agent = Agent::factory()->create(['reports_to_user_id' => $boss->id]);
@@ -106,17 +106,17 @@ it('refuses to run a suspended agent', function () {
     });
 });
 
-it('gives an agent only the skills of its own tenant, plus memory search and the task tools', function () {
+it('gives an agent only the capabilities of its own tenant, plus memory search and the task tools', function () {
     $other = Tenant::factory()->create();
-    asTenant($other, fn () => app(SkillCatalog::class)->syncLocal());
+    asTenant($other, fn () => app(CapabilityCatalog::class)->syncLocal());
 
     asTenant($this->tenant, function () {
-        app(SkillCatalog::class)->syncLocal();
+        app(CapabilityCatalog::class)->syncLocal();
         $agent = Agent::factory()->create();
-        $agent->skills()->attach(Skill::query()->where('key', 'comms.send_email')->value('id'), ['enabled' => true]);
+        $agent->capabilities()->attach(Capability::query()->where('key', 'comms.send_email')->value('id'), ['enabled' => true]);
         $run = AgentRun::factory()->create(['agent_id' => $agent->id]);
 
-        $names = collect(app(ToolResolver::class)->for(new SkillContext($agent, $run)))->map->name()->sort()->values()->all();
+        $names = collect(app(ToolResolver::class)->for(new CapabilityContext($agent, $run)))->map->name()->sort()->values()->all();
 
         expect($names)->toBe(['comms_send_email', 'memory_search', 'tasks_ask_human', 'tasks_create', 'tasks_list', 'tasks_update_status']);
     });
@@ -160,9 +160,9 @@ it('sends email from the agent mailbox to a known contact without approval', fun
     $this->tenant->update(['domain' => 'micomoc.co.mz']);
 
     asTenant($this->tenant->fresh(), function () {
-        app(SkillCatalog::class)->syncLocal();
+        app(CapabilityCatalog::class)->syncLocal();
         $agent = Agent::factory()->level(AutonomyLevel::ExecuteWithinLimits)->create();
-        $agent->skills()->attach(Skill::query()->where('key', 'comms.send_email')->value('id'), ['enabled' => true]);
+        $agent->capabilities()->attach(Capability::query()->where('key', 'comms.send_email')->value('id'), ['enabled' => true]);
         Mailbox::factory()->create(['agent_id' => $agent->id, 'address' => 'triagem@micomoc.co.mz']);
 
         GenericAgent::fake([

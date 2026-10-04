@@ -3,8 +3,8 @@
 namespace App\Ai\Budget;
 
 use App\Ai\Autonomy\GateDecision;
+use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Runs\ApprovalService;
-use App\Ai\Skills\SkillContext;
 use App\Enums\AgentStatus;
 use App\Enums\AuditResult;
 use App\Enums\AutonomyLevel;
@@ -13,7 +13,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
 use App\Models\BudgetEvent;
-use App\Models\Skill;
+use App\Models\Capability;
 use App\Tenancy\TenantManager;
 use Illuminate\Database\UniqueConstraintViolationException;
 
@@ -86,9 +86,9 @@ final class BudgetGuard
      */
     private function requestOverride(AgentRun $run, string $scope, float $cap): void
     {
-        $skill = Skill::query()->where('key', 'budget.override')->first();
+        $capability = Capability::query()->where('key', 'budget.override')->first();
 
-        if ($skill === null) {
+        if ($capability === null) {
             return;
         }
 
@@ -99,7 +99,7 @@ final class BudgetGuard
             'period' => now()->format('Y-m'),
         ];
 
-        app(ApprovalService::class)->request($skill, $arguments, new GateDecision(false, AutonomyLevel::ExecuteAndReport, 'aumentar o orçamento de IA é sempre uma decisão humana'), new SkillContext($run->agent, $run));
+        app(ApprovalService::class)->request($capability, $arguments, new GateDecision(false, AutonomyLevel::ExecuteAndReport, 'aumentar o orçamento de IA é sempre uma decisão humana'), new CapabilityContext($run->agent, $run));
     }
 
     public function budget(): AiBudget

@@ -7,9 +7,9 @@
 |
 | Whatever an agent's autonomy level, these actions never run without a
 | recorded human decision. It is a closed list, checked before the level.
-| Skill keys are "erp.<tool>" for ERP tools and the local skill key
+| Capability keys are "erp.<tool>" for ERP tools and the local capability key
 | otherwise. Conditional cases (for example an email to a new external
-| contact) are decided by the skill itself through ceilingReason().
+| contact) are decided by the capability itself through ceilingReason().
 |
 */
 

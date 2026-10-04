@@ -1,9 +1,9 @@
 <?php
 
 use App\Ai\Agents\GenericAgent;
+use App\Ai\Capabilities\CapabilityContext;
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Runs\AgentRunner;
-use App\Ai\Skills\SkillContext;
-use App\Ai\Skills\SkillRegistry;
 use App\Enums\ActorType;
 use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
@@ -100,8 +100,8 @@ it('lets an agent delegate down the org chart and wakes it when the work is done
         $parent = $threads->open(['kind' => TaskKind::Task, 'title' => 'Fecho do mês', 'assignee_agent_id' => $this->chief->id, 'user_id' => $this->boss->id], $this->boss, null, start: false);
         $run = app(AgentRunner::class)->create($this->chief, 'x', TriggerType::Manual, null, null, $parent->id);
 
-        $result = app(SkillRegistry::class)->find('tasks.create')
-            ->execute(['agent' => 'finance', 'title' => 'Reconciliar banco', 'description' => 'Reconcilia o extracto de Setembro.'], new SkillContext($this->chief, $run));
+        $result = app(CapabilityRegistry::class)->find('tasks.create')
+            ->execute(['agent' => 'finance', 'title' => 'Reconciliar banco', 'description' => 'Reconcilia o extracto de Setembro.'], new CapabilityContext($this->chief, $run));
 
         expect($result->ok)->toBeTrue();
         $child = Task::query()->where('parent_id', $parent->id)->sole();
@@ -125,11 +125,11 @@ it('lets an agent delegate down the org chart and wakes it when the work is done
 
 it('refuses delegation to agents outside the chart', function () {
     asTenant($this->a, function () {
-        $result = runSkill($this->finance, 'tasks.create', ['agent' => 'finance', 'title' => 'x', 'description' => 'y']);
+        $result = runCapability($this->finance, 'tasks.create', ['agent' => 'finance', 'title' => 'x', 'description' => 'y']);
         expect($result->ok)->toBeFalse();
 
         $other = Agent::factory()->create(['key' => 'hr', 'reports_to_agent_id' => $this->chief->id]);
-        $result = runSkill($this->finance, 'tasks.create', ['agent' => $other->key, 'title' => 'x', 'description' => 'y']);
+        $result = runCapability($this->finance, 'tasks.create', ['agent' => $other->key, 'title' => 'x', 'description' => 'y']);
         expect($result->ok)->toBeFalse()->and($result->content)->toContain('organigrama');
     });
 });
@@ -140,8 +140,8 @@ it('lets an agent ask a person and wakes it with the answer', function () {
         $task = $threads->open(['kind' => TaskKind::Task, 'title' => 'Proposta', 'assignee_agent_id' => $this->chief->id, 'user_id' => $this->boss->id], $this->boss, null, start: false);
         $run = app(AgentRunner::class)->create($this->chief, 'x', TriggerType::Manual, null, null, $task->id);
 
-        app(SkillRegistry::class)->find('tasks.ask_human')
-            ->execute(['question' => 'Qual é a margem mínima?'], new SkillContext($this->chief, $run));
+        app(CapabilityRegistry::class)->find('tasks.ask_human')
+            ->execute(['question' => 'Qual é a margem mínima?'], new CapabilityContext($this->chief, $run));
 
         expect($task->refresh()->status)->toBe(TaskStatus::WaitingHuman)
             ->and($this->boss->notifications()->count())->toBeGreaterThan(0);
@@ -156,7 +156,7 @@ it('lets an agent ask a person and wakes it with the answer', function () {
 
 it('opens a new conversation when an agent asks someone outside a task', function () {
     asTenant($this->a, function () {
-        runSkill($this->chief, 'tasks.ask_human', ['question' => 'Posso marcar a reunião para sexta?', 'to' => $this->boss->email]);
+        runCapability($this->chief, 'tasks.ask_human', ['question' => 'Posso marcar a reunião para sexta?', 'to' => $this->boss->email]);
 
         $chat = Task::query()->sole();
         expect($chat->kind)->toBe(TaskKind::Chat)

@@ -135,9 +135,9 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                             </a>
                         </Button>
                         <Button variant="outline" asChild>
-                            <Link href={`/tenants/${tenant.id}/skills`}>
+                            <Link href={`/tenants/${tenant.id}/capabilities`}>
                                 <Puzzle />
-                                Skills
+                                Capacidades
                             </Link>
                         </Button>
                     </>
@@ -188,7 +188,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                             }
                         >
                             <p className="-mt-1 text-sm text-muted-foreground">
-                                Os seis agentes da especificação, prontos a criar: instruções, skills, rotinas e caixa (desligada até ter
+                                Os seis agentes da especificação, prontos a criar: instruções, capacidades, rotinas e caixa (desligada até ter
                                 credenciais). Depois de criados, ajuste o que quiser.
                             </p>
                             <ListPanel>

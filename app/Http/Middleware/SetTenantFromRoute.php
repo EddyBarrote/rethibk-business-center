@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Super admin console: a route with a {tenant} parameter works inside that
- * tenant, so the scopes apply to the agents, skills and routines it edits.
+ * tenant, so the scopes apply to the agents, capabilities and routines it edits.
  * Runs before route model binding, and only for a signed-in super admin.
  */
 final class SetTenantFromRoute

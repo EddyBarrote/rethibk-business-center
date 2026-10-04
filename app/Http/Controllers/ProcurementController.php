@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Ai\Skills\Local\SupplierScores;
+use App\Ai\Capabilities\Local\SupplierScores;
 use App\Console\Concerns\DispatchesRoles;
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\TriggerType;

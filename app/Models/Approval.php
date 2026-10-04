@@ -22,7 +22,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int $agent_run_id
  * @property int $agent_id
- * @property int|null $skill_id
+ * @property int|null $capability_id
  * @property string $action_type
  * @property string $action_summary
  * @property array<string, mixed>|null $payload
@@ -41,7 +41,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  */
 #[Fillable([
-    'agent_run_id', 'agent_id', 'skill_id', 'action_type', 'action_summary', 'payload', 'required_level', 'agent_level',
+    'agent_run_id', 'agent_id', 'capability_id', 'action_type', 'action_summary', 'payload', 'required_level', 'agent_level',
     'ceiling_reason', 'status', 'assigned_to_user_id', 'decided_by_user_id', 'decided_at', 'decision_note', 'expires_at',
     'execution_status', 'execution_result', 'executed_at',
 ])]
@@ -81,11 +81,11 @@ class Approval extends Model
     }
 
     /**
-     * @return BelongsTo<Skill, $this>
+     * @return BelongsTo<Capability, $this>
      */
-    public function skill(): BelongsTo
+    public function capability(): BelongsTo
     {
-        return $this->belongsTo(Skill::class);
+        return $this->belongsTo(Capability::class);
     }
 
     /**

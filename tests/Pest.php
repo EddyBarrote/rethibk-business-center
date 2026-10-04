@@ -1,16 +1,16 @@
 <?php
 
+use App\Ai\Capabilities\CapabilityCatalog;
+use App\Ai\Capabilities\CapabilityContext;
+use App\Ai\Capabilities\CapabilityRegistry;
+use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Runs\AgentRunner;
-use App\Ai\Skills\SkillCatalog;
-use App\Ai\Skills\SkillContext;
-use App\Ai\Skills\SkillRegistry;
-use App\Ai\Skills\SkillResult;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
 use App\Enums\TriggerType;
 use App\Models\Agent;
+use App\Models\Capability;
 use App\Models\ErpConnection;
-use App\Models\Skill;
 use App\Models\Tenant;
 use App\Tenancy\TenantManager;
 use Illuminate\Database\Eloquent\Model;
@@ -85,7 +85,7 @@ function mailFixture(string $name): string
 }
 
 /**
- * In the current tenant: the local fake ERP, the full skill catalogue, and
+ * In the current tenant: the local fake ERP, the full capability catalogue, and
  * the agent created from the given template (section 6.3).
  */
 function templateAgent(string $template, array $overrides = []): Agent
@@ -94,10 +94,10 @@ function templateAgent(string $template, array $overrides = []): Agent
         ErpConnection::factory()->local()->create();
     }
 
-    $catalog = app(SkillCatalog::class);
+    $catalog = app(CapabilityCatalog::class);
     $catalog->syncLocal();
 
-    if (Skill::query()->where('key', 'like', 'erp.%')->doesntExist()) {
+    if (Capability::query()->where('key', 'like', 'erp.%')->doesntExist()) {
         $catalog->syncErp();
     }
 
@@ -108,13 +108,13 @@ function templateAgent(string $template, array $overrides = []): Agent
 }
 
 /**
- * Runs one skill as the agent, inside a fresh run.
+ * Runs one capability as the agent, inside a fresh run.
  */
-function runSkill(Agent $agent, string $key, array $arguments = []): SkillResult
+function runCapability(Agent $agent, string $key, array $arguments = []): CapabilityResult
 {
     $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual);
 
-    return app(SkillRegistry::class)->find($key)->execute($arguments, new SkillContext($agent, $run));
+    return app(CapabilityRegistry::class)->find($key)->execute($arguments, new CapabilityContext($agent, $run));
 }
 
 /**

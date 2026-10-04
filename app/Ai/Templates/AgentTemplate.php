@@ -12,7 +12,7 @@ use App\Enums\AutonomyLevel;
 final readonly class AgentTemplate
 {
     /**
-     * @param  list<string>  $skills  skill keys; ERP ones are prefixed "erp."
+     * @param  list<string>  $capabilities  capability keys; ERP ones are prefixed "erp."
      * @param  list<array{name: string, prompt: string, schedule: string}>  $routines
      */
     public function __construct(
@@ -24,7 +24,7 @@ final readonly class AgentTemplate
         public AutonomyLevel $autonomy,
         public string $personality,
         public string $instructions,
-        public array $skills,
+        public array $capabilities,
         public array $routines,
         public string $mailbox,
         public string $delivery,

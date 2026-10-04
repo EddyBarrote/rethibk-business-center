@@ -9,7 +9,7 @@ return new class extends Migration
     /**
      * Section 5.2, adapted to generic agents (docs/DECISOES.md): an agent is
      * a configuration, not a PHP class. The super admin defines its
-     * personality, instructions, model, autonomy, skills and routines.
+     * personality, instructions, model, autonomy, capabilities and routines.
      */
     public function up(): void
     {
@@ -51,7 +51,7 @@ return new class extends Migration
             $table->unique(['agent_id', 'user_id']);
         });
 
-        Schema::create('skills', function (Blueprint $table) {
+        Schema::create('capabilities', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->string('key');
@@ -68,16 +68,16 @@ return new class extends Migration
             $table->unique(['tenant_id', 'key']);
         });
 
-        Schema::create('agent_skill', function (Blueprint $table) {
+        Schema::create('agent_capability', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('agent_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('skill_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('capability_id')->constrained()->cascadeOnDelete();
             $table->boolean('enabled')->default(true);
             $table->json('config')->nullable();
             $table->timestamps();
 
-            $table->unique(['agent_id', 'skill_id']);
+            $table->unique(['agent_id', 'capability_id']);
         });
 
         Schema::create('agent_routines', function (Blueprint $table) {
@@ -98,8 +98,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('agent_routines');
-        Schema::dropIfExists('agent_skill');
-        Schema::dropIfExists('skills');
+        Schema::dropIfExists('agent_capability');
+        Schema::dropIfExists('capabilities');
         Schema::dropIfExists('agent_assignments');
         Schema::dropIfExists('agents');
     }

@@ -10,9 +10,9 @@ use App\Enums\MailboxStatus;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
 use App\Models\AuditLog;
+use App\Models\Capability;
 use App\Models\Department;
 use App\Models\Mailbox;
-use App\Models\Skill;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantRule;
@@ -26,7 +26,7 @@ use Inertia\Response;
 
 /**
  * Generic agents are defined by the super admin (docs/DECISOES.md): identity,
- * personality, instructions, model, autonomy level, skills, routines and
+ * personality, instructions, model, autonomy level, capabilities, routines and
  * mailbox. SetTenantFromRoute puts these routes inside {tenant}.
  */
 class AgentController extends AdminController
@@ -42,14 +42,14 @@ class AgentController extends AdminController
         $admin = $this->admin($request);
 
         $agent = DB::transaction(function () use ($data, $admin) {
-            $agent = new Agent(Arr::except($data, ['skills']));
+            $agent = new Agent(Arr::except($data, ['capabilities']));
             $agent->forceFill(['created_by_admin_id' => $admin->id])->save();
-            $agent->skills()->sync(array_fill_keys($data['skills'] ?? [], ['enabled' => true]));
+            $agent->capabilities()->sync(array_fill_keys($data['capabilities'] ?? [], ['enabled' => true]));
 
             return $agent;
         });
 
-        AuditLog::record($admin, 'agent.created', ['key' => $agent->key, 'autonomy_level' => $agent->autonomy_level->value, 'skills' => $data['skills'] ?? []], subject: $agent);
+        AuditLog::record($admin, 'agent.created', ['key' => $agent->key, 'autonomy_level' => $agent->autonomy_level->value, 'capabilities' => $data['capabilities'] ?? []], subject: $agent);
 
         return redirect()->route('admin.tenants.agents.edit', [$tenant, $agent])->with('success', 'Agente criado.');
     }
@@ -68,10 +68,10 @@ class AgentController extends AdminController
         foreach ($templates as $template) {
             $result = $installer->install($template, $this->admin($request));
             $created += $result['created'] ? 1 : 0;
-            $missing = [...$missing, ...$result['missing_skills']];
+            $missing = [...$missing, ...$result['missing_capabilities']];
         }
 
-        return back()->with('success', "{$created} agente(s) criado(s) a partir dos modelos.".($missing !== [] ? ' Skills em falta (sincronize o ERP): '.implode(', ', array_unique($missing)).'.' : ''));
+        return back()->with('success', "{$created} agente(s) criado(s) a partir dos modelos.".($missing !== [] ? ' Capacidades em falta (sincronize o ERP): '.implode(', ', array_unique($missing)).'.' : ''));
     }
 
     public function edit(Tenant $tenant, Agent $agent): Response
@@ -84,7 +84,7 @@ class AgentController extends AdminController
                 ...$agent->only(['id', 'key', 'name', 'title', 'description', 'personality', 'instructions', 'department_id', 'reports_to_user_id', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps']),
                 'status' => $agent->status->value,
                 'autonomy_level' => $agent->autonomy_level->value,
-                'skills' => $agent->skills()->wherePivot('enabled', true)->pluck('skills.id'),
+                'capabilities' => $agent->capabilities()->wherePivot('enabled', true)->pluck('capabilities.id'),
             ],
             'routines' => $agent->routines()->orderBy('name')->get()->map(fn (AgentRoutine $routine) => [
                 ...$routine->only(['id', 'name', 'prompt', 'schedule', 'is_active']),
@@ -106,20 +106,20 @@ class AgentController extends AdminController
         $before = ['autonomy_level' => $agent->autonomy_level->value, 'status' => $agent->status->value];
 
         DB::transaction(function () use ($agent, $data) {
-            $agent->fill(Arr::except($data, ['skills']));
+            $agent->fill(Arr::except($data, ['capabilities']));
 
             if ($agent->status !== AgentStatus::Suspended) {
                 $agent->suspended_reason = null;
             }
 
             $agent->save();
-            $agent->skills()->sync(array_fill_keys($data['skills'] ?? [], ['enabled' => true]));
+            $agent->capabilities()->sync(array_fill_keys($data['capabilities'] ?? [], ['enabled' => true]));
         });
 
         AuditLog::record($this->admin($request), 'agent.updated', [
             'before' => $before,
             'after' => ['autonomy_level' => $agent->autonomy_level->value, 'status' => $agent->status->value],
-            'skills' => $data['skills'] ?? [],
+            'capabilities' => $data['capabilities'] ?? [],
         ], subject: $agent);
 
         return back()->with('success', 'Agente guardado.');
@@ -187,8 +187,8 @@ class AgentController extends AdminController
             'temperature' => ['nullable', 'numeric', 'between:0,2'],
             'max_tokens' => ['nullable', 'integer', 'between:1,200000'],
             'max_steps' => ['nullable', 'integer', 'between:1,50'],
-            'skills' => ['array'],
-            'skills.*' => ['integer', TenantRule::exists('skills')],
+            'capabilities' => ['array'],
+            'capabilities.*' => ['integer', TenantRule::exists('capabilities')],
         ]);
     }
 
@@ -201,16 +201,16 @@ class AgentController extends AdminController
             'tenant' => ['id' => $tenant->id, 'name' => $tenant->name],
             'departments' => Department::query()->orderBy('name')->get(['id', 'name']),
             'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'skills' => Skill::query()->orderBy('source')->orderBy('key')->get()->map(fn (Skill $skill) => [
-                'id' => $skill->id,
-                'key' => $skill->key,
-                'name' => $skill->name,
-                'description' => $skill->description,
-                'source' => $skill->source->value,
-                'is_mutating' => $skill->is_mutating,
-                'is_available' => $skill->is_available,
-                'risk' => $skill->risk->value,
-                'ceiling' => config('autonomy.ceiling.'.$skill->key) !== null,
+            'capabilities' => Capability::query()->orderBy('source')->orderBy('key')->get()->map(fn (Capability $capability) => [
+                'id' => $capability->id,
+                'key' => $capability->key,
+                'name' => $capability->name,
+                'description' => $capability->description,
+                'source' => $capability->source->value,
+                'is_mutating' => $capability->is_mutating,
+                'is_available' => $capability->is_available,
+                'risk' => $capability->risk->value,
+                'ceiling' => config('autonomy.ceiling.'.$capability->key) !== null,
             ]),
             'levels' => AutonomyLevel::options(),
             'statuses' => array_map(fn (AgentStatus $status) => ['value' => $status->value, 'label' => $status->label()], AgentStatus::cases()),

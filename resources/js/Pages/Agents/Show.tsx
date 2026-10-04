@@ -21,14 +21,14 @@ import type { AgentSummary, RunSummary, SharedProps } from '@/types';
 
 interface Props {
     agent: AgentSummary & { personality: string | null; provider: string; model: string; assignees: { id: number; name: string }[] };
-    skills: { key: string; name: string; is_mutating: boolean; risk: number; ceiling: boolean }[];
+    capabilities: { key: string; name: string; is_mutating: boolean; risk: number; ceiling: boolean }[];
     routines: { id: number; name: string; schedule: string; is_active: boolean; last_run_at: string | null }[];
     runs: RunSummary[];
     users: { id: number; name: string }[];
     can: { run: boolean; manage: boolean };
 }
 
-export default function AgentShow({ agent, skills, routines, runs, users, can }: Props) {
+export default function AgentShow({ agent, capabilities, routines, runs, users, can }: Props) {
     const { tenant, sidebar_agents } = usePage<SharedProps>().props;
     const form = useForm({ input: '' });
     const [reason, setReason] = useState('');
@@ -149,29 +149,29 @@ export default function AgentShow({ agent, skills, routines, runs, users, can }:
                     </TabsContent>
 
                     <TabsContent value="config" className="flex flex-col gap-8">
-                        <Section title="Skills">
-                            {skills.length === 0 ? (
+                        <Section title="Capacidades">
+                            {capabilities.length === 0 ? (
                                 <EmptyState
                                     icon={Wrench}
                                     title="Só a pesquisa na memória"
-                                    description="A Rethink adiciona skills a este agente na consola de administração."
+                                    description="A Rethink adiciona capacidades a este agente na consola de administração."
                                 />
                             ) : (
                                 <ListPanel>
-                                    {skills.map((skill) => (
+                                    {capabilities.map((capability) => (
                                         <EntityRow
-                                            key={skill.key}
-                                            title={skill.name}
-                                            subtitle={<span className="font-mono">{skill.key}</span>}
+                                            key={capability.key}
+                                            title={capability.name}
+                                            subtitle={<span className="font-mono">{capability.key}</span>}
                                             trailing={
-                                                skill.ceiling ? (
+                                                capability.ceiling ? (
                                                     <StatusBadge tone="danger" dot={false} title="Pede sempre aprovação, seja qual for a autonomia">
                                                         <Lock className="size-3" />
                                                         tecto
                                                     </StatusBadge>
-                                                ) : skill.is_mutating ? (
-                                                    <span title={agent.autonomy_level >= skill.risk ? 'Executa sozinho' : 'Pede aprovação'}>
-                                                        <AutonomyBadge level={skill.risk} />
+                                                ) : capability.is_mutating ? (
+                                                    <span title={agent.autonomy_level >= capability.risk ? 'Executa sozinho' : 'Pede aprovação'}>
+                                                        <AutonomyBadge level={capability.risk} />
                                                     </span>
                                                 ) : (
                                                     <StatusBadge tone="idle" dot={false}>
@@ -291,8 +291,8 @@ export default function AgentShow({ agent, skills, routines, runs, users, can }:
                         <span className="font-mono text-xs">{agent.key}</span>
                     </Property>
                     <Property label="Afectos a">{agent.assignees.length > 0 ? agent.assignees.map((user) => user.name).join(', ') : null}</Property>
-                    <Property label="Skills">
-                        <span className="tabular-nums">{skills.length}</span>
+                    <Property label="Capacidades">
+                        <span className="tabular-nums">{capabilities.length}</span>
                     </Property>
                     <Property label="Gasto recente">
                         <span className="font-mono tabular-nums" title={`Soma das últimas ${runs.length} execuções`}>

@@ -2,11 +2,11 @@
 
 use App\Ai\Autonomy\AutonomyGate;
 use App\Ai\Autonomy\GateDecision;
-use App\Ai\Skills\SkillContext;
+use App\Ai\Capabilities\CapabilityContext;
 use App\Enums\AutonomyLevel;
 use App\Models\Agent;
 use App\Models\AgentRun;
-use App\Models\Skill;
+use App\Models\Capability;
 use App\Models\Tenant;
 
 beforeEach(function () {
@@ -17,21 +17,21 @@ function gateFor(Tenant $tenant, AutonomyLevel $agentLevel, string $key, bool $m
 {
     return asTenant($tenant, function () use ($agentLevel, $key, $mutating, $risk, $arguments) {
         $agent = Agent::factory()->level($agentLevel)->create();
-        $skill = Skill::query()->where('key', $key)->first() ?? Skill::factory()->create(['key' => $key, 'is_mutating' => $mutating, 'risk' => $risk]);
+        $capability = Capability::query()->where('key', $key)->first() ?? Capability::factory()->create(['key' => $key, 'is_mutating' => $mutating, 'risk' => $risk]);
         $run = AgentRun::factory()->create(['agent_id' => $agent->id]);
 
-        return app(AutonomyGate::class)->evaluate($skill, $arguments, new SkillContext($agent, $run));
+        return app(AutonomyGate::class)->evaluate($capability, $arguments, new CapabilityContext($agent, $run));
     });
 }
 
-it('lets a mutating skill through only from its risk level up', function (AutonomyLevel $agent, AutonomyLevel $risk) {
+it('lets a mutating capability through only from its risk level up', function (AutonomyLevel $agent, AutonomyLevel $risk) {
     $decision = gateFor($this->tenant, $agent, 'erp.leads.update', true, $risk);
 
     expect($decision->allowed)->toBe($agent->value >= $risk->value)
         ->and($decision->requiredLevel)->toBe($risk);
 })->with(AutonomyLevel::cases())->with(AutonomyLevel::cases());
 
-it('always lets read-only skills through', function (AutonomyLevel $agent) {
+it('always lets read-only capabilities through', function (AutonomyLevel $agent) {
     expect(gateFor($this->tenant, $agent, 'erp.crm.search_accounts', false, AutonomyLevel::Observe)->allowed)->toBeTrue();
 })->with(AutonomyLevel::cases());
 

@@ -69,7 +69,7 @@ Em cada caso, **Execuções** mostra o que o agente fez passo a passo e **Aprova
 
 ## 4. Super admin
 
-Em <http://admin.localhost:8000>: organizações, perfil e orçamento de IA, regras de negócio (SLA, margens, prazos), agentes (personalidade, instruções, skills, rotinas, nível de autonomia), caixas de correio e instalação dos modelos de agentes.
+Em <http://admin.localhost:8000>: organizações, perfil e orçamento de IA, regras de negócio (SLA, margens, prazos), agentes (personalidade, instruções, capacidades, skills, rotinas, nível de autonomia), caixas de correio e instalação dos modelos de agentes.
 
 ## 5. Ligar o email real (Hostinger)
 
