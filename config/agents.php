@@ -49,7 +49,10 @@ return [
     */
 
     'pricing' => [
-        // 'anthropic:model-id' => ['input' => 3.0, 'output' => 15.0],
+        // Gemini (ai.google.dev/gemini-api/docs/pricing, 04.10.2026). 3.6 Flash
+        // at the price from 1 January 2027 (until then it is half).
+        'gemini:gemini-3.6-flash' => ['input' => 1.50, 'output' => 7.50],
+        'gemini:gemini-3.1-flash-lite' => ['input' => 0.25, 'output' => 1.50],
     ],
 
     'fallback_pricing' => [

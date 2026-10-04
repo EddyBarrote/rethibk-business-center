@@ -21,7 +21,7 @@ composer install && npm install
 cp .env.example .env
 php artisan key:generate
 php artisan reverb:install      # escreve as chaves REVERB_* no .env
-# no .env: ANTHROPIC_API_KEY=... (ou AI_PROVIDER e a chave de outro provedor)
+# no .env: AI_PROVIDER=gemini, AI_EMBEDDINGS_PROVIDER=gemini, GEMINI_API_KEY=a-tua-chave
 php artisan migrate --seed
 composer dev                    # servidor, filas (Horizon), agendador, Reverb, logs e Vite
 ```
