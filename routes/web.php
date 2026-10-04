@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Settings\DepartmentController;
+use App\Http\Controllers\Settings\ErpConnectionController;
 use App\Http\Controllers\Settings\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,5 +22,9 @@ Route::middleware('auth')->group(function () {
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::resource('users', UserController::class)->except(['show', 'destroy']);
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('erp', [ErpConnectionController::class, 'show'])->name('erp.show');
+        Route::put('erp', [ErpConnectionController::class, 'update'])->name('erp.update');
+        Route::post('erp/test', [ErpConnectionController::class, 'test'])->middleware('throttle:10,1')->name('erp.test');
     });
 });

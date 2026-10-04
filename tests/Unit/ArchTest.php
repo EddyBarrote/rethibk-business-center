@@ -11,3 +11,7 @@ arch('no debugging leftovers')
 arch('tenant-aware jobs extend the base job')
     ->expect('App\Jobs')
     ->toExtend('App\Tenancy\TenantAwareJob');
+
+arch('the platform reaches the ERP only through the audited gateway (E01)')
+    ->expect('Laravel\Mcp\Client')
+    ->toOnlyBeUsedIn(['App\Erp', 'App\Providers\McpServiceProvider']);

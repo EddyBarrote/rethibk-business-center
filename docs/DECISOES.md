@@ -23,6 +23,7 @@ Registo das respostas da direcção. Quando uma resposta altera a especificaçã
 | 9 | Fontes de concursos a monitorizar | E03 |
 | 11 | Retenção de email bruto e anexos | E03 |
 | 12 | Níveis de autonomia iniciais de cada agente | E02 |
+| — | `invoices.issue`: a emissão fica sempre no ERP, ou o ERP emite com uma aprovação da plataforma? (contradição na secção 8.3; ver `ERP-MCP-CONTRACT.md`, secção 5) | contrato do ERP |
 
 ## Entrada de email com Hostinger (decidido: IMAP)
 

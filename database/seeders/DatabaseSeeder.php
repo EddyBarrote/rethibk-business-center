@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ErpTransport;
 use App\Enums\Role;
 use App\Models\Department;
+use App\Models\ErpConnection;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantManager;
@@ -36,6 +38,11 @@ class DatabaseSeeder extends Seeder
                 'password' => 'password',
                 'role' => Role::Owner,
                 'department_id' => $general->id,
+            ]);
+
+            // Until the ERP team ships its MCP server, the fake one stands in (section 8.2).
+            ErpConnection::query()->firstOrCreate(['name' => 'Rethink ERP (servidor falso)'], [
+                'transport' => ErpTransport::Local,
             ]);
         });
     }

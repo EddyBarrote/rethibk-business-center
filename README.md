@@ -4,7 +4,8 @@ Plataforma multi-tenant de gestão empresarial com agentes de IA, construída em
 MICOMOC é o primeiro tenant. Ref: RT-2026-MCM-01.
 
 - Especificação de execução (fonte de verdade): [`docs/SPEC.md`](docs/SPEC.md)
-- Estado da entrega actual: [`docs/E00-FUNDACAO.md`](docs/E00-FUNDACAO.md)
+- Estado das entregas: [`docs/E00-FUNDACAO.md`](docs/E00-FUNDACAO.md), [`docs/E01-MCP.md`](docs/E01-MCP.md)
+- Contrato para a equipa do ERP: [`docs/ERP-MCP-CONTRACT.md`](docs/ERP-MCP-CONTRACT.md)
 
 ## Stack
 
@@ -26,6 +27,8 @@ composer dev                    # servidor, Horizon, Reverb, logs e Vite
 ```
 
 Abrir <http://micomoc.localhost:8000> e entrar com `owner@micomoc.test` / `password` (só existe no seed de desenvolvimento).
+
+O seed liga o tenant ao servidor ERP falso. Para confirmar a camada MCP: `php artisan erp:smoke micomoc`.
 
 Cada tenant é servido em `{slug}.TENANCY_CENTRAL_DOMAIN` (em local, `*.localhost` resolve sem alterar DNS) ou no domínio próprio definido em `tenants.domain`.
 

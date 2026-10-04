@@ -29,3 +29,17 @@ function asTenant(Tenant $tenant, Closure $callback): mixed
 {
     return app(TenantManager::class)->run($tenant, $callback);
 }
+
+/**
+ * Point the fake ERP at a fresh state file, for this process and for the
+ * stdio server processes the rethink_erp client starts (they inherit the env).
+ */
+function freshFakeErp(): string
+{
+    $path = sys_get_temp_dir().'/fake-erp-'.bin2hex(random_bytes(6)).'.json';
+
+    putenv("ERP_FAKE_STORAGE_PATH={$path}");
+    config(['erp.fake.storage_path' => $path, 'erp.transport' => 'local']);
+
+    return $path;
+}

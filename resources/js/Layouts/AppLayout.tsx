@@ -11,6 +11,7 @@ import {
     LogOut,
     type LucideIcon,
     Menu,
+    PlugZap,
     Users,
     X,
 } from 'lucide-react';
@@ -50,6 +51,7 @@ const mainNav: NavItem[] = [
 const settingsNav: NavItem[] = [
     { label: 'Utilizadores', href: '/settings/users', icon: Users, managersOnly: true },
     { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
+    { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, managersOnly: true },
 ];
 
 function initials(name: string) {
