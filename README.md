@@ -4,7 +4,7 @@ Plataforma multi-tenant de gestão empresarial com agentes de IA, construída em
 MICOMOC é o primeiro tenant. Ref: RT-2026-MCM-01.
 
 - Especificação de execução (fonte de verdade): [`docs/SPEC.md`](docs/SPEC.md)
-- Estado das entregas: [`docs/E00-FUNDACAO.md`](docs/E00-FUNDACAO.md), [`docs/E01-MCP.md`](docs/E01-MCP.md)
+- Estado das entregas: [`docs/E00-FUNDACAO.md`](docs/E00-FUNDACAO.md), [`docs/E01-MCP.md`](docs/E01-MCP.md), [`docs/E02-AGENTES.md`](docs/E02-AGENTES.md)
 - Contrato para a equipa do ERP: [`docs/ERP-MCP-CONTRACT.md`](docs/ERP-MCP-CONTRACT.md)
 
 ## Stack

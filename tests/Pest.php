@@ -43,3 +43,11 @@ function freshFakeErp(): string
 
     return $path;
 }
+
+/**
+ * Absolute URL on the super admin host.
+ */
+function adminUrl(string $path = '/'): string
+{
+    return 'http://'.config('tenancy.admin_domain').'/'.ltrim($path, '/');
+}

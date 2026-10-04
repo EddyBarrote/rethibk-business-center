@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Approval;
 use App\Models\PlatformAdmin;
 use App\Models\Tenant;
 use App\Models\User;
@@ -33,6 +34,7 @@ class HandleInertiaRequests extends Middleware
                 'locale' => app()->getLocale(),
             ],
             'tenant' => $tenant === null ? null : [
+                'id' => $tenant->id,
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
             ],
@@ -50,6 +52,7 @@ class HandleInertiaRequests extends Middleware
                     'role_label' => $user->role->label(),
                     'can_manage_tenant' => $user->canManageTenant(),
                 ] : null,
+                'pending_approvals' => fn () => $user instanceof User && $tenant !== null ? Approval::query()->visibleTo($user)->pending()->count() : 0,
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

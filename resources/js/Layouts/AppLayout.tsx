@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    Activity,
     Bot,
     Building2,
     CheckSquare,
@@ -37,14 +38,16 @@ interface NavItem {
     // Modules that land in later deliveries are shown but not yet clickable.
     soon?: string;
     managersOnly?: boolean;
+    badge?: 'approvals';
 }
 
 const mainNav: NavItem[] = [
     { label: 'Painel', href: '/', icon: LayoutDashboard },
-    { label: 'Agentes', href: '/agents', icon: Bot, soon: 'E02' },
-    { label: 'Aprovações', href: '/approvals', icon: CheckSquare, soon: 'E02' },
+    { label: 'Agentes', href: '/agents', icon: Bot },
+    { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
+    { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Caixa', href: '/inbox', icon: Inbox, soon: 'E03' },
-    { label: 'Memória', href: '/knowledge', icon: Library, soon: 'E02' },
+    { label: 'Memória', href: '/knowledge', icon: Library },
     { label: 'Briefings', href: '/briefings', icon: FileText, soon: 'E04' },
 ];
 
@@ -63,7 +66,7 @@ function initials(name: string) {
         .join('');
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({ item, active, count = 0 }: { item: NavItem; active: boolean; count?: number }) {
     const Icon = item.icon;
     const classes = cn(
         'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
@@ -83,7 +86,8 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     return (
         <Link href={item.href} className={classes}>
             <Icon className="size-4" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {count > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white tabular-nums">{count}</span>}
         </Link>
     );
 }
@@ -111,7 +115,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <nav className="flex flex-1 flex-col gap-6">
                 <div className="flex flex-col gap-1">
                     {mainNav.map((item) => (
-                        <NavLink key={item.href} item={item} active={isActive(item.href)} />
+                        <NavLink key={item.href} item={item} active={isActive(item.href)} count={item.badge ? auth.pending_approvals : 0} />
                     ))}
                 </div>
 

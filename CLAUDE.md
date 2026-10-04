@@ -1,7 +1,7 @@
 # MICOMOC — notas para agentes de código
 
 - A especificação é `docs/SPEC.md`. Tudo marcado `[CONFIRMAR]` não está decidido: perguntar, nunca inventar.
-- Implementar por entregas (secção 19), pela ordem. Estado em `docs/E00-FUNDACAO.md` e `docs/E01-MCP.md`; decisões em `docs/DECISOES.md`.
+- Implementar por entregas (secção 19), pela ordem. Estado em `docs/E00-FUNDACAO.md`, `docs/E01-MCP.md` e `docs/E02-AGENTES.md`; decisões em `docs/DECISOES.md`.
 - Toda a tabela de domínio tem `tenant_id` e o modelo usa `App\Concerns\BelongsToTenant`. O teste
   `tests/Feature/Tenancy/IsolationTest.php` descobre os modelos sozinho: um modelo novo precisa só do trait e de uma factory.
 - Nunca usar `withoutGlobalScope(s)` em `app/` (há um teste de arquitectura que o impede).
@@ -11,3 +11,5 @@
 - `audit_logs` é append-only: registar com `AuditLog::record()`, nunca alterar nem apagar.
 - Antes de concluir: `php artisan test`, `vendor/bin/pint --test`, `vendor/bin/phpstan analyse`, `npx tsc --noEmit`.
 - Interface em português (pt-MZ/pt-PT).
+- Agentes são genéricos (uma linha em `agents`, definida pelo super admin); não criar classes de agente por função. Capacidades novas são skills: locais em `App\Ai\Skills\Local` (registar em `SkillRegistry`) ou ferramentas do ERP.
+- Eventos de consola ao vivo usam `::live(...)` (trait `BroadcastsLive`), nunca `::dispatch`, para uma falha do Reverb não partir execuções.

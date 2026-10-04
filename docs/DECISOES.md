@@ -25,16 +25,19 @@ Escolhas por omissão, reversíveis, tomadas para avançar (a confirmar):
 - **Dentro do tenant**, proprietários e administradores podem suspender e reactivar agentes, afectá-los a pessoas e aprovar acções; não alteram a definição nem o nível de autonomia.
 - Quem aprova uma acção: proprietário, administrador, a pessoa a quem o agente responde, ou uma pessoa afecta ao agente.
 
-## Ainda em aberto
+## Instrução de 04.10.2026, 13:39 (Barrote): construir tudo, testar no fim
 
-| # | Questão | Bloqueia |
-|---|---|---|
-| 2 | Domínio das caixas dos agentes | E03 |
-| 4 | Prazo da equipa do ERP para o servidor MCP | E01 (mitigado) |
-| 6 | Alojamento e deploy da plataforma (também Hostinger?) | staging |
-| 9 | Fontes de concursos a monitorizar | E03 |
-| 11 | Retenção de email bruto e anexos | E03 |
-| — | `invoices.issue`: a emissão fica sempre no ERP, ou o ERP emite com uma aprovação da plataforma? (contradição na secção 8.3; ver `ERP-MCP-CONTRACT.md`, secção 5) | contrato do ERP |
+O Barrote pediu a plataforma completa (E02 a E08) e testa só no fim. Por isso, a regra da especificação de parar em cada `[CONFIRMAR]` deixa de se aplicar: cada ponto em aberto recebe um valor por omissão razoável, de preferência configurável, registado aqui.
+
+| # | Questão | Valor por omissão | Onde se muda |
+|---|---|---|---|
+| 2 | Domínio das caixas dos agentes | Definição por tenant (`tenants.settings.mail_domain`); a caixa de cada agente tem endereço próprio. | Perfil do tenant, consola do super admin |
+| 4 | Servidor MCP do ERP | Não se espera por ele: usa-se o `FakeErpServer` até existir. Trocar é mudar a ligação do tenant para HTTP. | Definições › Ligação ao ERP |
+| 6 | Alojamento | Por decidir pelo Barrote antes do teste final. Até lá, corre em local e no CI. | — |
+| 9 | Fontes de concursos | Lista configurável por tenant (nome, URL, palavras-chave), lida por uma rotina. | Perfil do tenant |
+| 11 | Retenção de email bruto e anexos | 365 dias por omissão, configurável por tenant; um comando agendado apaga o bruto mais antigo (os metadados ficam). | Perfil do tenant |
+| — | `invoices.issue` | O agente pede; a emissão é feita por uma pessoa no ERP. Na plataforma a ferramenta fica sempre sob o tecto absoluto e não há emissão automática. | `config/autonomy.php` |
+| 12.3 | "Acima de um valor" no envio de comunicação externa | Sem limiar de valor: o tecto aplica-se a entidades novas (destinatário externo que nunca recebeu email do tenant). | `SendEmail::ceilingReason()` |
 
 ## Entrada de email com Hostinger (decidido: IMAP)
 

@@ -63,14 +63,7 @@ final class SendEmail extends LocalSkill
         }
 
         try {
-            Mail::build(array_filter([
-                'transport' => 'smtp',
-                'host' => $mailbox->smtp_host,
-                'port' => $mailbox->smtp_port,
-                'username' => $mailbox->smtp_username,
-                'password' => $mailbox->smtp_password,
-                'scheme' => $mailbox->smtp_encryption === 'ssl' ? 'smtps' : null,
-            ], fn ($value) => $value !== null))->send(new AgentMessage(
+            Mail::mailer($this->configureMailer($mailbox))->send(new AgentMessage(
                 $mailbox->address,
                 $mailbox->display_name,
                 $arguments['to'],
@@ -126,6 +119,28 @@ final class SendEmail extends LocalSkill
             'subject' => 'required|string|max:255',
             'body' => 'required|string|max:50000',
         ])->validate();
+    }
+
+    /**
+     * A mailer per mailbox, built from its encrypted SMTP settings.
+     */
+    private function configureMailer(Mailbox $mailbox): string
+    {
+        $name = 'mailbox_'.$mailbox->id;
+
+        config(["mail.mailers.{$name}" => array_filter([
+            'transport' => 'smtp',
+            'host' => $mailbox->smtp_host,
+            'port' => $mailbox->smtp_port,
+            'username' => $mailbox->smtp_username,
+            'password' => $mailbox->smtp_password,
+            'scheme' => $mailbox->smtp_encryption === 'ssl' ? 'smtps' : 'smtp',
+            'timeout' => 30,
+        ], fn ($value) => $value !== null)]);
+
+        app('mail.manager')->purge($name);
+
+        return $name;
     }
 
     private function mailboxFor(SkillContext $context): ?Mailbox

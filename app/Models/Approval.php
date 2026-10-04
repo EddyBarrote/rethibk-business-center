@@ -89,6 +89,32 @@ class Approval extends Model
     }
 
     /**
+     * Approvals the person may see: all of them for owners and admins,
+     * otherwise those of agents they answer for (docs/DECISOES.md).
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        if ($user->canManageTenant()) {
+            return;
+        }
+
+        $query->whereHas('agent', fn (Builder $agents) => $agents
+            ->where('reports_to_user_id', $user->id)
+            ->orWhereHas('assignees', fn (Builder $assignees) => $assignees->whereKey($user->id)));
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to_user_id');
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function decidedBy(): BelongsTo

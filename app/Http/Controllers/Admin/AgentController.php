@@ -40,7 +40,8 @@ class AgentController extends AdminController
         $admin = $this->admin($request);
 
         $agent = DB::transaction(function () use ($data, $admin) {
-            $agent = Agent::query()->create([...Arr::except($data, ['skills']), 'created_by_admin_id' => $admin->id]);
+            $agent = new Agent(Arr::except($data, ['skills']));
+            $agent->forceFill(['created_by_admin_id' => $admin->id])->save();
             $agent->skills()->sync(array_fill_keys($data['skills'] ?? [], ['enabled' => true]));
 
             return $agent;

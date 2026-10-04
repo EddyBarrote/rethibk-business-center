@@ -87,6 +87,9 @@ class TenantController extends AdminController
                     'contact_email' => $tenant->settings['profile']['contact_email'] ?? null,
                 ],
                 'budget' => AiBudget::for($tenant)->toArray(),
+                'mail_domain' => $tenant->settings['mail_domain'] ?? null,
+                'email_retention_days' => (int) ($tenant->settings['email_retention_days'] ?? config('mail_ingest.retention_days')),
+                'tender_sources' => array_values($tenant->settings['tender_sources'] ?? []),
             ],
             'usage' => [
                 'month' => now()->format('Y-m'),
@@ -127,16 +130,31 @@ class TenantController extends AdminController
             'budget.tenant_monthly_usd' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'budget.agent_monthly_usd' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'budget.run_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+            'mail_domain' => ['nullable', 'string', 'max:255', 'regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i'],
+            'email_retention_days' => ['required', 'integer', 'between:7,3650'],
+            'tender_sources' => ['array', 'max:50'],
+            'tender_sources.*.name' => ['required', 'string', 'max:255'],
+            'tender_sources.*.url' => ['required', 'url', 'max:2000'],
+            'tender_sources.*.keywords' => ['nullable', 'string', 'max:1000'],
+            'tender_sources.*.active' => ['boolean'],
         ]);
 
         $before = AiBudget::for($tenant)->toArray();
         $settings = $tenant->settings ?? [];
         $settings['profile'] = array_map(fn ($value) => $value === '' ? null : $value, $data['profile'] ?? []);
         $settings['ai_budget'] = AiBudget::fromArray($data['budget'] ?? [])->toArray();
+        $settings['mail_domain'] = filled($data['mail_domain'] ?? null) ? Str::lower($data['mail_domain']) : null;
+        $settings['email_retention_days'] = (int) $data['email_retention_days'];
+        $settings['tender_sources'] = array_map(fn (array $source) => [
+            'name' => $source['name'],
+            'url' => $source['url'],
+            'keywords' => $source['keywords'] ?? '',
+            'active' => (bool) ($source['active'] ?? true),
+        ], $data['tender_sources'] ?? []);
 
         $tenant->fill([
             'name' => $data['name'],
-            'domain' => $data['domain'] ?: null,
+            'domain' => ($data['domain'] ?? null) ?: null,
             'status' => $data['status'],
             'settings' => $settings,
         ])->save();

@@ -8,9 +8,14 @@
  * as soon as it exists: it only needs the BelongsToTenant trait and a factory.
  */
 
+use App\Ai\Agents\ToolResolver;
+use App\Ai\Skills\SkillContext;
 use App\Concerns\BelongsToTenant;
 use App\Enums\Role;
+use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Department;
+use App\Models\Skill;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\Exceptions\NoTenantException;
@@ -184,4 +189,20 @@ describe('via HTTP', function () {
     });
 });
 
-it('isolates agent tools')->todo('Arrives with the agent tools in E02 (section 4.3).');
+it('isolates agent tools', function () {
+    [$a, $b] = Tenant::factory()->count(2)->create();
+
+    $skillB = asTenant($b, fn () => Skill::factory()->create(['key' => 'erp.crm.search_accounts']));
+
+    asTenant($a, function () use ($skillB) {
+        $agent = Agent::factory()->create();
+        $run = AgentRun::factory()->create(['agent_id' => $agent->id]);
+
+        // A pivot row pointing at another tenant's skill must not surface it.
+        DB::table('agent_skill')->insert(['tenant_id' => $agent->tenant_id, 'agent_id' => $agent->id, 'skill_id' => $skillB->id, 'enabled' => true]);
+
+        $names = collect(app(ToolResolver::class)->for(new SkillContext($agent, $run)))->map->name()->all();
+
+        expect($names)->not->toContain('erp_crm_search_accounts');
+    });
+});
