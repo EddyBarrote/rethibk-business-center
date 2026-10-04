@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum KnowledgeType: string
 {
+    case Article = 'article';
     case Decision = 'decision';
     case MeetingBrief = 'meeting_brief';
     case Document = 'document';
@@ -13,6 +14,7 @@ enum KnowledgeType: string
     public function label(): string
     {
         return match ($this) {
+            self::Article => 'Artigo',
             self::Decision => 'Decisão',
             self::MeetingBrief => 'Resumo de reunião',
             self::Document => 'Documento',

@@ -13,7 +13,7 @@ final class AgentTemplates
 {
     private const EMAIL = ['email.read', 'email.search', 'documents.read_attachment', 'email.draft_reply', 'comms.send_email'];
 
-    private const COMMON = ['notify.user', 'followups.schedule', 'reports.draft', 'memory.remember_decision'];
+    private const COMMON = ['notify.user', 'followups.schedule', 'reports.draft', 'memory.remember_decision', 'knowledge.save', 'documents.generate'];
 
     /**
      * @return array<string, AgentTemplate>

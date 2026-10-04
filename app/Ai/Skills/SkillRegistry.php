@@ -3,6 +3,7 @@
 namespace App\Ai\Skills;
 
 use App\Ai\Skills\Local\AskHuman;
+use App\Ai\Skills\Local\BrowseKnowledge;
 use App\Ai\Skills\Local\BudgetOverride;
 use App\Ai\Skills\Local\ClassifyEmail;
 use App\Ai\Skills\Local\ClientSheet;
@@ -11,6 +12,7 @@ use App\Ai\Skills\Local\CreateTask;
 use App\Ai\Skills\Local\DetectIssues;
 use App\Ai\Skills\Local\DraftEmailReply;
 use App\Ai\Skills\Local\DraftReport;
+use App\Ai\Skills\Local\GenerateDocument;
 use App\Ai\Skills\Local\ImportBankStatement;
 use App\Ai\Skills\Local\InboxSummary;
 use App\Ai\Skills\Local\ListContracts;
@@ -24,11 +26,13 @@ use App\Ai\Skills\Local\OrganisationOverview;
 use App\Ai\Skills\Local\ProjectMargins;
 use App\Ai\Skills\Local\PublishBriefing;
 use App\Ai\Skills\Local\RateSupplier;
+use App\Ai\Skills\Local\ReadKnowledge;
 use App\Ai\Skills\Local\ReadAttachment;
 use App\Ai\Skills\Local\ReadEmail;
 use App\Ai\Skills\Local\ReadWebPage;
 use App\Ai\Skills\Local\RecordTender;
 use App\Ai\Skills\Local\RememberDecision;
+use App\Ai\Skills\Local\SaveKnowledge;
 use App\Ai\Skills\Local\ScheduleFollowUp;
 use App\Ai\Skills\Local\SearchEmails;
 use App\Ai\Skills\Local\SearchKnowledge;
@@ -49,6 +53,11 @@ final class SkillRegistry
     private const SKILLS = [
         SearchKnowledge::class,
         RememberDecision::class,
+        // Knowledge base and generated documents (docs/CONHECIMENTO.md)
+        BrowseKnowledge::class,
+        ReadKnowledge::class,
+        SaveKnowledge::class,
+        GenerateDocument::class,
         SendEmail::class,
         // E03: triage
         ReadEmail::class,
@@ -94,7 +103,7 @@ final class SkillRegistry
     ];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list'];
+    public const ALWAYS_ON = ['memory.search', 'knowledge.browse', 'knowledge.read', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list'];
 
     /**
      * @return list<LocalSkill>

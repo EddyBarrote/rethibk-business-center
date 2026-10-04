@@ -14,6 +14,7 @@ import {
     FileSignature,
     FileText,
     Files,
+    FolderOpen,
     Gavel,
     Inbox,
     LayoutDashboard,
@@ -23,6 +24,7 @@ import {
     type LucideIcon,
     Monitor,
     Moon,
+    Palette,
     PlugZap,
     ShoppingCart,
     Sun,
@@ -105,7 +107,8 @@ const workNav: NavItem[] = [
     { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Briefings', href: '/briefings', icon: FileText },
     { label: 'Documentos', href: '/reports', icon: Files },
-    { label: 'Memória', href: '/knowledge', icon: Library },
+    { label: 'Ficheiros', href: '/documents', icon: FolderOpen },
+    { label: 'Conhecimento', href: '/knowledge', icon: Library },
 ];
 
 const areasNav: NavItem[] = [
@@ -120,6 +123,7 @@ const companyNav: NavItem[] = [
     { label: 'Organigrama', href: '/org', icon: Network },
     { label: 'Utilizadores', href: '/settings/users', icon: Users, tenantManagersOnly: true },
     { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
+    { label: 'Marca', href: '/settings/brand', icon: Palette, tenantManagersOnly: true },
     { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, tenantManagersOnly: true },
 ];
 

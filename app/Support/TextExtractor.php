@@ -27,6 +27,7 @@ final class TextExtractor
                 $mime === 'application/pdf' || $extension === 'pdf' => $this->pdf($path),
                 in_array($extension, ['docx'], true) => $this->docx($path),
                 in_array($extension, ['xlsx'], true) => $this->xlsx($path),
+                in_array($extension, ['pptx'], true) => $this->pptx($path),
                 str_starts_with($mime, 'text/html') || in_array($extension, ['html', 'htm'], true) => self::htmlToText((string) file_get_contents($path)),
                 str_starts_with($mime, 'text/') || in_array($extension, ['txt', 'md', 'csv', 'json', 'xml'], true) => (string) file_get_contents($path),
                 str_starts_with($mime, 'image/') => $this->ocr($path),
@@ -93,11 +94,66 @@ final class TextExtractor
             return null;
         }
 
-        $shared = (string) $zip->getFromName('xl/sharedStrings.xml');
-        $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $shared = [];
+
+        if (preg_match_all('#<si>(.*?)</si>#s', (string) $zip->getFromName('xl/sharedStrings.xml'), $matches)) {
+            $shared = array_map(fn (string $si) => html_entity_decode(strip_tags($si), ENT_QUOTES | ENT_XML1, 'UTF-8'), $matches[1]);
+        }
+
+        $lines = [];
+
+        // Every sheet, cell by cell, resolving shared strings: one line per row.
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+
+            if (! preg_match('#^xl/worksheets/sheet\d+\.xml$#', $name)) {
+                continue;
+            }
+
+            preg_match_all('#<row[^>]*>(.*?)</row>#s', (string) $zip->getFromName($name), $rows);
+
+            foreach ($rows[1] as $row) {
+                preg_match_all('#<c([^>]*?)(?:/>|>(.*?)</c>)#s', $row, $cells, PREG_SET_ORDER);
+                $values = [];
+
+                foreach ($cells as $cell) {
+                    $value = preg_match('#<v>(.*?)</v>#s', $cell[2] ?? '', $v) ? $v[1] : strip_tags($cell[2] ?? '');
+                    $values[] = str_contains($cell[1], 't="s"') ? ($shared[(int) $value] ?? '') : html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+                }
+
+                $lines[] = implode("\t", $values);
+            }
+
+            $lines[] = '';
+        }
+
         $zip->close();
 
-        return self::htmlToText((string) preg_replace('#</(si|row)>#', "\n", $shared."\n".$sheet));
+        return implode("\n", $lines);
+    }
+
+    private function pptx(string $path): ?string
+    {
+        $zip = new ZipArchive;
+
+        if ($zip->open($path) !== true) {
+            return null;
+        }
+
+        $slides = [];
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+
+            if (preg_match('#^ppt/slides/slide(\d+)\.xml$#', $name, $m)) {
+                $slides[(int) $m[1]] = self::htmlToText((string) preg_replace('#</a:p>#', "\n", (string) $zip->getFromName($name)));
+            }
+        }
+
+        $zip->close();
+        ksort($slides);
+
+        return implode("\n\n", $slides);
     }
 
     private function ocr(string $path): ?string
