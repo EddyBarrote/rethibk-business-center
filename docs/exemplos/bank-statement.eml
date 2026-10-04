@@ -1,0 +1,32 @@
+From: BCI Extractos <extractos@bci.example>
+To: financas@agentes.micomoc.test
+Subject: Extracto da conta 0012345678 - Setembro 2026
+Message-ID: <bank-2026-09@bci.example>
+Date: Sun, 04 Oct 2026 08:15:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============6606431807213797967=="
+
+--===============6606431807213797967==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Segue em anexo o extracto da sua conta à ordem em MZN.
+
+BCI
+
+--===============6606431807213797967==
+Content-Type: text/csv
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="extracto-bci-2026-09.csv"
+MIME-Version: 1.0
+
+RGF0YTtEZXNjcmnDp8OjbztSZWZlcsOqbmNpYTtEw6liaXRvO0Nyw6lkaXRvO1NhbGRvCjAxLzA5
+LzIwMjY7U0FMRE8gQU5URVJJT1I7Ozs7Mi40NTAuMDAwLDAwCjA1LzA5LzIwMjY7VFJGIEhPVEVM
+IEJBSUEgQVpVTCBGVCAyMDI2LzExODtUUkYwOTA1OzsxLjE2MC4wMDAsMDA7My42MTAuMDAwLDAw
+CjEyLzA5LzIwMjY7Q09NQlVTVElWRUlTIERPIFNBVkU7Q0hRIDEwMDE7NDguNjAwLDAwOzszLjU2
+MS40MDAsMDAKMTgvMDkvMjAyNjtUUkYgQUdSTyBaQU1CRVpFO1RSRjA5MTg7OzEuMTAyLjAwMCww
+MDs0LjY2My40MDAsMDAKMjUvMDkvMjAyNjtDT01JU1NBTyBNQU5VVEVOQ0FPIENPTlRBOzs3NTAs
+MDA7OzQuNjYyLjY1MCwwMAozMC8wOS8yMDI2O1NBTEFSSU9TIFNFVEVNQlJPO0xPVEUgMDk7Mjcz
+LjUwMCwwMDs7NC4zODkuMTUwLDAwCg==
+
+--===============6606431807213797967==--

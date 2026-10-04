@@ -59,9 +59,12 @@ class ProcessInboundEmail extends TenantAwareJob
         }
 
         $message->load('thread');
-        $run = $runner->dispatch($agent, EmailPrompt::for($message), TriggerType::Email, source: $message);
+        $message->forceFill(['status' => EmailStatus::Processing])->save();
 
-        $message->forceFill(['status' => EmailStatus::Processing, 'agent_run_id' => $run->id])->save();
+        // On a sync queue the run finishes inside dispatch() and moves the
+        // email on, so only the run id is written afterwards.
+        $run = $runner->dispatch($agent, EmailPrompt::for($message), TriggerType::Email, source: $message);
+        EmailMessage::query()->whereKey($message->id)->update(['agent_run_id' => $run->id]);
     }
 
     private function extract(EmailAttachment $attachment, TextExtractor $extractor): void
