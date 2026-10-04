@@ -80,7 +80,7 @@ class TaskController extends Controller
             'kind' => ['required', Rule::enum(TaskKind::class)],
             'title' => ['required_if:kind,task', 'nullable', 'string', 'max:200'],
             'message' => ['nullable', 'string', 'max:10000', 'required_if:kind,chat'],
-            'assignee_agent_id' => ['nullable', 'integer', TenantRule::exists('agents')],
+            'assignee_agent_id' => ['nullable', 'required_if:kind,chat', 'integer', TenantRule::exists('agents')],
             'priority' => ['nullable', Rule::enum(TaskPriority::class)],
             'goal_id' => ['nullable', 'integer', TenantRule::exists('goals')],
             'due_at' => ['nullable', 'date'],
@@ -94,6 +94,14 @@ class TaskController extends Controller
 
         $kind = TaskKind::from($data['kind']);
         $message = $data['message'] ?? null;
+
+        // A chat is the one conversation with that agent, never a new one.
+        if ($kind === TaskKind::Chat && $agent !== null) {
+            $chat = $threads->conversation($user, $agent);
+            $threads->post($chat, $user, (string) $message);
+
+            return to_route('tasks.show', $chat);
+        }
 
         $task = $threads->open([
             'kind' => $kind,
@@ -111,7 +119,17 @@ class TaskController extends Controller
     }
 
     /**
-     * Start a conversation with an agent from its page or the agent list.
+     * Open the person's one conversation with an agent (Grok-style), creating it on first use.
+     */
+    public function conversation(Request $request, Agent $agent, TaskThread $threads): RedirectResponse
+    {
+        Gate::authorize('run', $agent);
+
+        return to_route('tasks.show', $threads->conversation($this->user($request), $agent));
+    }
+
+    /**
+     * Write to an agent from its page: the message goes into that one conversation.
      */
     public function chat(Request $request, Agent $agent, TaskThread $threads): RedirectResponse
     {
@@ -119,15 +137,10 @@ class TaskController extends Controller
         $user = $this->user($request);
         $data = $request->validate(['message' => ['required', 'string', 'max:10000']]);
 
-        $task = $threads->open([
-            'kind' => TaskKind::Chat,
-            'title' => mb_strimwidth($data['message'], 0, 80, '…'),
-            'status' => TaskStatus::InProgress,
-            'assignee_agent_id' => $agent->id,
-            'user_id' => $user->id,
-        ], $user, $data['message']);
+        $chat = $threads->conversation($user, $agent);
+        $threads->post($chat, $user, $data['message']);
 
-        return to_route('tasks.show', $task);
+        return to_route('tasks.show', $chat);
     }
 
     public function show(Request $request, Task $task): Response
@@ -201,6 +214,11 @@ class TaskController extends Controller
             'due_at' => ['sometimes', 'nullable', 'date'],
         ]);
 
+        if ($task->chat_key !== null) {
+            // A conversation belongs to one person and one agent.
+            unset($data['assignee_agent_id']);
+        }
+
         if (array_key_exists('assignee_agent_id', $data) && $data['assignee_agent_id'] !== $task->assignee_agent_id) {
             $agent = $data['assignee_agent_id'] ? Agent::query()->findOrFail($data['assignee_agent_id']) : null;
 
@@ -256,6 +274,7 @@ class TaskController extends Controller
             'id' => $task->id,
             'ref' => $task->identifier(),
             'kind' => $task->kind->value,
+            'is_conversation' => $task->chat_key !== null,
             'title' => $task->title,
             'status' => $task->status->value,
             'status_label' => $task->status->label(),

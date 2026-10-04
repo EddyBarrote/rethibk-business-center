@@ -34,14 +34,7 @@ import { toast } from 'sonner';
 import { Monogram } from '@/Components/Blocks';
 import { RethinkMark } from '@/Components/RethinkMark';
 import { StatusDot } from '@/Components/Status';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/Components/ui/breadcrumb';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/Components/ui/breadcrumb';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -142,21 +135,40 @@ function sidebarCookieOpen() {
     return !document.cookie.split('; ').includes('sidebar_state=false');
 }
 
-function NavGroup({ label, items, isActive, counts }: { label?: string; items: NavItem[]; isActive: (href: string) => boolean; counts: Record<string, number> }) {
+function NavGroup({
+    label,
+    items,
+    isActive,
+    counts,
+}: {
+    label?: string;
+    items: NavItem[];
+    isActive: (href: string) => boolean;
+    counts: Record<string, number>;
+}) {
     if (items.length === 0) {
         return null;
     }
 
     return (
         <SidebarGroup className="py-1">
-            {label && <SidebarGroupLabel className="h-7 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">{label}</SidebarGroupLabel>}
+            {label && (
+                <SidebarGroupLabel className="h-7 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">
+                    {label}
+                </SidebarGroupLabel>
+            )}
             <SidebarMenu className="gap-0.5">
                 {items.map((item) => {
                     const count = item.badge ? (counts[item.badge] ?? 0) : 0;
 
                     return (
                         <SidebarMenuItem key={item.href}>
-                            <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.label} className="h-8 rounded-lg font-medium text-sidebar-foreground/85">
+                            <SidebarMenuButton
+                                asChild
+                                isActive={isActive(item.href)}
+                                tooltip={item.label}
+                                className="h-8 rounded-lg font-medium text-sidebar-foreground/85"
+                            >
                                 <Link href={item.href}>
                                     <item.icon />
                                     <span>{item.label}</span>
@@ -166,7 +178,9 @@ function NavGroup({ label, items, isActive, counts }: { label?: string; items: N
                                 <SidebarMenuBadge
                                     className={cn(
                                         'rounded-full px-1.5 font-mono text-[11px]',
-                                        item.badge === 'approvals' || item.badge === 'waiting' ? 'bg-status-warning/20 text-foreground' : 'bg-primary text-primary-foreground',
+                                        item.badge === 'approvals' || item.badge === 'waiting'
+                                            ? 'bg-status-warning/20 text-foreground'
+                                            : 'bg-primary text-primary-foreground',
                                     )}
                                 >
                                     {count > 99 ? '99+' : count}
@@ -188,22 +202,39 @@ function AgentsGroup({ url }: { url: string }) {
         <SidebarGroup className="py-1">
             <SidebarGroupLabel className="h-7 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">
                 Agentes
-                {live > 0 && <span className="ml-auto font-mono text-[10px] tracking-normal text-status-running normal-case">{live} a trabalhar</span>}
+                {live > 0 && (
+                    <span className="ml-auto font-mono text-[10px] tracking-normal text-status-running normal-case">{live} a trabalhar</span>
+                )}
             </SidebarGroupLabel>
             <SidebarMenu className="gap-0.5">
                 {agents.map((agent) => (
                     <SidebarMenuItem key={agent.id}>
-                        <SidebarMenuButton asChild isActive={url.startsWith(`/agents/${agent.id}`)} tooltip={agent.name} className="h-8 rounded-lg text-sidebar-foreground/85">
-                            <Link href={`/agents/${agent.id}`}>
+                        <SidebarMenuButton
+                            asChild
+                            isActive={agent.chat_id !== null && url === `/tasks/${agent.chat_id}`}
+                            tooltip={agent.can_chat ? `Conversar com ${agent.name}` : agent.name}
+                            className="h-8 rounded-lg text-sidebar-foreground/85"
+                        >
+                            {/* Grok-style: an agent in the sidebar is your conversation with it. */}
+                            <Link href={!agent.can_chat ? `/agents/${agent.id}` : agent.chat_id !== null ? `/tasks/${agent.chat_id}` : `/agents/${agent.id}/chat`}>
                                 <Monogram name={agent.name} agent className="size-4 rounded-[5px] text-[8px]" />
                                 <span className={cn(agent.status === 'suspended' && 'text-muted-foreground line-through')}>{agent.name}</span>
-                                {agent.running > 0 && <StatusDot tone="running" className="ml-auto" />}
+                                {agent.running > 0 ? (
+                                    <StatusDot tone="running" className="ml-auto" />
+                                ) : (
+                                    agent.chat_waiting && <StatusDot tone="warning" pulse={false} className="ml-auto" />
+                                )}
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 ))}
                 <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={url === '/agents'} tooltip="Ver todos os agentes" className="h-8 rounded-lg text-muted-foreground">
+                    <SidebarMenuButton
+                        asChild
+                        isActive={url === '/agents'}
+                        tooltip="Ver todos os agentes"
+                        className="h-8 rounded-lg text-muted-foreground"
+                    >
                         <Link href="/agents">
                             <Bot />
                             <span>Ver todos</span>
@@ -321,7 +352,12 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
                         <NavGroup items={topNav} isActive={isActive} counts={counts} />
                         <NavGroup label="Trabalho" items={workNav} isActive={isActive} counts={counts} />
                         <AgentsGroup url={url} />
-                        <NavGroup label="Áreas" items={areasNav.filter((item) => !item.managersOnly || user?.is_manager)} isActive={isActive} counts={counts} />
+                        <NavGroup
+                            label="Áreas"
+                            items={areasNav.filter((item) => !item.managersOnly || user?.is_manager)}
+                            isActive={isActive}
+                            counts={counts}
+                        />
                         <NavGroup
                             label="Empresa"
                             items={companyNav.filter((item) => !item.tenantManagersOnly || user?.can_manage_tenant)}
@@ -364,7 +400,9 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
                         </Breadcrumb>
                     </header>
 
-                    <main className={cn('mx-auto flex w-full flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8', wide ? 'max-w-[90rem]' : 'max-w-6xl')}>{children}</main>
+                    <main className={cn('mx-auto flex w-full flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8', wide ? 'max-w-[90rem]' : 'max-w-6xl')}>
+                        {children}
+                    </main>
                 </SidebarInset>
                 <Toaster position="bottom-right" />
             </SidebarProvider>

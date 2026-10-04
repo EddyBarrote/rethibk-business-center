@@ -17,6 +17,7 @@ use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
 use App\Support\Notifier;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Ai\Messages\AssistantMessage;
@@ -38,6 +39,38 @@ final class TaskThread
     public const MAX_DEPTH = 3;
 
     public function __construct(private readonly Notifier $notifier) {}
+
+    /**
+     * The one persistent conversation between a person and an agent (like
+     * Grok): created on first use, reopened if it was closed, never duplicated.
+     */
+    public function conversation(User $user, Agent $agent): Task
+    {
+        $key = "{$user->id}:{$agent->id}";
+        $chat = Task::query()->where('chat_key', $key)->first();
+
+        if ($chat === null) {
+            try {
+                $chat = Task::query()->create([
+                    'kind' => TaskKind::Chat,
+                    'chat_key' => $key,
+                    'title' => "Conversa com {$agent->name}",
+                    'status' => TaskStatus::InProgress,
+                    'assignee_agent_id' => $agent->id,
+                    'user_id' => $user->id,
+                    'created_by_user_id' => $user->id,
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                $chat = Task::query()->where('chat_key', $key)->firstOrFail();
+            }
+        }
+
+        if ($chat->status->isClosed()) {
+            $chat->forceFill(['status' => TaskStatus::InProgress, 'completed_at' => null])->save();
+        }
+
+        return $chat;
+    }
 
     /**
      * Create a task or a chat, with its opening message, and put its agent to work.

@@ -6,7 +6,6 @@ use App\Ai\Skills\LocalSkill;
 use App\Ai\Skills\SkillContext;
 use App\Ai\Skills\SkillResult;
 use App\Enums\AutonomyLevel;
-use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
 use App\Models\User;
 use App\Tasks\TaskThread;
@@ -52,7 +51,6 @@ final class AskHuman extends LocalSkill
         return [
             'question' => $schema->string()->required(),
             'to' => $schema->string()->description('Email da conta da pessoa. Vazio: quem pediu a tarefa, ou a tua chefia.'),
-            'title' => $schema->string()->description('Assunto, quando abre uma conversa nova.'),
         ];
     }
 
@@ -61,7 +59,6 @@ final class AskHuman extends LocalSkill
         $data = Validator::make($arguments, [
             'question' => 'required|string|max:4000',
             'to' => 'nullable|string|max:255',
-            'title' => 'nullable|string|max:200',
         ])->validate();
 
         $task = $context->run->task;
@@ -81,16 +78,12 @@ final class AskHuman extends LocalSkill
             return SkillResult::text("Pergunta feita a {$person->name} em {$task->identifier()}. A resposta chega nesta conversa; não repitas a pergunta.");
         }
 
-        $chat = $this->threads->open([
-            'kind' => TaskKind::Chat,
-            'title' => $data['title'] ?? mb_strimwidth($data['question'], 0, 120, '…'),
-            'status' => TaskStatus::WaitingHuman,
-            'assignee_agent_id' => $context->agent->id,
-            'user_id' => $person->id,
-            'parent_id' => $task?->id,
-        ], $context->agent, $data['question'], start: false);
+        // Outside its own task, the question goes into the agent's one conversation with that person.
+        $chat = $this->threads->conversation($person, $context->agent);
+        $this->threads->post($chat, $context->agent, $data['question'], wake: false, notify: false);
+        $this->threads->setStatus($chat, TaskStatus::WaitingHuman, $context->agent, $data['question']);
 
-        return SkillResult::text("Abri a conversa {$chat->identifier()} com {$person->name}. Quando responder, recebes a resposta lá.");
+        return SkillResult::text("Perguntei a {$person->name} na vossa conversa ({$chat->identifier()}). Quando responder, recebes a resposta lá.");
     }
 
     public function summarise(array $arguments): string
