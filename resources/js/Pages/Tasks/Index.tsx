@@ -2,7 +2,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, ListTodo, MessageSquare, MessagesSquare, Plus, Search } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
-import { Monogram } from '@/Components/Blocks';
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
@@ -426,7 +426,7 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                     {task.goal && <GoalChip goal={task.goal} />}
                     {task.assignee ? (
                         <span className="flex w-36 items-center gap-2 truncate">
-                            <Monogram name={task.assignee.name} agent className="size-5 rounded-md text-[9px]" />
+                            <AgentAvatar name={task.assignee.name} className="size-5 rounded-md text-[9px]" />
                             <span className="truncate text-foreground/80">{task.assignee.name}</span>
                         </span>
                     ) : (

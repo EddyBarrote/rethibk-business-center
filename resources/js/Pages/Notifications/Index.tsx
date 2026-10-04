@@ -1,7 +1,8 @@
 import { Head, router } from '@inertiajs/react';
 import { Bell, CheckCheck } from 'lucide-react';
 
-import { ListPanel, Monogram, Section } from '@/Components/Blocks';
+import { AgentAvatar } from '@/Components/AgentAvatar';
+import { ListPanel, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
@@ -72,7 +73,7 @@ export default function NotificationsIndex({ notifications }: { notifications: P
                                     {!notice.read && <StatusDot tone={levelTone(notice.level)} pulse={false} />}
                                 </span>
                                 {notice.from ? (
-                                    <Monogram name={notice.from} agent />
+                                    <AgentAvatar name={notice.from} />
                                 ) : (
                                     <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                                         <Bell className="size-3.5" />

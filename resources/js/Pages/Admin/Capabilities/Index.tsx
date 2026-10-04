@@ -18,7 +18,8 @@ interface CapabilityRow {
     key: string;
     name: string;
     description: string | null;
-    source: 'local' | 'mcp';
+    source: string;
+    scope: string;
     is_mutating: boolean;
     is_available: boolean;
     risk: number;
@@ -40,7 +41,7 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
 
     return (
         <AdminLayout
-            title={`Capabilities · ${tenant.name}`}
+            title={`Capacidades · ${tenant.name}`}
             breadcrumbs={[{ label: 'Organizações', href: '/tenants' }, { label: tenant.name, href: `/tenants/${tenant.id}` }, { label: 'Capacidades' }]}
         >
             <PageHeader
@@ -122,7 +123,7 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                                         </TableCell>
                                         <TableCell className="py-2.5">
                                             <span className="inline-flex h-5 items-center rounded-full border px-2 font-mono text-[11px] text-muted-foreground">
-                                                {capability.source === 'mcp' ? 'ERP' : 'local'}
+                                                {capability.source === 'mcp' ? 'ERP' : capability.source === 'connector' ? (capability.scope === 'global' ? 'conector global' : 'conector') : 'plataforma'}
                                             </span>
                                         </TableCell>
                                         <TableCell className="py-2.5">

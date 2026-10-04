@@ -1,9 +1,10 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, Clock, ListTodo, Lock, MessagesSquare, Pause, Play, Send, Wrench } from 'lucide-react';
+import { Activity, BookOpen, Clock, ListTodo, Lock, MessagesSquare, Pause, Pencil, Play, Send, Wrench } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
+import { EntityRow, ListPanel, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
@@ -22,13 +23,14 @@ import type { AgentSummary, RunSummary, SharedProps } from '@/types';
 interface Props {
     agent: AgentSummary & { personality: string | null; provider: string; model: string; assignees: { id: number; name: string }[] };
     capabilities: { key: string; name: string; is_mutating: boolean; risk: number; ceiling: boolean }[];
+    skills: { id: number; key: string; name: string; description: string; scope: string; is_available: boolean }[];
     routines: { id: number; name: string; schedule: string; is_active: boolean; last_run_at: string | null }[];
     runs: RunSummary[];
     users: { id: number; name: string }[];
     can: { run: boolean; manage: boolean };
 }
 
-export default function AgentShow({ agent, capabilities, routines, runs, users, can }: Props) {
+export default function AgentShow({ agent, capabilities, skills, routines, runs, users, can }: Props) {
     const { tenant, sidebar_agents } = usePage<SharedProps>().props;
     const form = useForm({ input: '' });
     const [reason, setReason] = useState('');
@@ -55,7 +57,7 @@ export default function AgentShow({ agent, capabilities, routines, runs, users, 
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
-                    <Monogram name={agent.name} agent className="size-11 rounded-xl text-sm" />
+                    <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-11 rounded-xl text-sm" />
                     <div className="min-w-0 space-y-0.5">
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="truncate text-xl font-semibold tracking-tight">{agent.name}</h1>
@@ -78,6 +80,14 @@ export default function AgentShow({ agent, capabilities, routines, runs, users, 
                             Tarefas
                         </Link>
                     </Button>
+                    {can.manage && (
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={`/agents/${agent.id}/edit`}>
+                                <Pencil />
+                                Editar
+                            </Link>
+                        </Button>
+                    )}
                     {can.run && <ChatAction agent={agent} />}
                 </div>
             </div>
@@ -154,7 +164,11 @@ export default function AgentShow({ agent, capabilities, routines, runs, users, 
                                 <EmptyState
                                     icon={Wrench}
                                     title="Só a pesquisa na memória"
-                                    description="A Rethink adiciona capacidades a este agente na consola de administração."
+                                    description={
+                                        can.manage
+                                            ? 'Dê-lhe capacidades na página de edição do agente.'
+                                            : 'Os administradores da organização dão capacidades a este agente.'
+                                    }
                                 />
                             ) : (
                                 <ListPanel>
@@ -178,6 +192,30 @@ export default function AgentShow({ agent, capabilities, routines, runs, users, 
                                                         leitura
                                                     </StatusBadge>
                                                 )
+                                            }
+                                        />
+                                    ))}
+                                </ListPanel>
+                            )}
+                        </Section>
+
+                        <Section title="Skills">
+                            {skills.length === 0 ? (
+                                <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                                    Sem skills: instruções da organização que o agente lê quando um trabalho as pede.
+                                </p>
+                            ) : (
+                                <ListPanel>
+                                    {skills.map((skill) => (
+                                        <EntityRow
+                                            key={skill.id}
+                                            leading={<BookOpen className="size-4 text-muted-foreground" />}
+                                            title={skill.name}
+                                            subtitle={skill.description}
+                                            trailing={
+                                                <StatusBadge tone={skill.is_available ? 'idle' : 'warning'} dot={false}>
+                                                    {skill.is_available ? (skill.scope === 'global' ? 'global' : 'da empresa') : 'desligada'}
+                                                </StatusBadge>
                                             }
                                         />
                                     ))}

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Tenancy\TenantManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\DevCommands;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::shouldBeStrict(! $this->app->isProduction());
+
+        // The tenant's catalogue of capabilities, connectors and skills (docs/CAPACIDADES.md).
+        Gate::define('manage-catalog', fn (User $user): bool => $user->canManageTenant());
 
         // A long-running worker must never carry one job's tenant into the next.
         // A sync job runs inside its caller, whose tenant must survive it.

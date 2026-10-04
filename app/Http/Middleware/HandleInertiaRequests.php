@@ -75,7 +75,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Agents for the sidebar, each with how many of its runs are queued or running.
      *
-     * @return list<array{id: int, name: string, status: string, running: int}>
+     * @return list<array{id: int, name: string, avatar_url: string|null, status: string, running: int}>
      */
     private function sidebarAgents(): array
     {
@@ -88,10 +88,11 @@ class HandleInertiaRequests extends Middleware
         return Agent::query()
             ->where('status', '!=', AgentStatus::Draft)
             ->orderBy('name')
-            ->get(['id', 'name', 'status'])
+            ->get(['id', 'name', 'status', 'avatar_path'])
             ->map(fn (Agent $agent) => [
                 'id' => $agent->id,
                 'name' => $agent->name,
+                'avatar_url' => $agent->avatarUrl(),
                 'status' => $agent->status->value,
                 'running' => (int) ($running[$agent->id] ?? 0),
             ])

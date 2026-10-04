@@ -1,6 +1,8 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     Activity,
+    BookOpen,
+    Puzzle,
     Bell,
     CircleDot,
     MessagesSquare,
@@ -31,6 +33,7 @@ import {
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Monogram } from '@/Components/Blocks';
 import { RethinkMark } from '@/Components/RethinkMark';
 import { StatusDot } from '@/Components/Status';
@@ -118,6 +121,8 @@ const areasNav: NavItem[] = [
 
 const companyNav: NavItem[] = [
     { label: 'Organigrama', href: '/org', icon: Network },
+    { label: 'Capacidades', href: '/capabilities', icon: Puzzle, tenantManagersOnly: true },
+    { label: 'Skills', href: '/skills', icon: BookOpen, tenantManagersOnly: true },
     { label: 'Utilizadores', href: '/settings/users', icon: Users, tenantManagersOnly: true },
     { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
     { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, tenantManagersOnly: true },
@@ -195,7 +200,7 @@ function AgentsGroup({ url }: { url: string }) {
                     <SidebarMenuItem key={agent.id}>
                         <SidebarMenuButton asChild isActive={url.startsWith(`/agents/${agent.id}`)} tooltip={agent.name} className="h-8 rounded-lg text-sidebar-foreground/85">
                             <Link href={`/agents/${agent.id}`}>
-                                <Monogram name={agent.name} agent className="size-4 rounded-[5px] text-[8px]" />
+                                <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-4 rounded-[5px] text-[8px]" />
                                 <span className={cn(agent.status === 'suspended' && 'text-muted-foreground line-through')}>{agent.name}</span>
                                 {agent.running > 0 && <StatusDot tone="running" className="ml-auto" />}
                             </Link>

@@ -1,9 +1,11 @@
-import { Link, router, useForm } from '@inertiajs/react';
-import { Bot, Brain, CalendarClock, Cpu, Lock, Mail, Plus, Puzzle, Search, Trash2, type LucideIcon } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { router, useForm } from '@inertiajs/react';
+import { CalendarClock, Mail, Plus, Trash2 } from 'lucide-react';
+import { type FormEvent } from 'react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
+import AgentDefinitionForm, { type AgentData, type AgentFormOptions } from '@/Components/agents/AgentDefinitionForm';
+import { FormSection, str } from '@/Components/agents/FormParts';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { Monogram } from '@/Components/Blocks';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
 import { agentTone, StatusBadge, StatusDot, type Tone } from '@/Components/Status';
@@ -15,39 +17,6 @@ import { Textarea } from '@/Components/ui/textarea';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { LevelOption, Option } from '@/types';
-
-interface CapabilityOption {
-    id: number;
-    key: string;
-    name: string;
-    description: string | null;
-    source: 'local' | 'mcp';
-    is_mutating: boolean;
-    is_available: boolean;
-    risk: number;
-    ceiling: boolean;
-}
-
-interface AgentData {
-    id: number;
-    key: string;
-    name: string;
-    title: string | null;
-    description: string | null;
-    personality: string | null;
-    instructions: string | null;
-    department_id: number | null;
-    reports_to_user_id: number | null;
-    provider: string | null;
-    model: string | null;
-    temperature: number | null;
-    max_tokens: number | null;
-    max_steps: number | null;
-    status: string;
-    autonomy_level: number;
-    capabilities: number[];
-}
 
 interface Routine {
     id: number;
@@ -76,27 +45,11 @@ interface Mailbox {
     last_error: string | null;
 }
 
-interface Props {
+interface Props extends AgentFormOptions {
     tenant: { id: number; name: string };
     agent: AgentData | null;
-    departments: { id: number; name: string }[];
-    users: { id: number; name: string }[];
-    capabilities: CapabilityOption[];
-    levels: LevelOption[];
-    statuses: Option[];
-    providers: string[];
-    defaultProvider: string;
     routines?: Routine[];
     mailbox?: Mailbox | null;
-}
-
-const str = (value: number | string | null | undefined) => (value === null || value === undefined ? '' : String(value));
-
-interface SectionLink {
-    id: string;
-    label: string;
-    icon: LucideIcon;
-    count?: number;
 }
 
 const mailboxStatus: Record<string, { label: string; tone: Tone }> = {
@@ -106,188 +59,9 @@ const mailboxStatus: Record<string, { label: string; tone: Tone }> = {
     disabled: { label: 'Desactivada', tone: 'idle' },
 };
 
-/** The section whose heading was scrolled past last, for the sticky section nav. */
-function useActiveSection(ids: string[]) {
-    const [active, setActive] = useState(ids[0]);
-    const key = ids.join(',');
-
-    useEffect(() => {
-        let frame = 0;
-        const update = () => {
-            frame = 0;
-            const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
-            let current = ids[0];
-
-            for (const id of ids) {
-                const element = document.getElementById(id);
-
-                if (element && element.getBoundingClientRect().top <= 120) {
-                    current = id;
-                }
-            }
-
-            setActive(atBottom ? ids[ids.length - 1] : current);
-        };
-        const onScroll = () => {
-            if (!frame) {
-                frame = requestAnimationFrame(update);
-            }
-        };
-
-        update();
-        window.addEventListener('scroll', onScroll, { passive: true });
-
-        return () => {
-            window.removeEventListener('scroll', onScroll);
-            cancelAnimationFrame(frame);
-        };
-    }, [key]);
-
-    return active;
-}
-
-function SectionNav({ sections, active, note }: { sections: SectionLink[]; active: string; note?: string }) {
-    return (
-        <nav className="hidden lg:block">
-            <div className="sticky top-20 flex flex-col gap-0.5">
-                <p className="mb-2 px-2.5 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">Secções</p>
-                {sections.map((section) => (
-                    <a
-                        key={section.id}
-                        href={`#${section.id}`}
-                        className={cn(
-                            'flex h-8 items-center gap-2 rounded-lg px-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground',
-                            active === section.id && 'bg-accent font-medium text-foreground',
-                        )}
-                    >
-                        <section.icon className="size-4 shrink-0" />
-                        <span className="truncate">{section.label}</span>
-                        {section.count !== undefined && <span className="ml-auto font-mono text-[11px] tabular-nums">{section.count}</span>}
-                    </a>
-                ))}
-                {note && <p className="mt-3 px-2.5 text-xs text-muted-foreground">{note}</p>}
-            </div>
-        </nav>
-    );
-}
-
-/** A bordered block of the builder: heading strip, body, optional footer. */
-function FormSection({
-    id,
-    title,
-    description,
-    action,
-    footer,
-    children,
-}: {
-    id: string;
-    title: string;
-    description?: ReactNode;
-    action?: ReactNode;
-    footer?: ReactNode;
-    children: ReactNode;
-}) {
-    return (
-        <section id={id} className="scroll-mt-20 overflow-hidden rounded-xl border bg-card">
-            <header className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 space-y-1">
-                    <h2 className="text-sm font-semibold">{title}</h2>
-                    {description && <p className="text-sm text-muted-foreground">{description}</p>}
-                </div>
-                {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
-            </header>
-            <div className="p-5">{children}</div>
-            {footer && <div className="flex items-center justify-end gap-2 border-t bg-muted/30 px-5 py-3">{footer}</div>}
-        </section>
-    );
-}
-
-function SourcePill({ source }: { source: 'local' | 'mcp' }) {
-    return (
-        <span className="inline-flex h-5 items-center rounded-full border px-2 font-mono text-[11px] text-muted-foreground">
-            {source === 'mcp' ? 'ERP' : 'local'}
-        </span>
-    );
-}
-
-export default function AgentForm({
-    tenant,
-    agent,
-    departments,
-    users,
-    capabilities,
-    levels,
-    statuses,
-    providers,
-    defaultProvider,
-    routines = [],
-    mailbox,
-}: Props) {
+export default function AgentForm({ tenant, agent, routines = [], mailbox, ...options }: Props) {
     const base = `/tenants/${tenant.id}/agents`;
-    const form = useForm({
-        key: agent?.key ?? '',
-        name: agent?.name ?? '',
-        title: agent?.title ?? '',
-        description: agent?.description ?? '',
-        personality: agent?.personality ?? '',
-        instructions: agent?.instructions ?? '',
-        department_id: str(agent?.department_id),
-        reports_to_user_id: str(agent?.reports_to_user_id),
-        status: agent?.status ?? 'draft',
-        autonomy_level: str(agent?.autonomy_level ?? 1),
-        provider: agent?.provider ?? '',
-        model: agent?.model ?? '',
-        temperature: str(agent?.temperature),
-        max_tokens: str(agent?.max_tokens),
-        max_steps: str(agent?.max_steps),
-        capabilities: agent?.capabilities ?? [],
-    });
-    const errors = form.errors as Record<string, string | undefined>;
-    const [filter, setFilter] = useState('');
-
-    const submit = (event: FormEvent) => {
-        event.preventDefault();
-        form.transform((data) => ({
-            ...data,
-            department_id: data.department_id || null,
-            reports_to_user_id: data.reports_to_user_id || null,
-            provider: data.provider || null,
-            model: data.model || null,
-            temperature: data.temperature || null,
-            max_tokens: data.max_tokens || null,
-            max_steps: data.max_steps || null,
-        }));
-
-        if (agent) {
-            form.put(`${base}/${agent.id}`, { preserveScroll: true });
-        } else {
-            form.post(base);
-        }
-    };
-
-    const level = Number(form.data.autonomy_level);
-    const visibleCapabilities = useMemo(
-        () => capabilities.filter((capability) => `${capability.key} ${capability.name}`.toLowerCase().includes(filter.toLowerCase())),
-        [capabilities, filter],
-    );
-
-    const toggleCapability = (id: number, on: boolean) =>
-        form.setData('capabilities', on ? [...form.data.capabilities, id] : form.data.capabilities.filter((capabilityId) => capabilityId !== id));
-
-    const sections: SectionLink[] = [
-        { id: 'identidade', label: 'Identidade', icon: Bot },
-        { id: 'personalidade', label: 'Personalidade e instruções', icon: Brain },
-        { id: 'modelo', label: 'Autonomia e modelo', icon: Cpu },
-        { id: 'capabilities', label: 'Capacidades', icon: Puzzle, count: form.data.capabilities.length },
-        ...(agent
-            ? [
-                  { id: 'rotinas', label: 'Rotinas', icon: CalendarClock, count: routines.length },
-                  { id: 'caixa', label: 'Caixa de correio', icon: Mail },
-              ]
-            : []),
-    ];
-    const active = useActiveSection(sections.map((section) => section.id));
-    const statusLabel = statuses.find((status) => status.value === form.data.status)?.label ?? form.data.status;
+    const statusLabel = options.statuses.find((status) => status.value === agent?.status)?.label ?? agent?.status;
 
     return (
         <AdminLayout
@@ -302,322 +76,41 @@ export default function AgentForm({
             <PageHeader
                 title={
                     <span className="flex items-center gap-3">
-                        <Monogram name={form.data.name || 'Novo agente'} agent className="size-8 text-xs" />
+                        <AgentAvatar name={agent?.name ?? 'Novo agente'} url={agent?.avatar_url} className="size-8 text-xs" />
                         {agent ? agent.name : 'Novo agente'}
                         {agent && <StatusBadge tone={agentTone(agent.status)}>{statusLabel}</StatusBadge>}
                     </span>
                 }
-                description="A definição do agente: quem é, como fala, o que faz, com que modelo, que capacidades usa e até onde pode agir sozinho."
+                description="A definição do agente: quem é, como fala, o que faz, com que modelo, que capacidades e skills usa e até onde pode agir sozinho. Os administradores da organização também podem editá-la."
                 actions={agent && <AutonomyBadge level={agent.autonomy_level} withLabel />}
             />
 
-            <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
-                <SectionNav
-                    sections={sections}
-                    active={active}
-                    note={agent ? undefined : 'Rotinas e caixa de correio ficam disponíveis depois de criar o agente.'}
-                />
-
-                <div className="flex min-w-0 flex-col gap-6">
-                    <form onSubmit={submit} className="flex flex-col gap-6">
-                        <FormSection id="identidade" title="Identidade" description="Quem é o agente e a quem responde.">
-                            <div className="grid gap-4">
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <Field id="name" label="Nome" error={errors.name}>
-                                        <Input id="name" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} required />
-                                    </Field>
-                                    <Field id="key" label="Chave" error={errors.key} hint="Identificador único: triagem, chief-of-staff…">
-                                        <Input
-                                            id="key"
-                                            className="font-mono"
-                                            value={form.data.key}
-                                            onChange={(e) => form.setData('key', e.target.value)}
-                                            required
-                                        />
-                                    </Field>
-                                </div>
-                                <Field id="title" label="Função" error={errors.title}>
-                                    <Input
-                                        id="title"
-                                        placeholder="Agente Comercial e de Triagem"
-                                        value={form.data.title}
-                                        onChange={(e) => form.setData('title', e.target.value)}
-                                    />
-                                </Field>
-                                <Field id="description" label="Descrição" error={errors.description}>
-                                    <Textarea
-                                        id="description"
-                                        rows={2}
-                                        value={form.data.description}
-                                        onChange={(e) => form.setData('description', e.target.value)}
-                                    />
-                                </Field>
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <Field id="department_id" label="Departamento" error={errors.department_id}>
-                                        <NativeSelect
-                                            id="department_id"
-                                            value={form.data.department_id}
-                                            onChange={(e) => form.setData('department_id', e.target.value)}
-                                        >
-                                            <option value="">—</option>
-                                            {departments.map((department) => (
-                                                <option key={department.id} value={department.id}>
-                                                    {department.name}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                    </Field>
-                                    <Field id="reports_to_user_id" label="Responde a" error={errors.reports_to_user_id}>
-                                        <NativeSelect
-                                            id="reports_to_user_id"
-                                            value={form.data.reports_to_user_id}
-                                            onChange={(e) => form.setData('reports_to_user_id', e.target.value)}
-                                        >
-                                            <option value="">—</option>
-                                            {users.map((user) => (
-                                                <option key={user.id} value={user.id}>
-                                                    {user.name}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                    </Field>
-                                </div>
-                            </div>
-                        </FormSection>
-
-                        <FormSection
-                            id="personalidade"
-                            title="Personalidade e instruções"
-                            description="Entram no prompt de sistema, depois da identidade e antes das regras da plataforma, que não se podem sobrepor."
-                        >
-                            <div className="grid gap-4">
-                                <Field id="personality" label="Personalidade" error={errors.personality}>
-                                    <Textarea
-                                        id="personality"
-                                        rows={3}
-                                        value={form.data.personality}
-                                        onChange={(e) => form.setData('personality', e.target.value)}
-                                    />
-                                </Field>
-                                <Field id="instructions" label="Instruções" error={errors.instructions}>
-                                    <Textarea
-                                        id="instructions"
-                                        rows={14}
-                                        className="font-mono text-xs leading-relaxed"
-                                        value={form.data.instructions}
-                                        onChange={(e) => form.setData('instructions', e.target.value)}
-                                    />
-                                </Field>
-                            </div>
-                        </FormSection>
-
-                        <FormSection
-                            id="modelo"
-                            title="Autonomia e modelo"
-                            description="O tecto absoluto (pagamentos, facturas, contratos, pessoas, permissões) pede sempre aprovação."
-                        >
-                            <div className="grid gap-6">
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <Field id="status" label="Estado" error={errors.status}>
-                                        <NativeSelect id="status" value={form.data.status} onChange={(e) => form.setData('status', e.target.value)}>
-                                            {statuses.map((status) => (
-                                                <option key={status.value} value={status.value}>
-                                                    {status.label}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                    </Field>
-                                    <Field id="autonomy_level" label="Nível de autonomia" error={errors.autonomy_level}>
-                                        <NativeSelect
-                                            id="autonomy_level"
-                                            value={form.data.autonomy_level}
-                                            onChange={(e) => form.setData('autonomy_level', e.target.value)}
-                                        >
-                                            {levels.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.code} · {option.label}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                        <div>
-                                            <AutonomyBadge level={level} withLabel />
-                                        </div>
-                                    </Field>
-                                </div>
-                                <div className="grid gap-4 border-t pt-5 sm:grid-cols-2">
-                                    <Field id="provider" label="Provedor" error={errors.provider}>
-                                        <NativeSelect
-                                            id="provider"
-                                            value={form.data.provider}
-                                            onChange={(e) => form.setData('provider', e.target.value)}
-                                        >
-                                            <option value="">Por omissão ({defaultProvider})</option>
-                                            {providers.map((provider) => (
-                                                <option key={provider} value={provider}>
-                                                    {provider}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                    </Field>
-                                    <Field id="model" label="Modelo" error={errors.model} hint="Vazio: o modelo por omissão do provedor.">
-                                        <Input
-                                            id="model"
-                                            className="font-mono"
-                                            value={form.data.model}
-                                            onChange={(e) => form.setData('model', e.target.value)}
-                                        />
-                                    </Field>
-                                </div>
-                                <div className="grid gap-4 sm:grid-cols-3">
-                                    <Field id="temperature" label="Temperatura" error={errors.temperature}>
-                                        <Input
-                                            id="temperature"
-                                            type="number"
-                                            step="0.1"
-                                            min="0"
-                                            max="2"
-                                            className="font-mono"
-                                            value={form.data.temperature}
-                                            onChange={(e) => form.setData('temperature', e.target.value)}
-                                        />
-                                    </Field>
-                                    <Field id="max_tokens" label="Máx. tokens" error={errors.max_tokens}>
-                                        <Input
-                                            id="max_tokens"
-                                            type="number"
-                                            min="1"
-                                            className="font-mono"
-                                            value={form.data.max_tokens}
-                                            onChange={(e) => form.setData('max_tokens', e.target.value)}
-                                        />
-                                    </Field>
-                                    <Field id="max_steps" label="Máx. passos" error={errors.max_steps}>
-                                        <Input
-                                            id="max_steps"
-                                            type="number"
-                                            min="1"
-                                            max="50"
-                                            className="font-mono"
-                                            value={form.data.max_steps}
-                                            onChange={(e) => form.setData('max_steps', e.target.value)}
-                                        />
-                                    </Field>
-                                </div>
-                            </div>
-                        </FormSection>
-
-                        <FormSection
-                            id="capabilities"
-                            title="Capacidades"
-                            description={
-                                <>
-                                    <span className="font-mono text-foreground tabular-nums">{form.data.capabilities.length}</span> seleccionada(s). Sem
-                                    aprovação, o agente só usa uma capacidade de escrita se o seu nível for igual ou superior ao risco dela.
-                                </>
-                            }
-                            action={
-                                <div className="relative w-full sm:w-56">
-                                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input className="pl-8" placeholder="Filtrar…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-                                </div>
-                            }
-                        >
-                            <InputErrorList errors={errors} prefix="capabilities" />
-                            {visibleCapabilities.length === 0 ? (
-                                <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                                    {capabilities.length === 0
-                                        ? 'Esta organização ainda não tem capabilities. Actualize-as do ERP na página de capabilities.'
-                                        : 'Nenhuma capacidade corresponde ao filtro.'}
-                                </p>
-                            ) : (
-                                <ul className="grid max-h-[32rem] gap-px overflow-y-auto rounded-lg border bg-border sm:grid-cols-2">
-                                    {visibleCapabilities.map((capability) => {
-                                        const checked = form.data.capabilities.includes(capability.id);
-                                        const gated = capability.ceiling || (capability.is_mutating && level < capability.risk);
-
-                                        return (
-                                            <li key={capability.id} className="bg-card">
-                                                <label
-                                                    className={cn(
-                                                        'flex h-full cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors hover:bg-accent/60',
-                                                        checked && 'bg-primary/5',
-                                                        !capability.is_available && 'cursor-not-allowed opacity-60',
-                                                    )}
-                                                >
-                                                    <Checkbox
-                                                        checked={checked}
-                                                        disabled={!capability.is_available}
-                                                        onCheckedChange={(on) => toggleCapability(capability.id, on === true)}
-                                                        className="mt-0.5"
-                                                    />
-                                                    <span className="min-w-0 flex-1">
-                                                        <span className="flex flex-wrap items-center gap-1.5">
-                                                            <span className="text-sm font-medium">{capability.name}</span>
-                                                            <SourcePill source={capability.source} />
-                                                            {capability.is_mutating ? (
-                                                                <AutonomyBadge level={capability.risk} />
-                                                            ) : (
-                                                                <StatusBadge tone="idle" dot={false}>
-                                                                    leitura
-                                                                </StatusBadge>
-                                                            )}
-                                                            {capability.ceiling && (
-                                                                <StatusBadge tone="danger" dot={false}>
-                                                                    <Lock className="size-3" />
-                                                                    tecto
-                                                                </StatusBadge>
-                                                            )}
-                                                            {!capability.is_available && (
-                                                                <StatusBadge tone="idle" dot={false}>
-                                                                    indisponível
-                                                                </StatusBadge>
-                                                            )}
-                                                        </span>
-                                                        <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                                                            {capability.key}
-                                                        </span>
-                                                        {checked && gated && (
-                                                            <span className="mt-0.5 flex items-center gap-1.5 text-xs text-status-warning">
-                                                                <StatusDot tone="warning" pulse={false} className="size-1.5 [&>span]:size-1.5" />
-                                                                Pede aprovação a este nível.
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                </label>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                        </FormSection>
-
-                        <div className="sticky bottom-0 z-10 -mx-1 flex items-center justify-between gap-3 border-t bg-background/85 px-1 py-3 backdrop-blur">
-                            <Button variant="ghost" asChild>
-                                <Link href={`/tenants/${tenant.id}`}>Cancelar</Link>
-                            </Button>
-                            <div className="flex items-center gap-3">
-                                {form.isDirty && <span className="hidden text-xs text-muted-foreground sm:inline">Há alterações por guardar.</span>}
-                                <Button type="submit" disabled={form.processing}>
-                                    {agent ? 'Guardar agente' : 'Criar agente'}
-                                </Button>
-                            </div>
-                        </div>
-                    </form>
-
-                    {agent && <Routines base={`${base}/${agent.id}/routines`} routines={routines} />}
-                    {agent && <MailboxForm action={`${base}/${agent.id}/mailbox`} mailbox={mailbox ?? null} />}
-                </div>
-            </div>
+            <AgentDefinitionForm
+                agent={agent}
+                options={options}
+                action={agent ? `${base}/${agent.id}` : base}
+                cancelHref={`/tenants/${tenant.id}`}
+                capabilitiesHref={`/tenants/${tenant.id}/capabilities`}
+                navNote={agent ? undefined : 'Rotinas e caixa de correio ficam disponíveis depois de criar o agente.'}
+                extraSections={
+                    agent
+                        ? [
+                              { id: 'rotinas', label: 'Rotinas', icon: CalendarClock, count: routines.length },
+                              { id: 'caixa', label: 'Caixa de correio', icon: Mail },
+                          ]
+                        : []
+                }
+                after={
+                    agent && (
+                        <>
+                            <Routines base={`${base}/${agent.id}/routines`} routines={routines} />
+                            <MailboxForm action={`${base}/${agent.id}/mailbox`} mailbox={mailbox ?? null} />
+                        </>
+                    )
+                }
+            />
         </AdminLayout>
     );
-}
-
-function InputErrorList({ errors, prefix }: { errors: Record<string, string | undefined>; prefix: string }) {
-    const messages = Object.entries(errors)
-        .filter(([key]) => key === prefix || key.startsWith(`${prefix}.`))
-        .map(([, message]) => message);
-
-    return messages.length ? <p className="mb-3 text-sm text-destructive">{messages[0]}</p> : null;
 }
 
 function Routines({ base, routines }: { base: string; routines: Routine[] }) {

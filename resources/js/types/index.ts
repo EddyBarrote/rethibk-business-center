@@ -17,7 +17,7 @@ export interface SharedProps {
     admin: { id: number; name: string; email: string } | null;
     auth: { user: AuthUser | null; pending_approvals: number; unread_notifications: number; waiting_tasks: number };
     flash: { success: string | null; error: string | null };
-    sidebar_agents: { id: number; name: string; status: 'active' | 'suspended'; running: number }[];
+    sidebar_agents: { id: number; name: string; avatar_url: string | null; status: 'active' | 'suspended'; running: number }[];
 }
 
 export interface Option {
@@ -35,6 +35,7 @@ export interface AgentSummary {
     id: number;
     key: string;
     name: string;
+    avatar_url: string | null;
     title: string | null;
     description: string | null;
     status: 'draft' | 'active' | 'suspended';

@@ -2,6 +2,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Send, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef } from 'react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
@@ -191,7 +192,7 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                             {working && (
                                 <div className="flex gap-3 rounded-xl px-3 py-3">
                                     <span className="relative">
-                                        <Monogram name={working.agent.name} agent />
+                                        <AgentAvatar name={working.agent.name} />
                                         <StatusDot tone="running" className="absolute -right-0.5 -bottom-0.5" />
                                     </span>
                                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -344,7 +345,7 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                         <Property label="Criada por">
                             {task.created_by && (
                                 <span className="inline-flex items-center gap-1.5">
-                                    {task.created_by_agent && <Monogram name={task.created_by} agent className="size-5 rounded-md text-[9px]" />}
+                                    {task.created_by_agent && <AgentAvatar name={task.created_by} className="size-5 rounded-md text-[9px]" />}
                                     {task.created_by}
                                 </span>
                             )}
@@ -415,7 +416,7 @@ function StatusOption({ status, label }: { status: string; label: string }) {
 function AgentOption({ name }: { name: string }) {
     return (
         <span className="inline-flex min-w-0 items-center gap-2">
-            <Monogram name={name} agent className="size-5 rounded-md text-[9px]" />
+            <AgentAvatar name={name} className="size-5 rounded-md text-[9px]" />
             <span className="truncate">{name}</span>
         </span>
     );
@@ -464,7 +465,7 @@ function MessageRow({ message }: { message: Message }) {
 
     return (
         <div className={cn('flex gap-3 rounded-xl px-3 py-3', isAgent && 'bg-muted/40 dark:bg-muted/25')}>
-            <Monogram name={message.author} agent={isAgent} />
+            {isAgent ? <AgentAvatar name={message.author} /> : <Monogram name={message.author} />}
             <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-sm font-medium">{message.author}</span>

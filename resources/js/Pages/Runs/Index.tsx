@@ -1,7 +1,8 @@
 import { Head, router } from '@inertiajs/react';
 import { Activity } from 'lucide-react';
 
-import { EntityRow, ListPanel, Monogram, Section } from '@/Components/Blocks';
+import { AgentAvatar } from '@/Components/AgentAvatar';
+import { EntityRow, ListPanel, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
@@ -65,7 +66,7 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                                 leading={
                                     <div className="flex items-center gap-3">
                                         <span className="w-12 font-mono text-xs text-muted-foreground tabular-nums">#{run.id}</span>
-                                        <Monogram name={run.agent.name} agent />
+                                        <AgentAvatar name={run.agent.name} />
                                     </div>
                                 }
                                 title={run.input}

@@ -1,11 +1,15 @@
 <?php
 
+use App\Http\Controllers\AgentAvatarController;
 use App\Http\Controllers\AgentController;
+use App\Http\Controllers\AgentDefinitionController;
 use App\Http\Controllers\AgentRunController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BriefingController;
+use App\Http\Controllers\CapabilityController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ConnectorController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceController;
@@ -19,6 +23,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\ErpConnectionController;
 use App\Http\Controllers\Settings\UserController;
+use App\Http\Controllers\SkillController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TenderController;
 use Illuminate\Support\Facades\Route;
@@ -36,7 +41,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
     Route::get('agents', [AgentController::class, 'index'])->name('agents.index');
+    Route::get('agents/new', [AgentDefinitionController::class, 'create'])->name('agents.create');
+    Route::post('agents/new/draft', [AgentDefinitionController::class, 'draft'])->middleware('throttle:10,1')->name('agents.draft');
+    Route::post('agents', [AgentDefinitionController::class, 'store'])->name('agents.store');
     Route::get('agents/{agent}', [AgentController::class, 'show'])->name('agents.show');
+    Route::get('agents/{agent}/edit', [AgentDefinitionController::class, 'edit'])->name('agents.edit');
+    Route::put('agents/{agent}', [AgentDefinitionController::class, 'update'])->name('agents.update');
+    Route::get('agents/{agent}/avatar', [AgentAvatarController::class, 'show'])->name('agents.avatar');
+    Route::post('agents/{agent}/avatar', [AgentAvatarController::class, 'store'])->name('agents.avatar.store');
+    Route::post('agents/{agent}/avatar/generate', [AgentAvatarController::class, 'generate'])->middleware('throttle:6,1')->name('agents.avatar.generate');
+    Route::delete('agents/{agent}/avatar', [AgentAvatarController::class, 'destroy'])->name('agents.avatar.destroy');
     Route::post('agents/{agent}/runs', [AgentController::class, 'run'])->middleware('throttle:20,1')->name('agents.run');
     Route::put('agents/{agent}/status', [AgentController::class, 'updateStatus'])->name('agents.status');
     Route::put('agents/{agent}/assignees', [AgentController::class, 'updateAssignees'])->name('agents.assignees');
@@ -100,6 +114,21 @@ Route::middleware('auth')->group(function () {
     Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
     Route::get('clients/{account}', [ClientController::class, 'show'])->name('clients.show');
     Route::post('clients/{account}/brief', [ClientController::class, 'brief'])->middleware('throttle:10,1')->name('clients.brief');
+
+    // Capabilities, connectors and skills of the company (docs/CAPACIDADES.md).
+    Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');
+    Route::patch('capabilities/{capability}', [CapabilityController::class, 'update'])->name('capabilities.update');
+    Route::post('capabilities/sync', [CapabilityController::class, 'sync'])->middleware('throttle:10,1')->name('capabilities.sync');
+    Route::post('capabilities/global/{connector}', [CapabilityController::class, 'activate'])->middleware('throttle:10,1')->name('capabilities.global.activate');
+    Route::delete('capabilities/global/{connector}', [CapabilityController::class, 'deactivate'])->name('capabilities.global.deactivate');
+    Route::post('connectors', [ConnectorController::class, 'store'])->middleware('throttle:20,1')->name('connectors.store');
+    Route::put('connectors/{connector}', [ConnectorController::class, 'update'])->middleware('throttle:20,1')->name('connectors.update');
+    Route::post('connectors/{connector}/refresh', [ConnectorController::class, 'refresh'])->middleware('throttle:10,1')->name('connectors.refresh');
+    Route::delete('connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
+    Route::resource('skills', SkillController::class)->except(['show']);
+    Route::put('skills/global/{platformSkill}', [SkillController::class, 'toggleGlobal'])->name('skills.global');
+    Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');
+    Route::delete('skills/{skill}/files/{file}', [SkillController::class, 'destroyFile'])->name('skills.files.destroy');
 
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::resource('users', UserController::class)->except(['show', 'destroy']);

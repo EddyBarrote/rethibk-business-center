@@ -30,6 +30,7 @@ class CapabilityController extends AdminController
                 'name' => $capability->name,
                 'description' => $capability->description,
                 'source' => $capability->source->value,
+                'scope' => $capability->scope->value,
                 'is_mutating' => $capability->is_mutating,
                 'is_available' => $capability->is_available,
                 'risk' => $capability->risk->value,

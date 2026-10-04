@@ -7,8 +7,8 @@ use App\Models\User;
 
 /**
  * Inside a tenant, agents are seen by everyone and run by the people who work
- * with them. Their definition belongs to the super admin (docs/DECISOES.md);
- * owners and admins can suspend, reactivate and assign.
+ * with them. Owners and admins create and edit them (as the super admin can),
+ * suspend, reactivate and assign them (docs/CAPACIDADES.md).
  */
 class AgentPolicy
 {
@@ -29,6 +29,16 @@ class AgentPolicy
             || $agent->reports_to_user_id === $actor->id
             || $agent->assignees()->whereKey($actor->id)->exists()
         );
+    }
+
+    public function create(User $actor): bool
+    {
+        return $actor->canManageTenant();
+    }
+
+    public function update(User $actor, Agent $agent): bool
+    {
+        return $this->manage($actor, $agent);
     }
 
     public function manage(User $actor, Agent $agent): bool

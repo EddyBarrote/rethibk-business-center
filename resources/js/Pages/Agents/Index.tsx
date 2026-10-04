@@ -1,10 +1,12 @@
-import { Head, usePage } from '@inertiajs/react';
-import { Bot, CheckSquare } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { Bot, CheckSquare, Plus } from 'lucide-react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { EntityRow, ListPanel, Monogram, Section } from '@/Components/Blocks';
+import { EntityRow, ListPanel, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
+import { Button } from '@/Components/ui/button';
 import { agentTone, StatusBadge } from '@/Components/Status';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, usd } from '@/lib/format';
@@ -12,7 +14,7 @@ import type { AgentSummary, SharedProps } from '@/types';
 
 type Row = AgentSummary & { pending_approvals: number; last_run_at: string | null; spent_usd: number };
 
-export default function AgentsIndex({ agents }: { agents: Row[] }) {
+export default function AgentsIndex({ agents, can }: { agents: Row[]; can: { create: boolean } }) {
     const { sidebar_agents } = usePage<SharedProps>().props;
     const running = new Set(sidebar_agents.filter((agent) => agent.running > 0).map((agent) => agent.id));
     const working = agents.filter((agent) => running.has(agent.id)).length;
@@ -21,13 +23,30 @@ export default function AgentsIndex({ agents }: { agents: Row[] }) {
     return (
         <AppLayout>
             <Head title="Agentes" />
-            <PageHeader title="Agentes" description="Os agentes da organização, o estado, o nível de autonomia e a quem respondem." />
+            <PageHeader
+                title="Agentes"
+                description="Os colegas de IA da organização: o estado, o nível de autonomia e a quem respondem."
+                actions={
+                    can.create && (
+                        <Button asChild>
+                            <Link href="/agents/new">
+                                <Plus />
+                                Novo agente
+                            </Link>
+                        </Button>
+                    )
+                }
+            />
 
             {agents.length === 0 ? (
                 <EmptyState
                     icon={Bot}
                     title="Sem agentes"
-                    description="Os agentes são criados pela Rethink na consola de administração. Quando estiverem activos, aparecem aqui."
+                    description={
+                        can.create
+                            ? 'Crie o primeiro colega: descreva de quem precisa e a IA propõe a definição.'
+                            : 'Os administradores da organização criam os agentes. Quando estiverem activos, aparecem aqui.'
+                    }
                 />
             ) : (
                 <Section
@@ -43,7 +62,7 @@ export default function AgentsIndex({ agents }: { agents: Row[] }) {
                             <EntityRow
                                 key={agent.id}
                                 href={`/agents/${agent.id}`}
-                                leading={<Monogram name={agent.name} agent className="size-8" />}
+                                leading={<AgentAvatar name={agent.name} url={agent.avatar_url} className="size-8" />}
                                 title={agent.name}
                                 subtitle={[agent.title, agent.department].filter(Boolean).join(' · ') || agent.description}
                                 meta={

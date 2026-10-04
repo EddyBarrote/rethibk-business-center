@@ -3,8 +3,8 @@ import { CircleHelp, ListTodo, Network } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { PageHeader } from '@/Components/PageHeader';
@@ -161,7 +161,7 @@ function OrgNode({ agent, managerSelect, error }: { agent: OrgAgent; managerSele
             >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="relative">
-                        <Monogram name={agent.name} agent className="size-9 rounded-lg text-xs" />
+                        <AgentAvatar name={agent.name} className="size-9 rounded-lg text-xs" />
                         <span
                             className="absolute -right-0.5 -bottom-0.5 rounded-full bg-card p-0.5"
                             title={agent.running ? 'A trabalhar' : agent.status_label}

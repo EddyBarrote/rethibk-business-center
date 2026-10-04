@@ -2,6 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowUpRight, CalendarDays, Pencil, Plus, Target } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
@@ -184,7 +185,7 @@ function GoalRow({ goal, depth, onEdit }: { goal: Goal; depth: number; onEdit?: 
                 <span className="flex w-36 items-center gap-2 truncate">
                     {goal.owner ? (
                         <>
-                            <Monogram name={goal.owner} agent={goal.owner_agent_id !== null} className="size-5 rounded-md text-[9px]" />
+                            {goal.owner_agent_id !== null ? <AgentAvatar name={goal.owner} className="size-5 rounded-md text-[9px]" /> : <Monogram name={goal.owner} className="size-5 rounded-md text-[9px]" />}
                             <span className="truncate text-foreground/80">{goal.owner}</span>
                         </>
                     ) : (

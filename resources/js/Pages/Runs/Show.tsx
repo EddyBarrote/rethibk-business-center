@@ -2,8 +2,9 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, Brain, CheckSquare, CornerDownRight, type LucideIcon, MessageSquare, Wrench } from 'lucide-react';
 import { useState } from 'react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { ApprovalCard } from '@/Components/ApprovalCard';
-import { Monogram, Properties, Property, Section } from '@/Components/Blocks';
+import { Properties, Property, Section } from '@/Components/Blocks';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { StatusDot, type Tone } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
@@ -70,7 +71,7 @@ export default function RunShow({ run, steps: initialSteps, approvals }: { run: 
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
-                    <Monogram name={run.agent.name} agent className="size-10 rounded-xl text-xs" />
+                    <AgentAvatar name={run.agent.name} className="size-10 rounded-xl text-xs" />
                     <div className="min-w-0 space-y-0.5">
                         <h1 className="text-xl font-semibold tracking-tight">
                             Execução <span className="font-mono">#{run.id}</span>

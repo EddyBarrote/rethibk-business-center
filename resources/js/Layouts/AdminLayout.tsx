@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Building2, ChevronsUpDown, LayoutDashboard, LogOut, type LucideIcon, Monitor, Moon, Puzzle, ShieldCheck, Sun } from 'lucide-react';
+import { BookOpen, Building2, ChevronsUpDown, Globe, LayoutDashboard, LogOut, type LucideIcon, Monitor, Moon, Puzzle, ShieldCheck, Sun } from 'lucide-react';
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -56,7 +56,11 @@ export interface Crumb {
     href?: string;
 }
 
-const platformNav: NavItem[] = [{ label: 'Organizações', href: '/tenants', icon: Building2 }];
+const platformNav: NavItem[] = [
+    { label: 'Organizações', href: '/tenants', icon: Building2 },
+    { label: 'Skills globais', href: '/skills', icon: BookOpen },
+    { label: 'Conectores globais', href: '/connectors', icon: Globe },
+];
 
 const appearanceOptions: { value: Appearance; label: string; icon: LucideIcon }[] = [
     { value: 'light', label: 'Claro', icon: Sun },

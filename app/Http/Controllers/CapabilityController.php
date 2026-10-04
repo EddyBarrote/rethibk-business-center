@@ -1,0 +1,133 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Ai\Capabilities\CapabilityCatalog;
+use App\Connectors\ConnectorException;
+use App\Enums\AutonomyLevel;
+use App\Enums\Scope;
+use App\Erp\Exceptions\ErpException;
+use App\Models\AuditLog;
+use App\Models\Capability;
+use App\Models\Connector;
+use App\Models\PlatformConnector;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * The tenant's catalogue of capabilities (docs/CAPACIDADES.md): what the
+ * platform and the ERP offer, the global connectors the super admin made
+ * available, and the company's own connectors. Owners and admins switch
+ * capabilities on and off, activate global connectors and set the risk of
+ * their own.
+ */
+class CapabilityController extends Controller
+{
+    public function index(): Response
+    {
+        Gate::authorize('manage-catalog');
+
+        $capabilities = Capability::query()->withCount('agents')->orderBy('key')->get();
+        $activeGlobal = $capabilities->where('is_enabled', true)->whereNotNull('platform_connector_id')->pluck('platform_connector_id')->unique();
+
+        return Inertia::render('Capabilities/Index', [
+            'capabilities' => $capabilities->map(fn (Capability $capability) => [
+                'id' => $capability->id,
+                'key' => $capability->key,
+                'name' => $capability->name,
+                'description' => $capability->description,
+                'source' => $capability->source->value,
+                'source_label' => $capability->source->label(),
+                'scope' => $capability->scope->value,
+                'connector_id' => $capability->connector_id,
+                'platform_connector_id' => $capability->platform_connector_id,
+                'is_mutating' => $capability->is_mutating,
+                'is_available' => $capability->is_available,
+                'is_enabled' => $capability->is_enabled,
+                'risk' => $capability->risk->value,
+                'ceiling' => config('autonomy.ceiling.'.$capability->key) !== null,
+                'agents' => $capability->agents_count,
+            ])->values(),
+            'connectors' => Connector::query()->orderBy('name')->get()->map(fn (Connector $connector) => $connector->summary()),
+            'globalConnectors' => PlatformConnector::query()->where('is_active', true)->orderBy('name')->get()->map(fn (PlatformConnector $connector) => [
+                ...collect($connector->summary())->except(['url', 'has_secret', 'last_error', 'input_schema'])->all(),
+                'activated' => $activeGlobal->contains($connector->id),
+            ]),
+            'levels' => AutonomyLevel::options(),
+        ]);
+    }
+
+    /**
+     * Switch a capability on or off for the whole company; the risk can be
+     * changed only on the company's own connectors (the platform's stay with
+     * the super admin).
+     */
+    public function update(Request $request, Capability $capability): RedirectResponse
+    {
+        Gate::authorize('manage-catalog');
+
+        $data = $request->validate([
+            'is_enabled' => ['sometimes', 'boolean'],
+            'risk' => ['sometimes', Rule::enum(AutonomyLevel::class)],
+        ]);
+
+        if (array_key_exists('risk', $data) && $capability->scope !== Scope::Tenant) {
+            abort(403, 'O risco das capacidades globais é definido pela Rethink.');
+        }
+
+        $before = ['is_enabled' => $capability->is_enabled, 'risk' => $capability->risk->value];
+        $capability->update($data);
+
+        AuditLog::record($this->user($request), 'capability.updated', ['key' => $capability->key, 'before' => $before, 'after' => ['is_enabled' => $capability->is_enabled, 'risk' => $capability->risk->value]], subject: $capability);
+
+        return back()->with('success', 'Capacidade guardada.');
+    }
+
+    /**
+     * Platform capabilities and ERP tools, as the super admin's button does.
+     */
+    public function sync(CapabilityCatalog $catalog): RedirectResponse
+    {
+        Gate::authorize('manage-catalog');
+
+        $catalog->syncLocal();
+
+        try {
+            $count = $catalog->syncErp();
+        } catch (ErpException $e) {
+            return back()->with('error', 'Capacidades da plataforma actualizadas, mas o ERP não respondeu: '.$e->getMessage());
+        }
+
+        return back()->with('success', "Catálogo actualizado: {$count} ferramenta(s) do ERP.");
+    }
+
+    public function activate(Request $request, PlatformConnector $connector, CapabilityCatalog $catalog): RedirectResponse
+    {
+        Gate::authorize('manage-catalog');
+        abort_unless($connector->is_active, 404);
+
+        try {
+            $count = $catalog->syncConnector($connector, $this->user($request));
+        } catch (ConnectorException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        AuditLog::record($this->user($request), 'connector.global_activated', ['connector' => $connector->key, 'tools' => $count]);
+
+        return back()->with('success', "{$connector->name} activado: {$count} capacidade(s).");
+    }
+
+    public function deactivate(Request $request, PlatformConnector $connector, CapabilityCatalog $catalog): RedirectResponse
+    {
+        Gate::authorize('manage-catalog');
+
+        $catalog->deactivate($connector);
+        AuditLog::record($this->user($request), 'connector.global_deactivated', ['connector' => $connector->key]);
+
+        return back()->with('success', "{$connector->name} desligado.");
+    }
+}

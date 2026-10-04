@@ -2,32 +2,29 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Ai\Agents\AgentAvatars;
+use App\Ai\Agents\AgentEditor;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
-use App\Enums\AgentStatus;
-use App\Enums\AutonomyLevel;
 use App\Enums\MailboxStatus;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
 use App\Models\AuditLog;
-use App\Models\Capability;
-use App\Models\Department;
 use App\Models\Mailbox;
 use App\Models\Tenant;
-use App\Models\User;
-use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Generic agents are defined by the super admin (docs/DECISOES.md): identity,
- * personality, instructions, model, autonomy level, capabilities, routines and
- * mailbox. SetTenantFromRoute puts these routes inside {tenant}.
+ * Generic agents, defined here by the super admin or by the tenant's own
+ * admins (docs/CAPACIDADES.md): identity, personality, instructions, model,
+ * autonomy level, capabilities, skills, routines and mailbox.
+ * SetTenantFromRoute puts these routes inside {tenant}.
  */
 class AgentController extends AdminController
 {
@@ -36,20 +33,9 @@ class AgentController extends AdminController
         return Inertia::render('Admin/Agents/Form', [...$this->formOptions($tenant), 'agent' => null]);
     }
 
-    public function store(Request $request, Tenant $tenant): RedirectResponse
+    public function store(Request $request, Tenant $tenant, AgentEditor $editor): RedirectResponse
     {
-        $data = $this->validated($request);
-        $admin = $this->admin($request);
-
-        $agent = DB::transaction(function () use ($data, $admin) {
-            $agent = new Agent(Arr::except($data, ['capabilities']));
-            $agent->forceFill(['created_by_admin_id' => $admin->id])->save();
-            $agent->capabilities()->sync(array_fill_keys($data['capabilities'] ?? [], ['enabled' => true]));
-
-            return $agent;
-        });
-
-        AuditLog::record($admin, 'agent.created', ['key' => $agent->key, 'autonomy_level' => $agent->autonomy_level->value, 'capabilities' => $data['capabilities'] ?? []], subject: $agent);
+        $agent = $editor->save(new Agent, $request->validate($editor->rules()), $this->admin($request));
 
         return redirect()->route('admin.tenants.agents.edit', [$tenant, $agent])->with('success', 'Agente criado.');
     }
@@ -79,13 +65,8 @@ class AgentController extends AdminController
         $mailbox = Mailbox::query()->where('agent_id', $agent->id)->first();
 
         return Inertia::render('Admin/Agents/Form', [
-            ...$this->formOptions($tenant),
-            'agent' => [
-                ...$agent->only(['id', 'key', 'name', 'title', 'description', 'personality', 'instructions', 'department_id', 'reports_to_user_id', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps']),
-                'status' => $agent->status->value,
-                'autonomy_level' => $agent->autonomy_level->value,
-                'capabilities' => $agent->capabilities()->wherePivot('enabled', true)->pluck('capabilities.id'),
-            ],
+            ...$this->formOptions($tenant, $agent),
+            'agent' => app(AgentEditor::class)->present($agent, $agent->avatar_path ? route('admin.tenants.agents.avatar', [$tenant, $agent], false) : null),
             'routines' => $agent->routines()->orderBy('name')->get()->map(fn (AgentRoutine $routine) => [
                 ...$routine->only(['id', 'name', 'prompt', 'schedule', 'is_active']),
                 'last_run_at' => $routine->last_run_at?->toIso8601String(),
@@ -100,29 +81,21 @@ class AgentController extends AdminController
         ]);
     }
 
-    public function update(Request $request, Tenant $tenant, Agent $agent): RedirectResponse
+    public function update(Request $request, Tenant $tenant, Agent $agent, AgentEditor $editor): RedirectResponse
     {
-        $data = $this->validated($request, $agent);
-        $before = ['autonomy_level' => $agent->autonomy_level->value, 'status' => $agent->status->value];
-
-        DB::transaction(function () use ($agent, $data) {
-            $agent->fill(Arr::except($data, ['capabilities']));
-
-            if ($agent->status !== AgentStatus::Suspended) {
-                $agent->suspended_reason = null;
-            }
-
-            $agent->save();
-            $agent->capabilities()->sync(array_fill_keys($data['capabilities'] ?? [], ['enabled' => true]));
-        });
-
-        AuditLog::record($this->admin($request), 'agent.updated', [
-            'before' => $before,
-            'after' => ['autonomy_level' => $agent->autonomy_level->value, 'status' => $agent->status->value],
-            'capabilities' => $data['capabilities'] ?? [],
-        ], subject: $agent);
+        $editor->save($agent, $request->validate($editor->rules($agent)), $this->admin($request));
 
         return back()->with('success', 'Agente guardado.');
+    }
+
+    /**
+     * The agent's photo, for the console (tenant pages use AgentAvatarController).
+     */
+    public function avatar(Tenant $tenant, Agent $agent): StreamedResponse
+    {
+        abort_if($agent->avatar_path === null, 404);
+
+        return Storage::disk(AgentAvatars::DISK)->response($agent->avatar_path);
     }
 
     public function updateMailbox(Request $request, Tenant $tenant, Agent $agent): RedirectResponse
@@ -163,59 +136,11 @@ class AgentController extends AdminController
     /**
      * @return array<string, mixed>
      */
-    private function validated(Request $request, ?Agent $agent = null): array
-    {
-        $key = TenantRule::unique('agents', 'key');
-
-        if ($agent !== null) {
-            $key->ignore($agent->id);
-        }
-
-        return $request->validate([
-            'key' => ['required', 'string', 'max:64', 'regex:/^[a-z0-9][a-z0-9_-]*$/', $key],
-            'name' => ['required', 'string', 'max:255'],
-            'title' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'personality' => ['nullable', 'string', 'max:5000'],
-            'instructions' => ['nullable', 'string', 'max:20000'],
-            'department_id' => ['nullable', 'integer', TenantRule::exists('departments')],
-            'reports_to_user_id' => ['nullable', 'integer', TenantRule::exists('users')],
-            'status' => ['required', Rule::enum(AgentStatus::class)],
-            'autonomy_level' => ['required', Rule::enum(AutonomyLevel::class)],
-            'provider' => ['nullable', 'string', Rule::in(array_keys((array) config('ai.providers')))],
-            'model' => ['nullable', 'string', 'max:255'],
-            'temperature' => ['nullable', 'numeric', 'between:0,2'],
-            'max_tokens' => ['nullable', 'integer', 'between:1,200000'],
-            'max_steps' => ['nullable', 'integer', 'between:1,50'],
-            'capabilities' => ['array'],
-            'capabilities.*' => ['integer', TenantRule::exists('capabilities')],
-        ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function formOptions(Tenant $tenant): array
+    private function formOptions(Tenant $tenant, ?Agent $agent = null): array
     {
         return [
+            ...app(AgentEditor::class)->options($agent),
             'tenant' => ['id' => $tenant->id, 'name' => $tenant->name],
-            'departments' => Department::query()->orderBy('name')->get(['id', 'name']),
-            'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'capabilities' => Capability::query()->orderBy('source')->orderBy('key')->get()->map(fn (Capability $capability) => [
-                'id' => $capability->id,
-                'key' => $capability->key,
-                'name' => $capability->name,
-                'description' => $capability->description,
-                'source' => $capability->source->value,
-                'is_mutating' => $capability->is_mutating,
-                'is_available' => $capability->is_available,
-                'risk' => $capability->risk->value,
-                'ceiling' => config('autonomy.ceiling.'.$capability->key) !== null,
-            ]),
-            'levels' => AutonomyLevel::options(),
-            'statuses' => array_map(fn (AgentStatus $status) => ['value' => $status->value, 'label' => $status->label()], AgentStatus::cases()),
-            'providers' => array_keys((array) config('ai.providers')),
-            'defaultProvider' => config('ai.default'),
         ];
     }
 }

@@ -20,6 +20,7 @@ final class Present
             'id' => $agent->id,
             'key' => $agent->key,
             'name' => $agent->name,
+            'avatar_url' => $agent->avatarUrl(),
             'title' => $agent->title,
             'description' => $agent->description,
             'status' => $agent->status->value,

@@ -1,7 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { FileText } from 'lucide-react';
 
-import { EntityRow, ListPanel, Monogram } from '@/Components/Blocks';
+import { AgentAvatar } from '@/Components/AgentAvatar';
+import { EntityRow, ListPanel } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
@@ -31,7 +32,7 @@ export default function BriefingsIndex({ briefings }: { briefings: Paginated<Bri
                             className="py-3"
                             leading={
                                 <span className="relative">
-                                    <Monogram name={b.agent ?? 'Chief of Staff'} agent />
+                                    <AgentAvatar name={b.agent ?? 'Chief of Staff'} />
                                     {!b.read && (
                                         <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary ring-2 ring-card" title="Novo" />
                                     )}

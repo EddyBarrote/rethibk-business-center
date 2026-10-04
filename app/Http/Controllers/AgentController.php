@@ -13,6 +13,7 @@ use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\Capability;
+use App\Models\Skill;
 use App\Models\User;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
@@ -22,16 +23,22 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The tenant's view of its agents (section 11.2). The definition belongs to
- * the super admin; here people run, suspend, reactivate and assign them.
+ * The tenant's view of its agents (section 11.2): people run, suspend,
+ * reactivate and assign them. Owners and admins edit their definition in
+ * AgentDefinitionController.
  */
 class AgentController extends Controller
 {
-    public function index(BudgetGuard $budget): Response
+    public function index(Request $request, BudgetGuard $budget): Response
     {
         Gate::authorize('viewAny', Agent::class);
+        $user = $this->user($request);
 
-        $agents = Agent::query()->with(['department:id,name', 'reportsTo:id,name'])->where('status', '!=', AgentStatus::Draft)->orderBy('name')->get();
+        // Drafts are work in progress: only the people who can edit them see them.
+        $agents = Agent::query()->with(['department:id,name', 'reportsTo:id,name'])
+            ->when(! $user->can('create', Agent::class), fn ($query) => $query->where('status', '!=', AgentStatus::Draft))
+            ->orderBy('name')
+            ->get();
         $pending = Approval::query()->pending()->selectRaw('agent_id, count(*) as total')->groupBy('agent_id')->pluck('total', 'agent_id');
         $lastRuns = AgentRun::query()->selectRaw('agent_id, max(created_at) as last')->groupBy('agent_id')->pluck('last', 'agent_id');
 
@@ -42,6 +49,7 @@ class AgentController extends Controller
                 'last_run_at' => isset($lastRuns[$agent->id]) ? now()->parse($lastRuns[$agent->id])->toIso8601String() : null,
                 'spent_usd' => round($budget->agentSpent($agent), 4),
             ]),
+            'can' => ['create' => $user->can('create', Agent::class)],
         ]);
     }
 
@@ -65,6 +73,14 @@ class AgentController extends Controller
                 'risk' => $capability->risk->value,
                 'ceiling' => config('autonomy.ceiling.'.$capability->key) !== null,
             ]),
+            'skills' => $agent->skills()->with('platformSkill')->get()->map(fn (Skill $skill) => [
+                'id' => $skill->id,
+                'key' => $skill->key,
+                'name' => $skill->displayName(),
+                'description' => $skill->displayDescription(),
+                'scope' => $skill->ownership()->value,
+                'is_available' => $skill->isUsable(),
+            ])->sortBy('name')->values(),
             'routines' => $agent->routines()->orderBy('name')->get()->map(fn (AgentRoutine $routine) => [
                 'id' => $routine->id,
                 'name' => $routine->name,

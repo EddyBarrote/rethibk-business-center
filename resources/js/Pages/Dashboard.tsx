@@ -1,9 +1,10 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, Bot, CheckSquare, CircleDollarSign, FileText, Loader } from 'lucide-react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { ApprovalCard } from '@/Components/ApprovalCard';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { EntityRow, ListPanel, MetricCard, Monogram, Section } from '@/Components/Blocks';
+import { EntityRow, ListPanel, MetricCard, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Markdown } from '@/Components/Markdown';
 import { MiniBars } from '@/Components/MiniBars';
@@ -84,7 +85,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                         {live.map((run) => (
                             <Link key={run.id} href={`/runs/${run.id}`} className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/60">
                                 <div className="flex items-center gap-2">
-                                    <Monogram name={run.agent.name} agent />
+                                    <AgentAvatar name={run.agent.name} />
                                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{run.agent.name}</span>
                                 </div>
                                 <RunStatusBadge status={run.status} label={run.status_label} />
@@ -254,7 +255,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                 <EntityRow
                                     key={run.id}
                                     href={`/runs/${run.id}`}
-                                    leading={<Monogram name={run.agent.name} agent />}
+                                    leading={<AgentAvatar name={run.agent.name} />}
                                     title={run.input}
                                     subtitle={run.agent.name}
                                     meta={<span title={dateTime(run.created_at)}>{ago(run.created_at)}</span>}
@@ -274,7 +275,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                 <EntityRow
                                     key={agent.id}
                                     href={`/agents/${agent.id}`}
-                                    leading={<Monogram name={agent.name} agent />}
+                                    leading={<AgentAvatar name={agent.name} />}
                                     title={agent.name}
                                     subtitle={agent.title ?? agent.department}
                                     trailing={
