@@ -1,0 +1,18 @@
+# Serviços para correr a plataforma em local: `docker compose up -d`.
+# Credenciais iguais às do .env.example (root sem palavra-passe).
+services:
+  mysql:
+    image: mysql:9
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: micomoc_agents
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+volumes:
+  mysql-data:

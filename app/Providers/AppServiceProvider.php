@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Tenancy\TenantManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\DevCommands;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Event;
@@ -29,6 +30,9 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(TenantManager::class)->forget();
             }
         });
+
+        // `composer dev` also runs the scheduler: mail fetch, routines, briefings and watchers.
+        DevCommands::artisan('schedule:work', 'scheduler');
 
         RateLimiter::for('login', function (Request $request) {
             $email = strtolower((string) $request->input('email'));

@@ -15,7 +15,7 @@ PHP 8.3 · Laravel 13 · `laravel/ai` 1.0 · `laravel/mcp` 1.0 · MySQL 8.4/9.x 
 
 ## Arrancar em local
 
-Requer PHP 8.3+, Composer, Node 22+, MySQL e Redis.
+Requer PHP 8.3+, Composer, Node 22+, MySQL e Redis (`docker compose up -d` arranca estes dois). Em Windows, usar o WSL2. Passo a passo em [`docs/TESTAR.md`](docs/TESTAR.md).
 
 ```bash
 composer install

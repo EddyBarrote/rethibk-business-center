@@ -2,19 +2,31 @@
 
 Guia para o teste de aceitação das entregas E00 a E08. Tudo corre em local, contra o **ERP falso** (dados fictícios em MZN), até haver alojamento e o servidor MCP do ERP real.
 
-## 1. Arrancar
+## 1. Arrancar no computador local
 
-Requer PHP 8.3+, Composer, Node 22+, MySQL 8.4/9 e Redis.
+**Precisa de:** PHP 8.3+ (com `pdo_mysql`, `redis`, `pcntl`, `zip`, `intl`), Composer, Node 22+, MySQL e Redis.
+
+- **macOS:** `brew install php composer node`, e depois `pecl install redis`. Para o MySQL e o Redis, usar o Docker Desktop com o `compose.yaml` do repositório.
+- **Windows:** usar o **WSL2 com Ubuntu**, porque o Horizon (as filas dos agentes) precisa de `pcntl`, que não existe no PHP de Windows. Dentro do Ubuntu 24.04, instalar o PHP com `sudo apt install php8.3-cli php8.3-{mysql,redis,xml,curl,mbstring,zip,intl,bcmath} composer unzip`. O Node do Ubuntu é antigo: instalar o Node 22 com o [nvm](https://github.com/nvm-sh/nvm) (`nvm install 22`). Para o MySQL e o Redis, usar o Docker Desktop (ligado ao WSL) ou `sudo apt install mysql-server redis-server`.
+- **Linux:** como no Windows, mas directamente.
+
+**MySQL e Redis com Docker:** na pasta do projecto, `docker compose up -d`. Fica com a base `micomoc_agents`, o utilizador `root` sem palavra-passe e o Redis na porta 6379, que é o que o `.env.example` espera.
 
 ```bash
+git clone https://github.com/EddyBarrote/rethibk-business-center.git
+cd rethibk-business-center
+git checkout claude/micomoc-e00-foundation-5cr4b0
+docker compose up -d            # ou MySQL e Redis instalados à parte
 composer install && npm install
 cp .env.example .env
 php artisan key:generate
-php artisan reverb:install
-# no .env: DB_* do MySQL e ANTHROPIC_API_KEY (ou outro provedor em AI_PROVIDER)
+php artisan reverb:install      # escreve as chaves REVERB_* no .env
+# no .env: ANTHROPIC_API_KEY=... (ou AI_PROVIDER e a chave de outro provedor)
 php artisan migrate --seed
-composer dev
+composer dev                    # servidor, filas (Horizon), agendador, Reverb, logs e Vite
 ```
+
+O `composer dev` corre tudo num só terminal. Para parar, usar Ctrl+C. Se mudar alguma coisa no `.env`, é preciso reiniciá-lo.
 
 O seed cria o tenant **micomoc** com:
 
