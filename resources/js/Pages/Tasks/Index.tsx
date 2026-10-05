@@ -449,11 +449,15 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                 <div className="flex min-w-0 items-center gap-2">
                     <PriorityIcon priority={task.priority} label={task.priority_label} />
                     <span className="truncate text-sm font-medium">{task.title}</span>
-                    {task.kind === 'chat' && <ChatBadge />}
+                    {task.kind === 'chat' && (
+                        <span className="hidden shrink-0 sm:inline-flex">
+                            <ChatBadge />
+                        </span>
+                    )}
                     {task.working && <WorkingPulse />}
                 </div>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                    <span className="font-mono sm:hidden">{task.ref}</span>
+                    <span className="shrink-0 font-mono whitespace-nowrap sm:hidden">{task.ref}</span>
                     {(task.assignee ?? task.assignee_user) && (
                         <span className={cn('truncate', !compact && 'md:hidden')}>{(task.assignee ?? task.assignee_user)!.name}</span>
                     )}
@@ -486,7 +490,7 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                         {task.messages_count}
                     </span>
                 )}
-                <span className="w-16 text-right" title={dateTime(task.last_activity_at ?? task.created_at)}>
+                <span className="text-right whitespace-nowrap sm:w-16" title={dateTime(task.last_activity_at ?? task.created_at)}>
                     {ago(task.last_activity_at ?? task.created_at)}
                 </span>
             </div>

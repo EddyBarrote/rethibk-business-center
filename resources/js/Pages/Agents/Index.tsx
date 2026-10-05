@@ -89,8 +89,10 @@ export default function AgentsIndex({ agents, can }: { agents: Row[]; can: { cre
                                 }
                                 trailing={
                                     <>
-                                        <AutonomyBadge level={agent.autonomy_level} />
-                                        <span className="flex w-28 justify-end">
+                                        <span className="hidden sm:inline-flex">
+                                            <AutonomyBadge level={agent.autonomy_level} />
+                                        </span>
+                                        <span className="flex justify-end sm:w-28">
                                             {running.has(agent.id) ? (
                                                 <StatusBadge tone="running">A trabalhar</StatusBadge>
                                             ) : (

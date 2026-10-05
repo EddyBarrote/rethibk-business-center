@@ -109,8 +109,12 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                         <span aria-hidden="true">·</span>
                         <span title={dateTime(approval.created_at)}>{ago(approval.created_at)}</span>
                     </p>
+                    {/* On a phone the state sits under the title instead of squeezing it. */}
+                    <StatusBadge tone={approvalTone(approval.status)} className="mt-1.5 sm:hidden">
+                        {approval.status_label}
+                    </StatusBadge>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
                     <StatusBadge tone={approvalTone(approval.status)}>{approval.status_label}</StatusBadge>
                     {approval.status === 'approved' && (
                         <StatusBadge
