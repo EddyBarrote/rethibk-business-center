@@ -137,3 +137,14 @@ it('wakes each agent on a heartbeat for its quietest open task, once', function 
             ->and(AgentRun::query()->sole()->trigger_type)->toBe(TriggerType::Schedule);
     });
 });
+
+it('lists an agent its tasks without loading the tenant once per task', function () {
+    asTenant($this->tenant, function () {
+        Task::factory()->count(3)->create(['assignee_agent_id' => $this->agent->id]);
+
+        $result = runCapability($this->agent, 'tasks.list');
+
+        expect($result->ok)->toBeTrue()
+            ->and(json_decode($result->content, true)['mine'])->toHaveCount(3);
+    });
+});
