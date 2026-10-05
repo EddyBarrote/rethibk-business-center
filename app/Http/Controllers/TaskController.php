@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AgentStatus;
+use App\Enums\ApprovalStatus;
 use App\Enums\GoalStatus;
 use App\Enums\RunStatus;
 use App\Enums\TaskKind;
@@ -12,6 +13,7 @@ use App\Enums\TaskStatus;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\Approval;
 use App\Models\EmailMessage;
 use App\Models\Goal;
 use App\Models\Task;
@@ -176,6 +178,17 @@ class TaskController extends Controller
             'children' => $task->children()->with(['assigneeAgent:id,name', 'tenant:id,slug'])->orderBy('id')->get()->map(fn (Task $child) => $this->summary($child)),
             'runs' => $task->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(10)->get()->map(fn (AgentRun $run) => Present::run($run)),
             'working' => $active ? Present::run($active->load('agent:id,name')) : null,
+            'approvals' => Approval::query()
+                ->whereIn('agent_run_id', $task->runs()->select('id'))
+                ->where('status', ApprovalStatus::Pending)
+                ->orderBy('id')
+                ->get()
+                ->map(fn (Approval $approval) => [
+                    'id' => $approval->id,
+                    'summary' => $approval->action_summary,
+                    'ceiling_reason' => $approval->ceiling_reason,
+                    'can_decide' => $user->can('decide', $approval),
+                ]),
             'can' => [
                 'reply' => $user->can('reply', $task),
                 'update' => $user->can('update', $task),

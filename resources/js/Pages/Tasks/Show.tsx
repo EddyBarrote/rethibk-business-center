@@ -45,13 +45,21 @@ interface Props extends TaskFormOptions {
     children: TaskSummary[];
     runs: RunSummary[];
     working: RunSummary | null;
+    approvals: PendingApproval[];
     can: { reply: boolean; update: boolean; manage_agent: boolean };
 }
 
 const NONE = 'none';
-const reloadProps = ['task', 'messages', 'children', 'runs', 'working'];
+const reloadProps = ['task', 'messages', 'children', 'runs', 'working', 'approvals'];
 
-export default function TaskShow({ task, messages, children, runs, working, can, agents, goals, statuses, priorities }: Props) {
+interface PendingApproval {
+    id: number;
+    summary: string;
+    ceiling_reason: string | null;
+    can_decide: boolean;
+}
+
+export default function TaskShow({ task, messages, children, runs, working, approvals, can, agents, goals, statuses, priorities }: Props) {
     const { tenant } = usePage<SharedProps>().props;
     const form = useForm({ body: '', mode: 'message' as 'message' | 'action' });
     const bottom = useRef<HTMLDivElement>(null);
@@ -151,7 +159,10 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                                 </Link>
                             )}
                             {task.assignee && can.manage_agent && (
-                                <Link href={`/agents/${task.assignee.id}/edit`} className="shrink-0 text-sm text-muted-foreground hover:text-foreground">
+                                <Link
+                                    href={`/agents/${task.assignee.id}/edit`}
+                                    className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
+                                >
                                     Editar agente
                                 </Link>
                             )}
@@ -285,6 +296,10 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                                 </div>
                             </div>
                         ) : null}
+
+                        {approvals.map((approval) => (
+                            <ApprovalCard key={approval.id} approval={approval} />
+                        ))}
 
                         {can.reply ? (
                             <form onSubmit={send} className="rounded-xl border bg-card shadow-xs focus-within:ring-[3px] focus-within:ring-ring/30">
@@ -437,7 +452,7 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                             </Property>
                             <Property label="Origem">
                                 {task.source && (
-                                    <Link href={task.source.href} className="truncate hover:underline">
+                                    <Link href={task.source.href} className="hover:underline">
                                         {task.source.label}
                                     </Link>
                                 )}
@@ -581,6 +596,64 @@ function MessageRow({ message }: { message: Message }) {
                 <div className="mt-0.5 [&>div>p:first-child]:mt-0 [&>div>p:last-child]:mb-0">
                     <Markdown>{message.body}</Markdown>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+/** A pending action of this task's agent, decided right here. */
+function ApprovalCard({ approval }: { approval: PendingApproval }) {
+    const [rejecting, setRejecting] = useState(false);
+    const form = useForm({ note: '' });
+    const decide = (action: 'approve' | 'reject') =>
+        form.post(`/approvals/${approval.id}/${action}`, { preserveScroll: true, only: [...reloadProps, 'flash'] });
+
+    return (
+        <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-status-warning/10 px-4 py-3">
+            <Lock className="mt-0.5 size-4 shrink-0 text-status-warning" />
+            <div className="min-w-0 flex-1 space-y-2 text-sm">
+                <p className="font-medium">À espera de aprovação</p>
+                <p className="break-words text-muted-foreground">{approval.summary}</p>
+                {approval.ceiling_reason && <p className="text-xs text-muted-foreground">Decide sempre uma pessoa: {approval.ceiling_reason}</p>}
+                {approval.can_decide ? (
+                    rejecting ? (
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <Textarea
+                                rows={1}
+                                autoFocus
+                                placeholder="Motivo da rejeição"
+                                value={form.data.note}
+                                onChange={(e) => form.setData('note', e.target.value)}
+                                className="min-h-9 bg-background"
+                            />
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    disabled={form.processing || form.data.note.trim() === ''}
+                                    onClick={() => decide('reject')}
+                                >
+                                    Rejeitar
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => setRejecting(false)}>
+                                    Cancelar
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex gap-2">
+                            <Button size="sm" disabled={form.processing} onClick={() => decide('approve')}>
+                                Aprovar
+                            </Button>
+                            <Button size="sm" variant="outline" disabled={form.processing} onClick={() => setRejecting(true)}>
+                                Rejeitar…
+                            </Button>
+                        </div>
+                    )
+                ) : (
+                    <p className="text-xs text-muted-foreground">Quem decide é a pessoa responsável pela aprovação.</p>
+                )}
+                <InputError message={form.errors.note} />
             </div>
         </div>
     );

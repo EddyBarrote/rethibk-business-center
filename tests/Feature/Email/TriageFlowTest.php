@@ -195,3 +195,35 @@ it('lets a person send the draft reply the agent prepared', function () {
 
     Mail::assertSent(AgentMessage::class, fn ($mail) => $mail->inReplyTo === '<req-1@baiaazul.co.mz>');
 });
+
+it('shows what the agent is waiting on in the task and lets the person decide it there', function () {
+    asTenant($this->tenant, fn () => templateAgent('finance')->update(['reports_to_user_id' => $this->owner->id]));
+
+    GenericAgent::fake([
+        toolCall('t1', 'email_classify', fn () => ['email_id' => inboundId(), 'category' => 'supplier_invoice', 'confidence' => 0.97, 'priority' => 'normal', 'summary' => 'Factura FT 2026/0877.']),
+        // The finance agent works inside the triage's classify call (sync queue).
+        new ToolCall('t2', 'comms_send_email', ['to' => ['facturacao@segurancatotal.example'], 'subject' => 'Recebida', 'body' => 'Recebemos a factura.']),
+        'Confirmação preparada; falta aprovar o envio.',
+        'Passada às Finanças.',
+    ]);
+
+    $task = asTenant($this->tenant, function () {
+        app(InboundEmailIngestor::class)->ingest($this->mailbox, mailFixture('supplier-invoice'));
+
+        return Task::query()->sole();
+    });
+
+    $approval = asTenant($this->tenant, fn () => Approval::query()->sole());
+
+    expect(asTenant($this->tenant, fn () => $task->messages()->where('kind', 'event')->latest('id')->value('body')))
+        ->toContain('À espera de aprovação: ')
+        ->toContain($approval->action_summary);
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('approvals.0.id', $approval->id)->where('approvals.0.can_decide', true));
+
+    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, "approvals/{$approval->id}/approve"))->assertRedirect();
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('approvals', []));
+});

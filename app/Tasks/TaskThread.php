@@ -4,6 +4,7 @@ namespace App\Tasks;
 
 use App\Ai\Runs\AgentRunner;
 use App\Enums\ActorType;
+use App\Enums\ApprovalStatus;
 use App\Enums\RunStatus;
 use App\Enums\TaskKind;
 use App\Enums\TaskMessageKind;
@@ -12,6 +13,7 @@ use App\Enums\TriggerType;
 use App\Events\TaskUpdated;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\Task;
 use App\Models\TaskMessage;
@@ -250,7 +252,10 @@ final class TaskThread
         }
 
         if ($run->status === RunStatus::AwaitingApproval) {
-            $this->note($task, 'Uma acção ficou à espera de aprovação.', $run);
+            $pending = Approval::query()->where('agent_run_id', $run->id)->where('status', ApprovalStatus::Pending)->pluck('action_summary');
+            $this->note($task, $pending->isEmpty()
+                ? 'Uma acção ficou à espera de aprovação.'
+                : 'À espera de aprovação: '.$pending->map(fn (string $summary) => Str::limit($summary, 160))->join('; ').'.', $run);
         }
 
         TaskUpdated::live($task);
