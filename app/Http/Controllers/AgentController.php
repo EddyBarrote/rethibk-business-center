@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Access\AgentAccess;
 use App\Ai\Budget\BudgetGuard;
+use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Runs\AgentRunner;
 use App\Enums\AgentStatus;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentAssignment;
+use App\Models\AgentMemory;
 use App\Models\AgentRoutine;
 use App\Models\AgentRun;
 use App\Models\Approval;
@@ -96,11 +98,21 @@ class AgentController extends Controller
                 'last_run_at' => $routine->last_run_at?->toIso8601String(),
             ]),
             'runs' => $agent->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
+            'memories' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->with(['aboutUser:id,name', 'task:id,number,title,tenant_id', 'task.tenant:id,slug'])->latest('id')->limit(300)->get()->map(fn (AgentMemory $memory) => [
+                'id' => $memory->id,
+                'content' => $memory->content,
+                'kind' => $memory->kind,
+                'about' => $memory->aboutUser?->name,
+                'task' => $memory->task ? ['id' => $memory->task->id, 'ref' => $memory->task->identifier()] : null,
+                'knowledge_item_id' => $memory->knowledge_item_id,
+                'created_at' => $memory->created_at->toIso8601String(),
+            ]) : null,
             'users' => $user->can('manageAccess', $agent) ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [],
             'can' => [
                 'run' => $user->can('run', $agent),
                 'manage' => $user->can('manage', $agent),
                 'manage_access' => $user->can('manageAccess', $agent),
+                'view_memory' => $user->can('viewMemory', $agent),
             ],
         ]);
     }
@@ -157,5 +169,37 @@ class AgentController extends Controller
         AuditLog::record($this->user($request), 'agent.access_updated', ['access' => $data['access']], subject: $agent);
 
         return back()->with('success', 'Acessos guardados.');
+    }
+
+    /**
+     * Correct a fact the agent remembers (realinhamento, decisão 18).
+     */
+    public function updateMemory(Request $request, Agent $agent, AgentMemory $memory, MemoryConsolidator $consolidator): RedirectResponse
+    {
+        Gate::authorize('viewMemory', $agent);
+        abort_unless($memory->agent_id === $agent->id, 404);
+
+        $data = $request->validate([
+            'content' => ['required', 'string', 'max:500'],
+            'kind' => ['required', Rule::in([AgentMemory::WORK, AgentMemory::PERSONAL])],
+        ]);
+
+        $memory->fill([...$data, 'edited_by_user_id' => $this->user($request)->id])->save();
+        AuditLog::record($this->user($request), 'agent.memory_updated', ['memory_id' => $memory->id], subject: $agent);
+        $consolidator->publish($agent);
+
+        return back()->with('success', 'Memória corrigida.');
+    }
+
+    public function destroyMemory(Request $request, Agent $agent, AgentMemory $memory, MemoryConsolidator $consolidator): RedirectResponse
+    {
+        Gate::authorize('viewMemory', $agent);
+        abort_unless($memory->agent_id === $agent->id, 404);
+
+        AuditLog::record($this->user($request), 'agent.memory_deleted', ['memory_id' => $memory->id, 'content' => $memory->content], subject: $agent);
+        $memory->delete();
+        $consolidator->publish($agent);
+
+        return back()->with('success', 'Esquecido.');
     }
 }

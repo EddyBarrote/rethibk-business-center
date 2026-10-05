@@ -66,6 +66,8 @@ Route::middleware('auth')->group(function () {
     Route::post('agents/{agent}/runs', [AgentController::class, 'run'])->middleware('throttle:20,1')->name('agents.run');
     Route::put('agents/{agent}/status', [AgentController::class, 'updateStatus'])->name('agents.status');
     Route::put('agents/{agent}/assignees', [AgentController::class, 'updateAssignees'])->name('agents.assignees');
+    Route::put('agents/{agent}/memories/{memory}', [AgentController::class, 'updateMemory'])->name('agents.memories.update');
+    Route::delete('agents/{agent}/memories/{memory}', [AgentController::class, 'destroyMemory'])->name('agents.memories.destroy');
 
     Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
     Route::post('tasks', [TaskController::class, 'store'])->middleware('throttle:30,1')->name('tasks.store');

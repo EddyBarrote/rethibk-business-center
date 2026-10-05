@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Skills\AgentSkills;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
@@ -33,6 +34,8 @@ final class InstructionComposer
             $this->skills($agent),
             $this->team($agent),
             $run?->task !== null ? $this->task($run) : null,
+            // The agent's own consolidated memory (realinhamento L7).
+            app(MemoryConsolidator::class)->forPrompt($agent, $run?->task?->user) ?: null,
             $this->decisions(),
             "## Autonomia\nO teu nível é {$level->code()} ({$level->label()}). ".$this->autonomyRule($level),
             <<<'TXT'

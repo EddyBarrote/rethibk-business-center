@@ -11,6 +11,7 @@ use App\Enums\TaskMessageKind;
 use App\Enums\TaskStatus;
 use App\Enums\TriggerType;
 use App\Events\TaskUpdated;
+use App\Jobs\ConsolidateAgentMemory;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
@@ -187,6 +188,11 @@ final class TaskThread
 
         if ($status === TaskStatus::Done) {
             $this->reportToParent($task, $by);
+        }
+
+        // Delivered work becomes the agent's memory (realinhamento L7).
+        if (in_array($status, [TaskStatus::InReview, TaskStatus::Done], true) && $task->kind === TaskKind::Task && $task->assignee_agent_id !== null) {
+            ConsolidateAgentMemory::dispatch($task->tenant_id, $task->id);
         }
 
         if ($status === TaskStatus::InReview && $by instanceof Agent && $task->kind === TaskKind::Task) {

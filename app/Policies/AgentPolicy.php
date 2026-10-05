@@ -52,6 +52,15 @@ class AgentPolicy
             || ($actor->hasPermission(Permission::GrantAgentAccess) && $actor->department_id !== null && $actor->department_id === $agent->department_id));
     }
 
+    /**
+     * See and correct the agent's memory: the person it answers to and those
+     * who administer the company (realinhamento, decisão 18).
+     */
+    public function viewMemory(User $actor, Agent $agent): bool
+    {
+        return $this->view($actor, $agent) && ($actor->canManageTenant() || $agent->reports_to_user_id === $actor->id);
+    }
+
     private function level(User $actor, Agent $agent): ?string
     {
         if ($actor->hasPermission(Permission::TalkToAllAgents) || $agent->reports_to_user_id === $actor->id) {

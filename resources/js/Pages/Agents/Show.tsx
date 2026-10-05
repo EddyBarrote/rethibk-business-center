@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, BookOpen, Clock, ListTodo, Lock, MessagesSquare, Pause, Pencil, Play, Send, Wrench } from 'lucide-react';
+import { Activity, BookOpen, Brain, Clock, ListTodo, Lock, MessagesSquare, Pause, Pencil, Play, Send, Wrench } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -31,10 +31,11 @@ interface Props {
     routines: { id: number; name: string; schedule: string; is_active: boolean; last_run_at: string | null }[];
     runs: RunSummary[];
     users: { id: number; name: string }[];
-    can: { run: boolean; manage: boolean; manage_access: boolean };
+    can: { run: boolean; manage: boolean; manage_access: boolean; view_memory: boolean };
+    memories: Memory[] | null;
 }
 
-export default function AgentShow({ agent, capabilities, skills, routines, runs, users, can }: Props) {
+export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memories, can }: Props) {
     const { tenant, sidebar_agents } = usePage<SharedProps>().props;
     const form = useForm({ input: '' });
     const [reason, setReason] = useState('');
@@ -112,6 +113,12 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                             Execuções
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">{runs.length}</span>
                         </TabsTrigger>
+                        {memories !== null && (
+                            <TabsTrigger value="memory" className="flex-none">
+                                Memória
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">{memories.length}</span>
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger value="config" className="flex-none">
                             Configuração
                         </TabsTrigger>
@@ -161,6 +168,12 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                     <TabsContent value="runs">
                         <RunList runs={runs} />
                     </TabsContent>
+
+                    {memories !== null && (
+                        <TabsContent value="memory">
+                            <MemoryList agentId={agent.id} memories={memories} />
+                        </TabsContent>
+                    )}
 
                     <TabsContent value="config" className="flex flex-col gap-8">
                         {can.manage && (
@@ -429,5 +442,104 @@ function ChatAction({ agent }: { agent: AgentSummary }) {
                 Conversar
             </Link>
         </Button>
+    );
+}
+
+interface Memory {
+    id: number;
+    content: string;
+    kind: 'work' | 'personal';
+    about: string | null;
+    task: { id: number; ref: string } | null;
+    knowledge_item_id: number | null;
+    created_at: string;
+}
+
+/** What the agent remembers, for its chefia and the administrators to correct (realinhamento L7). */
+function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[] }) {
+    const [editing, setEditing] = useState<number | null>(null);
+    const [draft, setDraft] = useState('');
+
+    if (memories.length === 0) {
+        return (
+            <EmptyState
+                icon={Brain}
+                title="Ainda sem memória"
+                description="No fim de cada tarefa, e uma vez por dia nas conversas, o agente guarda aqui o que aprendeu."
+            />
+        );
+    }
+
+    const save = (memory: Memory, kind = memory.kind) =>
+        router.put(
+            `/agents/${agentId}/memories/${memory.id}`,
+            { content: editing === memory.id ? draft : memory.content, kind },
+            { preserveScroll: true, onSuccess: () => setEditing(null) },
+        );
+
+    return (
+        <div className="flex flex-col gap-3">
+            <p className="text-xs text-muted-foreground">
+                Factos de trabalho servem em todas as conversas do agente e vão para a base de conhecimento (pasta Memória dos agentes). Os pessoais
+                só aparecem nas conversas com a pessoa a quem dizem respeito.
+            </p>
+            <ListPanel>
+                {memories.map((memory) => (
+                    <div key={memory.id} className="flex flex-col gap-2 px-4 py-3">
+                        {editing === memory.id ? (
+                            <Textarea rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
+                        ) : (
+                            <p className="text-sm">{memory.content}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <StatusBadge tone={memory.kind === 'work' ? 'running' : 'idle'} dot={false}>
+                                {memory.kind === 'work' ? 'trabalho' : `pessoal${memory.about ? ` · ${memory.about}` : ''}`}
+                            </StatusBadge>
+                            {memory.task && (
+                                <Link href={`/tasks/${memory.task.id}`} className="font-mono hover:text-foreground">
+                                    {memory.task.ref}
+                                </Link>
+                            )}
+                            <span title={dateTime(memory.created_at)}>{ago(memory.created_at)}</span>
+                            <span className="ml-auto flex gap-1">
+                                {editing === memory.id ? (
+                                    <>
+                                        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                                            Cancelar
+                                        </Button>
+                                        <Button size="sm" onClick={() => save(memory)} disabled={draft.trim() === ''}>
+                                            Guardar
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button size="sm" variant="ghost" onClick={() => save(memory, memory.kind === 'work' ? 'personal' : 'work')}>
+                                            {memory.kind === 'work' ? 'Tornar pessoal' : 'Tornar de trabalho'}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => {
+                                                setEditing(memory.id);
+                                                setDraft(memory.content);
+                                            }}
+                                        >
+                                            Corrigir
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => router.delete(`/agents/${agentId}/memories/${memory.id}`, { preserveScroll: true })}
+                                        >
+                                            Esquecer
+                                        </Button>
+                                    </>
+                                )}
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </ListPanel>
+        </div>
     );
 }
