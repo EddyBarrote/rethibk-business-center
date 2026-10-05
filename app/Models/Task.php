@@ -97,6 +97,21 @@ class Task extends Model
     }
 
     /**
+     * What is on a person's desk: tasks with them or created by them, and
+     * tasks whose agent has an action waiting for their decision.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function needing(Builder $query, User $user): void
+    {
+        $query->where(fn (Builder $q) => $q
+            ->where('user_id', $user->id)
+            ->orWhere('created_by_user_id', $user->id)
+            ->orWhereHas('runs.approvals', fn (Builder $approvals) => $approvals->pending()->visibleTo($user)));
+    }
+
+    /**
      * @return BelongsTo<Agent, $this>
      */
     public function assigneeAgent(): BelongsTo

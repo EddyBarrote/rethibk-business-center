@@ -197,7 +197,7 @@ it('lets a person send the draft reply the agent prepared', function () {
 });
 
 it('shows what the agent is waiting on in the task and lets the person decide it there', function () {
-    asTenant($this->tenant, fn () => templateAgent('finance')->update(['reports_to_user_id' => $this->owner->id]));
+    asTenant($this->tenant, fn () => templateAgent('finance')->update(['reports_to_user_id' => $this->sales->id]));
 
     GenericAgent::fake([
         toolCall('t1', 'email_classify', fn () => ['email_id' => inboundId(), 'category' => 'supplier_invoice', 'confidence' => 0.97, 'priority' => 'normal', 'summary' => 'Factura FT 2026/0877.']),
@@ -222,8 +222,15 @@ it('shows what the agent is waiting on in the task and lets the person decide it
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
         ->assertInertia(fn ($page) => $page->where('approvals.0.id', $approval->id)->where('approvals.0.can_decide', true));
 
+    // The owner is not on the task, but the decision waiting on them puts it in their tasks.
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?view=mine'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('tasks.0.id', $task->id)->where('counts.mine', 1));
+
     $this->actingAs($this->owner)->post(tenantUrl($this->tenant, "approvals/{$approval->id}/approve"))->assertRedirect();
 
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
         ->assertInertia(fn ($page) => $page->where('approvals', []));
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?view=mine'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('counts.mine', 0));
 });

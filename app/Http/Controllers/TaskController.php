@@ -51,7 +51,7 @@ class TaskController extends Controller
         $query = $this->visible(Task::query(), $user)
             ->with(['assigneeAgent:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'tenant:id,slug'])
             ->withCount('messages')
-            ->when($view === 'mine', fn (Builder $q) => $q->open()->involving($user))
+            ->when($view === 'mine', fn (Builder $q) => $q->open()->needing($user))
             ->when($view === 'all', fn (Builder $q) => $q->open()->where('kind', TaskKind::Task))
             ->when($view === 'chats', fn (Builder $q) => $q->where('kind', TaskKind::Chat)->whereNot('status', TaskStatus::Cancelled))
             ->when($view === 'waiting', fn (Builder $q) => $q->where('status', TaskStatus::WaitingHuman))
@@ -67,7 +67,7 @@ class TaskController extends Controller
             'tasks' => $query->limit(200)->get()->map(fn (Task $task) => [...$this->summary($task), 'working' => isset($running[$task->id])]),
             'filters' => ['view' => $view, 'agent' => $filters['agent'] ?? null, 'goal' => $filters['goal'] ?? null, 'q' => $filters['q'] ?? ''],
             'counts' => [
-                'mine' => $this->visible(Task::query(), $user)->open()->involving($user)->count(),
+                'mine' => $this->visible(Task::query(), $user)->open()->needing($user)->count(),
                 'waiting' => $this->visible(Task::query(), $user)->where('status', TaskStatus::WaitingHuman)->count(),
             ],
             ...$this->formOptions($user),
