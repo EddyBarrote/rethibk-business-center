@@ -53,7 +53,8 @@ export function AuthLayout({
 
                 <main className="flex flex-1 items-center justify-center py-10">
                     <div className="w-full max-w-sm">
-                        {brand ? <TenantIdentity brand={brand} /> : eyebrow}
+                        {eyebrow}
+                        {brand && <TenantIdentity brand={brand} />}
                         <div className="mb-8 space-y-2">
                             <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
                             <p className="text-sm text-muted-foreground">{description}</p>
@@ -108,27 +109,13 @@ function ProductPanel() {
     );
 }
 
+/** The company's own logo (Definições › Marca), when it has one; never its name. */
 function TenantIdentity({ brand }: { brand: LoginBrand }) {
-    return (
-        <div className="mb-8 flex items-center gap-3">
-            {brand.logo_url ? (
-                <img src={brand.logo_url} alt={brand.name} className="h-10 max-w-40 object-contain" />
-            ) : (
-                <div
-                    className="flex size-10 items-center justify-center rounded-lg bg-primary text-base font-semibold text-primary-foreground"
-                    style={brand.color ? { backgroundColor: brand.color, color: '#fff' } : undefined}
-                >
-                    {brand.name.charAt(0).toUpperCase()}
-                </div>
-            )}
-            {!brand.logo_url && (
-                <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{brand.name}</p>
-                    <p className="text-xs text-muted-foreground">{PRODUCT_NAME}</p>
-                </div>
-            )}
-        </div>
-    );
+    if (!brand.logo_url) {
+        return null;
+    }
+
+    return <img src={brand.logo_url} alt="" className="mb-8 h-10 max-w-40 object-contain" />;
 }
 
 function AppearanceToggle() {

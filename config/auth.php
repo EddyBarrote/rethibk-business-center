@@ -111,6 +111,14 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // Rethink operators keep their own tokens: an admin email can also be a tenant user's.
+        'platform_admins' => [
+            'provider' => 'platform_admins',
+            'table' => 'platform_admin_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
     ],
 
     /*

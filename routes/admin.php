@@ -4,8 +4,10 @@ use App\Http\Controllers\Admin\AgentController;
 use App\Http\Controllers\Admin\AgentRoutineController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CapabilityController;
+use App\Http\Controllers\Admin\ForgotPasswordController;
 use App\Http\Controllers\Admin\PlatformConnectorController;
 use App\Http\Controllers\Admin\PlatformSkillController;
+use App\Http\Controllers\Admin\ResetPasswordController;
 use App\Http\Controllers\Admin\TenantController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +17,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest:admin')->group(function () {
     Route::get('login', [AuthController::class, 'create'])->name('login');
     Route::post('login', [AuthController::class, 'store'])->middleware('throttle:login');
+    Route::get('forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
+    Route::post('forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:login')->name('password.email');
+    Route::get('reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
+    Route::post('reset-password', [ResetPasswordController::class, 'store'])->middleware('throttle:login')->name('password.store');
 });
 
 Route::middleware('auth:admin')->group(function () {

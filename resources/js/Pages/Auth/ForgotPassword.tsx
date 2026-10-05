@@ -1,13 +1,24 @@
 import { Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Loader2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 
+import { AdminBadge } from '@/Components/AdminBadge';
 import { Field } from '@/Components/Field';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { AuthLayout, AuthStatus, type LoginBrand } from '@/Layouts/AuthLayout';
 
-export default function ForgotPassword({ brand, status }: { brand: LoginBrand | null; status: string | null }) {
+export default function ForgotPassword({
+    brand,
+    admin,
+    status,
+    dev_reset_url,
+}: {
+    brand: LoginBrand | null;
+    admin: boolean;
+    status: string | null;
+    dev_reset_url: string | null;
+}) {
     const form = useForm({ email: '' });
 
     const submit = (event: FormEvent) => {
@@ -19,10 +30,23 @@ export default function ForgotPassword({ brand, status }: { brand: LoginBrand | 
         <AuthLayout
             title="Recuperar acesso"
             brand={brand}
+            eyebrow={admin ? <AdminBadge /> : undefined}
             heading="Recuperar acesso"
             description="Indique o email da sua conta e enviamos um link para definir uma nova palavra-passe."
         >
             <AuthStatus message={status} />
+            {dev_reset_url && (
+                <div className="-mt-3 mb-6 rounded-lg border border-dashed px-3.5 py-3 text-sm">
+                    <p className="text-muted-foreground">Ambiente local: o email fica só no log, por isso o link aparece aqui.</p>
+                    <a
+                        href={dev_reset_url}
+                        className="mt-2 inline-flex items-center gap-1.5 font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                        Abrir o link de recuperação
+                        <ExternalLink className="size-3.5" />
+                    </a>
+                </div>
+            )}
 
             <form onSubmit={submit} className="flex flex-col gap-5">
                 <Field id="email" label="Email" error={form.errors.email}>

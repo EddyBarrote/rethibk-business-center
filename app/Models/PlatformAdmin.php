@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 
 /**
@@ -24,7 +25,7 @@ use Illuminate\Support\Carbon;
 class PlatformAdmin extends Authenticatable
 {
     /** @use HasFactory<PlatformAdminFactory> */
-    use HasFactory;
+    use HasFactory, Notifiable;
 
     protected function casts(): array
     {

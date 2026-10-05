@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\PlatformAdmin;
 use App\Models\User;
 use App\Tenancy\TenantManager;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -42,11 +43,15 @@ class AppServiceProvider extends ServiceProvider
         DevCommands::artisan('schedule:work', 'scheduler');
 
         // The reset link points at the host it was asked from, so it lands on the right tenant.
-        ResetPassword::toMailUsing(fn (User $user, string $token) => (new MailMessage)
+        ResetPassword::createUrlUsing(fn (User|PlatformAdmin $user, string $token) => route(
+            $user instanceof PlatformAdmin ? 'admin.password.reset' : 'password.reset',
+            ['token' => $token, 'email' => $user->email],
+        ));
+        ResetPassword::toMailUsing(fn (User|PlatformAdmin $user, string $token) => (new MailMessage)
             ->subject('Definir uma nova palavra-passe')
             ->greeting('Olá '.$user->name.',')
             ->line('Recebemos um pedido para definir uma nova palavra-passe para a sua conta.')
-            ->action('Definir palavra-passe', route('password.reset', ['token' => $token, 'email' => $user->email]))
+            ->action('Definir palavra-passe', (string) call_user_func(ResetPassword::$createUrlCallback, $user, $token))
             ->line('O link é válido durante '.config('auth.passwords.users.expire').' minutos. Se não fez este pedido, ignore este email.')
             ->salutation('Rethink Business Center'));
 

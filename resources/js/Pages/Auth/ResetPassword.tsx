@@ -2,13 +2,14 @@ import { Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 
+import { AdminBadge } from '@/Components/AdminBadge';
 import { Field } from '@/Components/Field';
 import { PasswordInput } from '@/Components/PasswordInput';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { AuthLayout, type LoginBrand } from '@/Layouts/AuthLayout';
 
-export default function ResetPassword({ brand, token, email }: { brand: LoginBrand | null; token: string; email: string }) {
+export default function ResetPassword({ brand, admin, token, email }: { brand: LoginBrand | null; admin: boolean; token: string; email: string }) {
     const form = useForm({ token, email, password: '', password_confirmation: '' });
 
     const submit = (event: FormEvent) => {
@@ -20,6 +21,7 @@ export default function ResetPassword({ brand, token, email }: { brand: LoginBra
         <AuthLayout
             title="Nova palavra-passe"
             brand={brand}
+            eyebrow={admin ? <AdminBadge /> : undefined}
             heading="Nova palavra-passe"
             description="Escolha uma palavra-passe com pelo menos 8 caracteres."
         >

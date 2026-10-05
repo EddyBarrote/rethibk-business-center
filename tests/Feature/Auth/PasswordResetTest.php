@@ -78,3 +78,17 @@ it('rejects an invalid token', function () {
 it('serves no logo when the tenant has none', function () {
     $this->get(tenantUrl($this->tenant, 'login/logo'))->assertNotFound();
 });
+
+it('shows the reset link on screen when mail only goes to the log on a local machine', function () {
+    config(['app.env' => 'local', 'mail.default' => 'log']);
+
+    $this->post(tenantUrl($this->tenant, 'forgot-password'), ['email' => 'ana@micomoc.test'])
+        ->assertSessionHas('dev_reset_url', fn (string $url) => str_contains($url, '/reset-password/') && str_contains($url, $this->tenant->slug.'.'));
+});
+
+it('never shows the reset link outside a local machine', function () {
+    config(['mail.default' => 'log']);
+
+    $this->post(tenantUrl($this->tenant, 'forgot-password'), ['email' => 'ana@micomoc.test'])
+        ->assertSessionMissing('dev_reset_url');
+});

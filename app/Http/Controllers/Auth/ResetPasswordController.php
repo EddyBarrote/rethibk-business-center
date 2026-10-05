@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\PlatformAdmin;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
@@ -20,10 +21,15 @@ use Inertia\Response;
  */
 class ResetPasswordController extends Controller
 {
+    protected string $broker = 'users';
+
+    protected string $loginRoute = 'login';
+
     public function create(Request $request, string $token): Response
     {
         return Inertia::render('Auth/ResetPassword', [
-            'brand' => LoginBrand::props(),
+            'brand' => $this->broker === 'users' ? LoginBrand::props() : null,
+            'admin' => $this->broker !== 'users',
             'token' => $token,
             'email' => $request->string('email')->toString(),
         ]);
@@ -37,9 +43,9 @@ class ResetPasswordController extends Controller
             'password' => ['required', 'confirmed', PasswordRule::min(8)],
         ]);
 
-        $status = Password::reset(
+        $status = Password::broker($this->broker)->reset(
             [...$request->only('email', 'password', 'password_confirmation', 'token'), 'is_active' => true],
-            function (User $user, string $password): void {
+            function (User|PlatformAdmin $user, string $password): void {
                 $user->forceFill([
                     'password' => Hash::make($password),
                     'remember_token' => Str::random(60),
@@ -53,6 +59,6 @@ class ResetPasswordController extends Controller
             throw ValidationException::withMessages(['email' => 'Este link já não é válido. Peça um novo.']);
         }
 
-        return redirect()->route('login')->with('success', 'Palavra-passe alterada. Já pode entrar.');
+        return redirect()->route($this->loginRoute)->with('success', 'Palavra-passe alterada. Já pode entrar.');
     }
 }
