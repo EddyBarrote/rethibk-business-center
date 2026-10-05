@@ -57,6 +57,31 @@ Regras que saíram da revisão:
    título ou escondem-se abaixo de `sm`.
 7. Plurais escritos ("1 agente", "2 agentes"), nunca "agente(s)".
 
+Segunda passagem (avaliação de 6/10, mesmo dia):
+
+| Precisa de | Use | Onde |
+|---|---|---|
+| Dizer o que uma aprovação faz | `approvalTitle(action_type, payload, summary)`: uma frase por acção do ERP ("Registar despesa de 72 848,00 MZN · Segurança Total EPI"); os argumentos como factos com `approvalFacts()` | `lib/approvals.ts` |
+| Aprovar várias de uma vez | Caixa de selecção nas linhas de `<ApprovalList>` e barra "Aprovar n" (`POST /approvals/approve`); as do tecto absoluto decidem-se uma a uma | `Pages/Approvals/Index.tsx` |
+| Números, dinheiro, durações, datas | Só `lib/format.ts`: `mzn`, `usd` (2 casas) / `usdPrecise` (custo de uma execução), `number`, `duration` ("12,1 s", "2 min 05 s"), `date`/`dateTime`/`ago`, `plural()` | `lib/format.ts` |
+| Pré-visualizar texto de um agente numa linha | `plainText()` (tira markdown) e `runTitle()` (tira "[Proprietário] [Nota da plataforma]") | idem |
+| Ligações que os agentes escrevem | `<Markdown>` mostra "/approvals" como "Aprovações" e abre-a na consola; caminhos de áreas que já não existem ficam texto | `lib/paths.ts`, `Components/Markdown.tsx` |
+| Nomes de colunas numa lista de linhas | `<ListHeader>` por cima de `<ListPanel>`, com as mesmas larguras das células da linha | `Components/Blocks.tsx` |
+| Tabela no telemóvel | `className="table-stack"` no `<Table>` e `data-label` em cada célula: abaixo de 640 px cada linha é um cartão | `resources/css/app.css` |
+| Separadores que não cabem | `scroll-fade overflow-x-auto` no `TabsList`, triggers `flex-none` | idem |
+| Um PDF dentro da página | `<PdfPreview src title>`: sem leitor de PDF, mostra Abrir e Descarregar em vez de uma caixa cinzenta | `Components/PdfPreview.tsx` |
+
+8. **Uma só largura de página** (`max-w-[90rem]` no `AppLayout` e no `AdminLayout`): o conteúdo começa sempre no mesmo
+   sítio. Formulários e detalhes limitam-se por dentro quando precisam.
+9. **Rodapé de formulário de página:** Cancelar `ghost` à esquerda, acção principal à direita. Nos diálogos, os dois à direita.
+10. **Execução:** o pedido mostra as instruções e o email recebido como email, nunca a vedação
+    `<email_externo_nao_confiavel>`; chamadas e resultados de ferramentas mostram o nome da capacidade e só abrem os
+    dados com "Ver o que enviou" / "Ver o que recebeu".
+11. **Linhas no telemóvel** deixam o título ir a duas linhas e a linha de baixo quebrar, em vez de cortar três nomes.
+12. **Organigrama:** árvore de cima para baixo só de leitura; um grupo só de folhas fica em coluna debaixo da chefia;
+    mudar quem reporta a quem faz-se num diálogo. No telemóvel é uma lista indentada.
+13. **Acções secundárias de uma linha** (corrigir, mudar o tipo, esquecer) vão para um menu "…"; o que apaga pede confirmação.
+
 ## Imagens geradas
 
 Geradas com a skill nano banana (Gemini), redimensionadas para 1400 px e convertidas para WebP (`cwebp -q 80`). Têm a marca de água invisível SynthID.

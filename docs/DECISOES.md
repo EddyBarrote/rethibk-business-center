@@ -202,3 +202,25 @@ regras, rotas e dados ficam iguais. Padrões em `docs/UI.md` › "Padrões de ec
 | L11 Revalidação e confiança | `approvals.review_stage`; `ApprovalService::reviewerFor()`, `approveByAgent()`, `escalate()`; `approvals.review` e `agents.set_trust_level` (decide quem tem "Confirmar níveis de confiança"). |
 | L12 Projectos | `projects`, `tasks.project_id`; Trabalho › Projectos. |
 | L13 Triagem como tarefa | `ClassifyEmail::handOff()` abre uma tarefa ligada ao email (`tasks.source`). |
+
+## Segunda passagem da revisão visual (05.10.2026)
+
+A avaliação da primeira passagem deu 6/10 face ao Paperclip. Esta passagem trata o que ficou: aprovações em palavras,
+conteúdo técnico e de teste à vista, telemóvel, formatos e densidade. Padrões em `docs/UI.md` › "Segunda passagem".
+Continua a ser apresentação; o que tocou no servidor é pouco e fica aqui:
+
+- **Aprovar em lote:** `POST /approvals/approve` (`ApprovalController@approveMany`, até 50 ids, 20 pedidos por minuto)
+  aprova as pendentes que a pessoa pode decidir, pela mesma `ApprovalService` e pela mesma política de cada uma. Salta
+  as do tecto absoluto, que se decidem uma a uma. `tests/Feature/Agents/ApproveManyTest.php`.
+- **Dados para escrever as acções em palavras:** a tarefa passa `action_type` e `payload` das aprovações pendentes
+  (`TaskController@show`); a execução passa `tool_names` (chave → nome da capacidade) e o ERP passa o nome da
+  ferramenta em cada chamada recente.
+- **Ferramentas do ERP com nome português:** o servidor falso devolve um título por ferramenta ("Registar despesa",
+  "Criar contacto de cliente"); `capabilities:sync` actualiza os nomes no catálogo. O servidor real deve devolver os seus.
+- **Plurais nas mensagens do servidor** (capacidades, agentes criados, avisos de execuções falhadas, contratos a
+  vencer) e "Pedir relatórios sobre conversas" em vez de "reports".
+- **Dados de semente sem "(dev)":** as pessoas da semente têm nomes e funções plausíveis (Carlos Tembe, CEO; Ana Sitoe,
+  Directora Comercial; …) e o super admin chama-se "Equipa Rethink"; o servidor falso aparece como "Servidor de
+  demonstração (dados fictícios)". Na base de dados local também se trocaram os nomes "(dev)" e se tiraram as
+  etiquetas "[teste do Claude]" do histórico de conversas e execuções.
+

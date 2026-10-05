@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Send, Wrench, Zap } from 'lucide-react';
+import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Pencil, Send, Wrench, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -176,17 +176,18 @@ export default function TaskShow({
                                 </p>
                             </div>
                             {task.assignee && (
-                                <Link href={`/agents/${task.assignee.id}`} className="shrink-0 text-sm text-muted-foreground hover:text-foreground">
-                                    Ver agente
-                                </Link>
-                            )}
-                            {task.assignee && can.manage_agent && (
-                                <Link
-                                    href={`/agents/${task.assignee.id}/edit`}
-                                    className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
-                                >
-                                    Editar agente
-                                </Link>
+                                <div className="flex shrink-0 items-center gap-1">
+                                    <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
+                                        <Link href={`/agents/${task.assignee.id}`}>Ver agente</Link>
+                                    </Button>
+                                    {can.manage_agent && (
+                                        <Button variant="ghost" size="icon" className="size-8" asChild>
+                                            <Link href={`/agents/${task.assignee.id}/edit`} aria-label="Editar agente" title="Editar agente">
+                                                <Pencil />
+                                            </Link>
+                                        </Button>
+                                    )}
+                                </div>
                             )}
                         </header>
                     ) : (

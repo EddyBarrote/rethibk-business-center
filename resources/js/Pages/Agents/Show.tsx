@@ -1,15 +1,17 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, BookOpen, Brain, Clock, ListTodo, Lock, MessagesSquare, Pause, Pencil, Play, Send, Wrench } from 'lucide-react';
+import { Activity, BookOpen, Brain, Clock, ListTodo, Lock, MessagesSquare, MoreHorizontal, Pause, Pencil, Play, Send, Wrench } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, Properties, Property, Section } from '@/Components/Blocks';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Input } from '@/Components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
@@ -459,6 +461,7 @@ interface Memory {
 function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[] }) {
     const [editing, setEditing] = useState<number | null>(null);
     const [draft, setDraft] = useState('');
+    const [forgetting, setForgetting] = useState<Memory | null>(null);
 
     if (memories.length === 0) {
         return (
@@ -512,34 +515,48 @@ function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[]
                                         </Button>
                                     </>
                                 ) : (
-                                    <>
-                                        <Button size="sm" variant="ghost" onClick={() => save(memory, memory.kind === 'work' ? 'personal' : 'work')}>
-                                            {memory.kind === 'work' ? 'Tornar pessoal' : 'Tornar de trabalho'}
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={() => {
-                                                setEditing(memory.id);
-                                                setDraft(memory.content);
-                                            }}
-                                        >
-                                            Corrigir
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={() => router.delete(`/agents/${agentId}/memories/${memory.id}`, { preserveScroll: true })}
-                                        >
-                                            Esquecer
-                                        </Button>
-                                    </>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button size="icon" variant="ghost" className="size-7" aria-label="Acções sobre esta memória">
+                                                <MoreHorizontal />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                                onSelect={() => {
+                                                    setEditing(memory.id);
+                                                    setDraft(memory.content);
+                                                }}
+                                            >
+                                                Corrigir
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => save(memory, memory.kind === 'work' ? 'personal' : 'work')}>
+                                                {memory.kind === 'work' ? 'Tornar pessoal' : 'Tornar de trabalho'}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem variant="destructive" onSelect={() => setForgetting(memory)}>
+                                                Esquecer
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 )}
                             </span>
                         </div>
                     </div>
                 ))}
             </ListPanel>
+            <ConfirmDialog
+                open={forgetting !== null}
+                onOpenChange={(open) => !open && setForgetting(null)}
+                title="Esquecer esta memória?"
+                description={forgetting ? `«${forgetting.content}» deixa de estar nas conversas do agente e na base de conhecimento.` : undefined}
+                confirmLabel="Esquecer"
+                destructive
+                onConfirm={() =>
+                    forgetting &&
+                    router.delete(`/agents/${agentId}/memories/${forgetting.id}`, { preserveScroll: true, onFinish: () => setForgetting(null) })
+                }
+            />
         </div>
     );
 }
