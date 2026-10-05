@@ -1,13 +1,44 @@
 const dateTimeFormat = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
 const dateFormat = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'medium' });
 const timeFormat = new Intl.DateTimeFormat('pt-PT', { timeStyle: 'medium' });
-const usdFormat = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 });
-const mznFormat = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'MZN', maximumFractionDigits: 2 });
+/*
+ * One pt-PT formatter for the whole console: money with two decimals in lists
+ * (four only where a single run's cost is read), durations with a decimal comma,
+ * dates as 30/10/2026 and times as 30/10/26, 10:00.
+ */
+const usdFormat = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const usdPreciseFormat = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 });
+const mznFormat = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'MZN', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const numberFormat = new Intl.NumberFormat('pt-PT');
+const secondsFormat = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export const dateTime = (value: string | null | undefined) => (value ? dateTimeFormat.format(new Date(value)) : '—');
 export const date = (value: string | null | undefined) => (value ? dateFormat.format(new Date(value)) : '—');
 export const time = (value: string | null | undefined) => (value ? timeFormat.format(new Date(value)) : '—');
-export const usd = (value: number | null | undefined) => (value === null || value === undefined ? '—' : usdFormat.format(value));
+/** "0,04 US$"; an amount that rounds to zero but is not zero reads "< 0,01 US$". */
+export const usd = (value: number | null | undefined) =>
+    value === null || value === undefined ? '—' : value > 0 && value < 0.005 ? `< ${usdFormat.format(0.01)}` : usdFormat.format(value);
+/** "0,0419 US$": the cost of one run, where cents of a cent matter. */
+export const usdPrecise = (value: number | null | undefined) => (value === null || value === undefined ? '—' : usdPreciseFormat.format(value));
+export const number = (value: number | null | undefined) => (value === null || value === undefined ? '—' : numberFormat.format(value));
+/** "350 ms", "12,1 s", "2 min 05 s". */
+export const duration = (ms: number | null | undefined) => {
+    if (ms === null || ms === undefined) {
+        return '—';
+    }
+    if (ms < 1000) {
+        return `${Math.round(ms)} ms`;
+    }
+    if (ms < 60_000) {
+        return `${secondsFormat.format(ms / 1000)} s`;
+    }
+
+    const minutes = Math.floor(ms / 60_000);
+
+    return `${minutes} min ${String(Math.round((ms % 60_000) / 1000)).padStart(2, '0')} s`;
+};
+/** "1 agente", "3 agentes": plurals written out, never "agente(s)". */
+export const plural = (count: number, one: string, many: string) => `${numberFormat.format(count)} ${count === 1 ? one : many}`;
 export const mzn = (value: number | null | undefined) => (value === null || value === undefined ? '—' : mznFormat.format(value));
 
 const relativeFormat = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto', style: 'short' });
@@ -49,7 +80,14 @@ export const bytes = (value: number | null | undefined) => {
 
 /* Names for the fields agents extract from emails and documents; anything else reads as words. */
 const fieldNames: Record<string, string> = {
+    account_id: 'Cliente',
     amount: 'Valor',
+    bcc: 'Cópia oculta',
+    body: 'Texto',
+    budget: 'Orçamento',
+    category: 'Categoria',
+    cc: 'Cópia',
+    city: 'Cidade',
     company: 'Empresa',
     company_name: 'Empresa',
     contact_email: 'Email de contacto',
@@ -58,22 +96,52 @@ const fieldNames: Record<string, string> = {
     currency: 'Moeda',
     date: 'Data',
     deadline: 'Prazo',
+    delivery_days: 'Prazo de entrega (dias)',
+    department: 'Departamento',
     description: 'Descrição',
     due_date: 'Vencimento',
     email: 'Email',
+    end_date: 'Fim',
     estimated_value: 'Valor estimado',
+    expense_id: 'Despesa',
+    filename: 'Ficheiro',
+    invoice_id: 'Factura',
     invoice_number: 'N.º da factura',
     issue_date: 'Data de emissão',
+    items: 'Itens',
+    lead_id: 'Oportunidade',
+    lines: 'Linhas',
+    manager: 'Gestor',
     name: 'Nome',
     notes: 'Notas',
     nuit: 'NUIT',
+    opening_id: 'Vaga',
+    payment_terms_days: 'Prazo de pagamento (dias)',
+    period: 'Período',
     phone: 'Telefone',
+    po_id: 'Nota de encomenda',
     position: 'Função',
     project_id: 'Projecto',
+    quote_id: 'Cotação',
+    reason: 'Motivo',
+    recommendation: 'Recomendação',
     reference: 'Referência',
+    rfq_id: 'Pedido de cotação',
+    role: 'Função',
+    score: 'Pontuação',
+    sector: 'Sector',
     source: 'Origem',
+    start_date: 'Início',
+    status: 'Estado',
+    subject: 'Assunto',
+    summary: 'Resumo',
+    supplier: 'Fornecedor',
+    supplier_id: 'Fornecedor',
+    supplier_ids: 'Fornecedores',
     title: 'Título',
+    to: 'Para',
     total: 'Total',
+    valid_until: 'Válida até',
     vat: 'IVA',
 };
 

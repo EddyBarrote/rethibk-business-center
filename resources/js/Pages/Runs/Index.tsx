@@ -9,7 +9,7 @@ import { Pagination } from '@/Components/Pagination';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, usd } from '@/lib/format';
+import { ago, dateTime, duration, usd } from '@/lib/format';
 import type { Paginated, RunSummary } from '@/types';
 
 const statuses = [
@@ -20,7 +20,6 @@ const statuses = [
     ['failed', 'Falhadas'],
 ];
 
-const duration = (ms: number | null) => (ms === null ? null : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
 
 export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummary>; filters: { status: string | null } }) {
     return (
@@ -66,7 +65,7 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                                 meta={
                                     <>
                                         <span className="hidden w-16 text-right font-mono tabular-nums lg:block">
-                                            {duration(run.duration_ms) ?? '—'}
+                                            {duration(run.duration_ms)}
                                         </span>
                                         <span className="w-20 text-right font-mono tabular-nums">{usd(run.cost_usd)}</span>
                                         <span className="w-20 text-right" title={dateTime(run.created_at)}>

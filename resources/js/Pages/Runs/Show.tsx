@@ -4,13 +4,13 @@ import { useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Markdown } from '@/Components/Markdown';
-import { ApprovalCard } from '@/Components/ApprovalCard';
+import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
 import { Properties, Property, Section } from '@/Components/Blocks';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { StatusDot, type Tone } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, time, usd } from '@/lib/format';
+import { ago, dateTime, duration, number, time, usdPrecise } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { ApprovalSummary, RunSummary, SharedProps } from '@/types';
 
@@ -41,8 +41,6 @@ const iconTone: Record<Tone, string> = {
     idle: 'bg-muted text-muted-foreground',
 };
 
-const duration = (ms: number | null) => (ms === null ? null : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
-const number = (value: number) => value.toLocaleString('pt-PT');
 
 export default function RunShow({ run, steps: initialSteps, approvals }: { run: RunSummary; steps: Step[]; approvals: ApprovalSummary[] }) {
     const { tenant } = usePage<SharedProps>().props;
@@ -134,11 +132,11 @@ export default function RunShow({ run, steps: initialSteps, approvals }: { run: 
 
                     {approvals.length > 0 && (
                         <Section title="Aprovações">
-                            <div className="grid gap-3">
+                            <ApprovalList>
                                 {approvals.map((approval) => (
                                     <ApprovalCard key={approval.id} approval={approval} />
                                 ))}
-                            </div>
+                            </ApprovalList>
                         </Section>
                     )}
                 </div>
@@ -163,7 +161,7 @@ export default function RunShow({ run, steps: initialSteps, approvals }: { run: 
                         </span>
                     </Property>
                     <Property label="Custo">
-                        <span className="font-mono tabular-nums">{usd(run.cost_usd)}</span>
+                        <span className="font-mono tabular-nums">{usdPrecise(run.cost_usd)}</span>
                     </Property>
                     <Property label="Duração">
                         {run.duration_ms !== null ? <span className="font-mono tabular-nums">{duration(run.duration_ms)}</span> : null}

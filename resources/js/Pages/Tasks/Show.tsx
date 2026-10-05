@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
+import { approvalTitle } from '@/lib/approvals';
 import { ago, date, dateTime, usd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
@@ -55,6 +56,8 @@ const reloadProps = ['task', 'messages', 'children', 'runs', 'working', 'approva
 interface PendingApproval {
     id: number;
     summary: string;
+    action_type: string;
+    payload: Record<string, unknown> | null;
     ceiling_reason: string | null;
     can_decide: boolean;
 }
@@ -304,9 +307,9 @@ export default function TaskShow({
                         </div>
                     </Section>
 
-                    <div className="sticky bottom-0 z-10 -mx-1 -mt-4 flex flex-col gap-2 bg-background/95 px-1 pt-2 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    <div className="sticky bottom-0 z-10 -mx-1 -mt-4 flex flex-col gap-2 bg-background px-1 pt-3 pb-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
                         {task.status === 'waiting_human' ? (
-                            <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-status-warning/10 px-4 py-3">
+                            <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-[color-mix(in_oklch,var(--status-warning)_10%,var(--card))] px-4 py-3">
                                 <CircleHelp className="mt-0.5 size-4 shrink-0 text-status-warning" />
                                 <div className="min-w-0 space-y-1 text-sm">
                                     <p className="font-medium">{agentName} está à tua espera</p>
@@ -317,7 +320,7 @@ export default function TaskShow({
                         ) : null}
 
                         {task.status === 'in_review' && task.kind === 'task' && can.update && (
-                            <div className="flex flex-col gap-3 rounded-xl border border-status-success/40 bg-status-success/10 px-4 py-3 sm:flex-row sm:items-center">
+                            <div className="flex flex-col gap-3 rounded-xl border border-status-success/40 bg-[color-mix(in_oklch,var(--status-success)_10%,var(--card))] px-4 py-3 sm:flex-row sm:items-center">
                                 <div className="min-w-0 flex-1 space-y-1 text-sm">
                                     <p className="font-medium">Pronta para rever</p>
                                     <p className="text-xs text-muted-foreground">
@@ -678,11 +681,11 @@ function ApprovalCard({ approval }: { approval: PendingApproval }) {
         form.post(`/approvals/${approval.id}/${action}`, { preserveScroll: true, only: [...reloadProps, 'flash'] });
 
     return (
-        <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-status-warning/10 px-4 py-3">
+        <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-[color-mix(in_oklch,var(--status-warning)_10%,var(--card))] px-4 py-3">
             <Lock className="mt-0.5 size-4 shrink-0 text-status-warning" />
             <div className="min-w-0 flex-1 space-y-2 text-sm">
                 <p className="font-medium">À espera de aprovação</p>
-                <p className="break-words text-muted-foreground">{approval.summary}</p>
+                <p className="break-words text-muted-foreground">{approvalTitle(approval.action_type, approval.payload, approval.summary)}</p>
                 {approval.ceiling_reason && <p className="text-xs text-muted-foreground">Decide sempre uma pessoa: {approval.ceiling_reason}</p>}
                 {approval.can_decide ? (
                     rejecting ? (

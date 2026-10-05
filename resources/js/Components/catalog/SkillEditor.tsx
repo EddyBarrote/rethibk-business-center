@@ -13,6 +13,7 @@ import { Input } from '@/Components/ui/input';
 import { Switch } from '@/Components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
+import { bytes } from '@/lib/format';
 
 export interface SkillData {
     id: number;
@@ -43,7 +44,6 @@ Descreva a situação a que esta skill se aplica.
 - O que o agente nunca deve fazer neste trabalho.
 `;
 
-const size = (bytes: number) => (bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(1)} MB`);
 
 /**
  * A skill in the Claude sense: name, when it applies, markdown instructions
@@ -207,7 +207,7 @@ export function SkillEditor({
                                     <FileText className="size-4 shrink-0 text-muted-foreground" />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-sm">{file.filename}</span>
-                                        <span className="font-mono text-[11px] text-muted-foreground">{size(file.size)}</span>
+                                        <span className="font-mono text-[11px] text-muted-foreground">{bytes(file.size)}</span>
                                         {!file.has_text && (
                                             <StatusBadge tone="warning" dot={false} className="ml-2">
                                                 sem texto

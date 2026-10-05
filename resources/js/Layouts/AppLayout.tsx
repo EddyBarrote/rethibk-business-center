@@ -11,6 +11,7 @@ import {
     Bot,
     Building2,
     CheckSquare,
+    ChevronLeft,
     ChevronsUpDown,
     FileText,
     Files,
@@ -331,15 +332,23 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
     }, [flash.success, flash.error]);
 
     const fullUrl = page.url;
+    // A conversation is a task underneath, but people find it under Conversas.
+    const onConversation = (page.props as { task?: { is_conversation?: boolean } }).task?.is_conversation === true;
     const isActive = (href: string) => {
+        if (href === '/tasks?view=chats') {
+            return fullUrl.startsWith(href) || onConversation;
+        }
         if (href.includes('?')) {
             return fullUrl.startsWith(href);
         }
         if (href === '/') {
             return url === '/';
         }
+        if (href === '/tasks' && (fullUrl.includes('view=chats') || onConversation)) {
+            return false;
+        }
 
-        return (url === href || url.startsWith(`${href}/`)) && !(href === '/tasks' && fullUrl.includes('view=chats'));
+        return url === href || url.startsWith(`${href}/`);
     };
     const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks };
     const allNav = [...topNav, ...workNav, ...companyNav];
@@ -388,7 +397,20 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
                     <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur">
                         <SidebarTrigger className="-ml-1 text-muted-foreground" />
                         <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
-                        <Breadcrumb className="min-w-0">
+                        {/* On a phone the trail is one way back: "‹ Tarefas", or the page's name at the top level. */}
+                        {(() => {
+                            const parent = [...trail.slice(0, -1)].reverse().find((crumb) => crumb.href);
+
+                            return parent ? (
+                                <Link href={parent.href!} className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:hidden">
+                                    <ChevronLeft className="size-4 shrink-0" />
+                                    <span className="truncate">{parent.label}</span>
+                                </Link>
+                            ) : (
+                                <span className="truncate text-sm font-medium sm:hidden">{trail[trail.length - 1]?.label}</span>
+                            );
+                        })()}
+                        <Breadcrumb className="hidden min-w-0 sm:block">
                             <BreadcrumbList className="flex-nowrap">
                                 {trail.map((crumb, index) => {
                                     const last = index === trail.length - 1;

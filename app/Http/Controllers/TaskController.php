@@ -203,6 +203,9 @@ class TaskController extends Controller
                 ->map(fn (Approval $approval) => [
                     'id' => $approval->id,
                     'summary' => $approval->action_summary,
+                    // The screen writes the action in words from its type and arguments (resources/js/lib/approvals.ts).
+                    'action_type' => $approval->action_type,
+                    'payload' => $approval->payload,
                     'ceiling_reason' => $approval->ceiling_reason,
                     'can_decide' => $user->can('decide', $approval),
                 ]),

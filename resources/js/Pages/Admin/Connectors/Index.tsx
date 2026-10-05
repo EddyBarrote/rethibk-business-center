@@ -61,7 +61,7 @@ export default function PlatformConnectorsIndex({ connectors }: { connectors: Ro
                             meta={
                                 <>
                                     <span className="tabular-nums">{connector.tools} ferramenta(s)</span>
-                                    <span className="tabular-nums">{connector.tenants} organização(ões)</span>
+                                    <span className="tabular-nums">{connector.tenants} {connector.tenants === 1 ? 'organização' : 'organizações'}</span>
                                     <span title={connector.last_synced_at ?? undefined}>testado {ago(connector.last_synced_at)}</span>
                                 </>
                             }

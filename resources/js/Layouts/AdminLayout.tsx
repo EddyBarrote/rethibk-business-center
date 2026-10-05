@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { BookOpen, Building2, ChevronsUpDown, Globe, LayoutDashboard, LogOut, type LucideIcon, Monitor, Moon, Puzzle, ShieldCheck, Sun } from 'lucide-react';
+import { BookOpen, Building2, ChevronLeft, ChevronsUpDown, Globe, LayoutDashboard, LogOut, type LucideIcon, Monitor, Moon, Puzzle, ShieldCheck, Sun } from 'lucide-react';
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -231,7 +231,19 @@ export default function AdminLayout({
                     <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur">
                         <SidebarTrigger className="-ml-1 text-muted-foreground" />
                         <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
-                        <Breadcrumb className="min-w-0">
+                        {(() => {
+                            const parent = [...trail.slice(0, -1)].reverse().find((crumb) => crumb.href);
+
+                            return parent ? (
+                                <Link href={parent.href!} className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:hidden">
+                                    <ChevronLeft className="size-4 shrink-0" />
+                                    <span className="truncate">{parent.label}</span>
+                                </Link>
+                            ) : (
+                                <span className="truncate text-sm font-medium sm:hidden">{trail[trail.length - 1]?.label}</span>
+                            );
+                        })()}
+                        <Breadcrumb className="hidden min-w-0 sm:block">
                             <BreadcrumbList className="flex-nowrap">
                                 {trail.map((crumb, index) => {
                                     const last = index === trail.length - 1;

@@ -48,7 +48,7 @@ final class IssueDetector
 
         $failed = AgentRun::query()->where('status', RunStatus::Failed)->where('created_at', '>=', now()->subDay())->count();
         if ($failed > 0) {
-            $add('Agentes', 'média', "{$failed} execução(ões) falharam nas últimas 24 h.", '/runs?status=failed');
+            $add('Agentes', 'média', ($failed === 1 ? '1 execução falhou' : "{$failed} execuções falharam").' nas últimas 24 h.', '/runs?status=failed');
         }
 
         foreach (EmailMessage::query()->where('direction', 'inbound')->where('classification', EmailCategory::Lead->value)->whereNull('erp_lead_id')->where('status', 'processed')->limit(20)->get() as $email) {
@@ -80,7 +80,7 @@ final class IssueDetector
 
         $stale = BankTransaction::query()->where('status', BankTransactionStatus::Unmatched)->where('booked_at', '<', today()->subDays(TenantSettings::int('unreconciled_days')))->count();
         if ($stale > 0) {
-            $add('Finanças', 'média', "{$stale} movimento(s) bancário(s) por reconciliar há mais de ".TenantSettings::int('unreconciled_days').' dias.');
+            $add('Finanças', 'média', ($stale === 1 ? '1 movimento bancário' : "{$stale} movimentos bancários").' por reconciliar há mais de '.TenantSettings::int('unreconciled_days').' dias.');
         }
 
         foreach ((new SlaMonitor)->breaches() as $breach) {

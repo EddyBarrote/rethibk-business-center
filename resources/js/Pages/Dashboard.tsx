@@ -2,7 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, Bot, CheckSquare, CircleDollarSign, FileText, Loader } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { ApprovalCard } from '@/Components/ApprovalCard';
+import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, MetricCard, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
@@ -178,9 +178,18 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                         <EmptyState icon={CheckSquare} title="Nada à espera" description="Quando um agente tentar uma acção acima do seu nível de autonomia, ela aparece aqui." />
                     ) : (
                         <div className="grid gap-3">
-                            {approvals.map((approval) => (
-                                <ApprovalCard key={approval.id} approval={approval} compact />
-                            ))}
+                            {approvals.length > 0 && (
+                                <ApprovalList>
+                                    {approvals.slice(0, 3).map((approval) => (
+                                        <ApprovalCard key={approval.id} approval={approval} />
+                                    ))}
+                                    {auth.pending_approvals > 3 && (
+                                        <Link href="/approvals" className="block px-4 py-2.5 text-center text-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground">
+                                            Ver as {auth.pending_approvals} aprovações
+                                        </Link>
+                                    )}
+                                </ApprovalList>
+                            )}
                             {issues.length > 0 && (
                                 <ListPanel>
                                     {issues.slice(0, 8).map((issue, index) => (

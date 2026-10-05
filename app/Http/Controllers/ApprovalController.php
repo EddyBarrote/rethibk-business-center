@@ -55,6 +55,36 @@ class ApprovalController extends Controller
         return back()->with('success', 'Aprovado. A acção vai ser executada.');
     }
 
+    /**
+     * Approves several pending actions at once, each under the same rule as one by one. Actions under the absolute
+     * ceiling (payments, external email, contracts…) are never approved in bulk: they are decided one at a time.
+     */
+    public function approveMany(Request $request, ApprovalService $approvals): RedirectResponse
+    {
+        $user = $this->user($request);
+        $data = $request->validate(['ids' => ['required', 'array', 'max:50'], 'ids.*' => ['integer']]);
+        $approved = 0;
+
+        foreach (Approval::query()->with('agent')->whereIn('id', $data['ids'])->pending()->whereNull('ceiling_reason')->get() as $approval) {
+            if (! $user->can('decide', $approval)) {
+                continue;
+            }
+
+            try {
+                $approvals->approve($approval, $user, null);
+                $approved++;
+            } catch (LogicException) {
+                // Decided by someone else in the meantime.
+            }
+        }
+
+        return back()->with($approved > 0 ? 'success' : 'error', match ($approved) {
+            0 => 'Nenhuma acção aprovada: já estavam decididas ou não lhe cabem.',
+            1 => 'Aprovada 1 acção. Vai ser executada.',
+            default => "Aprovadas {$approved} acções. Vão ser executadas.",
+        });
+    }
+
     public function reject(Request $request, Approval $approval, ApprovalService $approvals): RedirectResponse
     {
         Gate::authorize('decide', $approval);

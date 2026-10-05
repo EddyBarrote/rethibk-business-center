@@ -43,7 +43,7 @@ class WatchContracts extends Command
                 $count++;
 
                 $days = (int) today()->diffInDays($contract->ends_at, false);
-                $when = $days >= 0 ? "termina dentro de {$days} dia(s)" : 'já terminou há '.abs($days).' dia(s)';
+                $when = $days >= 0 ? 'termina dentro de '.$days.($days === 1 ? ' dia' : ' dias') : 'já terminou há '.abs($days).(abs($days) === 1 ? ' dia' : ' dias');
                 $person = $contract->owner ?? User::query()->where('role', Role::Owner)->where('is_active', true)->first();
 
                 $person && $notifier->notify($person, "Contrato a terminar: {$contract->title}", "O contrato com {$contract->party_name} {$when} (".$contract->ends_at->format('d/m/Y').').'.($contract->auto_renews ? ' Renova automaticamente.' : ''), null, 'Vigilância de contratos', 'warning');

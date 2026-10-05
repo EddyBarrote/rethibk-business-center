@@ -57,7 +57,7 @@ class AgentController extends AdminController
             $missing = [...$missing, ...$result['missing_capabilities']];
         }
 
-        return back()->with('success', "{$created} agente(s) criado(s) a partir dos modelos.".($missing !== [] ? ' Capacidades em falta (sincronize o ERP): '.implode(', ', array_unique($missing)).'.' : ''));
+        return back()->with('success', ($created === 1 ? '1 agente criado' : "{$created} agentes criados").' a partir dos modelos.'.($missing !== [] ? ' Capacidades em falta (sincronize o ERP): '.implode(', ', array_unique($missing)).'.' : ''));
     }
 
     public function edit(Tenant $tenant, Agent $agent): Response

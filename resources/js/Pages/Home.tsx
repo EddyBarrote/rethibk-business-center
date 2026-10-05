@@ -2,7 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Inbox } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { ApprovalCard } from '@/Components/ApprovalCard';
+import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
 import { ListPanel, Monogram, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
@@ -61,16 +61,11 @@ export default function Home({ waiting, review, approvals, work, colleagues }: P
 
                     {approvals.length > 0 && (
                         <Section title="Para aprovar">
-                            <div className="flex flex-col gap-3">
+                            <ApprovalList>
                                 {approvals.map((approval) => (
-                                    <ApprovalCard
-                                        key={approval.id}
-                                        approval={approval}
-                                        compact
-                                        taskHref={approval.task_id !== null ? `/tasks/${approval.task_id}` : null}
-                                    />
+                                    <ApprovalCard key={approval.id} approval={approval} taskHref={approval.task_id !== null ? `/tasks/${approval.task_id}` : null} />
                                 ))}
-                            </div>
+                            </ApprovalList>
                         </Section>
                     )}
 

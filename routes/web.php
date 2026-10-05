@@ -88,6 +88,7 @@ Route::middleware('auth')->group(function () {
     Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
 
     Route::get('approvals', [ApprovalController::class, 'index'])->name('approvals.index');
+    Route::post('approvals/approve', [ApprovalController::class, 'approveMany'])->middleware('throttle:20,1')->name('approvals.approve-many');
     Route::post('approvals/{approval}/approve', [ApprovalController::class, 'approve'])->name('approvals.approve');
     Route::post('approvals/{approval}/reject', [ApprovalController::class, 'reject'])->name('approvals.reject');
 

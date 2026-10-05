@@ -383,7 +383,7 @@ export default function AgentDefinitionForm({
                         description={
                             <>
                                 O que o agente consegue <em>fazer</em>: ferramentas da plataforma, do ERP e de conectores.{' '}
-                                <span className="font-mono text-foreground tabular-nums">{form.data.capabilities.length}</span> seleccionada(s). Sem aprovação,
+                                <span className="font-mono text-foreground tabular-nums">{form.data.capabilities.length}</span> {form.data.capabilities.length === 1 ? 'seleccionada' : 'seleccionadas'}. Sem aprovação,
                                 só usa uma capacidade de escrita se o seu nível for igual ou superior ao risco dela.
                             </>
                         }

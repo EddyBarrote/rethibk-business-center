@@ -1,50 +1,39 @@
 import { Link, useForm } from '@inertiajs/react';
-import { Check, Loader2, Lock, ShieldAlert, X } from 'lucide-react';
-import { useState } from 'react';
+import { Check, ChevronRight, Code2, Loader2, Lock, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
+import { Property } from '@/Components/Blocks';
 import { FormDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
-import { Property } from '@/Components/Blocks';
 import { approvalTone, StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
+import { Checkbox } from '@/Components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/Components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Textarea } from '@/Components/ui/textarea';
+import { approvalFacts, approvalTitle } from '@/lib/approvals';
 import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { ApprovalSummary } from '@/types';
 
 const executionLabel = { not_executed: 'por executar', executed: 'executada', failed: 'falhou' };
 
-/** What the agent wants to do, as label and value rows instead of raw JSON. */
+/** The arguments as labelled facts; long texts (an email body) below them, as written. */
 export function PayloadView({ payload }: { payload: Record<string, unknown> | null }) {
-    const entries = Object.entries(payload ?? {});
+    const facts = approvalFacts(payload);
 
-    if (entries.length === 0) {
+    if (facts.length === 0) {
         return <p className="text-sm text-muted-foreground">Sem dados.</p>;
     }
 
     return (
         <dl className="divide-y overflow-hidden rounded-lg border">
-            {entries.map(([key, value]) => (
-                <div key={key} className="grid gap-1 px-3 py-2 sm:grid-cols-[10rem_1fr] sm:gap-3">
-                    <dt className="font-mono text-xs text-muted-foreground">{key}</dt>
-                    <dd className="min-w-0 text-sm break-words whitespace-pre-wrap">
-                        {value === null || value === '' ? (
-                            <span className="text-muted-foreground">—</span>
-                        ) : typeof value === 'object' ? (
-                            Array.isArray(value) && value.every((item) => typeof item !== 'object') ? (
-                                value.join(', ')
-                            ) : (
-                                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-2 font-mono text-xs">
-                                    {JSON.stringify(value, null, 2)}
-                                </pre>
-                            )
-                        ) : (
-                            String(value)
-                        )}
-                    </dd>
+            {facts.map((fact) => (
+                <div key={fact.label} className={cn('grid gap-1 px-3 py-2', !fact.long && 'sm:grid-cols-[9rem_1fr] sm:gap-3')}>
+                    <dt className="text-xs text-muted-foreground">{fact.label}</dt>
+                    <dd className={cn('min-w-0 text-sm break-words', fact.long && 'max-h-60 overflow-y-auto whitespace-pre-wrap')}>{fact.value}</dd>
                 </div>
             ))}
         </dl>
@@ -52,14 +41,34 @@ export function PayloadView({ payload }: { payload: Record<string, unknown> | nu
 }
 
 /** Why a person has to decide: the absolute ceiling, or the agent's level below what the action needs. */
-function Reason({ approval }: { approval: ApprovalSummary }) {
-    return approval.ceiling_reason ? (
-        <p className="flex items-start gap-2 rounded-lg bg-status-danger/8 px-3 py-2 text-xs text-[color-mix(in_oklch,var(--status-danger)_80%,var(--foreground))]">
-            <Lock className="mt-0.5 size-3.5 shrink-0" />
-            <span className="min-w-0 break-words">
-                <span className="font-medium">Tecto absoluto.</span> {approval.ceiling_reason}
+function Reason({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
+    if (approval.ceiling_reason) {
+        return short ? (
+            <span
+                className="inline-flex min-w-0 items-center gap-1 text-[color-mix(in_oklch,var(--status-danger)_80%,var(--foreground))]"
+                title={approval.ceiling_reason}
+            >
+                <Lock className="size-3 shrink-0" />
+                <span className="truncate">Tecto absoluto</span>
             </span>
-        </p>
+        ) : (
+            <p className="flex items-start gap-2 rounded-lg bg-status-danger/8 px-3 py-2 text-xs text-[color-mix(in_oklch,var(--status-danger)_80%,var(--foreground))]">
+                <Lock className="mt-0.5 size-3.5 shrink-0" />
+                <span className="min-w-0 break-words">
+                    <span className="font-medium">Tecto absoluto: decide sempre uma pessoa.</span> {approval.ceiling_reason}
+                </span>
+            </p>
+        );
+    }
+
+    return short ? (
+        <span
+            className="inline-flex items-center gap-1"
+            title={`O agente está em N${approval.agent_level} e esta acção pede N${approval.required_level}`}
+        >
+            <ShieldAlert className="size-3 shrink-0" />
+            pede N{approval.required_level}
+        </span>
     ) : (
         <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             <ShieldAlert className="size-3.5" />O agente está em <AutonomyBadge level={approval.agent_level} /> e esta acção pede{' '}
@@ -68,15 +77,68 @@ function Reason({ approval }: { approval: ApprovalSummary }) {
     );
 }
 
+/** The Chief of Staff's part (realinhamento L11): revalidating first, or the note it left for people. */
+function Review({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
+    const who = approval.review_agent ?? 'Chief of Staff';
+
+    if (approval.status === 'pending' && approval.review_stage === 'agent') {
+        return short ? (
+            <span className="inline-flex items-center gap-1 text-status-running">
+                <Sparkles className="size-3 shrink-0" />
+                Com o {who}
+            </span>
+        ) : (
+            <p className="flex items-start gap-2 rounded-lg bg-status-running/8 px-3 py-2 text-xs">
+                <Sparkles className="mt-0.5 size-3.5 shrink-0 text-status-running" />
+                <span>
+                    <span className="font-medium">O {who} está a revalidar.</span> Aprova o que couber no nível dele e passa o resto a uma pessoa.
+                    Pode decidir já, se quiser.
+                </span>
+            </p>
+        );
+    }
+
+    if (approval.review_stage === 'human' && approval.review_note) {
+        return short ? (
+            <span className="inline-flex min-w-0 items-center gap-1" title={approval.review_note}>
+                <Sparkles className="size-3 shrink-0" />
+                <span className="truncate">Revista pelo {who}</span>
+            </span>
+        ) : (
+            <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
+                <Sparkles className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                <span>
+                    <span className="font-medium">Passada às pessoas pelo {who}:</span> “{approval.review_note}”
+                </span>
+            </p>
+        );
+    }
+
+    return null;
+}
+
 /**
- * One approval (section 12.2), the way Paperclip shows them: who asks, what,
- * why it needs a person, and the decision. Rejecting asks for the reason in a
- * dialog; the details dialog shows everything the agent would send.
+ * One approval as a row of the queue (section 12.2), the way Paperclip lists them: who asks, the action in words,
+ * why a person decides, and the decision. Rejecting asks for the reason; the row opens the details, which show what
+ * would be sent, with the tool call folded away under "Detalhes técnicos".
  */
-export function ApprovalCard({ approval, compact = false, taskHref }: { approval: ApprovalSummary; compact?: boolean; taskHref?: string | null }) {
+export function ApprovalCard({
+    approval,
+    taskHref,
+    selectable = false,
+    selected = false,
+    onSelectedChange,
+}: {
+    approval: ApprovalSummary;
+    taskHref?: string | null;
+    selectable?: boolean;
+    selected?: boolean;
+    onSelectedChange?: (selected: boolean) => void;
+}) {
     const [details, setDetails] = useState(false);
     const [rejecting, setRejecting] = useState(false);
     const form = useForm({ note: '' });
+    const title = approvalTitle(approval.action_type, approval.payload, approval.action_summary);
 
     const decide = (action: 'approve' | 'reject') =>
         form.post(`/approvals/${approval.id}/${action}`, {
@@ -88,74 +150,50 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
             },
         });
 
+    const pending = approval.status === 'pending';
     const executed = approval.status === 'approved' && approval.execution_status !== 'not_executed';
+    const bulkable = approval.can_decide && pending && !approval.ceiling_reason;
 
     return (
-        <article className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4">
-            <header className="flex items-start gap-3">
-                <AgentAvatar name={approval.agent.name} className="size-8" />
-                <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-snug font-medium break-words">{approval.action_summary}</p>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                        <Link href={`/agents/${approval.agent.id}`} className="hover:text-foreground hover:underline">
-                            {approval.agent.name}
-                        </Link>
+        <div className={cn('group flex min-w-0 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3', selected && 'bg-primary/5')}>
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+                {selectable && (
+                    <Checkbox
+                        className="mt-1.5"
+                        checked={selected}
+                        disabled={!bulkable}
+                        onCheckedChange={(on) => onSelectedChange?.(on === true)}
+                        aria-label={`Seleccionar: ${title}`}
+                        title={!bulkable && approval.ceiling_reason ? 'Tecto absoluto: decida esta à parte' : undefined}
+                    />
+                )}
+                <AgentAvatar name={approval.agent.name} className="mt-0.5 size-7" />
+                <button type="button" onClick={() => setDetails(true)} className="min-w-0 flex-1 text-left">
+                    <span className="line-clamp-2 text-sm leading-snug font-medium break-words underline-offset-4 group-hover:underline group-hover:decoration-border sm:line-clamp-1">
+                        {title}
+                    </span>
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        <span>{approval.agent.name}</span>
                         <span aria-hidden="true">·</span>
-                        <span className="font-mono">{approval.action_type}</span>
-                        <span aria-hidden="true">·</span>
-                        <Link href={`/runs/${approval.run_id}`} className="font-mono hover:text-foreground hover:underline">
-                            #{approval.run_id}
-                        </Link>
+                        <Reason approval={approval} short />
+                        <Review approval={approval} short />
                         <span aria-hidden="true">·</span>
                         <span title={dateTime(approval.created_at)}>{ago(approval.created_at)}</span>
-                    </p>
-                    {/* On a phone the state sits under the title instead of squeezing it. */}
-                    <StatusBadge tone={approvalTone(approval.status)} className="mt-1.5 sm:hidden">
-                        {approval.status_label}
-                    </StatusBadge>
-                </div>
-                <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-                    <StatusBadge tone={approvalTone(approval.status)}>{approval.status_label}</StatusBadge>
-                    {approval.status === 'approved' && (
-                        <StatusBadge
-                            tone={approval.execution_status === 'failed' ? 'danger' : approval.execution_status === 'executed' ? 'success' : 'idle'}
-                            dot={false}
-                        >
-                            {executionLabel[approval.execution_status]}
-                        </StatusBadge>
-                    )}
-                </div>
-            </header>
+                        {approval.decided_by && (
+                            <>
+                                <span aria-hidden="true">·</span>
+                                <span>
+                                    {approval.status_label} por {approval.decided_by}
+                                </span>
+                            </>
+                        )}
+                    </span>
+                </button>
+            </div>
 
-            <Reason approval={approval} />
-
-            {approval.status === 'pending' && approval.review_stage === 'agent' && approval.review_agent && (
-                <p className="text-xs text-muted-foreground">
-                    Com <span className="text-foreground">{approval.review_agent}</span> para revalidar; pode decidir já se quiser.
-                </p>
-            )}
-            {approval.review_stage === 'human' && approval.review_note && (
-                <p className="text-xs text-muted-foreground">
-                    Passada às pessoas por {approval.review_agent ?? 'o Chief of Staff'}: “{approval.review_note}”
-                </p>
-            )}
-
-            {approval.decided_by && (
-                <p className="text-xs text-muted-foreground">
-                    {approval.status_label} por <span className="text-foreground">{approval.decided_by}</span> {ago(approval.decided_at)}
-                    {approval.decision_note && <> · “{approval.decision_note}”</>}
-                </p>
-            )}
-
-            {executed && !compact && approval.execution_result?.content && (
-                <p className="line-clamp-3 rounded-lg bg-muted px-3 py-2 text-xs whitespace-pre-wrap text-muted-foreground">
-                    {approval.execution_result.content}
-                </p>
-            )}
-
-            <footer className={cn('flex flex-wrap items-center gap-2', approval.can_decide ? 'justify-between' : 'justify-end')}>
-                {approval.can_decide && (
-                    <div className="flex items-center gap-2">
+            <div className={cn('flex shrink-0 items-center gap-1.5 sm:pl-0', selectable ? 'pl-[4.25rem]' : 'pl-10')}>
+                {approval.can_decide && pending ? (
+                    <>
                         <Button size="sm" disabled={form.processing} onClick={() => decide('approve')}>
                             {form.processing && !rejecting ? <Loader2 className="animate-spin" /> : <Check />}
                             Aprovar
@@ -164,19 +202,31 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                             <X />
                             Rejeitar
                         </Button>
-                    </div>
+                    </>
+                ) : (
+                    <>
+                        <StatusBadge tone={approvalTone(approval.status)}>{approval.status_label}</StatusBadge>
+                        {approval.status === 'approved' && (
+                            <StatusBadge
+                                tone={
+                                    approval.execution_status === 'failed' ? 'danger' : approval.execution_status === 'executed' ? 'success' : 'idle'
+                                }
+                                dot={false}
+                            >
+                                {executionLabel[approval.execution_status]}
+                            </StatusBadge>
+                        )}
+                    </>
                 )}
-                <div className="flex items-center gap-1">
-                    {taskHref && (
-                        <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
-                            <Link href={taskHref}>Abrir a tarefa</Link>
-                        </Button>
-                    )}
-                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setDetails(true)}>
-                        Ver detalhes
+                {taskHref && (
+                    <Button size="sm" variant="ghost" className="hidden text-muted-foreground lg:inline-flex" asChild>
+                        <Link href={taskHref}>Tarefa</Link>
                     </Button>
-                </div>
-            </footer>
+                )}
+                <Button size="icon-sm" variant="ghost" className="text-muted-foreground" onClick={() => setDetails(true)} aria-label="Ver detalhes">
+                    <ChevronRight />
+                </Button>
+            </div>
 
             <FormDialog
                 open={rejecting}
@@ -189,7 +239,7 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                 title="Rejeitar esta acção?"
                 description={
                     <>
-                        {approval.agent.name} fica a saber porquê e não executa: <span className="text-foreground">{approval.action_summary}</span>
+                        {approval.agent.name} fica a saber porquê e não executa: <span className="text-foreground">{title}</span>
                     </>
                 }
                 submitLabel="Rejeitar"
@@ -218,20 +268,23 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
             <Dialog open={details} onOpenChange={setDetails}>
                 <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-2xl">
                     <DialogHeader className="border-b px-6 pt-6 pb-4">
-                        <DialogTitle className="pr-6 leading-snug">{approval.action_summary}</DialogTitle>
+                        <DialogTitle className="pr-6 leading-snug">{title}</DialogTitle>
                         <DialogDescription>
-                            Pedido por {approval.agent.name} {ago(approval.created_at)}, na execução #{approval.run_id}.
+                            Pedido por {approval.agent.name} {ago(approval.created_at)}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+                        <Reason approval={approval} />
+                        <Review approval={approval} />
+                        <div className="grid gap-2">
+                            <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">O que o agente vai fazer</p>
+                            <PayloadView payload={approval.payload} />
+                        </div>
                         <div className="grid gap-0">
                             <Property label="Estado">
                                 <StatusBadge tone={approvalTone(approval.status)}>{approval.status_label}</StatusBadge>
                             </Property>
-                            <Property label="Acção">
-                                <span className="font-mono text-xs">{approval.action_type}</span>
-                            </Property>
-                            <Property label="Responsável">{approval.assigned_to}</Property>
+                            <Property label="Decide">{approval.assigned_to}</Property>
                             {approval.decided_by && (
                                 <Property label="Decisão">
                                     {approval.decided_by} · {dateTime(approval.decided_at)}
@@ -239,20 +292,15 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                                 </Property>
                             )}
                         </div>
-                        <Reason approval={approval} />
-                        <div className="grid gap-2">
-                            <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">O que o agente vai fazer</p>
-                            <PayloadView payload={approval.payload} />
-                        </div>
                         {executed && approval.execution_result?.content && (
                             <div className="grid gap-2">
                                 <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Resultado</p>
-                                <pre className="max-h-48 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap">
+                                <p className="max-h-48 overflow-auto rounded-lg bg-muted p-3 text-sm whitespace-pre-wrap">
                                     {approval.execution_result.content}
-                                </pre>
+                                </p>
                             </div>
                         )}
-                        {approval.can_decide && (
+                        {approval.can_decide && pending && (
                             <Field
                                 id={`note-${approval.id}`}
                                 label="Nota"
@@ -267,12 +315,38 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                                 />
                             </Field>
                         )}
+                        <Collapsible>
+                            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground [&[data-state=open]>svg:last-child]:rotate-90">
+                                <Code2 className="size-3.5" />
+                                Detalhes técnicos
+                                <ChevronRight className="size-3.5 transition-transform" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="mt-2 grid gap-2">
+                                <p className="text-xs text-muted-foreground">
+                                    Capacidade <code className="rounded bg-muted px-1 font-mono">{approval.action_type}</code> · execução{' '}
+                                    <Link href={`/runs/${approval.run_id}`} className="font-mono hover:underline">
+                                        #{approval.run_id}
+                                    </Link>{' '}
+                                    · aprovação <span className="font-mono">#{approval.id}</span>
+                                </p>
+                                <pre className="max-h-56 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">
+                                    {JSON.stringify(approval.payload, null, 2)}
+                                </pre>
+                            </CollapsibleContent>
+                        </Collapsible>
                     </div>
                     <DialogFooter className="items-center border-t px-6 py-4 sm:justify-between">
-                        <Button variant="ghost" asChild>
-                            <Link href={`/runs/${approval.run_id}`}>Ver execução</Link>
-                        </Button>
-                        {approval.can_decide && (
+                        <div className="flex gap-1">
+                            {taskHref && (
+                                <Button variant="ghost" asChild>
+                                    <Link href={taskHref}>Abrir a tarefa</Link>
+                                </Button>
+                            )}
+                            <Button variant="ghost" asChild>
+                                <Link href={`/runs/${approval.run_id}`}>Ver execução</Link>
+                            </Button>
+                        </div>
+                        {approval.can_decide && pending && (
                             <div className="flex flex-col-reverse gap-2 sm:flex-row">
                                 <Button variant="outline" disabled={form.processing || form.data.note.trim() === ''} onClick={() => decide('reject')}>
                                     <X />
@@ -287,6 +361,11 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </article>
+        </div>
     );
+}
+
+/** Rows of approvals in one panel, as every list in the console. */
+export function ApprovalList({ children, className }: { children: ReactNode; className?: string }) {
+    return <div className={cn('divide-y overflow-hidden rounded-xl border bg-card', className)}>{children}</div>;
 }

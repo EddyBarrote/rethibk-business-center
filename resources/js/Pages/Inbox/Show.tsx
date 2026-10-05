@@ -13,7 +13,7 @@ import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, date, dateTime, fieldLabel } from '@/lib/format';
+import { ago, bytes, date, dateTime, fieldLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { emailTone, type EmailSummary } from '@/Pages/Inbox/Index';
 import type { Option } from '@/types';
@@ -45,7 +45,6 @@ const priorities: Record<string, { label: string; tone: Tone }> = {
     low: { label: 'Baixa', tone: 'idle' },
 };
 
-const bytes = (size: number) => (size >= 1_048_576 ? `${(size / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(size / 1024))} KB`);
 
 function DraftEditor({ draft }: { draft: ConversationMessage }) {
     const form = useForm({ to: draft.to, subject: draft.subject, body: draft.body });

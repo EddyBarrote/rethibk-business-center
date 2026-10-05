@@ -1,13 +1,17 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { CheckSquare } from 'lucide-react';
+import { CheckCheck, CheckSquare, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
-import { ApprovalCard } from '@/Components/ApprovalCard';
+import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
+import { Button } from '@/Components/ui/button';
+import { Checkbox } from '@/Components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
+import { plural } from '@/lib/format';
 import type { ApprovalSummary, Paginated, SharedProps } from '@/types';
 
 const tabs = [
@@ -43,6 +47,10 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
     useLive(tenant && auth.user ? `tenant.${tenant.id}.user.${auth.user.id}` : null, ['ApprovalRequested'], reload);
 
     const pending = counts?.pending ?? auth.pending_approvals;
+    // Approving several at once is for what may be decided here and is not under the absolute ceiling.
+    const bulkable = approvals.data.filter((approval) => approval.can_decide && approval.status === 'pending' && !approval.ceiling_reason);
+    const [selected, setSelected] = useState<number[]>([]);
+    const [approving, setApproving] = useState(false);
 
     return (
         <AppLayout>
@@ -74,13 +82,58 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
                     description={empty[filters.status] ?? empty.all}
                 />
             ) : (
-                <div className="grid gap-3">
-                    {approvals.data.map((approval) => (
-                        <ApprovalCard key={approval.id} approval={approval} />
-                    ))}
+                <div className="flex flex-col gap-4">
+                    {bulkable.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-2.5 text-sm">
+                            <Checkbox
+                                checked={selected.length === 0 ? false : selected.length === bulkable.length ? true : 'indeterminate'}
+                                onCheckedChange={(on) => setSelected(on === true ? bulkable.map((approval) => approval.id) : [])}
+                                aria-label="Seleccionar todas"
+                            />
+                            <span className="text-muted-foreground">
+                                {selected.length === 0
+                                    ? 'Seleccione para aprovar várias de uma vez'
+                                    : plural(selected.length, 'seleccionada', 'seleccionadas')}
+                            </span>
+                            <span className="hidden text-xs text-muted-foreground md:inline">· as do tecto absoluto decidem-se uma a uma</span>
+                            <Button
+                                size="sm"
+                                className="ml-auto"
+                                disabled={selected.length === 0 || approving}
+                                onClick={() =>
+                                    router.post(
+                                        '/approvals/approve',
+                                        { ids: selected },
+                                        {
+                                            preserveScroll: true,
+                                            onStart: () => setApproving(true),
+                                            onFinish: () => setApproving(false),
+                                            onSuccess: () => setSelected([]),
+                                        },
+                                    )
+                                }
+                            >
+                                {approving ? <Loader2 className="animate-spin" /> : <CheckCheck />}
+                                Aprovar {selected.length > 0 ? selected.length : ''}
+                            </Button>
+                        </div>
+                    )}
+                    <ApprovalList>
+                        {approvals.data.map((approval) => (
+                            <ApprovalCard
+                                key={approval.id}
+                                approval={approval}
+                                selectable={bulkable.length > 0}
+                                selected={selected.includes(approval.id)}
+                                onSelectedChange={(on) =>
+                                    setSelected((current) => (on ? [...current, approval.id] : current.filter((id) => id !== approval.id)))
+                                }
+                            />
+                        ))}
+                    </ApprovalList>
+                    <Pagination page={approvals} noun={['aprovação', 'aprovações']} />
                 </div>
             )}
-            <Pagination page={approvals} noun={['aprovação', 'aprovações']} />
         </AppLayout>
     );
 }

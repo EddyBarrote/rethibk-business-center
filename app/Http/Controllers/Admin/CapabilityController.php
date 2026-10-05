@@ -63,6 +63,6 @@ class CapabilityController extends AdminController
             return back()->with('error', 'Capacidades locais actualizadas, mas o ERP não respondeu: '.$e->getMessage());
         }
 
-        return back()->with('success', "Catálogo actualizado: {$count} ferramenta(s) do ERP.");
+        return back()->with('success', "Catálogo actualizado: {$count} ".($count === 1 ? 'ferramenta' : 'ferramentas').' do ERP.');
     }
 }
