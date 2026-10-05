@@ -69,9 +69,10 @@ class DatabaseSeeder extends Seeder
             ]);
 
             // Until the ERP team ships its MCP server, the fake one stands in (section 8.2).
-            ErpConnection::query()->firstOrCreate(['name' => 'Rethink ERP (servidor falso)'], [
-                'transport' => ErpTransport::Local,
-            ]);
+            // One connection per tenant: re-seeding keeps an existing one, whatever it is called.
+            if (! ErpConnection::query()->exists()) {
+                ErpConnection::query()->create(['name' => 'Rethink ERP (demonstração)', 'transport' => ErpTransport::Local]);
+            }
 
             $catalog = app(CapabilityCatalog::class);
             $catalog->syncLocal();

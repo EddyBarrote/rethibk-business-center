@@ -169,7 +169,14 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                             {connection.capabilities.map((tool) => (
                                 <li key={tool.name} className="flex min-w-0 items-start justify-between gap-3 px-3 py-2">
                                     <div className="min-w-0 flex-1">
-                                        <p className="font-mono text-xs">{tool.name}</p>
+                                        <p className="flex min-w-0 items-baseline gap-2">
+                                            <span className="truncate text-sm">{tool.title ?? tool.name}</span>
+                                            {tool.title && (
+                                                <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:inline">
+                                                    {tool.name}
+                                                </span>
+                                            )}
+                                        </p>
                                         {tool.description && <p className="truncate text-xs text-muted-foreground">{tool.description}</p>}
                                     </div>
                                     <StatusBadge tone={tool.read_only ? 'idle' : 'warning'} dot={false}>
@@ -290,11 +297,15 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                                         >
                                             {ago(call.created_at)}
                                         </TableCell>
-                                        <TableCell data-label="Operação" className="px-4 py-2">{actionLabel[call.action] ?? call.action}</TableCell>
+                                        <TableCell data-label="Operação" className="px-4 py-2">
+                                            {actionLabel[call.action] ?? call.action}
+                                        </TableCell>
                                         <TableCell data-label="Ferramenta" className="px-4 py-2" title={call.tool ?? undefined}>
                                             {call.tool_name ?? call.tool ?? '—'}
                                         </TableCell>
-                                        <TableCell data-label="Origem" className="px-4 py-2 text-muted-foreground">{actorLabel[call.actor_type]}</TableCell>
+                                        <TableCell data-label="Origem" className="px-4 py-2 text-muted-foreground">
+                                            {actorLabel[call.actor_type]}
+                                        </TableCell>
                                         <TableCell data-label="Resultado" className="px-4 py-2">
                                             <StatusBadge tone={resultTone[call.result]} title={call.error ?? undefined}>
                                                 {resultLabel[call.result]}

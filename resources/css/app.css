@@ -455,3 +455,8 @@
     left: -0.75rem;
     border-left: 1px solid var(--border);
 }
+
+/* An empty checkbox in the dark theme needs a visible edge: shadcn's input border almost disappears on the card. */
+.dark [data-slot='checkbox'][data-state='unchecked'] {
+    border-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+}

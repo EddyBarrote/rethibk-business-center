@@ -218,10 +218,13 @@ export function ApprovalCard({
                         )}
                     </>
                 )}
-                {taskHref && (
-                    <Button size="sm" variant="ghost" className="hidden text-muted-foreground lg:inline-flex" asChild>
+                {/* null (not undefined) means the list has a task column: keep its place so the buttons line up. */}
+                {taskHref ? (
+                    <Button size="sm" variant="ghost" className="hidden w-16 text-muted-foreground lg:inline-flex" asChild>
                         <Link href={taskHref}>Tarefa</Link>
                     </Button>
+                ) : (
+                    taskHref === null && <span className="hidden w-16 lg:block" aria-hidden="true" />
                 )}
                 <Button size="icon-sm" variant="ghost" className="text-muted-foreground" onClick={() => setDetails(true)} aria-label="Ver detalhes">
                     <ChevronRight />

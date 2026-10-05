@@ -65,7 +65,8 @@ export function EntityRow({
         <>
             {leading && <div className="flex shrink-0 items-center">{leading}</div>}
             <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{title}</div>
+                {/* Two lines on a phone, where the status takes room; one line with "…" from sm up. */}
+                <div className="line-clamp-2 text-sm font-medium break-words sm:line-clamp-1">{title}</div>
                 {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
             </div>
             {meta && <div className="hidden shrink-0 items-center gap-3 text-xs text-muted-foreground sm:flex">{meta}</div>}
