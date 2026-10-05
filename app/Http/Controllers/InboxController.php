@@ -78,8 +78,8 @@ class InboxController extends Controller
         }
 
         $conversation = $message->thread_id
-            ? EmailMessage::query()->where('thread_id', $message->thread_id)->with(['attachments', 'routedTo:id,name', 'department:id,name'])->orderBy('id')->get()
-            : collect([$message->load(['attachments', 'routedTo:id,name', 'department:id,name'])]);
+            ? EmailMessage::query()->where('thread_id', $message->thread_id)->with(['attachments', 'mailbox:id,address', 'routedTo:id,name', 'department:id,name'])->orderBy('id')->get()
+            : collect([$message->load(['attachments', 'mailbox:id,address', 'routedTo:id,name', 'department:id,name'])]);
 
         return Inertia::render('Inbox/Show', [
             'message' => $this->summary($message),
