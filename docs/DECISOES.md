@@ -224,3 +224,29 @@ Continua a ser apresentação; o que tocou no servidor é pouco e fica aqui:
   demonstração (dados fictícios)". Na base de dados local também se trocaram os nomes "(dev)" e se tiraram as
   etiquetas "[teste do Claude]" do histórico de conversas e execuções.
 
+## Terceira passagem da revisão visual (05.10.2026)
+
+A segunda avaliação deu 7/10. O que ficou mexe sobretudo no texto que as pessoas lêem:
+
+- **Textos escritos para pessoas, instruções só para o agente.** A tarefa que a triagem abre e a tarefa de revalidação
+  do Chief of Staff já não dizem "Lê o email com email.read (email_id 1)" nem "Revê-a com approvals.review". A descrição
+  fica para as pessoas; `TaskThread::input()` junta ao pedido do agente a origem da tarefa (email ou aprovação) e a
+  ferramenta para a abrir. Testes em `TriageFlowTest` e `ChiefOfStaffReviewTest`.
+- **`email.search` devolve a categoria em português** ("Factura de fornecedor"), para os agentes não citarem
+  "supplier_invoice" às pessoas. O filtro continua a aceitar as chaves.
+- **Execuções com nome:** uma execução de uma rotina chama-se como a rotina (`Present::run()` → `title`); a de uma
+  tarefa, pela tarefa. Painel, Execuções e Agente recebem `tool_names` para escrever as chaves das ferramentas pelo nome.
+- **Notificações antigas** que apontam para ecrãs que já não existem (contratos, clientes…) abrem a lista de
+  notificações em vez de um 404 (`NotificationController::open`).
+- **Chamadas do ERP:** o pedido de aprovação (auditado com a chave da capacidade) aparece como "Pedido de aprovação"
+  com o nome da ferramenta.
+- **Botão principal com contraste AA:** o laranja do tema claro passou de `oklch(0.6171 …)` (#C96442, 3,9:1 com
+  texto branco) para `oklch(0.575 …)` (#BB5735, 4,6:1). O tema escuro não muda (texto escuro, 5,9:1).
+- **Fichas de agente sem 1 600 px em branco:** a lista de capacidades rola dentro de uma caixa sem posição, e as
+  caixas de selecção do Radix põem um `<input>` invisível em `position: absolute` que escapava da caixa e esticava a
+  página. A lista passou a `relative`.
+- **Dados locais:** o título do agente de demonstração passou a "Demonstração das aprovações" (também em
+  `DemoScenario`) e a ligação ao ERP chama-se "Rethink ERP (demonstração)"; a semente só a cria se não houver nenhuma.
+  As conversas e execuções de teste do Barrote ficam como estão. As contas de entrada da semente (`@micomoc.test`)
+  ficam: são as credenciais de desenvolvimento e nunca existem numa organização real.
+

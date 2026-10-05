@@ -82,6 +82,25 @@ Segunda passagem (avaliação de 6/10, mesmo dia):
     mudar quem reporta a quem faz-se num diálogo. No telemóvel é uma lista indentada.
 13. **Acções secundárias de uma linha** (corrigir, mudar o tipo, esquecer) vão para um menu "…"; o que apaga pede confirmação.
 
+Terceira passagem:
+
+14. **Nenhuma chave de ferramenta à vista de quem não configura.** Títulos de execuções vêm do nome da rotina ou da
+    tarefa; o resto passa por `withToolNames()` (`lib/format.ts`, com `tool_names` da página). As chaves ficam em
+    "Detalhes técnicos", em dicas (`title`) e em Capacidades.
+15. **Datas:** prazos sem hora mostram só o dia (`deadline()`); períodos e meses ISO dentro de texto passam por
+    `period()` ("01/09/2026 a 30/09/2026", "outubro de 2026").
+16. **Dinheiro** sempre na letra normal com `tabular-nums`, nunca em `font-mono`.
+17. **Emails para aprovar** começam pelo assunto («Lembrete de Pagamento – Factura FT 2026/131 (Agro Zambeze, Lda)»);
+    o destinatário vai para a linha de baixo (`approvalRecipient()`).
+18. **Revisão do Chief of Staff:** a etiqueta diz que se pode decidir já (a decisão de uma pessoa ganha; a revisão
+    deixa de contar) e usa a cor do tema.
+19. **Listas que rolam dentro de um formulário** levam `relative`: as caixas de selecção do Radix criam um input
+    invisível em `position: absolute` que, de outro modo, estica a página.
+20. **Artigos:** `<MarkdownEditor>` com barra de formatação e "Como fica" ao lado (empilhado abaixo de 1280 px).
+21. **Estados vazios** podem mostrar um `example` esbatido do que vai aparecer (Objectivos, Projectos).
+22. **Organigrama:** cartões de 13 rem, ramos que se recolhem, grupos de mais de três folhas em duas colunas, e
+    "Ajustar ao ecrã" (por omissão) / "Tamanho real".
+
 ## Imagens geradas
 
 Geradas com a skill nano banana (Gemini), redimensionadas para 1400 px e convertidas para WebP (`cwebp -q 80`). Têm a marca de água invisível SynthID.
