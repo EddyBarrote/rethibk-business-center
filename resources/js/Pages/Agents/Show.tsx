@@ -105,7 +105,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <Tabs defaultValue="overview" className="min-w-0 gap-6">
-                    <TabsList variant="line" className="w-full justify-start border-b pb-1">
+                    <TabsList variant="line" className="scroll-fade w-full justify-start overflow-x-auto border-b pb-1">
                         <TabsTrigger value="overview" className="flex-none">
                             Visão geral
                         </TabsTrigger>

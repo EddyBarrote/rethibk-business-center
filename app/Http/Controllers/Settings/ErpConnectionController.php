@@ -9,6 +9,7 @@ use App\Erp\ErpGateway;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ErpConnectionRequest;
 use App\Models\AuditLog;
+use App\Models\Capability;
 use App\Models\ErpConnection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,9 @@ class ErpConnectionController extends Controller
 
         $connection = ErpConnection::query()->oldest('id')->first();
 
+        // Calls name the tool as Capacidades does; the key stays in a tooltip.
+        $names = Capability::query()->where('key', 'like', 'erp.%')->pluck('name', 'key');
+
         $calls = AuditLog::query()
             ->where('action', 'like', 'erp.%')
             ->latest('id')
@@ -37,6 +41,7 @@ class ErpConnectionController extends Controller
                 'id' => $log->id,
                 'action' => $log->action,
                 'tool' => $log->payload['tool'] ?? null,
+                'tool_name' => $names->get('erp.'.($log->payload['tool'] ?? '')),
                 'actor_type' => $log->actor_type->value,
                 'result' => $log->result->value,
                 'duration_ms' => $log->payload['duration_ms'] ?? null,

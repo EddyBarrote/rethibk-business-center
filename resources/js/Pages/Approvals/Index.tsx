@@ -61,7 +61,7 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
             />
 
             <Tabs value={filters.status} onValueChange={(status) => router.get('/approvals', { status }, { preserveState: true })} className="gap-6">
-                <TabsList variant="line" className="w-full justify-start border-b pb-1">
+                <TabsList variant="line" className="scroll-fade w-full justify-start overflow-x-auto border-b pb-1">
                     {tabs.map(([value, label]) => (
                         <TabsTrigger key={value} value={value} className="flex-none">
                             {label}

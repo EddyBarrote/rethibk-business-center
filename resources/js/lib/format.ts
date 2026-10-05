@@ -160,7 +160,10 @@ export const plainText = (markdown: string | null | undefined) =>
         .replace(/^\s*([-*_]\s*){3,}$/gm, ' ')
         .replace(/^\s*\|?(\s*:?-{2,}:?\s*\|)+\s*:?-*:?\s*$/gm, ' ')
         .replace(/\|/g, ' ')
-        .replace(/(\*\*|__|\*|_|~~|`)(?=\S)([\s\S]*?\S)\1/g, '$2')
+        .replace(/(\*\*|~~|`)(?=\S)([\s\S]*?\S)\1/g, '$2')
+        // Underscores emphasise only between words, so "list_receivables" keeps its own.
+        .replace(/(^|\W)(__?)(?=\S)([^_]*?\S)\2(?=\W|$)/g, '$1$3')
+        .replace(/(^|[^*])\*(?=\S)([^*]*?\S)\*/g, '$1$2')
         .replace(/[*`]/g, '')
         .replace(/\s+/g, ' ')
         .trim();

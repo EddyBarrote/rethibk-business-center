@@ -50,7 +50,7 @@ export default function UsersIndex({ users }: { users: UserRow[] }) {
                 />
             ) : (
                 <div className="overflow-hidden rounded-xl border bg-card">
-                    <Table>
+                    <Table className="table-stack">
                         <TableHeader>
                             <TableRow className="bg-muted/40 hover:bg-muted/40">
                                 <TableHead className={head}>Nome</TableHead>
@@ -73,15 +73,19 @@ export default function UsersIndex({ users }: { users: UserRow[] }) {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="px-4 py-2">{user.role_label}</TableCell>
-                                    <TableCell className="px-4 py-2">{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                                    <TableCell className="px-4 py-2">
+                                    <TableCell data-label="Papel" className="px-4 py-2">
+                                        {user.role_label}
+                                    </TableCell>
+                                    <TableCell data-label="Departamento" className="px-4 py-2">
+                                        {user.department ?? <span className="text-muted-foreground">—</span>}
+                                    </TableCell>
+                                    <TableCell data-label="Estado" className="px-4 py-2">
                                         <StatusBadge tone={user.is_active ? 'success' : 'idle'}>{user.is_active ? 'Activo' : 'Inactivo'}</StatusBadge>
                                     </TableCell>
-                                    <TableCell className="px-4 py-2 text-xs whitespace-nowrap text-muted-foreground">
+                                    <TableCell data-label="Última actividade" className="px-4 py-2 text-xs whitespace-nowrap text-muted-foreground">
                                         {user.last_seen_at ? <span title={dateTime(user.last_seen_at)}>{ago(user.last_seen_at)}</span> : 'Nunca'}
                                     </TableCell>
-                                    <TableCell className="px-4 py-2 text-right">
+                                    <TableCell data-actions className="px-4 py-2 text-right">
                                         <Button variant="ghost" size="sm" asChild>
                                             <Link href={`/settings/users/${user.id}/edit`}>Editar</Link>
                                         </Button>

@@ -99,7 +99,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                 </Section>
             )}
 
-            <div className="grid grid-cols-2 divide-border rounded-xl border bg-card lg:grid-cols-4 lg:divide-x [&>*]:min-w-0">
+            <div className="grid divide-y divide-border rounded-xl border bg-card sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x [&>*]:min-w-0">
                 <MetricCard
                     icon={Bot}
                     value={metrics.agents_active}
@@ -116,7 +116,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                 />
                 <MetricCard
                     icon={CircleDollarSign}
-                    value={<span className="font-mono">{usd(metrics.month_spend_usd)}</span>}
+                    value={usd(metrics.month_spend_usd)}
                     label="Gasto de IA no mês"
                     description={budget ? `de ${usd(budget)} (${Math.round((metrics.month_spend_usd / budget) * 100)}%)` : 'Sem tecto mensal definido'}
                     tone={budget && metrics.month_spend_usd >= budget ? 'danger' : budget && metrics.month_spend_usd >= budget * 0.8 ? 'warning' : undefined}

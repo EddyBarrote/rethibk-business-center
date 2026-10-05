@@ -119,6 +119,7 @@ export default function RunShow({
                                         step={step}
                                         last={index === steps.length - 1 && finished}
                                         toolName={step.tool_name ? toolNames[step.tool_name] : undefined}
+                                        final={!!run.output && step.type === 'message' && pickText(step) === run.output}
                                     />
                                 ))}
                                 {!finished && (
@@ -223,7 +224,13 @@ function Request({ input }: { input: string }) {
 /** Machine output (JSON, the untrusted email fence) stays behind "Ver dados"; a short sentence is shown. */
 const readable = (text: string | null) => (text && !/^\s*[[{<]/.test(text) && !text.includes('<email_externo_nao_confiavel>') ? text : null);
 
-function StepItem({ step, last, toolName }: { step: Step; last: boolean; toolName?: string }) {
+const pickText = (step: Step) => {
+    const value = step.payload?.content ?? step.payload?.text ?? step.payload?.message;
+
+    return typeof value === 'string' ? value : null;
+};
+
+function StepItem({ step, last, toolName, final = false }: { step: Step; last: boolean; toolName?: string; final?: boolean }) {
     const [open, setOpen] = useState(false);
     const meta = stepMeta[step.type] ?? stepMeta.message;
     const Icon = meta.icon;
@@ -262,7 +269,10 @@ function StepItem({ step, last, toolName }: { step: Step; last: boolean; toolNam
                         <span title={dateTime(step.created_at)}>{time(step.created_at)}</span>
                     </span>
                 </div>
-                {text &&
+                {text && final ? (
+                    <p className="mt-1 text-sm text-muted-foreground">A resposta completa está em «Resposta final».</p>
+                ) : (
+                    text &&
                     (step.type === 'message' ? (
                         <div className="mt-1 text-sm">
                             <Markdown>{text}</Markdown>
@@ -277,7 +287,8 @@ function StepItem({ step, last, toolName }: { step: Step; last: boolean; toolNam
                         >
                             {text}
                         </p>
-                    ))}
+                    ))
+                )}
                 <button
                     type="button"
                     onClick={() => setOpen(!open)}

@@ -60,7 +60,7 @@ export default function Roles({ roles, permissions }: Props) {
             />
 
             <div className="overflow-x-auto rounded-xl border bg-card">
-                <Table>
+                <Table className="table-stack">
                     <TableHeader>
                         <TableRow className="bg-muted/40 hover:bg-muted/40">
                             <TableHead className="h-auto min-w-44 px-4 py-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -102,7 +102,7 @@ export default function Roles({ roles, permissions }: Props) {
                                     const on = role.permissions.includes(permission.value);
                                     const locked = role.key === 'ceo' && permission.value === 'company.manage';
                                     return (
-                                        <TableCell key={permission.value} className="px-2 text-center">
+                                        <TableCell key={permission.value} data-label={permission.label} className="px-2 text-center">
                                             <Checkbox
                                                 checked={on}
                                                 disabled={locked}
@@ -112,7 +112,7 @@ export default function Roles({ roles, permissions }: Props) {
                                         </TableCell>
                                     );
                                 })}
-                                <TableCell className="px-2">
+                                <TableCell className="px-2" data-actions data-empty={role.is_system || role.users_count > 0 ? '' : undefined}>
                                     {!role.is_system && role.users_count === 0 && (
                                         <Button
                                             variant="ghost"

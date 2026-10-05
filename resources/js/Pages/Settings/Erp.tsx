@@ -45,6 +45,7 @@ interface Call {
     id: number;
     action: string;
     tool: string | null;
+    tool_name: string | null;
     actor_type: 'user' | 'agent' | 'system';
     result: 'ok' | 'denied' | 'error';
     duration_ms: number | null;
@@ -269,7 +270,7 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                     />
                 ) : (
                     <div className="overflow-hidden rounded-xl border bg-card">
-                        <Table>
+                        <Table className="table-stack">
                             <TableHeader>
                                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                                     <TableHead className={head}>Quando</TableHead>
@@ -289,15 +290,17 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                                         >
                                             {ago(call.created_at)}
                                         </TableCell>
-                                        <TableCell className="px-4 py-2">{actionLabel[call.action] ?? call.action}</TableCell>
-                                        <TableCell className="px-4 py-2 font-mono text-xs">{call.tool ?? '—'}</TableCell>
-                                        <TableCell className="px-4 py-2 text-muted-foreground">{actorLabel[call.actor_type]}</TableCell>
-                                        <TableCell className="px-4 py-2">
+                                        <TableCell data-label="Operação" className="px-4 py-2">{actionLabel[call.action] ?? call.action}</TableCell>
+                                        <TableCell data-label="Ferramenta" className="px-4 py-2" title={call.tool ?? undefined}>
+                                            {call.tool_name ?? call.tool ?? '—'}
+                                        </TableCell>
+                                        <TableCell data-label="Origem" className="px-4 py-2 text-muted-foreground">{actorLabel[call.actor_type]}</TableCell>
+                                        <TableCell data-label="Resultado" className="px-4 py-2">
                                             <StatusBadge tone={resultTone[call.result]} title={call.error ?? undefined}>
                                                 {resultLabel[call.result]}
                                             </StatusBadge>
                                         </TableCell>
-                                        <TableCell className="px-4 py-2 text-right font-mono text-xs tabular-nums">
+                                        <TableCell data-label="Duração" className="px-4 py-2 text-right font-mono text-xs tabular-nums">
                                             {call.duration_ms !== null ? `${call.duration_ms} ms` : '—'}
                                         </TableCell>
                                     </TableRow>

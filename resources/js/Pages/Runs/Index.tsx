@@ -28,7 +28,7 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
             <PageHeader title="Execuções" description="Tudo o que os agentes fizeram, com custo e resultado." />
 
             <Tabs value={filters.status ?? ''} onValueChange={(status) => router.get('/runs', status ? { status } : {}, { preserveState: true })}>
-                <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b pb-1">
+                <TabsList variant="line" className="scroll-fade w-full justify-start overflow-x-auto border-b pb-1">
                     {statuses.map(([value, label]) => (
                         <TabsTrigger key={value} value={value} className="flex-none">
                             {label}

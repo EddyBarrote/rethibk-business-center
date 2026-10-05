@@ -285,7 +285,7 @@ export default function TasksIndex({ tasks, filters, counts, agents, people, goa
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <Tabs value={filters.view} onValueChange={(view) => visit({ view: view as View })} className="min-w-0">
-                        <TabsList variant="line" className="h-9 max-w-full justify-start overflow-x-auto">
+                        <TabsList variant="line" className="scroll-fade h-9 max-w-full justify-start overflow-x-auto">
                             <TabsTrigger value="mine" className="flex-none">
                                 Minhas
                                 <Count value={counts.mine} />
@@ -448,7 +448,7 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
             <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
                     <PriorityIcon priority={task.priority} label={task.priority_label} />
-                    <span className="truncate text-sm font-medium">{task.title}</span>
+                    <span className="line-clamp-2 min-w-0 text-sm font-medium break-words sm:line-clamp-1">{task.title}</span>
                     {task.kind === 'chat' && (
                         <span className="hidden shrink-0 sm:inline-flex">
                             <ChatBadge />
@@ -456,12 +456,13 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                     )}
                     {task.working && <WorkingPulse />}
                 </div>
-                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                {/* Wraps to a second line on a phone instead of cutting every name. */}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     <span className="shrink-0 font-mono whitespace-nowrap sm:hidden">{task.ref}</span>
                     {(task.assignee ?? task.assignee_user) && (
-                        <span className={cn('truncate', !compact && 'md:hidden')}>{(task.assignee ?? task.assignee_user)!.name}</span>
+                        <span className={cn('max-w-full truncate', !compact && 'md:hidden')}>{(task.assignee ?? task.assignee_user)!.name}</span>
                     )}
-                    {task.created_by_agent && task.created_by && <span className="truncate">delegada por {task.created_by}</span>}
+                    {task.created_by_agent && task.created_by && <span className="max-w-full truncate">delegada por {task.created_by}</span>}
                     {!task.created_by_agent && task.user && !compact && <span className="hidden truncate lg:inline">com {task.user}</span>}
                 </div>
             </div>

@@ -117,7 +117,7 @@ export default function CapabilitiesIndex({
                     </div>
 
                     <div className="overflow-hidden rounded-xl border bg-card">
-                        <Table>
+                        <Table className="table-stack">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead className="h-9 px-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -158,7 +158,7 @@ export default function CapabilitiesIndex({
                                                 </p>
                                             )}
                                         </TableCell>
-                                        <TableCell className="py-2.5">
+                                        <TableCell data-label="Origem" className="py-2.5">
                                             <span className="inline-flex h-5 items-center rounded-full border px-2 font-mono text-[11px] text-muted-foreground">
                                                 {capability.source === 'mcp'
                                                     ? 'ERP'
@@ -169,12 +169,12 @@ export default function CapabilitiesIndex({
                                                       : 'plataforma'}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="py-2.5">
+                                        <TableCell data-label="Tipo" className="py-2.5">
                                             <StatusBadge tone={capability.is_mutating ? 'warning' : 'idle'} dot={false}>
                                                 {capability.is_mutating ? 'escrita' : 'leitura'}
                                             </StatusBadge>
                                         </TableCell>
-                                        <TableCell className="py-2.5">
+                                        <TableCell data-label="Risco" className="py-2.5">
                                             {capability.is_mutating ? (
                                                 <NativeSelect
                                                     className="w-64"
@@ -198,7 +198,7 @@ export default function CapabilitiesIndex({
                                                 <span className="text-sm text-muted-foreground">sem aprovação</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="px-4 py-2.5 text-right tabular-nums">{capability.agents}</TableCell>
+                                        <TableCell data-label="Agentes" className="px-4 py-2.5 text-right tabular-nums">{capability.agents}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

@@ -25,7 +25,7 @@ export default function ReportShow({
                 title={report.title}
                 description={[report.type_label, report.agent, report.period].filter(Boolean).join(' · ')}
                 actions={
-                    <div className="flex gap-2 print:hidden">
+                    <div className="flex flex-wrap gap-2 print:hidden">
                         <ExportMenu action={`/reports/${report.id}/export`} formats={formats} />
                         <Button variant="outline" onClick={() => window.print()}>
                             <Printer />
@@ -42,7 +42,7 @@ export default function ReportShow({
             />
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] print:block">
-                <article className="min-w-0 rounded-xl border bg-card px-6 py-5 print:border-0 print:p-0">
+                <article className="min-w-0 rounded-xl border bg-card px-4 py-4 sm:px-6 sm:py-5 print:border-0 print:p-0">
                     <Markdown>{report.content}</Markdown>
                 </article>
 
