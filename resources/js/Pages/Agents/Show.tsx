@@ -10,7 +10,7 @@ import { InputError } from '@/Components/InputError';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
-import { Checkbox } from '@/Components/ui/checkbox';
+import { NativeSelect } from '@/Components/ui/native-select';
 import { Input } from '@/Components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
@@ -20,20 +20,25 @@ import { ago, dateTime, usd } from '@/lib/format';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
 
 interface Props {
-    agent: AgentSummary & { personality: string | null; provider: string; model: string; assignees: { id: number; name: string }[] };
+    agent: AgentSummary & {
+        personality: string | null;
+        provider: string;
+        model: string;
+        assignees: { id: number; name: string; level: 'chat' | 'work' }[];
+    };
     capabilities: { key: string; name: string; is_mutating: boolean; risk: number; ceiling: boolean }[];
     skills: { id: number; key: string; name: string; description: string; scope: string; is_available: boolean }[];
     routines: { id: number; name: string; schedule: string; is_active: boolean; last_run_at: string | null }[];
     runs: RunSummary[];
     users: { id: number; name: string }[];
-    can: { run: boolean; manage: boolean };
+    can: { run: boolean; manage: boolean; manage_access: boolean };
 }
 
 export default function AgentShow({ agent, capabilities, skills, routines, runs, users, can }: Props) {
     const { tenant, sidebar_agents } = usePage<SharedProps>().props;
     const form = useForm({ input: '' });
     const [reason, setReason] = useState('');
-    const [assignees, setAssignees] = useState(agent.assignees.map((user) => user.id));
+    const [access, setAccess] = useState<Record<number, 'chat' | 'work'>>(Object.fromEntries(agent.assignees.map((user) => [user.id, user.level])));
     const isRunning = sidebar_agents.some((item) => item.id === agent.id && item.running > 0);
 
     useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished'], () => router.reload({ only: ['runs', 'agent'] }), {
@@ -264,7 +269,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                             <Section title="Gestão">
                                 <div className="flex flex-col gap-5 rounded-xl border bg-card p-5">
                                     <p className="text-xs text-muted-foreground">
-                                        Aqui pode suspendê-lo e afectá-lo a pessoas. Para mudar o prompt e o resto da definição, use «Editar».
+                                        Aqui pode suspendê-lo. Para mudar o prompt e o resto da definição, use «Editar».
                                     </p>
 
                                     {agent.status === 'active' ? (
@@ -283,35 +288,60 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                                             </Button>
                                         </div>
                                     ) : null}
+                                </div>
+                            </Section>
+                        )}
 
-                                    <div className="flex flex-col gap-2">
-                                        <p className="text-sm font-medium">Pessoas afectas</p>
-                                        <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-lg border p-3 sm:grid-cols-2">
-                                            {users.map((user) => (
-                                                <label key={user.id} className="flex items-center gap-2 text-sm">
-                                                    <Checkbox
-                                                        checked={assignees.includes(user.id)}
-                                                        onCheckedChange={(on) =>
-                                                            setAssignees(
-                                                                on === true ? [...assignees, user.id] : assignees.filter((id) => id !== user.id),
-                                                            )
-                                                        }
-                                                    />
-                                                    {user.name}
-                                                </label>
-                                            ))}
-                                        </div>
-                                        <div className="flex justify-end">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() =>
-                                                    router.put(`/agents/${agent.id}/assignees`, { user_ids: assignees }, { preserveScroll: true })
-                                                }
-                                            >
-                                                Guardar afectações
-                                            </Button>
-                                        </div>
+                        {can.manage_access && (
+                            <Section title="Quem fala com este agente">
+                                <div className="flex flex-col gap-3 rounded-xl border bg-card p-5">
+                                    <p className="text-xs text-muted-foreground">
+                                        Só falam com o agente as pessoas aqui, a pessoa a quem ele responde e quem tem no papel "Falar com todos os
+                                        agentes". "Conversar" é perguntar; "Pedir trabalho" também cria tarefas e acções directas.
+                                    </p>
+                                    <div className="flex max-h-80 flex-col divide-y overflow-y-auto rounded-lg border">
+                                        {users.map((user) => (
+                                            <div key={user.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                                                <span className="min-w-0 flex-1 truncate">{user.name}</span>
+                                                <NativeSelect
+                                                    aria-label={`Acesso de ${user.name}`}
+                                                    className="w-40"
+                                                    value={access[user.id] ?? 'none'}
+                                                    onChange={(e) => {
+                                                        const { [user.id]: _, ...rest } = access;
+                                                        setAccess(
+                                                            e.target.value === 'none'
+                                                                ? rest
+                                                                : { ...rest, [user.id]: e.target.value as 'chat' | 'work' },
+                                                        );
+                                                    }}
+                                                >
+                                                    <option value="none">Sem acesso</option>
+                                                    <option value="chat">Conversar</option>
+                                                    <option value="work">Pedir trabalho</option>
+                                                </NativeSelect>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                router.put(
+                                                    `/agents/${agent.id}/assignees`,
+                                                    {
+                                                        access: Object.entries(access).map(([user_id, level]) => ({
+                                                            user_id: Number(user_id),
+                                                            level,
+                                                        })),
+                                                    },
+                                                    { preserveScroll: true },
+                                                )
+                                            }
+                                        >
+                                            Guardar acessos
+                                        </Button>
                                     </div>
                                 </div>
                             </Section>
@@ -340,7 +370,9 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                     <Property label="Chave">
                         <span className="font-mono text-xs">{agent.key}</span>
                     </Property>
-                    <Property label="Afectos a">{agent.assignees.length > 0 ? agent.assignees.map((user) => user.name).join(', ') : null}</Property>
+                    <Property label="Falam com ele">
+                        {agent.assignees.length > 0 ? agent.assignees.map((user) => user.name).join(', ') : null}
+                    </Property>
                     <Property label="Capacidades">
                         <span className="tabular-nums">{capabilities.length}</span>
                     </Property>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
 use App\Enums\GoalStatus;
+use App\Enums\Permission;
 use App\Enums\ProjectStatus;
 use App\Enums\RunStatus;
 use App\Enums\TaskKind;
@@ -98,12 +99,13 @@ class TaskController extends Controller
         ]);
 
         $agent = isset($data['assignee_agent_id']) ? Agent::query()->find($data['assignee_agent_id']) : null;
+        $kind = TaskKind::from($data['kind']);
 
         if ($agent !== null) {
-            Gate::authorize('run', $agent);
+            // Talking needs the first access level, giving work the second (realinhamento L8).
+            Gate::authorize($kind === TaskKind::Chat ? 'run' : 'requestWork', $agent);
         }
 
-        $kind = TaskKind::from($data['kind']);
         $message = $data['message'] ?? null;
 
         // Work is asked for in the conversation with an agent; chefias may also
@@ -222,6 +224,10 @@ class TaskController extends Controller
             'mode' => ['required', Rule::in(['message', 'action'])],
         ]);
 
+        if ($data['mode'] === 'action' && $task->assigneeAgent !== null) {
+            Gate::authorize('requestWork', $task->assigneeAgent);
+        }
+
         if ($task->status->isClosed()) {
             $threads->setStatus($task, TaskStatus::InProgress, $this->user($request), 'Reaberta com uma mensagem nova.');
         }
@@ -297,15 +303,19 @@ class TaskController extends Controller
      */
     private function visible(Builder $query, User $user): Builder
     {
+        $chats = fn (Builder $q) => $user->hasPermission(Permission::ReadAllConversations)
+            ? $q
+            : $q->where(fn (Builder $c) => $c->whereNull('chat_key')->orWhere('user_id', $user->id));
+
         if ($user->can('viewAll', Task::class)) {
-            return $query;
+            return $chats($query);
         }
 
         $agents = Agent::query()
             ->where(fn (Builder $q) => $q->where('reports_to_user_id', $user->id)->orWhereHas('assignees', fn (Builder $a) => $a->whereKey($user->id)))
             ->pluck('id');
 
-        return $query->where(fn (Builder $q) => $q->where('user_id', $user->id)
+        return $chats($query)->where(fn (Builder $q) => $q->where('user_id', $user->id)
             ->orWhere('created_by_user_id', $user->id)
             ->orWhere('assignee_user_id', $user->id)
             ->orWhereIn('assignee_agent_id', $agents));

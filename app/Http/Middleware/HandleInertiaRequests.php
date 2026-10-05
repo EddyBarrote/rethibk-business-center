@@ -93,6 +93,7 @@ class HandleInertiaRequests extends Middleware
             ->where('status', '!=', AgentStatus::Draft)
             ->orderBy('name')
             ->get()
+            ->filter(fn (Agent $agent) => $user->can('run', $agent) || $user->can('manage', $agent))
             ->map(fn (Agent $agent) => [
                 'id' => $agent->id,
                 'name' => $agent->name,

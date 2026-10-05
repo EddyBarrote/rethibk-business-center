@@ -23,6 +23,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\Settings\AccessRoleController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\ErpConnectionController;
@@ -152,6 +153,10 @@ Route::middleware('auth')->group(function () {
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::resource('users', UserController::class)->except(['show', 'destroy']);
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::get('roles', [AccessRoleController::class, 'index'])->name('roles.index');
+        Route::post('roles', [AccessRoleController::class, 'store'])->name('roles.store');
+        Route::put('roles/{role}', [AccessRoleController::class, 'update'])->name('roles.update');
+        Route::delete('roles/{role}', [AccessRoleController::class, 'destroy'])->name('roles.destroy');
 
         Route::get('brand', [BrandController::class, 'show'])->name('brand.show');
         Route::post('brand', [BrandController::class, 'update'])->name('brand.update');

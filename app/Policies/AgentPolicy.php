@@ -2,6 +2,8 @@
 
 namespace App\Policies;
 
+use App\Access\AgentAccess;
+use App\Enums\Permission;
 use App\Models\Agent;
 use App\Models\User;
 
@@ -22,13 +24,41 @@ class AgentPolicy
         return $actor->tenant_id === $agent->tenant_id;
     }
 
+    /**
+     * Talk to the agent. Nobody does until given access, agent by agent
+     * (docs/DECISOES.md, realinhamento L8), except the person it answers to
+     * and roles that talk to every agent.
+     */
     public function run(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && $agent->isActive() && (
-            $actor->canManageTenant()
-            || $agent->reports_to_user_id === $actor->id
-            || $agent->assignees()->whereKey($actor->id)->exists()
-        );
+        return $this->view($actor, $agent) && $agent->isActive() && $this->level($actor, $agent) !== null;
+    }
+
+    /**
+     * Ask the agent for work (tasks, direct actions), the second access level.
+     */
+    public function requestWork(User $actor, Agent $agent): bool
+    {
+        return $this->view($actor, $agent) && $agent->isActive() && $this->level($actor, $agent) === AgentAccess::WORK;
+    }
+
+    /**
+     * Say who talks to the agent: administrators, and people who grant access
+     * for the agents of their own department.
+     */
+    public function manageAccess(User $actor, Agent $agent): bool
+    {
+        return $this->view($actor, $agent) && ($actor->canManageTenant()
+            || ($actor->hasPermission(Permission::GrantAgentAccess) && $actor->department_id !== null && $actor->department_id === $agent->department_id));
+    }
+
+    private function level(User $actor, Agent $agent): ?string
+    {
+        if ($actor->hasPermission(Permission::TalkToAllAgents) || $agent->reports_to_user_id === $actor->id) {
+            return AgentAccess::WORK;
+        }
+
+        return AgentAccess::levelOf($agent, $actor);
     }
 
     public function create(User $actor): bool

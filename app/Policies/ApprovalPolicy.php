@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Permission;
 use App\Models\Approval;
 use App\Models\User;
 
@@ -21,7 +22,7 @@ class ApprovalPolicy
      */
     public function viewAll(User $actor): bool
     {
-        return $actor->canManageTenant();
+        return $actor->hasPermission(Permission::DecideAllApprovals);
     }
 
     public function view(User $actor, Approval $approval): bool
@@ -35,13 +36,13 @@ class ApprovalPolicy
             return false;
         }
 
-        if ($actor->canManageTenant()) {
-            return true;
+        // Spending more than the organisation decided is for those who administer it.
+        if ($approval->action_type === 'budget.override') {
+            return $actor->canManageTenant();
         }
 
-        // Spending more than the organisation decided is for owners and admins.
-        if ($approval->action_type === 'budget.override') {
-            return false;
+        if ($actor->hasPermission(Permission::DecideAllApprovals)) {
+            return true;
         }
 
         $agent = $approval->agent;

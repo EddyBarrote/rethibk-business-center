@@ -27,6 +27,7 @@ import {
     Palette,
     Pencil,
     PlugZap,
+    ShieldCheck,
     Sun,
     Users,
 } from 'lucide-react';
@@ -112,6 +113,7 @@ const companyNav: NavItem[] = [
     { label: 'Capacidades', href: '/capabilities', icon: Puzzle, tenantManagersOnly: true },
     { label: 'Skills', href: '/skills', icon: BookOpen, tenantManagersOnly: true },
     { label: 'Utilizadores', href: '/settings/users', icon: Users, tenantManagersOnly: true },
+    { label: 'Papéis e acessos', href: '/settings/roles', icon: ShieldCheck, tenantManagersOnly: true },
     { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
     { label: 'Marca', href: '/settings/brand', icon: Palette, tenantManagersOnly: true },
     { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, tenantManagersOnly: true },

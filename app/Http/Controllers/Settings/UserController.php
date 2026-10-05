@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Access\AccessRoles;
+use App\Enums\Permission;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UserRequest;
+use App\Models\AccessRole;
 use App\Models\Department;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +22,7 @@ class UserController extends Controller
         Gate::authorize('viewAny', User::class);
 
         $users = User::query()
-            ->with('department:id,name')
+            ->with(['department:id,name', 'accessRole:id,name'])
             ->orderBy('name')
             ->get()
             ->map(fn (User $user) => [
@@ -27,7 +30,7 @@ class UserController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role->value,
-                'role_label' => $user->role->label(),
+                'role_label' => $user->accessRole->name ?? $user->role->label(),
                 'department' => $user->department?->name,
                 'is_active' => $user->is_active,
                 'last_seen_at' => $user->last_seen_at?->toIso8601String(),
@@ -47,7 +50,7 @@ class UserController extends Controller
     {
         Gate::authorize('create', User::class);
 
-        User::query()->create($request->validated());
+        User::query()->create($request->toSave());
 
         return to_route('settings.users.index')->with('success', __('Utilizador criado.'));
     }
@@ -58,7 +61,11 @@ class UserController extends Controller
 
         return Inertia::render('Settings/Users/Form', [
             ...$this->formOptions(),
-            'user' => $user->only(['id', 'name', 'email', 'department_id', 'is_active']) + ['role' => $user->role->value],
+            'user' => $user->only(['id', 'name', 'job_title', 'email', 'department_id', 'is_active']) + [
+                'role' => $user->role->value,
+                'access_role_id' => $user->access_role_id ?? app(AccessRoles::class)->forBase($user->role)->id,
+                'permission_overrides' => (object) ($user->permission_overrides ?? []),
+            ],
         ]);
     }
 
@@ -66,7 +73,7 @@ class UserController extends Controller
     {
         Gate::authorize('update', $user);
 
-        $data = $request->validated();
+        $data = $request->toSave();
 
         if (blank($data['password'] ?? null)) {
             unset($data['password']);
@@ -82,8 +89,12 @@ class UserController extends Controller
      */
     private function formOptions(): array
     {
+        app(AccessRoles::class)->ensure();
+
         return [
             'roles' => Role::options(),
+            'access_roles' => AccessRole::query()->orderByDesc('is_system')->orderBy('id')->get(['id', 'name', 'base', 'permissions']),
+            'permissions' => Permission::options(),
             'departments' => Department::query()->orderBy('name')->get(['id', 'name']),
         ];
     }

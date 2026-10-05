@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Access\AgentAccess;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Runs\AgentRunner;
 use App\Enums\AgentStatus;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
+use App\Models\AgentAssignment;
 use App\Models\AgentRoutine;
 use App\Models\AgentRun;
 use App\Models\Approval;
@@ -19,6 +21,7 @@ use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -64,7 +67,11 @@ class AgentController extends Controller
                 'personality' => $agent->personality,
                 'provider' => $agent->provider ?: config('ai.default'),
                 'model' => $agent->model ?: (config('agents.model') ?: 'por omissão'),
-                'assignees' => $agent->assignees()->orderBy('name')->get(['users.id', 'users.name'])->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name]),
+                'assignees' => AgentAssignment::query()->where('agent_id', $agent->id)->with('user:id,name')->get()
+                    ->filter(fn (AgentAssignment $row) => $row->user !== null)
+                    ->sortBy(fn (AgentAssignment $row) => $row->user->name)
+                    ->map(fn (AgentAssignment $row) => ['id' => $row->user->id, 'name' => $row->user->name, 'level' => $row->role === AgentAccess::CHAT ? AgentAccess::CHAT : AgentAccess::WORK])
+                    ->values(),
             ],
             'capabilities' => $agent->capabilities()->wherePivot('enabled', true)->orderBy('key')->get()->map(fn (Capability $capability) => [
                 'key' => $capability->key,
@@ -89,10 +96,11 @@ class AgentController extends Controller
                 'last_run_at' => $routine->last_run_at?->toIso8601String(),
             ]),
             'runs' => $agent->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
-            'users' => $user->can('manage', $agent) ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [],
+            'users' => $user->can('manageAccess', $agent) ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [],
             'can' => [
                 'run' => $user->can('run', $agent),
                 'manage' => $user->can('manage', $agent),
+                'manage_access' => $user->can('manageAccess', $agent),
             ],
         ]);
     }
@@ -127,19 +135,27 @@ class AgentController extends Controller
         return back()->with('success', $active ? 'Agente reactivado.' : 'Agente suspenso.');
     }
 
+    /**
+     * Who talks to the agent and at which level (realinhamento L8).
+     */
     public function updateAssignees(Request $request, Agent $agent): RedirectResponse
     {
-        Gate::authorize('manage', $agent);
+        Gate::authorize('manageAccess', $agent);
 
         $data = $request->validate([
-            'user_ids' => ['array'],
-            'user_ids.*' => ['integer', TenantRule::exists('users')],
+            'access' => ['present', 'array'],
+            'access.*.user_id' => ['required', 'integer', TenantRule::exists('users')],
+            'access.*.level' => ['required', Rule::in(AgentAccess::LEVELS)],
         ]);
 
-        $agent->assignees()->sync($data['user_ids'] ?? []);
+        $rows = [];
+        foreach ($data['access'] as $row) {
+            $rows[(int) $row['user_id']] = ['role' => $row['level']];
+        }
+        $agent->assignees()->sync($rows);
 
-        AuditLog::record($this->user($request), 'agent.assignees_updated', ['user_ids' => $data['user_ids'] ?? []], subject: $agent);
+        AuditLog::record($this->user($request), 'agent.access_updated', ['access' => $data['access']], subject: $agent);
 
-        return back()->with('success', 'Afectações guardadas.');
+        return back()->with('success', 'Acessos guardados.');
     }
 }
