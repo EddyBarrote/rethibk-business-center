@@ -26,7 +26,7 @@ interface Props {
     can: { manage: boolean };
 }
 
-const head = 'h-9 px-4 text-xs font-medium tracking-wide text-muted-foreground uppercase';
+const head = 'h-9 px-4 text-xs font-medium text-muted-foreground';
 const TOP = 'top';
 
 /** Departments in tree order (each one followed by its subdepartments), with their depth. */

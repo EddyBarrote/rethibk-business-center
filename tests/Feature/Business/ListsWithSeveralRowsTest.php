@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Briefing;
@@ -7,8 +8,10 @@ use App\Models\EmailMessage;
 use App\Models\EmailThread;
 use App\Models\GeneratedDocument;
 use App\Models\Report;
+use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia;
 
 // Lazy loading only throws when a model came out of a query with more than one
 // row, so a screen tested with a single row can still break on real data. These
@@ -61,4 +64,27 @@ it('opens a notification at its screen, or on the list when that screen no longe
 
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, "notifications/{$old}"))->assertRedirect('/notifications');
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, "notifications/{$current}"))->assertRedirect('/approvals');
+});
+
+it('keeps chat turns out of the work list and groups them under their conversation', function () {
+    $owner = asTenant($this->tenant, fn () => $this->owner);
+    [$chat, $task] = asTenant($this->tenant, function () use ($owner) {
+        $agent = Agent::query()->first();
+        $chat = Task::factory()->create(['kind' => 'chat', 'assignee_agent_id' => $agent->id, 'user_id' => $owner->id, 'title' => 'Hello']);
+        $task = Task::factory()->create(['kind' => 'task', 'assignee_agent_id' => $agent->id]);
+        AgentRun::factory()->count(3)->create(['agent_id' => $agent->id, 'task_id' => $chat->id]);
+        AgentRun::factory()->create(['agent_id' => $agent->id, 'task_id' => $task->id]);
+
+        return [$chat, $task];
+    });
+    $work = asTenant($this->tenant, fn () => AgentRun::query()->count()) - 3;
+
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'runs'))->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('runs.total', $work)->where('conversations', null));
+
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'runs?origin=conversa'))->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page->has('conversations.data', 1)->where('conversations.data.0.turns', 3)->where('conversations.data.0.task_id', $chat->id));
+
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'runs?origin=tarefa'))->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('runs.total', 1));
 });

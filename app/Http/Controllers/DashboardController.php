@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Ai\Budget\BudgetGuard;
 use App\Enums\AgentStatus;
 use App\Enums\RunStatus;
+use App\Enums\TaskKind;
 use App\Http\Presenters\Present;
 use App\Insights\IssueDetector;
 use App\Models\Agent;
@@ -40,7 +41,10 @@ class DashboardController extends Controller
                 ->map(fn (AgentRun $run) => Present::run($run)),
             'metrics' => fn () => $this->metrics($budget),
             'activity' => fn () => $this->activity(),
-            'runs' => AgentRun::query()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(8)->get()
+            // Recent work only: a person's chat turns are conversations, not activity.
+            'runs' => AgentRun::query()->with(['agent:id,name', 'requestedBy:id,name'])
+                ->whereDoesntHave('task', fn ($task) => $task->where('kind', TaskKind::Chat))
+                ->latest('id')->limit(8)->get()
                 ->map(fn (AgentRun $run) => Present::run($run)),
         ]);
     }

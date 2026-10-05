@@ -168,6 +168,8 @@ export const fieldLabel = (key: string) => fieldNames[key] ?? key.charAt(0).toUp
  */
 export const plainText = (markdown: string | null | undefined) =>
     (markdown ?? '')
+        // A table does not survive as one line: the preview says there is one instead of running its cells together.
+        .replace(/(^[ \t]*\|.*\|[ \t]*(\r?\n|$))+/gm, ' (ver tabela) ')
         .replace(/```[\s\S]*?```/g, ' ')
         .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
         .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')

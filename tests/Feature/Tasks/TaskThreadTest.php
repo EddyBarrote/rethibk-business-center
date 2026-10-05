@@ -243,8 +243,11 @@ it('keeps one persistent conversation per person and agent', function () {
 
     $this->actingAs($this->boss)->get(tenantUrl($this->a, "agents/{$this->chief->id}/chat"))->assertRedirect(tenantUrl($this->a, "tasks/{$chat->id}"));
 
-    // Another person gets their own conversation with the same agent.
-    $this->actingAs($this->owner)->get(tenantUrl($this->a, "agents/{$this->chief->id}/chat"))->assertRedirect();
+    // Opening a conversation creates nothing until the first message; then another person gets their own.
+    $this->actingAs($this->owner)->get(tenantUrl($this->a, "agents/{$this->chief->id}/chat"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Agents/Chat'));
+    expect(asTenant($this->a, fn () => Task::query()->count()))->toBe(1);
+    $this->actingAs($this->owner)->post(tenantUrl($this->a, "agents/{$this->chief->id}/chat"), ['message' => 'Bom dia'])->assertRedirect();
     expect(asTenant($this->a, fn () => Task::query()->count()))->toBe(2);
 
     // An agent asking that person writes in the same conversation.

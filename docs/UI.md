@@ -98,8 +98,18 @@ Terceira passagem:
     invisível em `position: absolute` que, de outro modo, estica a página.
 20. **Artigos:** `<MarkdownEditor>` com barra de formatação e "Como fica" ao lado (empilhado abaixo de 1280 px).
 21. **Estados vazios** podem mostrar um `example` esbatido do que vai aparecer (Objectivos, Projectos).
-22. **Organigrama:** cartões de 13 rem, ramos que se recolhem, grupos de mais de três folhas em duas colunas, e
-    "Ajustar ao ecrã" (por omissão) / "Tamanho real".
+22. **Organigrama:** cartões de 13 rem, ramos que se recolhem, grupos de mais de três folhas em duas colunas, em
+    tamanho real por omissão; "Ajustar ao ecrã" nunca baixa os nomes de 12 px.
+
+Polimento final:
+
+23. **Cabeçalhos de tabela** sempre em minúsculas normais (`text-xs font-medium text-muted-foreground`), como o `ListHeader`.
+24. **Texto âmbar** sobre fundo claro usa `text-warning-strong` (5,3:1); o âmbar puro fica para ícones e pontos.
+25. **Tabelas de markdown** viram cartões no telemóvel, como as outras (o `<Markdown>` etiqueta cada célula); o código
+    em linha só parte depois de `. @ / _ -`.
+26. **Selecção em lote:** a barra "Aprovar n" fica presa no topo ao descer; no telemóvel aparece também em baixo,
+    ao alcance do polegar, enquanto houver linhas seleccionadas.
+27. **Pré-visualizações** dizem "(ver tabela)" em vez de juntar as células numa linha.
 
 ## Imagens geradas
 

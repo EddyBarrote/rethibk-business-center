@@ -250,3 +250,20 @@ A segunda avaliação deu 7/10. O que ficou mexe sobretudo no texto que as pesso
   As conversas e execuções de teste do Barrote ficam como estão. As contas de entrada da semente (`@micomoc.test`)
   ficam: são as credenciais de desenvolvimento e nunca existem numa organização real.
 
+## Polimento final da revisão visual (05.10.2026)
+
+A terceira avaliação deu 8/10. Esta passagem fecha o que restava e quatro regressões:
+
+- **Abrir uma conversa não cria nada.** `GET /agents/{agent}/chat` leva à conversa se já existir; senão mostra uma
+  conversa em branco (`Agents/Chat`), e só a primeira mensagem (`POST /agents/{agent}/chat`) a cria. As conversas
+  sem mensagens saem das listas de Tarefas e Conversas; as que já existiam na base local ficam onde estão. Uma
+  conversa chama-se sempre "Conversa com {agente}", seja qual for a primeira mensagem.
+- **Execuções separam trabalho de conversa.** Por omissão a lista é o trabalho dos agentes; o filtro de origem tem
+  Rotinas, Tarefas, Email e Conversas, e em Conversas as mensagens aparecem agrupadas por conversa (número de mensagens,
+  custo, última resposta). A actividade recente do Painel também deixa as conversas de fora.
+- **Cada execução com nome** (`Present::run()` → `title`): rotina, tarefa ("MIC-11 · …", "Retomar MIC-5 · …" no
+  batimento), triagem do email «assunto», contrato a terminar, briefings e cobrança.
+- **Revalidação do Chief of Staff em português:** a tarefa chama-se "Revalidar «Registar oportunidade» de {agente}";
+  os argumentos da acção vão só para o pedido do agente.
+- **Organigrama** abre em tamanho real; "Ajustar ao ecrã" nunca deixa os nomes abaixo de 12 px.
+

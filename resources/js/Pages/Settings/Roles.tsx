@@ -63,7 +63,7 @@ export default function Roles({ roles, permissions }: Props) {
                 <Table className="table-stack">
                     <TableHeader>
                         <TableRow className="bg-muted/40 hover:bg-muted/40">
-                            <TableHead className="h-auto min-w-44 px-4 py-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                            <TableHead className="h-auto min-w-44 px-4 py-2 text-xs font-medium text-muted-foreground">
                                 Papel
                             </TableHead>
                             {permissions.map((permission) => (

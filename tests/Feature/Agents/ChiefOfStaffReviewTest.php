@@ -62,7 +62,9 @@ it('sends an action above an agent\'s level to the Chief of Staff first, who app
             ->and($review->source->is($approval))->toBeTrue()
             // People read the task; only the Chief of Staff's brief names the tool.
             ->and($review->description)->not->toContain('approvals.review')
-            ->and(AgentRun::query()->where('task_id', $review->id)->value('input'))->toContain("a aprovação #{$approval->id}. Revê-a com approvals.review");
+            ->and($review->title)->toBe('Revalidar «Guardar na base de conhecimento» de Agente de Finanças')
+            ->and(AgentRun::query()->where('task_id', $review->id)->value('input'))->toContain("a aprovação #{$approval->id}. Acção: ")
+            ->and(AgentRun::query()->where('task_id', $review->id)->value('input'))->toContain('Revê-a com approvals.review');
 
         $result = gated($this->chief, 'approvals.review', ['approval_id' => $approval->id, 'decision' => 'approve', 'note' => 'Faz sentido.'], $review);
 

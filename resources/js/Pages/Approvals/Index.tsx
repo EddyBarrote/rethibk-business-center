@@ -51,6 +51,17 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
     const bulkable = approvals.data.filter((approval) => approval.can_decide && approval.status === 'pending' && !approval.ceiling_reason);
     const [selected, setSelected] = useState<number[]>([]);
     const [approving, setApproving] = useState(false);
+    const approveSelected = () =>
+        router.post(
+            '/approvals/approve',
+            { ids: selected },
+            {
+                preserveScroll: true,
+                onStart: () => setApproving(true),
+                onFinish: () => setApproving(false),
+                onSuccess: () => setSelected([]),
+            },
+        );
 
     return (
         <AppLayout>
@@ -84,7 +95,8 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
             ) : (
                 <div className="flex flex-col gap-4">
                     {bulkable.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-2.5 text-sm">
+                        // Sticky under the top bar, so "Aprovar n" stays in reach while selecting down the list.
+                        <div className="sticky top-14 z-20 flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-2.5 text-sm shadow-xs">
                             <Checkbox
                                 checked={selected.length === 0 ? false : selected.length === bulkable.length ? true : 'indeterminate'}
                                 onCheckedChange={(on) => setSelected(on === true ? bulkable.map((approval) => approval.id) : [])}
@@ -96,25 +108,22 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
                                     : plural(selected.length, 'seleccionada', 'seleccionadas')}
                             </span>
                             <span className="hidden text-xs text-muted-foreground md:inline">· as do tecto absoluto decidem-se uma a uma</span>
-                            <Button
-                                size="sm"
-                                className="ml-auto"
-                                disabled={selected.length === 0 || approving}
-                                onClick={() =>
-                                    router.post(
-                                        '/approvals/approve',
-                                        { ids: selected },
-                                        {
-                                            preserveScroll: true,
-                                            onStart: () => setApproving(true),
-                                            onFinish: () => setApproving(false),
-                                            onSuccess: () => setSelected([]),
-                                        },
-                                    )
-                                }
-                            >
+                            <Button size="sm" className="ml-auto" disabled={selected.length === 0 || approving} onClick={approveSelected}>
                                 {approving ? <Loader2 className="animate-spin" /> : <CheckCheck />}
                                 Aprovar {selected.length > 0 ? selected.length : ''}
+                            </Button>
+                        </div>
+                    )}
+                    {/* On a phone the decision sits at the thumb while rows are selected. */}
+                    {selected.length > 0 && (
+                        <div className="fixed inset-x-3 bottom-3 z-30 flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm shadow-lg sm:hidden">
+                            <span className="min-w-0 flex-1 truncate">{plural(selected.length, 'seleccionada', 'seleccionadas')}</span>
+                            <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
+                                Limpar
+                            </Button>
+                            <Button size="sm" disabled={approving} onClick={approveSelected}>
+                                {approving ? <Loader2 className="animate-spin" /> : <CheckCheck />}
+                                Aprovar {selected.length}
                             </Button>
                         </div>
                     )}
