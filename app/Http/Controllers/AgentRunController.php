@@ -29,6 +29,8 @@ class AgentRunController extends Controller
         return Inertia::render('Runs/Index', [
             'runs' => $runs->through(fn (AgentRun $run) => Present::run($run)),
             'filters' => ['status' => $request->query('status')],
+            // Requests written for agents name tools by key; the list shows their names.
+            'tool_names' => Capability::query()->pluck('name', 'key'),
         ]);
     }
 

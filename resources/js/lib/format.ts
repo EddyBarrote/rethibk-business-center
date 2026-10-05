@@ -191,8 +191,12 @@ export const plainText = (markdown: string | null | undefined) =>
 /** The prompt of a run without the leading "[Proprietário] [Nota da plataforma]" tags. */
 export const withoutTags = (input: string) => input.trim().replace(/^(\[[^\]]{1,60}\]\s*)+/, '');
 
-export const runTitle = (input: string) => {
-    let rest = input.trim();
+/** Capability keys an agent's brief mentions ("erp.invoices.list_receivables") read as their names. */
+export const withToolNames = (text: string, names: Record<string, string> | undefined) =>
+    names ? text.replace(/\b[a-z]+(?:\.[a-z_]+)+\b/g, (key) => names[key] ?? names[`erp.${key}`] ?? key) : text;
+
+export const runTitle = (input: string, names?: Record<string, string>) => {
+    let rest = withToolNames(input.trim(), names);
     const tags: string[] = [];
     let match: RegExpMatchArray | null;
 

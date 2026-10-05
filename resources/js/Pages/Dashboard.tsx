@@ -11,6 +11,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge, StatusDot } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
+import { useToolNames } from '@/hooks/useToolNames';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, plainText, runTitle, usd } from '@/lib/format';
 import { pathLabel } from '@/lib/paths';
@@ -59,6 +60,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 }
 
 export default function Dashboard({ approvals, agents, runs, live, metrics, activity, briefing, issues }: Props) {
+    const toolNames = useToolNames();
     const { auth, tenant, sidebar_agents } = usePage<SharedProps>().props;
     const firstName = auth.user?.name.split(' ')[0];
     const hour = new Date().getHours();
@@ -103,7 +105,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{run.agent.name}</span>
                                 </div>
                                 <RunStatusBadge status={run.status} label={run.status_label} />
-                                <p className="line-clamp-2 text-sm text-muted-foreground">{run.title ?? runTitle(run.input)}</p>
+                                <p className="line-clamp-2 text-sm text-muted-foreground">{run.title ?? runTitle(run.input, toolNames)}</p>
                                 <p className="font-mono text-[11px] text-muted-foreground">
                                     #{run.id} · {ago(run.created_at)}
                                 </p>
@@ -230,7 +232,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                     {issues.slice(0, 8).map((issue, index) => (
                                         <EntityRow
                                             key={index}
-                                            href={issue.link ?? undefined}
+                                            href={issue.link && pathLabel(issue.link)?.live ? issue.link : undefined}
                                             leading={
                                                 <AlertTriangle
                                                     className={issue.severity === 'alta' ? 'size-4 text-status-danger' : 'size-4 text-status-warning'}
@@ -335,7 +337,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                     key={run.id}
                                     href={`/runs/${run.id}`}
                                     leading={<AgentAvatar name={run.agent.name} />}
-                                    title={run.title ?? runTitle(run.input)}
+                                    title={run.title ?? runTitle(run.input, toolNames)}
                                     subtitle={run.agent.name}
                                     meta={<span title={dateTime(run.created_at)}>{ago(run.created_at)}</span>}
                                     trailing={<RunStatusBadge status={run.status} label={run.status_label} />}

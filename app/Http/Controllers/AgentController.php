@@ -64,6 +64,7 @@ class AgentController extends Controller
         $user = $this->user($request);
 
         return Inertia::render('Agents/Show', [
+            'tool_names' => Capability::query()->pluck('name', 'key'),
             'agent' => [
                 ...Present::agent($agent),
                 'personality' => $agent->personality,

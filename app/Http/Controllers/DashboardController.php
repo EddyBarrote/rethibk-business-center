@@ -11,6 +11,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Briefing;
+use App\Models\Capability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -23,6 +24,8 @@ class DashboardController extends Controller
         $user = $this->user($request);
 
         return Inertia::render('Dashboard', [
+            // Requests written for agents name tools by key; the screen shows their names.
+            'tool_names' => Capability::query()->pluck('name', 'key'),
             'approvals' => Approval::query()->visibleTo($user)->pending()->with(Present::APPROVAL_RELATIONS)->latest('id')->limit(5)->get()
                 ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
             'agents' => Agent::query()->where('status', '!=', AgentStatus::Draft)->with(['department:id,name', 'reportsTo:id,name'])->orderBy('name')->get()

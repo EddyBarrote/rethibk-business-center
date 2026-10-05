@@ -17,6 +17,7 @@ import { Input } from '@/Components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
+import { useToolNames } from '@/hooks/useToolNames';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, runTitle, usd } from '@/lib/format';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
@@ -403,6 +404,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
 }
 
 function RunList({ runs }: { runs: RunSummary[] }) {
+    const toolNames = useToolNames();
     if (runs.length === 0) {
         return (
             <EmptyState
@@ -420,7 +422,7 @@ function RunList({ runs }: { runs: RunSummary[] }) {
                     key={run.id}
                     href={`/runs/${run.id}`}
                     leading={<span className="w-12 font-mono text-xs text-muted-foreground tabular-nums">#{run.id}</span>}
-                    title={run.title ?? runTitle(run.input)}
+                    title={run.title ?? runTitle(run.input, toolNames)}
                     subtitle={run.trigger_label}
                     meta={
                         <>

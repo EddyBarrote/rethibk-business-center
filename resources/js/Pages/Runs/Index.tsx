@@ -8,6 +8,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
+import { useToolNames } from '@/hooks/useToolNames';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, duration, runTitle, usd } from '@/lib/format';
 import type { Paginated, RunSummary } from '@/types';
@@ -21,6 +22,7 @@ const statuses = [
 ];
 
 export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummary>; filters: { status: string | null } }) {
+    const toolNames = useToolNames();
     return (
         <AppLayout>
             <Head title="Execuções" />
@@ -76,7 +78,7 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                                         <AgentAvatar name={run.agent.name} />
                                     </div>
                                 }
-                                title={run.title ?? runTitle(run.input)}
+                                title={run.title ?? runTitle(run.input, toolNames)}
                                 subtitle={`${run.agent.name} · ${run.trigger_label}${run.requested_by ? ` · ${run.requested_by}` : ''}`}
                                 meta={
                                     <>

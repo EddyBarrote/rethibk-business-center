@@ -171,12 +171,9 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                                 <li key={tool.name} className="flex min-w-0 items-start justify-between gap-3 px-3 py-2">
                                     <div className="min-w-0 flex-1">
                                         <p className="flex min-w-0 items-baseline gap-2">
-                                            <span className="truncate text-sm">{tool.title ?? tool.name}</span>
-                                            {tool.title && (
-                                                <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:inline">
-                                                    {tool.name}
-                                                </span>
-                                            )}
+                                            <span className="truncate text-sm" title={tool.name}>
+                                                {tool.title ?? tool.name}
+                                            </span>
                                         </p>
                                         {tool.description && <p className="truncate text-xs text-muted-foreground">{tool.description}</p>}
                                     </div>
