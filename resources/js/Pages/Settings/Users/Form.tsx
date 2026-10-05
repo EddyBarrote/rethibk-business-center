@@ -224,7 +224,7 @@ export default function UserForm({ user, access_roles, permissions, departments 
                 </SettingsBlock>
 
                 <div className="flex items-center justify-between gap-2 border-t pt-5">
-                    <Button variant="outline" asChild>
+                    <Button variant="ghost" asChild>
                         <Link href="/settings/users">Cancelar</Link>
                     </Button>
                     <Button type="submit" disabled={form.processing}>

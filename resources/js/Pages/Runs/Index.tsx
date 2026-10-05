@@ -2,7 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Activity } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { EntityRow, ListPanel } from '@/Components/Blocks';
+import { EntityRow, ListHeader, ListPanel } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
@@ -19,7 +19,6 @@ const statuses = [
     ['completed', 'Concluídas'],
     ['failed', 'Falhadas'],
 ];
-
 
 export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummary>; filters: { status: string | null } }) {
     return (
@@ -50,6 +49,23 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
             ) : (
                 <div className="flex flex-col gap-4">
                     <ListPanel>
+                        <ListHeader
+                            leading={
+                                <div className="flex items-center gap-3">
+                                    <span className="w-10">#</span>
+                                    <span className="w-7" />
+                                </div>
+                            }
+                            title="Pedido"
+                            meta={
+                                <>
+                                    <span className="hidden w-16 text-right lg:block">Duração</span>
+                                    <span className="w-20 text-right">Custo</span>
+                                    <span className="w-20 text-right">Quando</span>
+                                </>
+                            }
+                            trailing={<span className="w-44 text-right">Estado</span>}
+                        />
                         {runs.data.map((run) => (
                             <EntityRow
                                 key={run.id}
@@ -64,9 +80,7 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                                 subtitle={`${run.agent.name} · ${run.trigger_label}${run.requested_by ? ` · ${run.requested_by}` : ''}`}
                                 meta={
                                     <>
-                                        <span className="hidden w-16 text-right font-mono tabular-nums lg:block">
-                                            {duration(run.duration_ms)}
-                                        </span>
+                                        <span className="hidden w-16 text-right font-mono tabular-nums lg:block">{duration(run.duration_ms)}</span>
                                         <span className="w-20 text-right font-mono tabular-nums">{usd(run.cost_usd)}</span>
                                         <span className="w-20 text-right" title={dateTime(run.created_at)}>
                                             {ago(run.created_at)}

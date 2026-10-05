@@ -8,6 +8,7 @@ import { Field } from '@/Components/Field';
 import { ExtensionTag } from '@/Components/FileIcon';
 import { Markdown } from '@/Components/Markdown';
 import { PageHeader } from '@/Components/PageHeader';
+import { PdfPreview } from '@/Components/PdfPreview';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -105,7 +106,7 @@ export default function DocumentShow({ document, formats, domains, folders }: Pr
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <div className="min-w-0">
                     {document.format === 'pdf' ? (
-                        <iframe title={document.title} src={`${download}?inline=1`} className="h-[78vh] w-full rounded-xl border bg-card" />
+                        <PdfPreview src={download} title={document.title} />
                     ) : (
                         <article className="rounded-xl border bg-card">
                             <div className="border-b px-5 py-2.5 text-xs text-muted-foreground">

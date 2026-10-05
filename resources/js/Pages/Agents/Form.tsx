@@ -144,7 +144,6 @@ export default function AgentFormPage({ agent, draft, can_draft = false, can_gen
 
     return (
         <AppLayout
-            wide
             breadcrumbs={[{ label: 'Agentes', href: '/agents' }, ...(agent ? [{ label: agent.name, href: `/agents/${agent.id}` }] : []), { label: agent ? 'Editar' : 'Novo agente' }]}
         >
             <Head title={title} />

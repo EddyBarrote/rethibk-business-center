@@ -94,7 +94,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
     };
 
     return (
-        <AppLayout wide>
+        <AppLayout>
             <Head title="Emails" />
             <PageHeader
                 title="Emails"
@@ -192,6 +192,13 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                 />
             ) : (
                 <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                    <div className="hidden items-center gap-3 bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground sm:flex">
+                        <span className="w-2" />
+                        <span className="w-40 lg:w-52">De</span>
+                        <span className="min-w-0 flex-1">Assunto</span>
+                        <span className="hidden w-36 text-right md:block">Categoria</span>
+                        <span className="w-16 text-right">Recebido</span>
+                    </div>
                     {messages.data.map((message) => {
                         const tone = priorityTone(message.priority);
                         const inbound = message.direction === 'inbound';
@@ -250,7 +257,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                                         )}
                                         {(message.attachments_count ?? 0) > 0 && <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />}
                                         {message.summary && (
-                                            <span className="hidden min-w-0 truncate text-sm text-muted-foreground xl:inline">
+                                            <span className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground xl:inline">
                                                 — {message.summary}
                                             </span>
                                         )}
@@ -266,7 +273,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                                     </div>
                                 </div>
 
-                                <div className="hidden shrink-0 items-center gap-2 md:flex">
+                                <div className="hidden w-36 shrink-0 items-center justify-end gap-2 md:flex">
                                     {inbound && <CategoryBadge category={message.category} label={message.category_label} />}
                                     {(!inbound || message.status === 'processing' || message.status === 'failed') && (
                                         <StatusBadge tone={emailTone(message.status)}>{message.status_label}</StatusBadge>

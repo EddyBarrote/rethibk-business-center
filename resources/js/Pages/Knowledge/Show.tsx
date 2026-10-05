@@ -5,6 +5,7 @@ import { Properties, Property } from '@/Components/Blocks';
 import { ExtensionTag } from '@/Components/FileIcon';
 import { Markdown } from '@/Components/Markdown';
 import { PageHeader } from '@/Components/PageHeader';
+import { PdfPreview } from '@/Components/PdfPreview';
 import { StatusBadge } from '@/Components/Status';
 import {
     AlertDialog,
@@ -125,9 +126,7 @@ export default function KnowledgeShow({ item, can }: Props) {
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <div className="min-w-0">
-                    {item.preview === 'pdf' && (
-                        <iframe title={item.title} src={`${fileUrl}?inline=1`} className="h-[78vh] w-full rounded-xl border bg-card" />
-                    )}
+                    {item.preview === 'pdf' && <PdfPreview src={fileUrl} title={item.title} />}
                     {item.preview === 'image' && (
                         <div className="rounded-xl border bg-card p-3">
                             <img src={`${fileUrl}?inline=1`} alt={item.title} className="mx-auto max-h-[78vh] rounded-lg" />

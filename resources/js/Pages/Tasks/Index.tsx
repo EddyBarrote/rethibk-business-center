@@ -262,7 +262,7 @@ export default function TasksIndex({ tasks, filters, counts, agents, people, goa
     const projectFilter = filters.project ? projects.find((project) => project.id === filters.project) : null;
 
     return (
-        <AppLayout wide>
+        <AppLayout>
             <Head title="Tarefas" />
 
             <PageHeader

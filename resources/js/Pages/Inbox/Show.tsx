@@ -176,7 +176,7 @@ export default function InboxShow({ message, conversation, tasks, followUps, cat
     const priority = current?.priority ? priorities[current.priority] : null;
 
     return (
-        <AppLayout wide breadcrumbs={[{ label: 'Emails', href: '/inbox' }, { label: message.subject }]}>
+        <AppLayout breadcrumbs={[{ label: 'Emails', href: '/inbox' }, { label: message.subject }]}>
             <Head title={message.subject} />
 
             <PageHeader

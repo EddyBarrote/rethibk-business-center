@@ -1,7 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { FileText, Files } from 'lucide-react';
 
-import { EntityRow, ListPanel } from '@/Components/Blocks';
+import { EntityRow, ListHeader, ListPanel } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
@@ -57,6 +57,17 @@ export default function ReportsIndex({ reports, types, filter }: { reports: Pagi
                 <EmptyState icon={Files} title="Sem documentos" description="Os agentes guardam aqui o que preparam para alguém rever." />
             ) : (
                 <ListPanel>
+                    <ListHeader
+                        leading={<span className="w-4" />}
+                        title="Documento"
+                        meta={
+                            <>
+                                <span className="w-28 text-right">Tipo</span>
+                                <span className="w-16 text-right">Criado</span>
+                            </>
+                        }
+                        trailing={<span className="w-24 text-right">Estado</span>}
+                    />
                     {reports.data.map((r) => (
                         <EntityRow
                             key={r.id}
@@ -66,13 +77,19 @@ export default function ReportsIndex({ reports, types, filter }: { reports: Pagi
                             subtitle={[r.agent, r.period, r.subject_ref].filter(Boolean).join(' · ')}
                             meta={
                                 <>
-                                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-muted-foreground">{r.type_label}</span>
+                                    <span className="flex w-28 justify-end">
+                                        <span className="truncate rounded-md bg-muted px-1.5 py-0.5 text-muted-foreground">{r.type_label}</span>
+                                    </span>
                                     <span className="w-16 text-right tabular-nums" title={dateTime(r.created_at)}>
                                         {ago(r.created_at)}
                                     </span>
                                 </>
                             }
-                            trailing={<ReportStatusBadge status={r.status} />}
+                            trailing={
+                                <span className="flex justify-end sm:w-24">
+                                    <ReportStatusBadge status={r.status} />
+                                </span>
+                            }
                         />
                     ))}
                 </ListPanel>

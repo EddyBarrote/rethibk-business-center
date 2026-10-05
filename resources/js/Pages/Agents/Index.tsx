@@ -3,7 +3,7 @@ import { Bot, CheckSquare, Plus } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { EntityRow, ListPanel, Section } from '@/Components/Blocks';
+import { EntityRow, ListHeader, ListPanel, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
@@ -58,23 +58,44 @@ export default function AgentsIndex({ agents, can }: { agents: Row[]; can: { cre
                     }
                 >
                     <ListPanel>
+                        <ListHeader
+                            leading={<span className="w-8" />}
+                            title="Agente"
+                            meta={
+                                <>
+                                    <span className="hidden w-36 lg:block">Responde a</span>
+                                    <span className="w-20 text-right">Actividade</span>
+                                    <span className="w-20 text-right">IA no mês</span>
+                                </>
+                            }
+                            trailing={
+                                <>
+                                    <span className="w-24">Autonomia</span>
+                                    <span className="w-28 text-right">Estado</span>
+                                </>
+                            }
+                        />
                         {agents.map((agent) => (
                             <EntityRow
                                 key={agent.id}
                                 href={`/agents/${agent.id}`}
                                 leading={<AgentAvatar name={agent.name} url={agent.avatar_url} className="size-8" />}
-                                title={agent.name}
-                                subtitle={[agent.title, agent.department].filter(Boolean).join(' · ') || agent.description}
-                                meta={
-                                    <>
+                                title={
+                                    <span className="flex min-w-0 items-center gap-2">
+                                        <span className="truncate">{agent.name}</span>
                                         {agent.pending_approvals > 0 && (
-                                            <StatusBadge tone="warning" dot={false}>
+                                            <StatusBadge tone="warning" dot={false} title="Aprovações pendentes">
                                                 <CheckSquare className="size-3" />
                                                 <span className="tabular-nums">{agent.pending_approvals}</span>
                                             </StatusBadge>
                                         )}
+                                    </span>
+                                }
+                                subtitle={[agent.title, agent.department].filter(Boolean).join(' · ') || agent.description}
+                                meta={
+                                    <>
                                         <span className="hidden w-36 truncate lg:block" title={agent.reports_to ?? undefined}>
-                                            {agent.reports_to ? `Responde a ${agent.reports_to}` : '—'}
+                                            {agent.reports_to ?? '—'}
                                         </span>
                                         <span
                                             className="w-20 text-right"
@@ -89,7 +110,7 @@ export default function AgentsIndex({ agents, can }: { agents: Row[]; can: { cre
                                 }
                                 trailing={
                                     <>
-                                        <span className="hidden sm:inline-flex">
+                                        <span className="hidden w-24 sm:inline-flex">
                                             <AutonomyBadge level={agent.autonomy_level} />
                                         </span>
                                         <span className="flex justify-end sm:w-28">

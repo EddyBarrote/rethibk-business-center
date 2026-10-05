@@ -74,7 +74,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
     const budget = metrics.month_budget_usd;
 
     return (
-        <AppLayout wide>
+        <AppLayout>
             <Head title="Painel" />
 
             <PageHeader title={`${greeting}, ${firstName}`} description="O que está a acontecer, o que precisa de si e o estado dos agentes." />

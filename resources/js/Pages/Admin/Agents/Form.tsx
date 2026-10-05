@@ -72,7 +72,6 @@ export default function AgentForm({ tenant, agent, routines = [], mailbox, ...op
                 { label: tenant.name, href: `/tenants/${tenant.id}` },
                 { label: agent ? agent.name : 'Novo agente' },
             ]}
-            wide
         >
             <PageHeader
                 title={

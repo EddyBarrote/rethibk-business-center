@@ -1,5 +1,19 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { BookOpen, Building2, ChevronLeft, ChevronsUpDown, Globe, LayoutDashboard, LogOut, type LucideIcon, Monitor, Moon, Puzzle, ShieldCheck, Sun } from 'lucide-react';
+import {
+    BookOpen,
+    Building2,
+    ChevronLeft,
+    ChevronsUpDown,
+    Globe,
+    LayoutDashboard,
+    LogOut,
+    type LucideIcon,
+    Monitor,
+    Moon,
+    Puzzle,
+    ShieldCheck,
+    Sun,
+} from 'lucide-react';
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -158,17 +172,7 @@ function UserMenu() {
     );
 }
 
-export default function AdminLayout({
-    title,
-    children,
-    breadcrumbs,
-    wide = false,
-}: {
-    title: string;
-    children: ReactNode;
-    breadcrumbs?: Crumb[];
-    wide?: boolean;
-}) {
+export default function AdminLayout({ title, children, breadcrumbs }: { title: string; children: ReactNode; breadcrumbs?: Crumb[] }) {
     const page = usePage<SharedProps>();
     const { flash } = page.props;
     const url = page.url.split('?')[0];
@@ -235,7 +239,10 @@ export default function AdminLayout({
                             const parent = [...trail.slice(0, -1)].reverse().find((crumb) => crumb.href);
 
                             return parent ? (
-                                <Link href={parent.href!} className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:hidden">
+                                <Link
+                                    href={parent.href!}
+                                    className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:hidden"
+                                >
                                     <ChevronLeft className="size-4 shrink-0" />
                                     <span className="truncate">{parent.label}</span>
                                 </Link>
@@ -271,9 +278,8 @@ export default function AdminLayout({
                         </span>
                     </header>
 
-                    <main className={cn('mx-auto flex w-full flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8', wide ? 'max-w-[90rem]' : 'max-w-6xl')}>
-                        {children}
-                    </main>
+                    {/* One width for every page, so content always starts at the same place. */}
+                    <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
                 </SidebarInset>
                 <Toaster position="bottom-right" />
             </SidebarProvider>

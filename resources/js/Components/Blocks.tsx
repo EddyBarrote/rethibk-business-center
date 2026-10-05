@@ -27,6 +27,22 @@ export function ListPanel({ children, className }: { children: ReactNode; classN
     return <div className={cn('divide-y overflow-hidden rounded-xl border bg-card', className)}>{children}</div>;
 }
 
+/**
+ * Column names on top of a ListPanel. The slots mirror EntityRow (leading,
+ * title, meta, trailing): give each label the same width class as the row's
+ * cell so they line up. Hidden on a phone, where rows show one column.
+ */
+export function ListHeader({ leading, title, meta, trailing }: { leading?: ReactNode; title: ReactNode; meta?: ReactNode; trailing?: ReactNode }) {
+    return (
+        <div className="hidden items-center gap-3 bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground sm:flex">
+            {leading && <div className="flex shrink-0 items-center">{leading}</div>}
+            <div className="min-w-0 flex-1">{title}</div>
+            {meta && <div className="flex shrink-0 items-center gap-3">{meta}</div>}
+            {trailing && <div className="flex shrink-0 items-center gap-2">{trailing}</div>}
+        </div>
+    );
+}
+
 /** One entity in a list: leading visual, title, secondary line, trailing meta. Clickable when given an href. */
 export function EntityRow({
     href,

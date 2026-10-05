@@ -316,7 +316,7 @@ function UserMenu() {
     );
 }
 
-export default function AppLayout({ children, breadcrumbs, wide = false }: { children: ReactNode; breadcrumbs?: Crumb[]; wide?: boolean }) {
+export default function AppLayout({ children, breadcrumbs }: { children: ReactNode; breadcrumbs?: Crumb[] }) {
     const page = usePage<SharedProps>();
     const { auth, tenant, flash } = page.props;
     const url = page.url.split('?')[0];
@@ -434,7 +434,8 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
                         </Breadcrumb>
                     </header>
 
-                    <main className={cn('mx-auto flex w-full flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8', wide ? 'max-w-[90rem]' : 'max-w-6xl')}>
+                    {/* One width for every page, so content always starts at the same place. */}
+                    <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
                         {children}
                     </main>
                 </SidebarInset>

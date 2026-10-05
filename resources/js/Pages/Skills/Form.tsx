@@ -6,7 +6,7 @@ import AppLayout from '@/Layouts/AppLayout';
 
 export default function SkillForm({ skill, files }: { skill: SkillData | null; files: SkillFileRow[] }) {
     return (
-        <AppLayout wide breadcrumbs={[{ label: 'Skills', href: '/skills' }, { label: skill ? skill.name : 'Nova skill' }]}>
+        <AppLayout breadcrumbs={[{ label: 'Skills', href: '/skills' }, { label: skill ? skill.name : 'Nova skill' }]}>
             <Head title={skill ? skill.name : 'Nova skill'} />
             <PageHeader
                 title={skill ? skill.name : 'Nova skill'}

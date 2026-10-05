@@ -45,7 +45,7 @@ export default function Roles({ roles, permissions }: Props) {
     const remove = (role: AccessRoleRow) => router.delete(`/settings/roles/${role.id}`, { preserveScroll: true });
 
     return (
-        <AppLayout wide>
+        <AppLayout>
             <Head title="Papéis e acessos" />
 
             <PageHeader
