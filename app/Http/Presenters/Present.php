@@ -88,6 +88,12 @@ final class Present
         ];
     }
 
+    /** Relations Present::task() reads; eager-load them with the tasks. */
+    public const TASK_RELATIONS = ['assigneeAgent:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'];
+
+    /** Relations Present::approval() reads. */
+    public const APPROVAL_RELATIONS = ['agent', 'assignedTo:id,name', 'decidedBy:id,name'];
+
     /**
      * A task or conversation as a row (Tarefas, A minha caixa).
      *

@@ -23,7 +23,7 @@ class HomeController extends Controller
     public function __invoke(Request $request): Response
     {
         $user = $this->user($request);
-        $with = ['assigneeAgent:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'tenant:id,slug'];
+        $with = Present::TASK_RELATIONS;
 
         $waiting = Task::query()->with($with)
             ->where('status', TaskStatus::WaitingHuman)
@@ -40,7 +40,7 @@ class HomeController extends Controller
             ->limit(20)
             ->get();
 
-        $approvals = Approval::query()->with(['agent', 'run:id,task_id'])->visibleTo($user)->pending()->latest('id')->limit(20)->get();
+        $approvals = Approval::query()->with([...Present::APPROVAL_RELATIONS, 'run:id,task_id'])->visibleTo($user)->pending()->latest('id')->limit(20)->get();
 
         $shown = $waiting->pluck('id')->merge($review->pluck('id'));
         $work = Task::query()->with($with)

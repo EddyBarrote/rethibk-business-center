@@ -52,7 +52,7 @@ class TaskController extends Controller
         $view = $filters['view'] ?? 'mine';
 
         $query = $this->visible(Task::query(), $user)
-            ->with(['assigneeAgent:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'])
+            ->with(Present::TASK_RELATIONS)
             ->withCount('messages')
             ->when($view === 'mine', fn (Builder $q) => $q->open()->needing($user))
             ->when($view === 'all', fn (Builder $q) => $q->open()->where('kind', TaskKind::Task))
@@ -181,7 +181,7 @@ class TaskController extends Controller
                 'run_id' => $m->agent_run_id,
                 'created_at' => $m->created_at->toIso8601String(),
             ]),
-            'children' => $task->children()->with(['assigneeAgent:id,name', 'tenant:id,slug'])->orderBy('id')->get()->map(fn (Task $child) => Present::task($child)),
+            'children' => $task->children()->with(Present::TASK_RELATIONS)->orderBy('id')->get()->map(fn (Task $child) => Present::task($child)),
             'runs' => $task->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(10)->get()->map(fn (AgentRun $run) => Present::run($run)),
             'working' => $active ? Present::run($active->load('agent:id,name')) : null,
             'approvals' => Approval::query()

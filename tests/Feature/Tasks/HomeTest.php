@@ -35,6 +35,10 @@ it('puts what needs me first, then my work, with my colleagues beside it', funct
         Task::factory()->create(['title' => 'De outra pessoa', 'user_id' => $this->rui->id]);
         $run = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $mine->id]);
         $approval = Approval::factory()->create(['agent_run_id' => $run->id, 'agent_id' => $this->agent->id]);
+        // Several rows of each kind, so a missing eager load fails here (strict mode).
+        Approval::factory()->create(['agent_run_id' => $run->id, 'agent_id' => $this->agent->id, 'created_at' => now()->subHour()]);
+        Task::factory()->create(['title' => 'Outra espera', 'status' => TaskStatus::WaitingHuman, 'user_id' => $this->ana->id, 'last_activity_at' => now()->subDay()]);
+        Task::factory()->create(['title' => 'Outra revisão', 'status' => TaskStatus::InReview, 'user_id' => $this->ana->id, 'last_activity_at' => now()->subDay()]);
 
         return [$waiting, $review, $mine, $approval];
     });
@@ -43,8 +47,7 @@ it('puts what needs me first, then my work, with my colleagues beside it', funct
         ->assertInertia(fn (Assert $page) => $page->component('Home')
             ->where('waiting.0.id', $waiting->id)
             ->where('review.0.id', $review->id)
-            ->where('approvals.0.id', $approval->id)
-            ->where('approvals.0.task_id', $mine->id)
+            ->where('approvals', fn ($rows) => collect($rows)->contains(fn ($row) => $row['id'] === $approval->id && $row['task_id'] === $mine->id))
             ->where('work', fn ($rows) => collect($rows)->pluck('id')->all() === [$mine->id])
             ->where('colleagues.people', fn ($rows) => collect($rows)->pluck('name')->all() === ['Rui'])
             ->where('colleagues.agents.0.name', 'Agente de Finanças'));
