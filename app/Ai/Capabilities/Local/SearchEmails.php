@@ -40,7 +40,7 @@ final class SearchEmails extends LocalCapability
 
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
-        $messages = EmailMessage::query()
+        $messages = EmailMessage::query()->readableBy($context->agent)
             ->when($arguments['query'] ?? null, fn (Builder $q, string $text) => $q->where(fn (Builder $w) => $w->where('subject', 'like', "%{$text}%")->orWhere('text_body', 'like', "%{$text}%")))
             ->when($arguments['from'] ?? null, fn (Builder $q, string $from) => $q->where('from_address', 'like', "%{$from}%"))
             ->when($arguments['category'] ?? null, fn (Builder $q, string $category) => $q->where('classification', $category))

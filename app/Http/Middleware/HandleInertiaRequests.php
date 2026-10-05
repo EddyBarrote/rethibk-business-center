@@ -58,6 +58,7 @@ class HandleInertiaRequests extends Middleware
                     'role_label' => $user->role->label(),
                     'can_manage_tenant' => $user->canManageTenant(),
                     'is_manager' => $user->isManager(),
+                    'permissions' => $user->permissions(),
                 ] : null,
                 'unread_notifications' => fn () => $user instanceof User && $tenant !== null ? $user->unreadNotifications()->count() : 0,
                 'waiting_tasks' => fn () => $user instanceof User && $tenant !== null ? Task::query()->where('user_id', $user->id)->where('status', TaskStatus::WaitingHuman)->count() : 0,

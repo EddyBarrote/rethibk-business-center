@@ -6,15 +6,18 @@ use App\Enums\EmailStatus;
 use App\Mail\AgentMessage;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
+use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
 /**
- * Sends from an agent's mailbox over its own SMTP settings and records the
- * message in the inbox, so the conversation shows what was sent. Used by
- * the SendEmail capability and by people sending a draft from the console.
+ * Sends from a mailbox over its own SMTP settings and records the message in
+ * the inbox, so the conversation shows what was sent. Used by the SendEmail
+ * capability (an agent's own mailbox) and by people sending a draft. A
+ * person's mailbox sends only for one of its owners: agents never send in a
+ * person's name (docs/DECISOES.md, "Caixas de email por pessoa").
  */
 final class MailboxMailer
 {
@@ -24,8 +27,12 @@ final class MailboxMailer
      *
      * @throws RuntimeException when the mailbox cannot send or SMTP fails
      */
-    public function send(Mailbox $mailbox, array $to, array $cc, string $subject, string $body, ?EmailMessage $original = null, ?int $runId = null, ?EmailMessage $draft = null): EmailMessage
+    public function send(Mailbox $mailbox, array $to, array $cc, string $subject, string $body, ?EmailMessage $original = null, ?int $runId = null, ?EmailMessage $draft = null, ?User $sender = null): EmailMessage
     {
+        if ($mailbox->isPersonal() && ($sender === null || ! $mailbox->isOwnedBy($sender))) {
+            throw new RuntimeException('só os donos desta caixa enviam a partir dela.');
+        }
+
         if (! $mailbox->canSend()) {
             throw new RuntimeException('a caixa de correio não está activa ou não tem SMTP configurado.');
         }

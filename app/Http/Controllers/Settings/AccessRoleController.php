@@ -23,7 +23,7 @@ class AccessRoleController extends Controller
 {
     public function index(Request $request, AccessRoles $roles): Response
     {
-        abort_unless($this->user($request)->canManageTenant(), 403);
+        abort_unless($this->user($request)->hasPermission(Permission::ManagePeople), 403);
         $roles->ensure();
 
         return Inertia::render('Settings/Roles', [
@@ -36,13 +36,14 @@ class AccessRoleController extends Controller
                 'users_count' => $role->users_count,
             ]),
             'permissions' => Permission::options(),
+            'ceo_keeps' => array_map(fn (Permission $p) => $p->value, Permission::ceoKeeps()),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canManageTenant(), 403);
+        abort_unless($user->hasPermission(Permission::ManagePeople), 403);
         $data = $this->validated($request);
 
         $role = AccessRole::query()->create([
@@ -59,12 +60,12 @@ class AccessRoleController extends Controller
     public function update(Request $request, AccessRole $role): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canManageTenant(), 403);
+        abort_unless($user->hasPermission(Permission::ManagePeople), 403);
         $data = $this->validated($request);
 
-        // The CEO role always administers the company, so nobody locks everyone out.
-        if ($role->key === 'ceo' && ! in_array(Permission::ManageCompany->value, $data['permissions'], true)) {
-            throw ValidationException::withMessages(['permissions' => 'O papel de CEO administra sempre a empresa.']);
+        // The CEO role always administers the company and its people, so nobody locks everyone out.
+        if ($role->key === 'ceo') {
+            $data['permissions'] = array_values(array_unique([...$data['permissions'], ...array_map(fn (Permission $p) => $p->value, Permission::ceoKeeps())]));
         }
 
         $role->fill([
@@ -85,7 +86,7 @@ class AccessRoleController extends Controller
     public function destroy(Request $request, AccessRole $role): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canManageTenant(), 403);
+        abort_unless($user->hasPermission(Permission::ManagePeople), 403);
 
         if ($role->is_system || $role->users()->exists()) {
             throw ValidationException::withMessages(['role' => 'Só se apagam papéis criados por si e sem pessoas.']);

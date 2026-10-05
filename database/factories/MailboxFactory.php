@@ -28,4 +28,9 @@ class MailboxFactory extends Factory
             'status' => MailboxStatus::Active,
         ];
     }
+
+    public function personal(): static
+    {
+        return $this->state(['kind' => 'person', 'agent_id' => null, 'display_name' => fake()->name()]);
+    }
 }

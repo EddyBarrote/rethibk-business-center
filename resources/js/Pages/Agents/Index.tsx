@@ -12,7 +12,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, usd } from '@/lib/format';
 import type { AgentSummary, SharedProps } from '@/types';
 
-type Row = AgentSummary & { pending_approvals: number; last_run_at: string | null; spent_usd: number };
+type Row = AgentSummary & { pending_approvals: number; last_run_at: string | null; spent_usd: number | null };
 
 export default function AgentsIndex({ agents, can }: { agents: Row[]; can: { create: boolean } }) {
     const { sidebar_agents } = usePage<SharedProps>().props;
@@ -104,7 +104,7 @@ export default function AgentsIndex({ agents, can }: { agents: Row[]; can: { cre
                                             {agent.last_run_at ? ago(agent.last_run_at) : 'nunca'}
                                         </span>
                                         <span className="w-20 text-right tabular-nums" title="Gasto de IA este mês">
-                                            {usd(agent.spent_usd)}
+                                            {agent.spent_usd === null ? '—' : usd(agent.spent_usd)}
                                         </span>
                                     </>
                                 }

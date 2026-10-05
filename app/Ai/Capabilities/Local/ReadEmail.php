@@ -41,14 +41,14 @@ final class ReadEmail extends LocalCapability
 
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
-        $message = EmailMessage::query()->with('attachments')->find((int) ($arguments['email_id'] ?? 0));
+        $message = EmailMessage::query()->readableBy($context->agent)->with('attachments')->find((int) ($arguments['email_id'] ?? 0));
 
         if ($message === null) {
             return CapabilityResult::error('email não encontrado.');
         }
 
         $messages = ($arguments['whole_thread'] ?? false) && $message->thread_id !== null
-            ? EmailMessage::query()->with('attachments')->where('thread_id', $message->thread_id)->orderBy('received_at')->orderBy('id')->get()
+            ? EmailMessage::query()->readableBy($context->agent)->with('attachments')->where('thread_id', $message->thread_id)->orderBy('received_at')->orderBy('id')->get()
             : collect([$message]);
 
         return CapabilityResult::text($messages->map(fn (EmailMessage $m) => self::render($m))->implode("\n\n"));

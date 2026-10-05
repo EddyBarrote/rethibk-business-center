@@ -97,7 +97,7 @@ final class ClassifyEmail extends LocalCapability
             'flags.*' => 'string|max:50',
         ])->validate();
 
-        $message = EmailMessage::query()->find($data['email_id']);
+        $message = EmailMessage::query()->readableBy($context->agent)->with('mailbox')->find($data['email_id']);
 
         if ($message === null) {
             return CapabilityResult::error('email não encontrado.');
@@ -122,20 +122,32 @@ final class ClassifyEmail extends LocalCapability
         ])->save();
 
         $category = EmailCategory::from($data['category']);
-        $recipient = $user ?? $department?->users()->where('is_active', true)->whereIn('role', ['owner', 'admin', 'manager'])->first();
-        $task = $this->handOff($message, $category, $data, $recipient, $deadline, $context);
+        $personal = $message->mailbox->isPersonal();
+
+        // A person's own email stays with them: no hand-off to other areas, and
+        // only what is urgent interrupts them (docs/DECISOES.md, "Caixas de email por pessoa").
+        if ($personal) {
+            $recipient = $message->mailbox->owners()->orderBy('mailbox_owners.id')->first();
+            $task = null;
+            $message->forceFill(['routed_to_user_id' => $recipient?->id, 'department_id' => null])->save();
+        } else {
+            $recipient = $user ?? $department?->users()->where('is_active', true)->whereIn('role', ['owner', 'admin', 'manager'])->first();
+            $task = $this->handOff($message, $category, $data, $recipient, $deadline, $context);
+        }
+
         $person = $task->user ?? $recipient;
+        $urgent = in_array($data['priority'], ['high', 'urgent'], true);
 
         $notified = null;
 
-        if ($person !== null && $category !== EmailCategory::Spam) {
+        if ($person !== null && $category !== EmailCategory::Spam && (! $personal || $urgent)) {
             $this->notifier->notify(
                 $person,
                 $task !== null ? "Nova tarefa {$task->identifier()}: {$task->title}" : "{$category->label()}: {$message->subject}",
                 $data['summary'].($deadline ? ' Prazo: '.$deadline->format('d/m/Y').'.' : ''),
                 $task !== null ? "/tasks/{$task->id}" : "/inbox/{$message->id}",
                 $context->agent->name,
-                in_array($data['priority'], ['high', 'urgent'], true) ? 'warning' : 'info',
+                $urgent ? 'warning' : 'info',
             );
             $notified = $person->name;
         }

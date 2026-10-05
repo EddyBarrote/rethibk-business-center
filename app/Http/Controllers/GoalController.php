@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\GoalStatus;
+use App\Enums\Permission;
 use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\AuditLog;
@@ -42,14 +43,14 @@ class GoalController extends Controller
             ]),
             'agents' => Agent::query()->orderBy('name')->get(['id', 'name']),
             'statuses' => collect(GoalStatus::cases())->map(fn (GoalStatus $s) => ['value' => $s->value, 'label' => $s->label()]),
-            'can_manage' => $user->isManager(),
+            'can_manage' => $user->hasPermission(Permission::ManageProjects),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->isManager(), 403);
+        abort_unless($user->hasPermission(Permission::ManageProjects), 403);
 
         $goal = Goal::query()->create([...$this->validated($request), 'owner_user_id' => $user->id]);
         AuditLog::record($user, 'goal.created', ['goal_id' => $goal->id], subject: $goal);
@@ -60,7 +61,7 @@ class GoalController extends Controller
     public function update(Request $request, Goal $goal): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->isManager(), 403);
+        abort_unless($user->hasPermission(Permission::ManageProjects), 403);
 
         $data = $this->validated($request, $goal);
         $goal->fill($data)->save();

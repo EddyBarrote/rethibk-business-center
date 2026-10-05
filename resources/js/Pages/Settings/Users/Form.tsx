@@ -28,7 +28,7 @@ interface Props {
     user?: EditableUser;
     roles: Option[];
     access_roles: { id: number; name: string; base: Role; permissions: string[] }[];
-    permissions: { value: string; label: string; description: string }[];
+    permissions: { value: string; label: string; description: string; group: string }[];
     departments: { id: number; name: string }[];
 }
 
@@ -167,34 +167,38 @@ export default function UserForm({ user, access_roles, permissions, departments 
                     title="Excepções"
                     description="Por omissão a pessoa tem o que o papel tem. Aqui pode dar-lhe ou tirar-lhe uma permissão só a ela."
                 >
-                    <div className="flex flex-col divide-y">
-                        {permissions.map((permission) => {
+                    <div className="flex flex-col">
+                        {permissions.map((permission, index) => {
+                            const groupStarts = index === 0 || permissions[index - 1].group !== permission.group;
                             const fromRole =
                                 access_roles.find((role) => String(role.id) === form.data.access_role_id)?.permissions.includes(permission.value) ??
                                 false;
                             const override = form.data.permission_overrides[permission.value];
                             return (
-                                <div key={permission.value} className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="text-sm font-medium">{permission.label}</div>
-                                        <div className="text-xs text-muted-foreground">{permission.description}</div>
+                                <div key={permission.value}>
+                                    {groupStarts && <p className="pt-4 pb-1 text-xs font-semibold text-muted-foreground">{permission.group}</p>}
+                                    <div className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-sm font-medium">{permission.label}</div>
+                                            <div className="text-xs text-muted-foreground">{permission.description}</div>
+                                        </div>
+                                        <NativeSelect
+                                            aria-label={permission.label}
+                                            className="sm:w-48"
+                                            value={override === undefined ? 'role' : override ? 'allow' : 'deny'}
+                                            onChange={(e) => {
+                                                const { [permission.value]: _, ...rest } = form.data.permission_overrides;
+                                                form.setData(
+                                                    'permission_overrides',
+                                                    e.target.value === 'role' ? rest : { ...rest, [permission.value]: e.target.value === 'allow' },
+                                                );
+                                            }}
+                                        >
+                                            <option value="role">Do papel ({fromRole ? 'sim' : 'não'})</option>
+                                            <option value="allow">Permitir</option>
+                                            <option value="deny">Negar</option>
+                                        </NativeSelect>
                                     </div>
-                                    <NativeSelect
-                                        aria-label={permission.label}
-                                        className="sm:w-48"
-                                        value={override === undefined ? 'role' : override ? 'allow' : 'deny'}
-                                        onChange={(e) => {
-                                            const { [permission.value]: _, ...rest } = form.data.permission_overrides;
-                                            form.setData(
-                                                'permission_overrides',
-                                                e.target.value === 'role' ? rest : { ...rest, [permission.value]: e.target.value === 'allow' },
-                                            );
-                                        }}
-                                    >
-                                        <option value="role">Do papel ({fromRole ? 'sim' : 'não'})</option>
-                                        <option value="allow">Permitir</option>
-                                        <option value="deny">Negar</option>
-                                    </NativeSelect>
                                 </div>
                             );
                         })}

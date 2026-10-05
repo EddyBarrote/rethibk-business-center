@@ -23,9 +23,19 @@ final class AccessRoles
         return match ($base) {
             Role::Owner => $all,
             Role::Admin => array_values(array_diff($all, [Permission::RequestConversationReports->value])),
-            Role::Manager => [Permission::ManageWork->value, Permission::GrantAgentAccess->value],
-            Role::Member => [],
+            Role::Manager => [...self::everyone(), Permission::ManageWork->value, Permission::ManageProjects->value, Permission::GrantAgentAccess->value],
+            Role::Member => self::everyone(),
         };
+    }
+
+    /**
+     * What every role starts with: their own mailboxes, writing knowledge and documents.
+     *
+     * @return list<string>
+     */
+    private static function everyone(): array
+    {
+        return [Permission::ConnectOwnMailboxes->value, Permission::WriteKnowledge->value, Permission::CreateDocuments->value];
     }
 
     /**
@@ -68,7 +78,7 @@ final class AccessRoles
     public static function baseFor(array $permissions): Role
     {
         return match (true) {
-            in_array(Permission::ManageCompany->value, $permissions, true) => Role::Admin,
+            in_array(Permission::ManageCompany->value, $permissions, true), in_array(Permission::ManagePeople->value, $permissions, true) => Role::Admin,
             in_array(Permission::ManageWork->value, $permissions, true) => Role::Manager,
             default => Role::Member,
         };

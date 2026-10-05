@@ -62,7 +62,7 @@ final class MonthSummary extends LocalCapability
                 'reconciled' => (clone $bank)->where('status', BankTransactionStatus::Reconciled)->count(),
                 'open' => (clone $bank)->whereIn('status', [BankTransactionStatus::Unmatched, BankTransactionStatus::Suggested])->count(),
             ],
-            'supplier_invoices_received' => EmailMessage::query()
+            'supplier_invoices_received' => EmailMessage::query()->triage()
                 ->where('classification', EmailCategory::SupplierInvoice->value)
                 ->whereBetween('received_at', [$start, $end->copy()->endOfDay()])
                 ->get(['id', 'subject', 'from_address', 'extracted'])

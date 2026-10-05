@@ -129,7 +129,7 @@ class User extends Authenticatable
      */
     public function isManager(): bool
     {
-        return $this->hasPermission(Permission::ManageWork) || $this->canManageTenant();
+        return $this->hasPermission(Permission::ManageWork);
     }
 
     protected function casts(): array

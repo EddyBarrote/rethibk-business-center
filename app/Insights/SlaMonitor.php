@@ -25,7 +25,7 @@ final class SlaMonitor
         $contractSla = $this->contractSlaByDomain();
         $rows = [];
 
-        $requests = EmailMessage::query()
+        $requests = EmailMessage::query()->triage()
             ->where('direction', 'inbound')
             ->where('classification', EmailCategory::ClientRequest->value)
             ->where('received_at', '>=', now()->subDays(30))
@@ -60,7 +60,7 @@ final class SlaMonitor
             return false;
         }
 
-        return EmailMessage::query()
+        return EmailMessage::query()->triage()
             ->where('thread_id', $email->thread_id)
             ->where('direction', 'outbound')
             ->where('status', EmailStatus::Sent)

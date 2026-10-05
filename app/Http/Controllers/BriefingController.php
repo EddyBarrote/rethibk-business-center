@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\BriefingType;
+use App\Enums\Permission;
 use App\Models\Briefing;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,7 +65,7 @@ class BriefingController extends Controller
      */
     private function visible(User $user): Builder
     {
-        return Briefing::query()->when(! $user->canManageTenant(), fn ($q) => $q->where('for_user_id', $user->id));
+        return Briefing::query()->when(! $user->hasPermission(Permission::ReadAllReports), fn ($q) => $q->where('for_user_id', $user->id));
     }
 
     /**

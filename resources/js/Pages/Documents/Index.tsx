@@ -8,6 +8,7 @@ import { Field } from '@/Components/Field';
 import { ExtensionTag, FileIcon } from '@/Components/FileIcon';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
+import { useCan } from '@/hooks/useCan';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
@@ -66,6 +67,7 @@ export function DocumentAuthor({ document }: { document: GeneratedDocument }) {
 
 export default function DocumentsIndex({ documents, filter, formats, templates }: Props) {
     const [creating, setCreating] = useState(false);
+    const can = useCan();
     const form = useForm({ title: '', subtitle: '', format: 'docx', template: 'documento', content: '' });
 
     const submit = (event: FormEvent) => {
@@ -94,10 +96,12 @@ export default function DocumentsIndex({ documents, filter, formats, templates }
                 title="Ficheiros"
                 description="Documentos Word, apresentações, folhas de cálculo e PDFs gerados pelos agentes ou por si, com a marca da organização."
                 actions={
-                    <Button onClick={() => setCreating(true)}>
-                        <FilePlus2 />
-                        Novo ficheiro
-                    </Button>
+                    can('documents.create') && (
+                        <Button onClick={() => setCreating(true)}>
+                            <FilePlus2 />
+                            Novo ficheiro
+                        </Button>
+                    )
                 }
             />
 
@@ -112,9 +116,11 @@ export default function DocumentsIndex({ documents, filter, formats, templates }
                     title="Ainda não há ficheiros"
                     description="Peça a um agente “prepara uma apresentação sobre…” ou crie um ficheiro a partir de texto em markdown."
                     action={
-                        <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
-                            Novo ficheiro
-                        </Button>
+                        can('documents.create') && (
+                            <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+                                Novo ficheiro
+                            </Button>
+                        )
                     }
                 />
             ) : (

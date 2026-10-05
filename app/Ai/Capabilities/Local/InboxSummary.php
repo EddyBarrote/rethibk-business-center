@@ -41,18 +41,18 @@ final class InboxSummary extends LocalCapability
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
         $since = now()->subHours((int) ($arguments['hours'] ?? 24));
-        $inbound = EmailMessage::query()->where('direction', 'inbound')->where('received_at', '>=', $since);
+        $inbound = EmailMessage::query()->triage()->where('direction', 'inbound')->where('received_at', '>=', $since);
 
         return CapabilityResult::data([
             'since' => $since->toIso8601String(),
             'received' => (clone $inbound)->count(),
             'by_category' => (clone $inbound)->selectRaw('classification, count(*) as total')->groupBy('classification')->pluck('total', 'classification'),
             'urgent_or_high' => (clone $inbound)->whereIn('priority', ['high', 'urgent'])->get(['id', 'subject', 'from_address', 'summary'])->toArray(),
-            'untriaged' => EmailMessage::query()->where('direction', 'inbound')->whereNull('classification')->count(),
+            'untriaged' => EmailMessage::query()->triage()->where('direction', 'inbound')->whereNull('classification')->count(),
             'leads_created' => (clone $inbound)->whereNotNull('erp_lead_id')->count(),
-            'drafts_waiting' => EmailMessage::query()->where('status', 'draft')->count(),
+            'drafts_waiting' => EmailMessage::query()->triage()->where('status', 'draft')->count(),
             'deadlines_next_7_days' => [
-                'emails' => EmailMessage::query()->whereBetween('deadline_at', [now(), now()->addDays(7)])->orderBy('deadline_at')->get(['id', 'subject', 'deadline_at'])->toArray(),
+                'emails' => EmailMessage::query()->triage()->whereBetween('deadline_at', [now(), now()->addDays(7)])->orderBy('deadline_at')->get(['id', 'subject', 'deadline_at'])->toArray(),
                 'tenders' => Tender::query()->whereBetween('deadline_at', [now(), now()->addDays(7)])->whereNotIn('status', [TenderStatus::Discarded, TenderStatus::Lost, TenderStatus::Submitted])->orderBy('deadline_at')->get(['id', 'title', 'entity', 'deadline_at', 'status'])->toArray(),
             ],
         ]);

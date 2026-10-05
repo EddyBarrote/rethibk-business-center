@@ -19,7 +19,7 @@ class TaskPolicy
 
     public function viewAll(User $actor): bool
     {
-        return $actor->canManageTenant();
+        return $actor->hasPermission(Permission::ReadAllWork);
     }
 
     public function view(User $actor, Task $task): bool
@@ -34,7 +34,7 @@ class TaskPolicy
             return $task->user_id === $actor->id || $actor->hasPermission(Permission::ReadAllConversations);
         }
 
-        if ($actor->canManageTenant() || in_array($actor->id, [$task->user_id, $task->created_by_user_id, $task->assignee_user_id], true)) {
+        if ($actor->hasPermission(Permission::ReadAllWork) || in_array($actor->id, [$task->user_id, $task->created_by_user_id, $task->assignee_user_id], true)) {
             return true;
         }
 

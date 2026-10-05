@@ -56,7 +56,7 @@ final class MatchCandidate extends LocalCapability
         $text = (string) ($data['text'] ?? '');
 
         if (isset($data['email_id'])) {
-            $email = EmailMessage::query()->with('attachments')->find($data['email_id']);
+            $email = EmailMessage::query()->readableBy($context->agent)->with('attachments')->find($data['email_id']);
 
             if ($email === null) {
                 return CapabilityResult::error('email não encontrado.');

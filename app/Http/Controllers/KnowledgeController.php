@@ -6,6 +6,7 @@ use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Knowledge\KnowledgeBase;
 use App\Documents\MarkdownBlocks;
 use App\Enums\KnowledgeType;
+use App\Enums\Permission;
 use App\Jobs\EmbedKnowledgeItem;
 use App\Models\Agent;
 use App\Models\AuditLog;
@@ -92,13 +93,14 @@ class KnowledgeController extends Controller
             'unfiled' => (clone $visible)->whereNull('knowledge_domain_id')->count(),
             'semantic' => KnowledgeBase::embeddingsConfigured(),
             'accept' => '.'.str_replace(',', ',.', self::UPLOAD_TYPES),
-            'can' => ['manage_domains' => $user->canManageTenant()],
+            'can' => ['manage_domains' => $user->hasPermission(Permission::ManageKnowledge)],
         ]);
     }
 
     public function create(Request $request): Response
     {
         $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::WriteKnowledge), 403);
         $this->access->ensureDefaults();
 
         return Inertia::render('Knowledge/Edit', [
@@ -173,6 +175,7 @@ class KnowledgeController extends Controller
     public function upload(Request $request): RedirectResponse
     {
         $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::WriteKnowledge), 403);
         $data = $request->validate([
             'files' => ['required', 'array', 'min:1', 'max:20'],
             'files.*' => ['file', 'max:25600', 'mimes:'.self::UPLOAD_TYPES],
@@ -286,6 +289,7 @@ class KnowledgeController extends Controller
      */
     private function validateArticle(Request $request, User $user, ?KnowledgeItem $item = null): array
     {
+        abort_unless($user->hasPermission(Permission::WriteKnowledge), 403);
         $data = $request->validate([
             'type' => ['required', Rule::enum(KnowledgeType::class)],
             'title' => ['required', 'string', 'max:255'],

@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\User;
 
@@ -9,17 +10,17 @@ class UserPolicy
 {
     public function viewAny(User $actor): bool
     {
-        return $actor->canManageTenant();
+        return $actor->hasPermission(Permission::ManagePeople);
     }
 
     public function create(User $actor): bool
     {
-        return $actor->canManageTenant();
+        return $actor->hasPermission(Permission::ManagePeople);
     }
 
     public function update(User $actor, User $user): bool
     {
-        if (! $actor->canManageTenant() || $actor->tenant_id !== $user->tenant_id) {
+        if (! $actor->hasPermission(Permission::ManagePeople) || $actor->tenant_id !== $user->tenant_id) {
             return false;
         }
 
@@ -32,6 +33,6 @@ class UserPolicy
      */
     public function assignRole(User $actor, Role $role): bool
     {
-        return $actor->canManageTenant() && ($role !== Role::Owner || $actor->role === Role::Owner);
+        return $actor->hasPermission(Permission::ManagePeople) && ($role !== Role::Owner || $actor->role === Role::Owner);
     }
 }

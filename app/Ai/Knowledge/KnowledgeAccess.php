@@ -2,6 +2,7 @@
 
 namespace App\Ai\Knowledge;
 
+use App\Enums\Permission;
 use App\Models\Agent;
 use App\Models\Department;
 use App\Models\KnowledgeDomain;
@@ -64,7 +65,7 @@ final class KnowledgeAccess
 
     public function canOpen(User|Agent $who, ?KnowledgeDomain $domain): bool
     {
-        if ($domain === null || ! $domain->isRestricted() || ($who instanceof User && $who->canManageTenant())) {
+        if ($domain === null || ! $domain->isRestricted() || ($who instanceof User && $who->hasPermission(Permission::ManageKnowledge))) {
             return true;
         }
 
@@ -100,7 +101,7 @@ final class KnowledgeAccess
 
         return match (true) {
             $who instanceof Agent => $query->where('status', KnowledgeItem::PUBLISHED),
-            $who->canManageTenant() => $query,
+            $who->hasPermission(Permission::ManageKnowledge) => $query,
             default => $query->where('status', '!=', KnowledgeItem::REJECTED),
         };
     }
@@ -116,7 +117,7 @@ final class KnowledgeAccess
      */
     public function canCurate(User $user, ?KnowledgeDomain $domain): bool
     {
-        if ($user->canManageTenant()) {
+        if ($user->hasPermission(Permission::ManageKnowledge)) {
             return true;
         }
 

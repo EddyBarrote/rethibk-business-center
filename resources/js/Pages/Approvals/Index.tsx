@@ -39,7 +39,7 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
     const reload = () => router.reload({ only: ['approvals', 'counts', 'auth'] });
 
     // Owners and admins hear the tenant channel; everyone hears their own.
-    useLive(tenant && auth.user?.can_manage_tenant ? `tenant.${tenant.id}.approvals` : null, ['ApprovalRequested', 'ApprovalDecided'], reload, {
+    useLive(tenant && auth.user?.permissions.includes('approvals.decide_all') ? `tenant.${tenant.id}.approvals` : null, ['ApprovalRequested', 'ApprovalDecided'], reload, {
         only: ['approvals', 'counts', 'auth'],
         poll: filters.status === 'pending',
         intervalMs: 10000,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\GoalStatus;
+use App\Enums\Permission;
 use App\Enums\ProjectStatus;
 use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
@@ -56,14 +57,14 @@ class ProjectController extends Controller
             'agents' => Agent::query()->orderBy('name')->get(['id', 'name']),
             'people' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'statuses' => collect(ProjectStatus::cases())->map(fn (ProjectStatus $s) => ['value' => $s->value, 'label' => $s->label()]),
-            'can_manage' => $user->isManager(),
+            'can_manage' => $user->hasPermission(Permission::ManageProjects),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->isManager(), 403);
+        abort_unless($user->hasPermission(Permission::ManageProjects), 403);
 
         $project = Project::query()->create($this->validated($request));
         AuditLog::record($user, 'project.created', ['project_id' => $project->id], subject: $project);
@@ -74,7 +75,7 @@ class ProjectController extends Controller
     public function update(Request $request, Project $project): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->isManager(), 403);
+        abort_unless($user->hasPermission(Permission::ManageProjects), 403);
 
         $project->fill($this->validated($request))->save();
         AuditLog::record($user, 'project.updated', ['project_id' => $project->id, 'status' => $project->status->value], subject: $project);

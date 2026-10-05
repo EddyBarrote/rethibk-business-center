@@ -56,13 +56,16 @@ final class DraftEmailReply extends LocalCapability
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
         $data = Validator::make($arguments, ['email_id' => 'required|integer', 'body' => 'required|string|max:50000', 'subject' => 'nullable|string|max:255'])->validate();
-        $original = EmailMessage::query()->with('mailbox')->find($data['email_id']);
+        $original = EmailMessage::query()->readableBy($context->agent)->with('mailbox')->find($data['email_id']);
 
         if ($original === null) {
             return CapabilityResult::error('email não encontrado.');
         }
 
-        $mailbox = Mailbox::query()->where('agent_id', $context->agent->id)->first() ?? $original->mailbox;
+        // A reply to a person's email is drafted in their mailbox, for them to send; the agent never does.
+        $mailbox = $original->mailbox->isPersonal()
+            ? $original->mailbox
+            : (Mailbox::query()->where('agent_id', $context->agent->id)->first() ?? $original->mailbox);
         $subject = $data['subject'] ?? (Str::startsWith(Str::lower((string) $original->subject), 're:') ? $original->subject : 'Re: '.$original->subject);
 
         $draft = EmailMessage::query()->create([

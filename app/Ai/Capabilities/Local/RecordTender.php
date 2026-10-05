@@ -71,7 +71,7 @@ final class RecordTender extends LocalCapability
             return CapabilityResult::error('concurso não encontrado.');
         }
 
-        $email = isset($data['email_id']) ? EmailMessage::query()->find($data['email_id']) : null;
+        $email = isset($data['email_id']) ? EmailMessage::query()->readableBy($context->agent)->find($data['email_id']) : null;
         $urlHash = filled($data['url'] ?? null) ? hash('sha256', (string) $data['url']) : null;
 
         $tender ??= ($urlHash !== null ? Tender::query()->where('url_hash', $urlHash)->first() : null) ?? new Tender([

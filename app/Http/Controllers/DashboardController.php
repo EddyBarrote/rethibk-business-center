@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Ai\Budget\BudgetGuard;
 use App\Enums\AgentStatus;
+use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Http\Presenters\Present;
 use App\Insights\IssueDetector;
@@ -38,8 +39,9 @@ class DashboardController extends Controller
                 ->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval])
                 ->latest('id')->limit(4)->get()
                 ->map(fn (AgentRun $run) => Present::run($run)),
-            'metrics' => fn () => $this->metrics($budget),
-            'activity' => fn () => $this->activity(),
+            'metrics' => fn () => $this->metrics($budget, $user->hasPermission(Permission::ViewCosts)),
+            'activity' => fn () => $this->activity($user->hasPermission(Permission::ViewCosts)),
+            'can_view_costs' => $user->hasPermission(Permission::ViewCosts),
             'runs' => AgentRun::query()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(8)->get()
                 ->map(fn (AgentRun $run) => Present::run($run)),
         ]);
@@ -50,7 +52,7 @@ class DashboardController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function metrics(BudgetGuard $budget): array
+    private function metrics(BudgetGuard $budget, bool $costs): array
     {
         $agents = Agent::query()->where('status', '!=', AgentStatus::Draft)->get(['id', 'status']);
         $byStatus = AgentRun::query()
@@ -65,8 +67,9 @@ class DashboardController extends Controller
             'runs_running' => (int) ($byStatus[RunStatus::Running->value] ?? 0) + (int) ($byStatus[RunStatus::Queued->value] ?? 0),
             'runs_waiting' => (int) ($byStatus[RunStatus::AwaitingApproval->value] ?? 0),
             'runs_failed_week' => AgentRun::query()->where('status', RunStatus::Failed)->where('created_at', '>=', now()->subDays(7))->count(),
-            'month_spend_usd' => round($budget->tenantSpent(), 4),
-            'month_budget_usd' => $budget->budget()->tenantMonthly,
+            // What AI costs is for those the matrix lets see it.
+            'month_spend_usd' => $costs ? round($budget->tenantSpent(), 4) : null,
+            'month_budget_usd' => $costs ? $budget->budget()->tenantMonthly : null,
         ];
     }
 
@@ -75,7 +78,7 @@ class DashboardController extends Controller
      *
      * @return list<array{date: string, completed: int, failed: int, waiting: int, other: int, cost_usd: float}>
      */
-    private function activity(): array
+    private function activity(bool $costs): array
     {
         $from = now()->subDays(13)->startOfDay();
         $runs = AgentRun::query()->where('created_at', '>=', $from)->get(['status', 'cost_usd', 'created_at']);
@@ -99,7 +102,7 @@ class DashboardController extends Controller
                 default => 'other',
             };
             $days[$key][$bucket]++;
-            $days[$key]['cost_usd'] += (float) $run->cost_usd;
+            $days[$key]['cost_usd'] += $costs ? (float) $run->cost_usd : 0.0;
         }
 
         return array_values($days);

@@ -48,7 +48,7 @@ class AgentPolicy
      */
     public function manageAccess(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && ($actor->canManageTenant()
+        return $this->view($actor, $agent) && ($actor->hasPermission(Permission::ManageAgents)
             || ($actor->hasPermission(Permission::GrantAgentAccess) && $actor->department_id !== null && $actor->department_id === $agent->department_id));
     }
 
@@ -58,7 +58,7 @@ class AgentPolicy
      */
     public function viewMemory(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && ($actor->canManageTenant() || $agent->reports_to_user_id === $actor->id);
+        return $this->view($actor, $agent) && ($actor->hasPermission(Permission::ManageAgentMemory) || $agent->reports_to_user_id === $actor->id);
     }
 
     private function level(User $actor, Agent $agent): ?string
@@ -72,7 +72,7 @@ class AgentPolicy
 
     public function create(User $actor): bool
     {
-        return $actor->canManageTenant();
+        return $actor->hasPermission(Permission::ManageAgents);
     }
 
     public function update(User $actor, Agent $agent): bool
@@ -82,6 +82,6 @@ class AgentPolicy
 
     public function manage(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && $actor->canManageTenant();
+        return $this->view($actor, $agent) && $actor->hasPermission(Permission::ManageAgents);
     }
 }

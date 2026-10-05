@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Concerns\BelongsToTenant;
 use App\Enums\EmailCategory;
 use App\Enums\EmailStatus;
+use App\Enums\Permission;
 use App\Support\TextExtractor;
 use Database\Factories\EmailMessageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -68,25 +69,50 @@ class EmailMessage extends Model
     use BelongsToTenant, HasFactory;
 
     /**
-     * The body as plain text, whichever part the sender used.
-     */
-    /**
-     * Owners and admins see every email; anyone else, the emails routed to
-     * them or to their department.
+     * What a person reads (docs/DECISOES.md, "Caixas de email por pessoa"):
+     * the mailboxes they own; the email of the agents' mailboxes (triage)
+     * if the matrix lets them; and a triage email routed to them. Nobody
+     * reads someone else's personal mailbox, not even administrators.
      *
      * @param  Builder<self>  $query
      */
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
-        if ($user->canManageTenant()) {
-            return;
-        }
+        $agentMailboxes = Mailbox::query()->where('kind', Mailbox::AGENT)->select('id');
 
-        $query->where(fn (Builder $q) => $q->where('routed_to_user_id', $user->id)
-            ->when($user->department_id !== null, fn (Builder $q) => $q->orWhere('department_id', $user->department_id)));
+        $query->where(fn (Builder $q) => $q
+            ->whereIn('mailbox_id', Mailbox::query()->ownedBy($user)->select('id'))
+            ->orWhere(fn (Builder $w) => $w->where('routed_to_user_id', $user->id)->whereIn('mailbox_id', $agentMailboxes))
+            ->when($user->hasPermission(Permission::ReadTriageEmails), fn (Builder $w) => $w->orWhereIn('mailbox_id', $agentMailboxes)));
     }
 
+    /**
+     * What an agent reads: the triage email, and the personal mailboxes whose
+     * owners let it read them.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function readableBy(Builder $query, Agent $agent): void
+    {
+        $query->whereIn('mailbox_id', Mailbox::query()->readableBy($agent)->select('id'));
+    }
+
+    /**
+     * Email of the agents' mailboxes, the company's triage; never a person's mailbox.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function triage(Builder $query): void
+    {
+        $query->whereIn('mailbox_id', Mailbox::query()->where('kind', Mailbox::AGENT)->select('id'));
+    }
+
+    /**
+     * The body as plain text, whichever part the sender used.
+     */
     public function plainText(): string
     {
         return trim($this->text_body ?: TextExtractor::htmlToText((string) $this->html_body));

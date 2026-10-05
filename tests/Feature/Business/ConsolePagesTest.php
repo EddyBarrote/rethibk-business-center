@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\Permission;
 use App\Models\Briefing;
 use App\Models\Contract;
-use App\Models\Department;
 use App\Models\EmailMessage;
+use App\Models\Mailbox;
+use App\Models\MailboxOwner;
 use App\Models\PurchaseRequest;
 use App\Models\Report;
 use App\Models\Tenant;
@@ -59,20 +61,26 @@ it('renders every console page for the owner', function (string $path, string $c
     ['settings/erp', 'Settings/Erp'],
 ]);
 
-it('shows members only the emails routed to them or their department', function () {
-    [$member, $mine, $theirs] = asTenant($this->tenant, function () {
-        $works = Department::factory()->create();
-        $member = User::factory()->create(['role' => 'member', 'department_id' => $works->id]);
+it('shows people their own mailboxes and the triage email routed to them, and triage email to whoever the matrix allows', function () {
+    [$member, $mine, $routed, $triage] = asTenant($this->tenant, function () {
+        $member = User::factory()->create(['role' => 'member']);
+        $own = MailboxOwner::factory()->create(['user_id' => $member->id])->mailbox;
+        $agentBox = Mailbox::factory()->create();
 
         return [
             $member,
-            EmailMessage::factory()->create(['department_id' => $works->id, 'subject' => 'Para as obras']),
-            EmailMessage::factory()->create(['subject' => 'Só para a direcção']),
+            EmailMessage::factory()->create(['mailbox_id' => $own->id, 'subject' => 'Da minha caixa']),
+            EmailMessage::factory()->create(['mailbox_id' => $agentBox->id, 'routed_to_user_id' => $member->id, 'subject' => 'Encaminhado para mim']),
+            EmailMessage::factory()->create(['mailbox_id' => $agentBox->id, 'subject' => 'Só para a triagem']),
         ];
     });
 
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, 'inbox'))->assertOk()
-        ->assertInertia(fn ($page) => $page->where('messages.data', fn ($rows) => collect($rows)->pluck('subject')->all() === ['Para as obras']));
+        ->assertInertia(fn ($page) => $page->where('messages.data', fn ($rows) => collect($rows)->pluck('subject')->sort()->values()->all() === ['Da minha caixa', 'Encaminhado para mim']));
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$mine->id}"))->assertOk();
-    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$theirs->id}"))->assertForbidden();
+    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$routed->id}"))->assertOk();
+    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$triage->id}"))->assertForbidden();
+
+    $member->forceFill(['permission_overrides' => [Permission::ReadTriageEmails->value => true]])->save();
+    $this->actingAs($member->fresh(), 'web')->get(tenantUrl($this->tenant, "inbox/{$triage->id}"))->assertOk();
 });

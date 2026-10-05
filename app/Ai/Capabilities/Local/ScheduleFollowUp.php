@@ -66,7 +66,7 @@ final class ScheduleFollowUp extends LocalCapability
         ])->validate();
 
         $user = filled($data['for'] ?? null) ? User::query()->where('email', mb_strtolower($data['for']))->first() : $context->agent->reportsTo;
-        $email = isset($data['email_id']) ? EmailMessage::query()->find($data['email_id']) : null;
+        $email = isset($data['email_id']) ? EmailMessage::query()->readableBy($context->agent)->find($data['email_id']) : null;
 
         $followUp = FollowUp::query()->create([
             'agent_id' => $context->agent->id,

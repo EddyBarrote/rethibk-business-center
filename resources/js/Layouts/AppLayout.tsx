@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     Activity,
+    AtSign,
     BookOpen,
     Puzzle,
     Bell,
@@ -85,7 +86,8 @@ interface NavItem {
     label: string;
     href: string;
     icon: LucideIcon;
-    tenantManagersOnly?: boolean;
+    /** Shown only to people with one of these permissions (the server checks them too). */
+    permissions?: string[];
     badge?: 'approvals' | 'notifications' | 'waiting';
 }
 
@@ -111,13 +113,14 @@ const workNav: NavItem[] = [
 
 const companyNav: NavItem[] = [
     { label: 'Organigrama', href: '/org', icon: Network },
-    { label: 'Capacidades', href: '/capabilities', icon: Puzzle, tenantManagersOnly: true },
-    { label: 'Skills', href: '/skills', icon: BookOpen, tenantManagersOnly: true },
-    { label: 'Utilizadores', href: '/settings/users', icon: Users, tenantManagersOnly: true },
-    { label: 'Papéis e acessos', href: '/settings/roles', icon: ShieldCheck, tenantManagersOnly: true },
+    { label: 'Caixas de email', href: '/mailboxes', icon: AtSign, permissions: ['emails.own_mailboxes', 'emails.manage_mailboxes'] },
+    { label: 'Capacidades', href: '/capabilities', icon: Puzzle, permissions: ['catalog.manage'] },
+    { label: 'Skills', href: '/skills', icon: BookOpen, permissions: ['catalog.manage'] },
+    { label: 'Utilizadores', href: '/settings/users', icon: Users, permissions: ['people.manage'] },
+    { label: 'Papéis e acessos', href: '/settings/roles', icon: ShieldCheck, permissions: ['people.manage'] },
     { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
-    { label: 'Marca', href: '/settings/brand', icon: Palette, tenantManagersOnly: true },
-    { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, tenantManagersOnly: true },
+    { label: 'Marca', href: '/settings/brand', icon: Palette, permissions: ['company.manage'] },
+    { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, permissions: ['company.manage'] },
 ];
 
 export interface Crumb {
@@ -350,6 +353,7 @@ export default function AppLayout({ children, breadcrumbs }: { children: ReactNo
 
         return url === href || url.startsWith(`${href}/`);
     };
+    const allowed = (item: NavItem) => !item.permissions || item.permissions.some((p) => user?.permissions.includes(p));
     const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks };
     const allNav = [...topNav, ...workNav, ...companyNav];
     const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
@@ -376,15 +380,10 @@ export default function AppLayout({ children, breadcrumbs }: { children: ReactNo
                     </SidebarHeader>
 
                     <SidebarContent className="gap-1 px-1">
-                        <NavGroup items={topNav} isActive={isActive} counts={counts} />
-                        <NavGroup label="Trabalho" items={workNav} isActive={isActive} counts={counts} />
+                        <NavGroup items={topNav.filter(allowed)} isActive={isActive} counts={counts} />
+                        <NavGroup label="Trabalho" items={workNav.filter(allowed)} isActive={isActive} counts={counts} />
                         <AgentsGroup url={url} />
-                        <NavGroup
-                            label="Empresa"
-                            items={companyNav.filter((item) => !item.tenantManagersOnly || user?.can_manage_tenant)}
-                            isActive={isActive}
-                            counts={counts}
-                        />
+                        <NavGroup label="Empresa" items={companyNav.filter(allowed)} isActive={isActive} counts={counts} />
                     </SidebarContent>
 
                     <SidebarFooter className="border-t border-sidebar-border/60 p-2">
@@ -402,7 +401,10 @@ export default function AppLayout({ children, breadcrumbs }: { children: ReactNo
                             const parent = [...trail.slice(0, -1)].reverse().find((crumb) => crumb.href);
 
                             return parent ? (
-                                <Link href={parent.href!} className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:hidden">
+                                <Link
+                                    href={parent.href!}
+                                    className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:hidden"
+                                >
                                     <ChevronLeft className="size-4 shrink-0" />
                                     <span className="truncate">{parent.label}</span>
                                 </Link>
@@ -435,9 +437,7 @@ export default function AppLayout({ children, breadcrumbs }: { children: ReactNo
                     </header>
 
                     {/* One width for every page, so content always starts at the same place. */}
-                    <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
-                        {children}
-                    </main>
+                    <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
                 </SidebarInset>
                 <Toaster position="bottom-right" />
             </SidebarProvider>

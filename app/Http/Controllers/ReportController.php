@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Ai\Capabilities\Local\DraftReport;
 use App\Documents\DocumentFormat;
+use App\Enums\Permission;
 use App\Models\AuditLog;
 use App\Models\Report;
 use App\Models\User;
@@ -71,7 +72,7 @@ class ReportController extends Controller
      */
     private function visible(User $user): Builder
     {
-        return Report::query()->when(! $user->canManageTenant(), fn ($q) => $q->whereHas('agent', fn ($a) => $a
+        return Report::query()->when(! $user->hasPermission(Permission::ReadAllReports), fn ($q) => $q->whereHas('agent', fn ($a) => $a
             ->where('reports_to_user_id', $user->id)
             ->when($user->isManager() && $user->department_id !== null, fn ($w) => $w->orWhere('department_id', $user->department_id))));
     }

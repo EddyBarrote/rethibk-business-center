@@ -38,7 +38,7 @@ final class SendEmail extends LocalCapability
 
     public function description(): string
     {
-        return 'Envia um email a partir da caixa do agente. Texto simples.';
+        return 'Envia um email a partir da caixa do próprio agente. Texto simples. Nunca envia da caixa de uma pessoa: aí deixa um rascunho.';
     }
 
     public function isMutating(): bool
@@ -66,7 +66,7 @@ final class SendEmail extends LocalCapability
             return CapabilityResult::error('o agente não tem uma caixa de correio activa com SMTP configurado.');
         }
 
-        $original = isset($arguments['reply_to_email_id']) ? EmailMessage::query()->find($arguments['reply_to_email_id']) : null;
+        $original = isset($arguments['reply_to_email_id']) ? EmailMessage::query()->readableBy($context->agent)->find($arguments['reply_to_email_id']) : null;
 
         try {
             $this->mailer->send($mailbox, $arguments['to'], $arguments['cc'] ?? [], $arguments['subject'], $arguments['body'], $original, $context->run->id);
@@ -119,7 +119,8 @@ final class SendEmail extends LocalCapability
 
     private function mailboxFor(CapabilityContext $context): ?Mailbox
     {
-        return Mailbox::query()->where('agent_id', $context->agent->id)->first();
+        // Only the agent's own mailbox: never a person's (docs/DECISOES.md, "Caixas de email por pessoa").
+        return Mailbox::query()->where('agent_id', $context->agent->id)->where('kind', Mailbox::AGENT)->first();
     }
 
     private function isInternal(string $address, CapabilityContext $context): bool

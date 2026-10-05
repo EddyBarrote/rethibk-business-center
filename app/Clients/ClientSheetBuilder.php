@@ -37,7 +37,7 @@ final class ClientSheetBuilder
         $contacts = (array) ($data['contacts'] ?? []);
         $domains = $this->domains($info, $contacts);
 
-        $emails = EmailMessage::query()
+        $emails = EmailMessage::query()->triage()
             ->where(function ($query) use ($domains): void {
                 foreach ($domains as $domain) {
                     $query->orWhere('from_address', 'like', '%@'.$domain);

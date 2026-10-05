@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Enums\Permission;
 use App\Models\PlatformAdmin;
 use App\Models\User;
 use App\Tenancy\TenantManager;
@@ -29,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
         Model::shouldBeStrict(! $this->app->isProduction());
 
         // The tenant's catalogue of capabilities, connectors and skills (docs/CAPACIDADES.md).
-        Gate::define('manage-catalog', fn (User $user): bool => $user->canManageTenant());
+        Gate::define('manage-catalog', fn (User $user): bool => $user->hasPermission(Permission::ManageCatalog));
 
         // A long-running worker must never carry one job's tenant into the next.
         // A sync job runs inside its caller, whose tenant must survive it.

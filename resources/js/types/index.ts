@@ -8,6 +8,7 @@ export interface AuthUser {
     role_label: string;
     can_manage_tenant: boolean;
     is_manager: boolean;
+    permissions: string[];
 }
 
 export interface SharedProps {

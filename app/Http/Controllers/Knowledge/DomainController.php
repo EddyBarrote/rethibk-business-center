@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Knowledge;
 
 use App\Ai\Knowledge\KnowledgeAccess;
+use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Department;
@@ -23,7 +24,7 @@ class DomainController extends Controller
 
     public function index(Request $request): Response
     {
-        abort_unless($this->user($request)->canManageTenant(), 403);
+        abort_unless($this->user($request)->hasPermission(Permission::ManageKnowledge), 403);
         $this->access->ensureDefaults();
 
         return Inertia::render('Knowledge/Domains', [
@@ -44,7 +45,7 @@ class DomainController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canManageTenant(), 403);
+        abort_unless($user->hasPermission(Permission::ManageKnowledge), 403);
         $data = $this->validated($request);
         $slug = Str::slug($data['name']);
         abort_if(KnowledgeDomain::query()->where('slug', $slug)->exists(), 422, 'Já existe um domínio com esse nome.');
@@ -58,7 +59,7 @@ class DomainController extends Controller
     public function update(Request $request, KnowledgeDomain $domain): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canManageTenant(), 403);
+        abort_unless($user->hasPermission(Permission::ManageKnowledge), 403);
         $domain->update($this->validated($request));
         AuditLog::record($user, 'knowledge.domain_updated', ['name' => $domain->name, 'department_ids' => $domain->department_ids], subject: $domain);
 
@@ -68,7 +69,7 @@ class DomainController extends Controller
     public function destroy(Request $request, KnowledgeDomain $domain): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canManageTenant(), 403);
+        abort_unless($user->hasPermission(Permission::ManageKnowledge), 403);
 
         // A restricted domain's documents must never fall into the open.
         if ($domain->items()->exists()) {

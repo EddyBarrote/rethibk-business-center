@@ -7,6 +7,7 @@ use App\Documents\DocumentFormat;
 use App\Documents\DocumentGenerator;
 use App\Documents\DocumentSpec;
 use App\Documents\DocumentTemplate;
+use App\Enums\Permission;
 use App\Models\AuditLog;
 use App\Models\GeneratedDocument;
 use App\Models\KnowledgeDomain;
@@ -76,6 +77,7 @@ class DocumentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
         $data = $request->validate([
             'title' => ['required', 'string', 'max:200'],
             'subtitle' => ['nullable', 'string', 'max:200'],
@@ -97,6 +99,7 @@ class DocumentController extends Controller
     public function convert(Request $request, GeneratedDocument $document): RedirectResponse
     {
         $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
         abort_unless($this->canSee($user, $document), 403);
         $format = DocumentFormat::from($request->validate(['format' => ['required', Rule::enum(DocumentFormat::class)]])['format']);
 
@@ -111,6 +114,7 @@ class DocumentController extends Controller
     public function fromReport(Request $request, Report $report): RedirectResponse
     {
         $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
         abort_unless(app(ReportController::class)->canSee($user, $report), 403);
         $format = DocumentFormat::from($request->validate(['format' => ['required', Rule::enum(DocumentFormat::class)]])['format']);
 
@@ -122,6 +126,7 @@ class DocumentController extends Controller
     public function file(Request $request, GeneratedDocument $document): RedirectResponse
     {
         $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
         abort_unless($this->canSee($user, $document), 403);
         abort_if($document->knowledge_item_id !== null, 422, 'Já está na base de conhecimento.');
         $data = $request->validate([
@@ -191,7 +196,7 @@ class DocumentController extends Controller
      */
     private function visible(User $user): Builder
     {
-        return GeneratedDocument::query()->when(! $user->canManageTenant(), fn (Builder $q) => $q->where(fn (Builder $w) => $w
+        return GeneratedDocument::query()->when(! $user->hasPermission(Permission::ReadAllDocuments), fn (Builder $q) => $q->where(fn (Builder $w) => $w
             ->where('created_by_user_id', $user->id)
             ->orWhereHas('agent', fn (Builder $a) => $a
                 ->where('reports_to_user_id', $user->id)

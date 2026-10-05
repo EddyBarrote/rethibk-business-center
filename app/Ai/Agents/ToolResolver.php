@@ -7,6 +7,7 @@ use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Skills\AgentSkills;
 use App\Ai\Tools\GatedTool;
 use App\Models\Capability;
+use App\Models\MailboxReader;
 
 /**
  * The agent's tools: its enabled, available capabilities plus the ones every agent
@@ -31,6 +32,10 @@ final class ToolResolver
 
         if (in_array('chief_of_staff', [$context->agent->key, $context->agent->settings['template'] ?? null], true)) {
             $alwaysOn = [...$alwaysOn, ...CapabilityRegistry::CHIEF_OF_STAFF];
+        }
+
+        if (MailboxReader::query()->where('agent_id', $context->agent->id)->exists()) {
+            $alwaysOn = [...$alwaysOn, ...CapabilityRegistry::MAILBOX_READER];
         }
 
         if ($this->skills->for($context->agent)->isNotEmpty()) {

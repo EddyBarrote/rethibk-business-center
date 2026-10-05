@@ -6,6 +6,7 @@ use App\Ai\Runs\AgentRunner;
 use App\Email\MailboxMailer;
 use App\Enums\EmailCategory;
 use App\Enums\EmailStatus;
+use App\Enums\Permission;
 use App\Enums\TriggerType;
 use App\Models\Agent;
 use App\Models\AuditLog;
@@ -63,7 +64,11 @@ class InboxController extends Controller
             'messages' => $messages,
             'filters' => ['category' => $filters['category'] ?? null, 'mailbox' => $filters['mailbox'] ?? null, 'view' => $view, 'q' => $filters['q'] ?? ''],
             'categories' => array_map(fn (array $c) => [...$c, 'count' => (int) ($counts[$c['value']] ?? 0)], EmailCategory::options()),
-            'mailboxes' => Mailbox::query()->with('agent:id,name')->orderBy('address')->get()->map(fn (Mailbox $m) => ['id' => $m->id, 'address' => $m->address, 'agent' => $m->agent?->name, 'status' => $m->status->value]),
+            // Only the mailboxes whose email the person reads (docs/DECISOES.md, "Caixas de email por pessoa").
+            'mailboxes' => Mailbox::query()
+                ->where(fn ($q) => $q->ownedBy($user)->when($user->hasPermission(Permission::ReadTriageEmails), fn ($w) => $w->orWhere('kind', Mailbox::AGENT)))
+                ->with('agent:id,name')->orderBy('kind', 'desc')->orderBy('address')->get()
+                ->map(fn (Mailbox $m) => ['id' => $m->id, 'address' => $m->address, 'agent' => $m->agent?->name, 'status' => $m->status->value, 'personal' => $m->isPersonal()]),
             'drafts' => EmailMessage::query()->visibleTo($user)->where('status', EmailStatus::Draft)->count(),
         ]);
     }
@@ -132,7 +137,7 @@ class InboxController extends Controller
         $original = $message->in_reply_to ? EmailMessage::query()->where('message_id_header', $message->in_reply_to)->first() : null;
 
         try {
-            $mailer->send($message->mailbox, $data['to'], $message->cc ?? [], $data['subject'], $data['body'], $original, draft: $message);
+            $mailer->send($message->mailbox, $data['to'], $message->cc ?? [], $data['subject'], $data['body'], $original, draft: $message, sender: $this->user($request));
         } catch (RuntimeException $e) {
             return back()->with('error', 'Não foi enviado: '.$e->getMessage());
         }
@@ -176,7 +181,7 @@ class InboxController extends Controller
     public function retriage(Request $request, EmailMessage $message, AgentRunner $runner): RedirectResponse
     {
         $this->authorizeView($request, $message);
-        $agent = $message->mailbox->agent;
+        $agent = $message->mailbox->processor();
         abort_unless($agent instanceof Agent && $agent->isActive(), 409, 'A caixa não tem um agente activo.');
 
         $message->forceFill(['status' => EmailStatus::Processing])->save();

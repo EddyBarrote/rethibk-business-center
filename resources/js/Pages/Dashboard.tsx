@@ -23,7 +23,7 @@ interface Metrics {
     runs_running: number;
     runs_waiting: number;
     runs_failed_week: number;
-    month_spend_usd: number;
+    month_spend_usd: number | null;
     month_budget_usd: number | null;
 }
 
@@ -45,6 +45,7 @@ interface Props {
     activity: Day[];
     briefing: BriefingSummary | null;
     issues: Issue[];
+    can_view_costs: boolean;
 }
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -59,7 +60,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
     );
 }
 
-export default function Dashboard({ approvals, agents, runs, live, metrics, activity, briefing, issues }: Props) {
+export default function Dashboard({ approvals, agents, runs, live, metrics, activity, briefing, issues, can_view_costs }: Props) {
     const toolNames = useToolNames();
     const { auth, tenant, sidebar_agents } = usePage<SharedProps>().props;
     const firstName = auth.user?.name.split(' ')[0];
@@ -130,21 +131,23 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     description={`${metrics.runs_waiting} à espera de aprovação · ${metrics.runs_failed_week} falharam em 7 dias`}
                     href="/runs"
                 />
-                <MetricCard
-                    icon={CircleDollarSign}
-                    value={usd(metrics.month_spend_usd)}
-                    label="Gasto de IA no mês"
-                    description={
-                        budget ? `de ${usd(budget)} (${Math.round((metrics.month_spend_usd / budget) * 100)}%)` : 'Sem tecto mensal definido'
-                    }
-                    tone={
-                        budget && metrics.month_spend_usd >= budget
-                            ? 'danger'
-                            : budget && metrics.month_spend_usd >= budget * 0.8
-                              ? 'warning'
-                              : undefined
-                    }
-                />
+                {can_view_costs && metrics.month_spend_usd !== null && (
+                    <MetricCard
+                        icon={CircleDollarSign}
+                        value={usd(metrics.month_spend_usd)}
+                        label="Gasto de IA no mês"
+                        description={
+                            budget ? `de ${usd(budget)} (${Math.round((metrics.month_spend_usd / budget) * 100)}%)` : 'Sem tecto mensal definido'
+                        }
+                        tone={
+                            budget && metrics.month_spend_usd >= budget
+                                ? 'danger'
+                                : budget && metrics.month_spend_usd >= budget * 0.8
+                                  ? 'warning'
+                                  : undefined
+                        }
+                    />
+                )}
                 <MetricCard
                     icon={CheckSquare}
                     value={auth.pending_approvals}
@@ -167,13 +170,15 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                         ]}
                     />
                 </ChartCard>
-                <ChartCard title="Gasto de IA">
-                    <MiniBars
-                        data={activity}
-                        series={[{ key: 'cost_usd', label: 'Gasto', className: 'bg-primary' }]}
-                        format={(value) => usd(value)}
-                    />
-                </ChartCard>
+                {can_view_costs && (
+                    <ChartCard title="Gasto de IA">
+                        <MiniBars
+                            data={activity}
+                            series={[{ key: 'cost_usd', label: 'Gasto', className: 'bg-primary' }]}
+                            format={(value) => usd(value)}
+                        />
+                    </ChartCard>
+                )}
                 <ChartCard title="Taxa de sucesso">
                     <div className="flex flex-1 flex-col justify-center gap-2">
                         <span className="text-3xl font-semibold tracking-tight tabular-nums">

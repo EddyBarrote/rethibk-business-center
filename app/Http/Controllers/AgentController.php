@@ -7,6 +7,7 @@ use App\Ai\Budget\BudgetGuard;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Runs\AgentRunner;
 use App\Enums\AgentStatus;
+use App\Enums\Permission;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
@@ -52,7 +53,7 @@ class AgentController extends Controller
                 ...Present::agent($agent),
                 'pending_approvals' => (int) ($pending[$agent->id] ?? 0),
                 'last_run_at' => isset($lastRuns[$agent->id]) ? now()->parse($lastRuns[$agent->id])->toIso8601String() : null,
-                'spent_usd' => round($budget->agentSpent($agent), 4),
+                'spent_usd' => $user->hasPermission(Permission::ViewCosts) ? round($budget->agentSpent($agent), 4) : null,
             ]),
             'can' => ['create' => $user->can('create', Agent::class)],
         ]);

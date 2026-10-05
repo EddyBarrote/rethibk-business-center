@@ -250,3 +250,26 @@ A segunda avaliação deu 7/10. O que ficou mexe sobretudo no texto que as pesso
   As conversas e execuções de teste do Barrote ficam como estão. As contas de entrada da semente (`@micomoc.test`)
   ficam: são as credenciais de desenvolvimento e nunca existem numa organização real.
 
+
+## Caixas de email por pessoa e matriz completa de permissões (05.10.2026)
+
+Pedido do Barrote: cada pessoa tem a sua caixa (uma ou várias), os agentes podem lê-las, nunca enviam para fora em
+nome de uma pessoa, e os emails de triagem só aparecem a administradores e a quem tem permissão. Ao mesmo tempo, os
+papéis passam a cobrir tudo o que uma pessoa pode fazer no sistema.
+
+| Decisão | Onde |
+|---|---|
+| Uma caixa é de um agente (`kind = agent`, como a da Triagem) ou de uma ou mais pessoas (`kind = person`, pessoal ou partilhada como financas@). Cada caixa tem os seus dados IMAP/SMTP, cifrados. | migração `2026_10_05_160001`, `Mailbox`, `MailboxOwner` |
+| Cada pessoa liga as suas caixas em Empresa › Caixas de email. Quem tem "Gerir todas as caixas de email" cria-as para qualquer pessoa e escolhe os donos. As caixas dos agentes continuam a configurar-se com o agente. | `MailboxController`, `Pages/Mailboxes/Index.tsx` |
+| Os donos escolhem que agentes lêem a caixa. Por omissão, o primeiro agente activo do departamento da pessoa, que também vê cada email novo. | `MailboxReader` (`processes_new`), `Mailbox::processor()` |
+| O agente que lê uma caixa pessoal lê, resume, classifica, cria tarefas para o dono e prepara rascunhos. Não encaminha para outras áreas e só notifica o dono do que é urgente. | `EmailPrompt::forPerson`, `ClassifyEmail`, `CapabilityRegistry::MAILBOX_READER` |
+| Os agentes nunca enviam de uma caixa de pessoa: o rascunho fica na caixa dela e só um dono o envia. `MailboxMailer` recusa enviar de uma caixa pessoal sem um dono a pedir; `comms.send_email` só usa a caixa do próprio agente, com as regras de aprovação de sempre. | `MailboxMailer`, `SendEmail`, `DraftEmailReply` |
+| Os agentes lêem a email de triagem (caixas de agentes) e as caixas pessoais que os donos lhes deram; nunca as outras. Resumos e alertas da organização (painel, SLA, resumo do mês) contam só a triagem. | `EmailMessage::readableBy`, `EmailMessage::triage` |
+| Uma pessoa vê em Emails as suas caixas, os emails de triagem encaminhados para ela e, com "Ver emails de triagem", toda a triagem. Ninguém lê a caixa pessoal de outra pessoa, nem os administradores: "Gerir todas as caixas" dá a configuração, não o conteúdo. Deixou de haver visibilidade por departamento. | `EmailMessage::visibleTo`, `InboxController` |
+| A matriz passou de 8 para 25 permissões, em 9 áreas (Trabalho, Agentes, Conversas, Emails, Conhecimento, Documentos, Aprovações, Custos de IA, Empresa). Os papéis passam a ser colunas e as permissões linhas, por área. | `App\Enums\Permission`, `Pages/Settings/Roles.tsx` |
+| Cada permissão é verificada no servidor; o menu e os botões só escondem o que a pessoa não pode usar (`auth.user.permissions`, `useCan`). `canManageTenant()` passou a querer dizer só "Administrar a empresa" (departamentos, marca, ERP). | políticas e controladores |
+| Os papéis que já existiam mantêm o que podiam fazer: quem administrava a empresa recebe as novas permissões de administração, quem chefiava recebe "Gerir objectivos e projectos", e todos recebem "Ligar as suas caixas de email", "Escrever conhecimento" e "Gerar documentos". | migração `2026_10_05_160001` |
+| O papel de CEO mantém sempre "Administrar a empresa" e "Gerir pessoas e papéis": o servidor junta-as, em vez de recusar a gravação. | `Permission::ceoKeeps()`, `AccessRoleController` |
+| Os custos de IA (painel e lista de agentes) só aparecem a quem tem "Ver custos de IA"; aprovar o gasto acima do orçamento é "Autorizar gastos acima do orçamento". | `DashboardController`, `ApprovalPolicy` |
+
+Testes: `PersonalMailboxTest`, `PermissionCatalogTest`, e `ConsolePagesTest`/`AccessMatrixTest` actualizados.

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AgentStatus;
+use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Enums\TaskStatus;
 use App\Models\Agent;
@@ -71,14 +72,14 @@ class OrgController extends Controller
 
         return Inertia::render('Org/Index', [
             'members' => $members->values(),
-            'can_manage' => $user->canManageTenant(),
+            'can_manage' => $user->hasPermission(Permission::ManageOrg),
         ]);
     }
 
     public function update(Request $request, OrgChart $chart): RedirectResponse
     {
         $user = $this->user($request);
-        abort_unless($user->canManageTenant(), 403);
+        abort_unless($user->hasPermission(Permission::ManageOrg), 403);
 
         $data = $request->validate([
             'member' => ['required', 'string', 'regex:/^(agent|user):\d+$/'],

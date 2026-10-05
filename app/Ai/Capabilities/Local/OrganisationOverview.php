@@ -74,10 +74,10 @@ final class OrganisationOverview extends LocalCapability
             'approvals_pending' => Approval::query()->where('status', ApprovalStatus::Pending)->with('agent')->oldest()->limit(15)->get()
                 ->map(fn (Approval $a) => ['id' => $a->id, 'agent' => $a->agent?->name, 'action' => $a->action_summary, 'since' => $a->created_at->toIso8601String(), 'link' => '/approvals'])->all(),
             'inbox' => [
-                'received' => EmailMessage::query()->where('direction', 'inbound')->where('received_at', '>=', $since)->count(),
-                'by_category' => EmailMessage::query()->where('direction', 'inbound')->where('received_at', '>=', $since)->selectRaw('classification, count(*) as total')->groupBy('classification')->pluck('total', 'classification'),
-                'urgent' => EmailMessage::query()->where('direction', 'inbound')->where('received_at', '>=', $since)->whereIn('priority', ['high', 'urgent'])->limit(10)->get(['id', 'subject', 'summary'])->toArray(),
-                'drafts_waiting' => EmailMessage::query()->where('status', 'draft')->count(),
+                'received' => EmailMessage::query()->triage()->where('direction', 'inbound')->where('received_at', '>=', $since)->count(),
+                'by_category' => EmailMessage::query()->triage()->where('direction', 'inbound')->where('received_at', '>=', $since)->selectRaw('classification, count(*) as total')->groupBy('classification')->pluck('total', 'classification'),
+                'urgent' => EmailMessage::query()->triage()->where('direction', 'inbound')->where('received_at', '>=', $since)->whereIn('priority', ['high', 'urgent'])->limit(10)->get(['id', 'subject', 'summary'])->toArray(),
+                'drafts_waiting' => EmailMessage::query()->triage()->where('status', 'draft')->count(),
             ],
             'tenders_open' => Tender::query()->whereIn('status', [TenderStatus::New, TenderStatus::Reviewing, TenderStatus::Bidding])->orderBy('deadline_at')->limit(10)->get(['id', 'title', 'entity', 'deadline_at', 'status'])->toArray(),
             'follow_ups_due' => FollowUp::query()->whereNull('done_at')->where('due_at', '<=', now()->addDay())->orderBy('due_at')->limit(15)->get(['id', 'title', 'due_at'])->toArray(),

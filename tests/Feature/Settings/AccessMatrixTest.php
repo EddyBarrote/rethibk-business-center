@@ -38,7 +38,10 @@ it('shows the matrix to those who administer the company and keeps the CEO role 
 
     $ceo = asTenant($this->tenant, fn () => AccessRole::query()->where('key', 'ceo')->sole());
     $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/roles/{$ceo->id}"), ['name' => 'CEO', 'permissions' => [Permission::ManageWork->value]])
-        ->assertSessionHasErrors('permissions');
+        ->assertSessionHasNoErrors();
+
+    expect($ceo->fresh()->permissions)->toContain(Permission::ManageCompany->value, Permission::ManagePeople->value, Permission::ManageWork->value)
+        ->not->toContain(Permission::ManageAgents->value);
 });
 
 it('gives a person a custom role and exceptions of their own', function () {

@@ -51,7 +51,7 @@ final class IssueDetector
             $add('Agentes', 'média', ($failed === 1 ? '1 execução falhou' : "{$failed} execuções falharam").' nas últimas 24 h.', '/runs?status=failed');
         }
 
-        foreach (EmailMessage::query()->where('direction', 'inbound')->where('classification', EmailCategory::Lead->value)->whereNull('erp_lead_id')->where('status', 'processed')->limit(20)->get() as $email) {
+        foreach (EmailMessage::query()->triage()->where('direction', 'inbound')->where('classification', EmailCategory::Lead->value)->whereNull('erp_lead_id')->where('status', 'processed')->limit(20)->get() as $email) {
             $add('Comercial', 'média', "Email classificado como lead sem lead no ERP: {$email->subject}", "/inbox/{$email->id}");
         }
 

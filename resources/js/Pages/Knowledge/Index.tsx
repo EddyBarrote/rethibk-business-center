@@ -10,6 +10,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { PaginationBar, usePaged } from '@/Components/Pagination';
+import { useCan } from '@/hooks/useCan';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
@@ -74,6 +75,7 @@ function NavRow({
 
 export default function KnowledgeIndex({ domains, domain, folder, folders, items, filters, pending, semantic, accept, can }: Props) {
     const paged = usePaged(items, 20);
+    const canWrite = useCan();
     const [query, setQuery] = useState(filters.q);
     const [uploading, setUploading] = useState(false);
     const [creatingFolder, setCreatingFolder] = useState(false);
@@ -163,16 +165,20 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                                 Nova pasta
                             </Button>
                         )}
-                        <Button variant="outline" onClick={() => fileInput.current?.click()} disabled={target === null}>
-                            <Upload />
-                            Carregar
-                        </Button>
-                        <Button asChild>
-                            <Link href={newArticle}>
-                                <NotebookPen />
-                                Novo artigo
-                            </Link>
-                        </Button>
+                        {canWrite('knowledge.write') && (
+                            <>
+                                <Button variant="outline" onClick={() => fileInput.current?.click()} disabled={target === null}>
+                                    <Upload />
+                                    Carregar
+                                </Button>
+                                <Button asChild>
+                                    <Link href={newArticle}>
+                                        <NotebookPen />
+                                        Novo artigo
+                                    </Link>
+                                </Button>
+                            </>
+                        )}
                         <input
                             ref={fileInput}
                             type="file"

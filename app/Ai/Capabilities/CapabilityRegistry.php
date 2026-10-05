@@ -126,6 +126,9 @@ final class CapabilityRegistry
     /** Given to every agent, whatever its configuration (section 13.2). */
     public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list', 'escalate.urgent'];
 
+    /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
+    public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];
+
     /** What the Chief of Staff gets for its role (realinhamento L10, L11). */
     public const CHIEF_OF_STAFF = ['approvals.review', 'conversations.search', 'agents.set_trust_level'];
 

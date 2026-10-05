@@ -38,7 +38,7 @@ class ApprovalPolicy
 
         // Spending more than the organisation decided is for those who administer it.
         if ($approval->action_type === 'budget.override') {
-            return $actor->canManageTenant();
+            return $actor->hasPermission(Permission::ManageCosts);
         }
 
         // An agent's trust level is confirmed by those the matrix allows (realinhamento L11).

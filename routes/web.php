@@ -19,6 +19,7 @@ use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Knowledge\DomainController;
 use App\Http\Controllers\Knowledge\FolderController;
 use App\Http\Controllers\KnowledgeController;
+use App\Http\Controllers\MailboxController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
 use App\Http\Controllers\ProjectController;
@@ -125,6 +126,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('inbox/{message}', [InboxController::class, 'discard'])->name('inbox.discard');
     Route::put('inbox/{message}/category', [InboxController::class, 'reclassify'])->name('inbox.reclassify');
     Route::post('inbox/{message}/retriage', [InboxController::class, 'retriage'])->middleware('throttle:20,1')->name('inbox.retriage');
+    Route::get('mailboxes', [MailboxController::class, 'index'])->name('mailboxes.index');
+    Route::post('mailboxes', [MailboxController::class, 'store'])->name('mailboxes.store');
+    Route::put('mailboxes/{mailbox}', [MailboxController::class, 'update'])->name('mailboxes.update');
+    Route::delete('mailboxes/{mailbox}', [MailboxController::class, 'destroy'])->name('mailboxes.destroy');
     Route::get('attachments/{attachment}', [InboxController::class, 'attachment'])->name('attachments.download');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
