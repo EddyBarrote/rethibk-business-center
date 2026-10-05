@@ -10,6 +10,7 @@ use App\Enums\TaskPriority;
 use App\Enums\TriggerType;
 use App\Jobs\ExecuteApprovedAction;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Capability;
 use App\Models\Task;
@@ -58,7 +59,10 @@ it('sends an action above an agent\'s level to the Chief of Staff first, who app
 
         expect($approval->review_stage)->toBe(Approval::STAGE_AGENT)
             ->and($approval->review_agent_id)->toBe($this->chief->id)
-            ->and($review->source->is($approval))->toBeTrue();
+            ->and($review->source->is($approval))->toBeTrue()
+            // People read the task; only the Chief of Staff's brief names the tool.
+            ->and($review->description)->not->toContain('approvals.review')
+            ->and(AgentRun::query()->where('task_id', $review->id)->value('input'))->toContain("a aprovação #{$approval->id}. Revê-a com approvals.review");
 
         $result = gated($this->chief, 'approvals.review', ['approval_id' => $approval->id, 'decision' => 'approve', 'note' => 'Faz sentido.'], $review);
 

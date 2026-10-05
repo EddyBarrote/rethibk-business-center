@@ -155,9 +155,9 @@ final class ApprovalService
         app(TaskThread::class)->open([
             'kind' => TaskKind::Task,
             'title' => Str::limit("Revalidar: {$approval->action_summary}", 200, '…'),
+            // People read this; how to review it goes only to the agent's brief (TaskThread::input).
             'description' => "{$agent->name} quer fazer uma acção acima do seu nível ({$approval->agent_level->code()}; a acção pede {$approval->required_level->code()}).\n\n"
-                ."Acção: {$approval->action_summary}\nAprovação #{$approval->id}.\n\n"
-                .'Revê-a com approvals.review: aprova se está certa e cabe no teu nível, devolve se está errada, ou passa às pessoas (escalate) se não tens a certeza ou não cabe no teu nível.',
+                ."Acção: {$approval->action_summary}",
             'status' => TaskStatus::Todo,
             'priority' => TaskPriority::High,
             'assignee_agent_id' => $reviewer->id,

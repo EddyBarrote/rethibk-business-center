@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { CircleHelp, ListTodo, Network, Pencil } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, ChevronRight, CircleHelp, ListTodo, Maximize2, Minimize2, Network, Pencil } from 'lucide-react';
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -44,6 +44,19 @@ const NONE = 'none';
 export default function OrgIndex({ members, can_manage }: Props) {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [editing, setEditing] = useState(false);
+    const [fit, setFit] = useState(true);
+    const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+    const toggle = (key: string) =>
+        setCollapsed((current) => {
+            const next = new Set(current);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+
+            return next;
+        });
     const keys = new Set(members.map((member) => member.key));
     const reports = new Map<string | null, Member[]>();
     members.forEach((member) => {
@@ -117,26 +130,41 @@ export default function OrgIndex({ members, can_manage }: Props) {
 
     /*
      * The chart, top-down: each card sits above the people and agents who
-     * report to it. A group made only of leaves is stacked in a column under
-     * its manager, so a manager with five agents does not make the page wide.
+     * report to it. A group made only of leaves hangs under its manager as a
+     * column (up to three) or a two-column block, so a manager with five agents
+     * does not make the page wide. Any branch folds from its manager's card.
      */
     const renderTree = (member: Member, seen: Set<string>) => {
         const children = childrenOf(member, seen);
         const nextSeen = new Set([...seen, member.key]);
         const leaves = children.length > 0 && children.every((child) => childrenOf(child, nextSeen).length === 0);
+        const folded = collapsed.has(member.key);
 
         return (
             <li key={member.key}>
                 <OrgCard member={member} />
-                {leaves ? (
-                    <div className="org-leaves">
-                        {children.map((child) => (
-                            <OrgCard key={child.key} member={child} compact />
-                        ))}
-                    </div>
-                ) : (
-                    children.length > 0 && <ul>{children.map((child) => renderTree(child, nextSeen))}</ul>
+                {children.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => toggle(member.key)}
+                        className="org-fold relative z-10 -mt-px inline-flex h-5 items-center gap-0.5 rounded-b-md border border-t-0 bg-card px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                        aria-expanded={!folded}
+                        aria-label={folded ? `Mostrar quem reporta a ${member.name}` : `Esconder quem reporta a ${member.name}`}
+                    >
+                        {folded ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
+                        {children.length}
+                    </button>
                 )}
+                {!folded &&
+                    (leaves ? (
+                        <div className={children.length > 3 ? 'org-group' : 'org-leaves'}>
+                            {children.map((child) => (
+                                <OrgCard key={child.key} member={child} compact />
+                            ))}
+                        </div>
+                    ) : (
+                        children.length > 0 && <ul>{children.map((child) => renderTree(child, nextSeen))}</ul>
+                    ))}
             </li>
         );
     };
@@ -189,10 +217,27 @@ export default function OrgIndex({ members, can_manage }: Props) {
                 />
             ) : (
                 <>
-                    <div className="hidden overflow-x-auto rounded-xl border bg-muted/20 px-3 py-8 md:block">
-                        <div className="org-tree mx-auto w-fit">
-                            <ul>{roots.map((root) => renderTree(root, new Set()))}</ul>
+                    <div className="relative hidden rounded-xl border bg-muted/20 md:block">
+                        <div className="absolute top-2 right-2 z-20 flex gap-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => setCollapsed(new Set())}
+                                disabled={collapsed.size === 0}
+                            >
+                                Abrir tudo
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 bg-card text-xs" onClick={() => setFit(!fit)} aria-pressed={fit}>
+                                {fit ? <Maximize2 /> : <Minimize2 />}
+                                {fit ? 'Tamanho real' : 'Ajustar ao ecrã'}
+                            </Button>
                         </div>
+                        <FitToWidth enabled={fit}>
+                            <div className="org-tree w-fit px-3 pt-12 pb-8">
+                                <ul>{roots.map((root) => renderTree(root, new Set()))}</ul>
+                            </div>
+                        </FitToWidth>
                     </div>
                     <ul className="flex flex-col gap-6 md:hidden">{roots.map((root) => renderList(root, new Set()))}</ul>
                 </>
@@ -296,7 +341,7 @@ function OrgCard({ member, compact = false }: { member: Member; compact?: boolea
         <div
             className={cn(
                 'flex flex-col gap-2 rounded-xl border bg-card px-3 py-2.5 text-left shadow-xs',
-                compact ? 'w-40' : 'w-[10.5rem]',
+                compact ? 'w-48' : 'w-52',
                 member.running && 'border-status-running/50',
                 member.status === 'suspended' && 'opacity-70',
             )}
@@ -305,7 +350,9 @@ function OrgCard({ member, compact = false }: { member: Member; compact?: boolea
                 <MemberAvatar member={member} className={cn('text-[10px]', compact ? 'size-7' : 'size-8')} />
                 <div className="min-w-0 flex-1">
                     {name}
-                    <p className="truncate text-[11px] text-muted-foreground">{member.title ?? (isAgent ? 'Agente' : 'Sem função definida')}</p>
+                    <p className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                        {member.title ?? (isAgent ? 'Agente' : 'Sem função definida')}
+                    </p>
                 </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -352,6 +399,49 @@ function OrgRow({ member }: { member: Member }) {
             <div className="flex flex-wrap items-center gap-2">
                 {member.autonomy_level !== null && <AutonomyBadge level={member.autonomy_level} />}
                 <Counters member={member} />
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Shrinks the chart to the width of its box (never enlarges it), keeping the
+ * box as tall as the shrunk chart. Off, the chart keeps its size and scrolls.
+ */
+function FitToWidth({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+    const outer = useRef<HTMLDivElement>(null);
+    const inner = useRef<HTMLDivElement>(null);
+    const [size, setSize] = useState({ scale: 1, height: 0 });
+
+    useLayoutEffect(() => {
+        const measure = () => {
+            if (!outer.current || !inner.current) {
+                return;
+            }
+            const width = inner.current.scrollWidth;
+            const scale = enabled ? Math.min(1, outer.current.clientWidth / width) : 1;
+            setSize({ scale, height: inner.current.scrollHeight * scale });
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        if (outer.current) observer.observe(outer.current);
+        if (inner.current) observer.observe(inner.current);
+
+        return () => observer.disconnect();
+    }, [enabled]);
+
+    return (
+        <div
+            ref={outer}
+            className={cn('w-full', enabled ? 'overflow-hidden' : 'overflow-x-auto')}
+            style={enabled ? { height: size.height || undefined } : undefined}
+        >
+            <div
+                ref={inner}
+                className="mx-auto w-fit origin-top"
+                style={enabled && size.scale < 1 ? { transform: `scale(${size.scale})`, transformOrigin: 'top left', marginLeft: 0 } : undefined}
+            >
+                {children}
             </div>
         </div>
     );

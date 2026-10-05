@@ -17,7 +17,11 @@ const quoted = (value: unknown) => (text(value) ? `«${text(value)}»` : null);
 /** Joins the parts that exist: "Registar despesa de 72 848,00 MZN · Segurança Total EPI". */
 const join = (...parts: (string | null | false | undefined)[]) => parts.filter(Boolean).join(' · ');
 
+const recipients = (p: Payload) => (Array.isArray(p.to) ? p.to.map(String).join(', ') : text(p.to));
+
 const titles: Record<string, (p: Payload) => string> = {
+    // The subject names the client and the matter; the address goes to the second line (approvalRecipient).
+    'comms.send_email': (p) => (text(p.subject) ? `Enviar email «${text(p.subject)}»` : `Enviar email a ${recipients(p) ?? '—'}`),
     'erp.expenses.create': (p) =>
         join(`Registar despesa${p.amount !== undefined ? ` de ${money(p.amount)}` : ''}`, text(p.supplier), text(p.project_id)),
     'erp.expenses.classify': (p) =>
@@ -60,6 +64,13 @@ const titles: Record<string, (p: Payload) => string> = {
         ),
     'erp.projects.update_status': (p) => join(`Mudar o estado do projecto ${text(p.project_id) ?? ''} para ${text(p.status) ?? '—'}`, text(p.reason)),
 };
+
+/** Who an email goes to, for the line under the title ("para f.abdul@agrozambeze.co.mz"). */
+export function approvalRecipient(actionType: string, payload: Payload | null): string | null {
+    const to = actionType === 'comms.send_email' ? recipients(payload ?? {}) : null;
+
+    return to ? `para ${to}` : null;
+}
 
 /** The sentence that names the action. */
 export function approvalTitle(actionType: string, payload: Payload | null, summary: string): string {

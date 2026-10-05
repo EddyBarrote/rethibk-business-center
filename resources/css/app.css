@@ -443,9 +443,10 @@
     border-bottom-left-radius: 0.375rem;
 }
 
+/* The first leaf reaches up past the fold button (1.25rem) to its manager's card. */
 .org-leaves > :first-child::before {
-    top: -0.75rem;
-    height: calc(50% + 0.75rem);
+    top: -2rem;
+    height: calc(50% + 2rem);
 }
 
 .org-leaves > :not(:last-child)::after {
@@ -460,4 +461,25 @@
 /* An empty checkbox in the dark theme needs a visible edge: shadcn's input border almost disappears on the card. */
 .dark [data-slot='checkbox'][data-state='unchecked'] {
     border-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+}
+
+/* More than three leaves: a two-column block hanging from the fold button. */
+.org-group {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.875rem;
+}
+
+.org-group::before {
+    content: '';
+    position: absolute;
+    top: calc(-0.75rem - 1px);
+    left: 50%;
+    height: 0.75rem;
+    border-left: 1px solid var(--border);
 }

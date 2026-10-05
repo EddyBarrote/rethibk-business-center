@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Pencil, Send, Wrench, Zap } from 'lucide-react';
+import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Pencil, Send, UserRound, Wrench, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -169,9 +169,9 @@ export default function TaskShow({
                                 <p className="truncate text-sm text-muted-foreground">
                                     {task.agent?.title ?? 'Assistente'} · uma só conversa contínua, com todo o histórico
                                 </p>
-                                {/* Fixed notice (realinhamento, decisão 26). */}
-                                <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Lock className="size-3" />
+                                {/* Fixed notice (realinhamento, decisão 26): said plainly, where it is read before writing. */}
+                                <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs text-foreground/80">
+                                    <Lock className="size-3.5 shrink-0 text-muted-foreground" />
                                     As conversas podem ser consultadas pela direcção.
                                 </p>
                             </div>
@@ -179,6 +179,11 @@ export default function TaskShow({
                                 <div className="flex shrink-0 items-center gap-1">
                                     <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
                                         <Link href={`/agents/${task.assignee.id}`}>Ver agente</Link>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="size-8 sm:hidden" asChild>
+                                        <Link href={`/agents/${task.assignee.id}`} aria-label="Ver agente" title="Ver agente">
+                                            <UserRound />
+                                        </Link>
                                     </Button>
                                     {can.manage_agent && (
                                         <Button variant="ghost" size="icon" className="size-8" asChild>

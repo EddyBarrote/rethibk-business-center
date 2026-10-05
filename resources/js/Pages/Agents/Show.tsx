@@ -499,8 +499,8 @@ function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[]
                                 {memory.kind === 'work' ? 'trabalho' : `pessoal${memory.about ? ` · ${memory.about}` : ''}`}
                             </StatusBadge>
                             {memory.task && (
-                                <Link href={`/tasks/${memory.task.id}`} className="font-mono hover:text-foreground">
-                                    {memory.task.ref}
+                                <Link href={`/tasks/${memory.task.id}`} className="hover:text-foreground hover:underline" title="A tarefa de onde veio">
+                                    Da tarefa {memory.task.ref}
                                 </Link>
                             )}
                             <span title={dateTime(memory.created_at)}>{ago(memory.created_at)}</span>

@@ -350,11 +350,12 @@ final class TaskThread
      */
     private function origin(Task $task): string
     {
-        if ($task->source_type !== (new EmailMessage)->getMorphClass() || $task->source_id === null) {
-            return '';
-        }
-
-        return "\n\nOrigem: o email #{$task->source_id}. Lê-o com email.read (email_id {$task->source_id}) e trata-o dentro das tuas competências.";
+        return match ($task->source_id === null ? null : $task->source_type) {
+            (new EmailMessage)->getMorphClass() => "\n\nOrigem: o email #{$task->source_id}. Lê-o com email.read (email_id {$task->source_id}) e trata-o dentro das tuas competências.",
+            (new Approval)->getMorphClass() => "\n\nOrigem: a aprovação #{$task->source_id}. Revê-a com approvals.review: aprova se está certa e cabe no teu nível, "
+                .'devolve se está errada, ou passa às pessoas (escalate) se não tens a certeza ou não cabe no teu nível.',
+            default => '',
+        };
     }
 
     private function speaker(TaskMessage $message): string

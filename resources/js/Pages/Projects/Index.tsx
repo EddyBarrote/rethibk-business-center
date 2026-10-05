@@ -77,6 +77,18 @@ export default function ProjectsIndex({ projects, goals, agents, people, statuse
                             ? 'Crie um projecto (ex.: "Obra da ala norte"), ligue-o a um objectivo e junte-lhe tarefas.'
                             : 'Quando uma chefia criar projectos, aparecem aqui com o progresso das tarefas.'
                     }
+                    example={
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <span className="text-sm font-medium">Remodelação da ala norte · Hotel Baía Azul</span>
+                                <span className="text-xs text-muted-foreground">Rui Macuácua</span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full w-3/5 rounded-full bg-primary" />
+                            </div>
+                            <p className="text-xs text-muted-foreground">Objectivo: fechar o trimestre sem atrasos · 3 de 5 tarefas feitas</p>
+                        </div>
+                    }
                     action={
                         can_manage && (
                             <Button size="sm" onClick={() => setEditing('new')}>

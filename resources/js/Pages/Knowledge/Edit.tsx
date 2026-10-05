@@ -2,13 +2,11 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { type FormEvent } from 'react';
 
 import { Field } from '@/Components/Field';
-import { Markdown } from '@/Components/Markdown';
+import { MarkdownEditor } from '@/Components/MarkdownEditor';
 import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
-import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
 import type { FolderOption } from '@/Pages/Knowledge/types';
 import type { Option } from '@/types';
@@ -57,7 +55,7 @@ export default function KnowledgeEdit({ item, defaults, domains, folders, types 
                 description={
                     item?.is_file
                         ? 'Mude o título ou o sítio do ficheiro. O conteúdo vem do ficheiro.'
-                        : 'Escreva em markdown: títulos com #, listas com -, tabelas com |.'
+                        : 'Escreva à esquerda e veja à direita como fica. A barra põe títulos, listas e tabelas.'
                 }
             />
 
@@ -74,29 +72,16 @@ export default function KnowledgeEdit({ item, defaults, domains, folders, types 
                     </Field>
 
                     {!item?.is_file && (
-                        <Tabs defaultValue="write" className="gap-3">
-                            <TabsList>
-                                <TabsTrigger value="write">Escrever</TabsTrigger>
-                                <TabsTrigger value="preview">Pré-visualizar</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="write">
-                                <Textarea
-                                    id="content"
-                                    rows={22}
-                                    className="min-h-[28rem] font-mono text-[13px] leading-relaxed"
-                                    placeholder={'# Procedimento de compras\n\n1. Pedir três cotações…'}
-                                    value={form.data.content}
-                                    onChange={(e) => form.setData('content', e.target.value)}
-                                    aria-invalid={!!form.errors.content}
-                                />
-                            </TabsContent>
-                            <TabsContent value="preview">
-                                <div className="min-h-80 rounded-xl border bg-card px-6 py-5">
-                                    <Markdown>{form.data.content || '_Nada para mostrar ainda._'}</Markdown>
-                                </div>
-                            </TabsContent>
+                        <div className="flex flex-col gap-1.5">
+                            <MarkdownEditor
+                                id="content"
+                                value={form.data.content}
+                                onChange={(content) => form.setData('content', content)}
+                                placeholder={'## Procedimento de compras\n\n1. Pedir três cotações a fornecedores aprovados.\n2. …'}
+                                invalid={!!form.errors.content}
+                            />
                             {form.errors.content && <p className="text-sm text-destructive">{form.errors.content}</p>}
-                        </Tabs>
+                        </div>
                     )}
                 </div>
 

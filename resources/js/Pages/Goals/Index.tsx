@@ -115,6 +115,18 @@ export default function GoalsIndex({ goals, agents, statuses, can_manage }: Prop
                             ? 'Crie o primeiro objectivo da empresa (ex.: "Fechar o trimestre sem atrasos") e associe-lhe tarefas dos agentes.'
                             : 'Quando um gestor definir os objectivos da empresa, aparecem aqui com o progresso das tarefas.'
                     }
+                    example={
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <span className="text-sm font-medium">Receber as facturas em 45 dias, em média</span>
+                                <span className="text-xs text-muted-foreground">até 31/12/2026</span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full w-2/5 rounded-full bg-primary" />
+                            </div>
+                            <p className="text-xs text-muted-foreground">Direcção Financeira · 2 de 5 tarefas feitas · Agente de Finanças</p>
+                        </div>
+                    }
                     action={
                         can_manage && (
                             <Button size="sm" onClick={() => setEditing('new')}>

@@ -13,7 +13,7 @@ import { Checkbox } from '@/Components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/Components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Textarea } from '@/Components/ui/textarea';
-import { approvalFacts, approvalTitle } from '@/lib/approvals';
+import { approvalFacts, approvalRecipient, approvalTitle } from '@/lib/approvals';
 import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { ApprovalSummary } from '@/types';
@@ -82,17 +82,20 @@ function Review({ approval, short = false }: { approval: ApprovalSummary; short?
     const who = approval.review_agent ?? 'Chief of Staff';
 
     if (approval.status === 'pending' && approval.review_stage === 'agent') {
+        // People may still decide while it reviews; the row says so, so nobody waits without reason.
         return short ? (
-            <span className="inline-flex items-center gap-1 text-status-running">
-                <Sparkles className="size-3 shrink-0" />
-                Com o {who}
+            <span
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 font-medium text-primary"
+                title={`O ${who} está a rever. Aprova o que couber no nível dele e passa o resto a uma pessoa. Pode esperar ou decidir já.`}
+            >
+                <Sparkles className="size-3 shrink-0" />A rever pelo {who} · pode decidir já
             </span>
         ) : (
-            <p className="flex items-start gap-2 rounded-lg bg-status-running/8 px-3 py-2 text-xs">
-                <Sparkles className="mt-0.5 size-3.5 shrink-0 text-status-running" />
+            <p className="flex items-start gap-2 rounded-lg bg-primary/8 px-3 py-2 text-xs">
+                <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
                 <span>
-                    <span className="font-medium">O {who} está a revalidar.</span> Aprova o que couber no nível dele e passa o resto a uma pessoa.
-                    Pode decidir já, se quiser.
+                    <span className="font-medium">O {who} está a rever esta acção.</span> Aprova o que couber no nível dele e passa o resto a uma
+                    pessoa, com uma nota. Não precisa de esperar: se decidir já, a sua decisão vale e a revisão deixa de contar.
                 </span>
             </p>
         );
@@ -139,6 +142,7 @@ export function ApprovalCard({
     const [rejecting, setRejecting] = useState(false);
     const form = useForm({ note: '' });
     const title = approvalTitle(approval.action_type, approval.payload, approval.action_summary);
+    const recipient = approvalRecipient(approval.action_type, approval.payload);
 
     const decide = (action: 'approve' | 'reject') =>
         form.post(`/approvals/${approval.id}/${action}`, {
@@ -173,6 +177,12 @@ export function ApprovalCard({
                         {title}
                     </span>
                     <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        {recipient && (
+                            <>
+                                <span className="max-w-full truncate">{recipient}</span>
+                                <span aria-hidden="true">·</span>
+                            </>
+                        )}
                         <span>{approval.agent.name}</span>
                         <span aria-hidden="true">·</span>
                         <Reason approval={approval} short />
