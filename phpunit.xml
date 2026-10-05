@@ -33,5 +33,25 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Tests never reach a real AI provider, whatever the developer's .env holds. -->
+        <env name="AI_PROVIDER" value="anthropic" force="true"/>
+        <env name="AI_MODEL" value="" force="true"/>
+        <env name="AI_EMBEDDINGS_PROVIDER" value="openai" force="true"/>
+        <env name="ANTHROPIC_API_KEY" value="" force="true"/>
+        <env name="OPENAI_API_KEY" value="" force="true"/>
+        <env name="GEMINI_API_KEY" value="" force="true"/>
+        <env name="AZURE_OPENAI_API_KEY" value="" force="true"/>
+        <env name="COHERE_API_KEY" value="" force="true"/>
+        <env name="DEEPSEEK_API_KEY" value="" force="true"/>
+        <env name="ELEVENLABS_API_KEY" value="" force="true"/>
+        <env name="GROQ_API_KEY" value="" force="true"/>
+        <env name="JINA_API_KEY" value="" force="true"/>
+        <env name="MISTRAL_API_KEY" value="" force="true"/>
+        <env name="OLLAMA_API_KEY" value="" force="true"/>
+        <env name="OPENAI_COMPATIBLE_API_KEY" value="" force="true"/>
+        <env name="OPENROUTER_API_KEY" value="" force="true"/>
+        <env name="TYPESAFE_API_KEY" value="" force="true"/>
+        <env name="VOYAGEAI_API_KEY" value="" force="true"/>
+        <env name="XAI_API_KEY" value="" force="true"/>
     </php>
 </phpunit>
