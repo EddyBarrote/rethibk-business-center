@@ -427,6 +427,10 @@ function FitToWidth({ enabled, children }: { enabled: boolean; children: ReactNo
             setSize({ scale, height: inner.current.scrollHeight * scale });
         };
         measure();
+        // At real size the chart opens centred on the top of the organisation, scrolling to either side.
+        if (!enabled && outer.current) {
+            outer.current.scrollLeft = (outer.current.scrollWidth - outer.current.clientWidth) / 2;
+        }
         const observer = new ResizeObserver(measure);
         if (outer.current) observer.observe(outer.current);
         if (inner.current) observer.observe(inner.current);
