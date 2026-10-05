@@ -5,6 +5,7 @@ namespace App\Access;
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\AccessRole;
+use App\Models\User;
 
 /**
  * The default roles of the access matrix and the permissions each base level
@@ -44,6 +45,11 @@ final class AccessRoles
                 'permissions' => self::defaultsFor($base),
                 'is_system' => true,
             ]);
+        }
+
+        // People from before the matrix get the system role of their level.
+        foreach (AccessRole::query()->where('is_system', true)->get() as $role) {
+            User::query()->whereNull('access_role_id')->where('role', $role->base)->update(['access_role_id' => $role->id]);
         }
     }
 
