@@ -15,7 +15,7 @@ import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
 import { approvalTitle } from '@/lib/approvals';
-import { ago, date, dateTime, usd } from '@/lib/format';
+import { ago, date, dateTime, plainText, usd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
 
@@ -313,7 +313,7 @@ export default function TaskShow({
                                 <CircleHelp className="mt-0.5 size-4 shrink-0 text-status-warning" />
                                 <div className="min-w-0 space-y-1 text-sm">
                                     <p className="font-medium">{agentName} está à tua espera</p>
-                                    {pendingQuestion && <p className="line-clamp-2 text-muted-foreground">{pendingQuestion.body}</p>}
+                                    {pendingQuestion && <p className="line-clamp-2 text-muted-foreground">{plainText(pendingQuestion.body)}</p>}
                                     <p className="text-xs text-muted-foreground">Responda abaixo para a tarefa continuar.</p>
                                 </div>
                             </div>

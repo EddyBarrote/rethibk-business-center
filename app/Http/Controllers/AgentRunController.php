@@ -6,6 +6,7 @@ use App\Http\Presenters\Present;
 use App\Models\AgentRun;
 use App\Models\AgentRunStep;
 use App\Models\Approval;
+use App\Models\Capability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -41,6 +42,8 @@ class AgentRunController extends Controller
             'steps' => $run->steps()->orderBy('seq')->get()->map(fn (AgentRunStep $step) => $step->toBroadcast()),
             'approvals' => $run->approvals()->with(Present::APPROVAL_RELATIONS)->get()
                 ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
+            // The timeline names each tool as people read it in Capacidades; the key stays in a tooltip.
+            'tool_names' => Capability::query()->pluck('name', 'key'),
         ]);
     }
 }

@@ -23,7 +23,7 @@ class SyncCapabilities extends Command
 
             try {
                 $count = $catalog->syncErp();
-                $this->components->info("{$count} ferramenta(s) do ERP disponível(is).");
+                $this->components->info($count === 1 ? '1 ferramenta do ERP disponível.' : "{$count} ferramentas do ERP disponíveis.");
             } catch (ErpException $e) {
                 $this->components->warn('ERP inacessível, capacidades do ERP não actualizadas: '.$e->getMessage());
 

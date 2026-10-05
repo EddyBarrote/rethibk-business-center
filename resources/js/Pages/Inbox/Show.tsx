@@ -13,6 +13,7 @@ import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
+import { factValue } from '@/lib/approvals';
 import { ago, bytes, date, dateTime, fieldLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { emailTone, type EmailSummary } from '@/Pages/Inbox/Index';
@@ -44,7 +45,6 @@ const priorities: Record<string, { label: string; tone: Tone }> = {
     normal: { label: 'Normal', tone: 'idle' },
     low: { label: 'Baixa', tone: 'idle' },
 };
-
 
 function DraftEditor({ draft }: { draft: ConversationMessage }) {
     const form = useForm({ to: draft.to, subject: draft.subject, body: draft.body });
@@ -325,7 +325,7 @@ export default function InboxShow({ message, conversation, tasks, followUps, cat
                         <Properties title="Dados extraídos">
                             {Object.entries(current.extracted).map(([key, value]) => (
                                 <Property key={key} label={fieldLabel(key)}>
-                                    <span className="text-xs">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                                    <span className="text-xs">{factValue(key, value) ?? JSON.stringify(value)}</span>
                                 </Property>
                             ))}
                         </Properties>

@@ -146,3 +146,42 @@ const fieldNames: Record<string, string> = {
 };
 
 export const fieldLabel = (key: string) => fieldNames[key] ?? key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+
+/**
+ * Markdown as one line of plain text, for previews in lists and notifications:
+ * no "###", "**", "---" or table pipes in front of a person.
+ */
+export const plainText = (markdown: string | null | undefined) =>
+    (markdown ?? '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, '')
+        .replace(/^\s*([-*_]\s*){3,}$/gm, ' ')
+        .replace(/^\s*\|?(\s*:?-{2,}:?\s*\|)+\s*:?-*:?\s*$/gm, ' ')
+        .replace(/\|/g, ' ')
+        .replace(/(\*\*|__|\*|_|~~|`)(?=\S)([\s\S]*?\S)\1/g, '$2')
+        .replace(/[*`]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+/**
+ * What a run was asked, without the tags the platform puts in front of the prompt
+ * ("[Proprietário] [Nota da plataforma] …"): the person is shown on its own, and a
+ * platform note becomes the label.
+ */
+/** The prompt of a run without the leading "[Proprietário] [Nota da plataforma]" tags. */
+export const withoutTags = (input: string) => input.trim().replace(/^(\[[^\]]{1,60}\]\s*)+/, '');
+
+export const runTitle = (input: string) => {
+    let rest = input.trim();
+    const tags: string[] = [];
+    let match: RegExpMatchArray | null;
+
+    while ((match = rest.match(/^\[([^\]]{1,60})\]\s*/))) {
+        tags.push(match[1]);
+        rest = rest.slice(match[0].length);
+    }
+
+    return plainText(rest) || tags.join(' · ') || input;
+};

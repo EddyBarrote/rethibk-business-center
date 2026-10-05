@@ -9,7 +9,7 @@ import { Pagination } from '@/Components/Pagination';
 import { StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime } from '@/lib/format';
+import { ago, dateTime, plainText } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Paginated } from '@/types';
 
@@ -85,7 +85,7 @@ export default function NotificationsIndex({ notifications }: { notifications: P
                                     >
                                         {notice.title}
                                     </span>
-                                    <span className="line-clamp-2 text-sm text-muted-foreground">{notice.body}</span>
+                                    <span className="line-clamp-2 text-sm text-muted-foreground">{plainText(notice.body)}</span>
                                     {notice.from && <span className="block text-xs text-muted-foreground">{notice.from}</span>}
                                 </span>
                                 <span className="shrink-0 pt-0.5 text-xs text-muted-foreground" title={dateTime(notice.created_at)}>

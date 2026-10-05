@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ChevronRight } from 'lucide-react';
 
 import { Properties, Property } from '@/Components/Blocks';
 import { Markdown } from '@/Components/Markdown';
@@ -7,6 +7,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime } from '@/lib/format';
+import { pathLabel } from '@/lib/paths';
 import type { BriefingSummary } from '@/types';
 
 export default function BriefingShow({ briefing }: { briefing: BriefingSummary }) {
@@ -27,18 +28,25 @@ export default function BriefingShow({ briefing }: { briefing: BriefingSummary }
                                 Precisa da sua decisão
                             </p>
                             <ul className="grid gap-1.5 text-sm">
-                                {briefing.decisions_pending.map((d, i) => (
-                                    <li key={i} className="flex flex-wrap items-center gap-2">
-                                        {d.link ? (
-                                            <Link href={d.link} className="font-medium underline-offset-2 hover:underline">
-                                                {d.title}
-                                            </Link>
-                                        ) : (
+                                {briefing.decisions_pending.map((d, i) => {
+                                    const page = d.link ? pathLabel(d.link) : null;
+
+                                    return (
+                                        <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                             <span className="font-medium">{d.title}</span>
-                                        )}
-                                        {d.owner && <span className="text-xs text-muted-foreground">· {d.owner}</span>}
-                                    </li>
-                                ))}
+                                            {d.owner && <span className="text-xs text-muted-foreground">· {d.owner}</span>}
+                                            {d.link && page?.live && (
+                                                <Link
+                                                    href={d.link}
+                                                    className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                                                >
+                                                    Abrir {page.label}
+                                                    <ChevronRight className="size-3.5" />
+                                                </Link>
+                                            )}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         </div>
                     )}

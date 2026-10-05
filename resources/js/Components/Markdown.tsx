@@ -1,5 +1,9 @@
+import { Link } from '@inertiajs/react';
+import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+import { isConsolePath, pathLabel } from '@/lib/paths';
 
 /**
  * Markdown written by agents (briefings, documents). Raw HTML is never
@@ -18,10 +22,30 @@ export function Markdown({ children }: { children: string }) {
                             <table {...props} />
                         </div>
                     ),
+                    a: ({ node: _node, href, children: label }) => <ConsoleLink href={href}>{label}</ConsoleLink>,
                 }}
             >
                 {children}
             </ReactMarkdown>
         </div>
     );
+}
+
+/**
+ * A link an agent wrote. Console paths open in the console under the page's
+ * name ("[/approvals](/approvals)" reads "Aprovações"); a path to a page the
+ * console no longer has is plain text; anything else opens in a new tab.
+ */
+function ConsoleLink({ href, children }: { href?: string; children: ReactNode }) {
+    if (!isConsolePath(href)) {
+        return (
+            <a href={href} target="_blank" rel="noreferrer noopener">
+                {children}
+            </a>
+        );
+    }
+    const page = pathLabel(href);
+    const label = page && typeof children === 'string' && children.trim() === href ? page.label : children;
+
+    return page?.live ? <Link href={href}>{label}</Link> : <span>{label}</span>;
 }

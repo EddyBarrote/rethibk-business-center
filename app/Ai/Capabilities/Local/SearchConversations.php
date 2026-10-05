@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 /**
  * The Chief of Staff searches what people and agents said, to report to the
  * CEO (docs/DECISOES.md, realinhamento L10). Only when the person asking has
- * the "pedir reports sobre conversas" permission; every search is audited.
+ * the "pedir relatórios sobre conversas" permission; every search is audited.
  */
 final class SearchConversations extends LocalCapability
 {
@@ -34,7 +34,7 @@ final class SearchConversations extends LocalCapability
 
     public function description(): string
     {
-        return 'Pesquisa as conversas e tarefas de pessoas com agentes (palavras, pessoa, agente, últimos dias) e devolve excertos com ligação. Só funciona a pedido de quem pode pedir reports sobre conversas. Ao reportar: resumo com os excertos citados e a ligação de cada conversa.';
+        return 'Pesquisa as conversas e tarefas de pessoas com agentes (palavras, pessoa, agente, últimos dias) e devolve excertos com ligação. Só funciona a pedido de quem pode pedir relatórios sobre conversas. Ao reportar: resumo com os excertos citados e a ligação de cada conversa.';
     }
 
     public function schema(JsonSchema $schema): array
@@ -59,7 +59,7 @@ final class SearchConversations extends LocalCapability
         $asker = $context->run->task->user ?? $context->run->requestedBy;
 
         if ($asker === null || ! $asker->hasPermission(Permission::RequestConversationReports)) {
-            return CapabilityResult::error('só pesquiso conversas a pedido de quem pode pedir reports sobre conversas (por omissão, o CEO).');
+            return CapabilityResult::error('só pesquiso conversas a pedido de quem pode pedir relatórios sobre conversas (por omissão, o CEO).');
         }
 
         $person = filled($data['person'] ?? null)

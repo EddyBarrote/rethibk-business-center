@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(TenantManager $tenants): void
     {
-        PlatformAdmin::query()->firstOrCreate(['email' => 'admin@rethink.test'], ['name' => 'Super admin (dev)', 'password' => 'password']);
+        PlatformAdmin::query()->firstOrCreate(['email' => 'admin@rethink.test'], ['name' => 'Equipa Rethink', 'password' => 'password']);
 
         $tenant = Tenant::query()->firstOrCreate(['slug' => 'micomoc'], ['name' => 'MICOMOC', 'settings' => [
             'mail_domain' => 'agentes.micomoc.test',
@@ -40,26 +40,28 @@ class DatabaseSeeder extends Seeder
             $general = Department::query()->firstOrCreate(['slug' => 'direccao-geral'], ['name' => 'Direcção-Geral']);
 
             $owner = User::query()->firstOrCreate(['email' => 'owner@micomoc.test'], [
-                'name' => 'Proprietário (dev)',
+                'name' => 'Carlos Tembe',
                 'job_title' => 'CEO',
                 'password' => 'password',
                 'role' => Role::Owner,
                 'department_id' => $general->id,
             ]);
 
+            // Plausible people instead of "(dev)" labels, so screenshots and demos read like the company.
             foreach ([
-                'direccao-comercial' => ['Direcção Comercial', 'comercial@micomoc.test', 'Directora Comercial (dev)'],
-                'direccao-financeira' => ['Direcção Financeira', 'financas@micomoc.test', 'Director Financeiro (dev)'],
-                'direccao-de-operacoes' => ['Direcção de Operações', 'operacoes@micomoc.test', 'Director de Operações (dev)'],
-                'direccao-de-rh' => ['Direcção de RH', 'rh@micomoc.test', 'Directora de RH (dev)'],
-            ] as $slug => [$name, $email, $person]) {
+                'direccao-comercial' => ['Direcção Comercial', 'comercial@micomoc.test', 'Ana Sitoe', 'Directora Comercial'],
+                'direccao-financeira' => ['Direcção Financeira', 'financas@micomoc.test', 'Jorge Cossa', 'Director Financeiro'],
+                'direccao-de-operacoes' => ['Direcção de Operações', 'operacoes@micomoc.test', 'Rui Macuácua', 'Director de Operações'],
+                'direccao-de-rh' => ['Direcção de RH', 'rh@micomoc.test', 'Marta Nhantumbo', 'Directora de RH'],
+            ] as $slug => [$name, $email, $person, $title]) {
                 $department = Department::query()->firstOrCreate(['slug' => $slug], ['name' => $name, 'parent_id' => $general->id]);
                 // The directors report to the CEO in the org chart (realinhamento L3).
-                User::query()->firstOrCreate(['email' => $email], ['name' => $person, 'password' => 'password', 'role' => Role::Manager, 'department_id' => $department->id, 'reports_to_user_id' => $owner->id]);
+                User::query()->firstOrCreate(['email' => $email], ['name' => $person, 'job_title' => $title, 'password' => 'password', 'role' => Role::Manager, 'department_id' => $department->id, 'reports_to_user_id' => $owner->id]);
             }
 
             User::query()->firstOrCreate(['email' => 'tecnico@micomoc.test'], [
-                'name' => 'Técnico (dev)',
+                'name' => 'Paulo Muianga',
+                'job_title' => 'Técnico de obra',
                 'password' => 'password',
                 'role' => Role::Member,
                 'department_id' => Department::query()->where('slug', 'direccao-de-operacoes')->value('id'),

@@ -28,7 +28,7 @@ final class Core implements Module
             $this->read('erp.whoami', 'Identifica a organização e o utilizador técnico associados ao token.',
                 fn (JsonSchema $s) => [],
                 fn () => [
-                    'organization' => 'MICOMOC (servidor falso)',
+                    'organization' => 'MICOMOC (demonstração)',
                     'principal' => 'micomoc-agents',
                     'environment' => 'fake',
                     'scopes' => ['crm', 'leads', 'projects', 'invoices', 'procurement', 'expenses'],

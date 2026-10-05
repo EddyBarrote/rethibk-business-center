@@ -10,7 +10,8 @@ import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { StatusDot, type Tone } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, duration, number, time, usdPrecise } from '@/lib/format';
+import { ago, dateTime, duration, number, time, usdPrecise, withoutTags } from '@/lib/format';
+import { approvalFacts } from '@/lib/approvals';
 import { cn } from '@/lib/utils';
 import type { ApprovalSummary, RunSummary, SharedProps } from '@/types';
 
@@ -41,8 +42,17 @@ const iconTone: Record<Tone, string> = {
     idle: 'bg-muted text-muted-foreground',
 };
 
-
-export default function RunShow({ run, steps: initialSteps, approvals }: { run: RunSummary; steps: Step[]; approvals: ApprovalSummary[] }) {
+export default function RunShow({
+    run,
+    steps: initialSteps,
+    approvals,
+    tool_names: toolNames = {},
+}: {
+    run: RunSummary;
+    steps: Step[];
+    approvals: ApprovalSummary[];
+    tool_names?: Record<string, string>;
+}) {
     const { tenant } = usePage<SharedProps>().props;
     const [liveSteps, setLiveSteps] = useState<Step[]>([]);
     const finished = ['completed', 'failed', 'cancelled'].includes(run.status);
@@ -89,7 +99,7 @@ export default function RunShow({ run, steps: initialSteps, approvals }: { run: 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <div className="flex min-w-0 flex-col gap-8">
                     <Section title="Pedido">
-                        <div className="rounded-xl border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">{run.input}</div>
+                        <Request input={run.input} />
                     </Section>
 
                     <Section
@@ -104,7 +114,12 @@ export default function RunShow({ run, steps: initialSteps, approvals }: { run: 
                         ) : (
                             <ol className="flex flex-col">
                                 {steps.map((step, index) => (
-                                    <StepItem key={step.id} step={step} last={index === steps.length - 1 && finished} />
+                                    <StepItem
+                                        key={step.id}
+                                        step={step}
+                                        last={index === steps.length - 1 && finished}
+                                        toolName={step.tool_name ? toolNames[step.tool_name] : undefined}
+                                    />
                                 ))}
                                 {!finished && (
                                     <li className="flex items-center gap-3 pl-1.5 text-xs text-muted-foreground">
@@ -176,16 +191,55 @@ export default function RunShow({ run, steps: initialSteps, approvals }: { run: 
     );
 }
 
-function StepItem({ step, last }: { step: Step; last: boolean }) {
+const emailFence = /<email_externo_nao_confiavel>([\s\S]*?)<\/email_externo_nao_confiavel>/;
+
+/**
+ * What the run was asked. An inbound email arrives inside the untrusted-data
+ * fence; it is shown as the email it is instead of the fence tags.
+ */
+function Request({ input }: { input: string }) {
+    const email = input.match(emailFence);
+    const instructions = withoutTags(email ? input.replace(emailFence, '') : input).trim();
+
+    return (
+        <div className="divide-y rounded-xl border bg-card">
+            {instructions && (
+                <div className="px-5 py-3">
+                    <Markdown>{instructions}</Markdown>
+                </div>
+            )}
+            {email && (
+                <div className="px-5 py-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Email recebido · conteúdo externo, o agente lê-o como dados e não como ordens
+                    </p>
+                    <div className="mt-2 max-h-96 overflow-auto text-sm leading-relaxed break-words whitespace-pre-wrap">{email[1].trim()}</div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/** Machine output (JSON, the untrusted email fence) stays behind "Ver dados"; a short sentence is shown. */
+const readable = (text: string | null) => (text && !/^\s*[[{<]/.test(text) && !text.includes('<email_externo_nao_confiavel>') ? text : null);
+
+function StepItem({ step, last, toolName }: { step: Step; last: boolean; toolName?: string }) {
     const [open, setOpen] = useState(false);
     const meta = stepMeta[step.type] ?? stepMeta.message;
     const Icon = meta.icon;
     const payload = step.payload ?? {};
     const pick = (...keys: string[]) => keys.map((key) => payload[key]).find((value): value is string => typeof value === 'string') ?? null;
-    const text =
+    const tool = step.type === 'tool_call' || step.type === 'tool_result';
+    const raw =
         step.type === 'approval'
             ? [pick('summary'), pick('reason'), pick('note')].filter(Boolean).join(' · ') || null
             : pick('content', 'text', 'message');
+    const text = tool ? readable(raw) : raw;
+    const facts =
+        step.type === 'tool_call' && payload.arguments && typeof payload.arguments === 'object'
+            ? approvalFacts(payload.arguments as Record<string, unknown>)
+            : [];
+    const detail = step.type === 'tool_result' && raw ? prettyJson(raw) : facts.length > 0 ? null : JSON.stringify(payload, null, 2);
 
     return (
         <li className="relative flex gap-3 pb-5">
@@ -198,36 +252,69 @@ function StepItem({ step, last }: { step: Step; last: boolean }) {
             <div className="min-w-0 flex-1 pt-0.5">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
                     <span className="font-medium">{meta.label}</span>
-                    {step.tool_name && <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{step.tool_name}</code>}
-                    <span className="ml-auto flex items-baseline gap-2 font-mono text-[11px] text-muted-foreground tabular-nums">
+                    {step.tool_name && (
+                        <span className="text-muted-foreground" title={step.tool_name}>
+                            {toolName ?? step.tool_name}
+                        </span>
+                    )}
+                    <span className="ml-auto flex items-baseline gap-2 text-[11px] text-muted-foreground tabular-nums">
                         {step.duration_ms !== null && <span>{duration(step.duration_ms)}</span>}
                         <span title={dateTime(step.created_at)}>{time(step.created_at)}</span>
                     </span>
                 </div>
-                {text && (
-                    <p
-                        className={cn(
-                            'mt-1 line-clamp-6 text-sm break-words whitespace-pre-wrap',
-                            step.type === 'error' ? 'text-status-danger' : step.type === 'message' ? 'text-foreground' : 'text-muted-foreground',
-                            /^\s*[[{]/.test(text) && 'font-mono text-xs leading-relaxed',
-                        )}
-                    >
-                        {text}
-                    </p>
-                )}
+                {text &&
+                    (step.type === 'message' ? (
+                        <div className="mt-1 text-sm">
+                            <Markdown>{text}</Markdown>
+                        </div>
+                    ) : (
+                        <p
+                            className={cn(
+                                'mt-1 text-sm break-words whitespace-pre-wrap',
+                                tool ? 'line-clamp-2' : 'line-clamp-6',
+                                step.type === 'error' ? 'text-status-danger' : 'text-muted-foreground',
+                            )}
+                        >
+                            {text}
+                        </p>
+                    ))}
                 <button
                     type="button"
                     onClick={() => setOpen(!open)}
                     className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    aria-expanded={open}
                 >
-                    {open ? 'Esconder dados' : 'Ver dados'}
+                    {open ? 'Esconder dados' : step.type === 'tool_call' ? 'Ver o que enviou' : tool ? 'Ver o que recebeu' : 'Ver dados'}
                 </button>
                 {open && (
-                    <pre className="mt-2 max-h-72 overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs">
-                        {JSON.stringify(payload, null, 2)}
-                    </pre>
+                    <div className="mt-2 space-y-2">
+                        {facts.length > 0 && (
+                            <dl className="grid gap-x-4 gap-y-1 rounded-lg border bg-card p-3 text-sm sm:grid-cols-[minmax(0,10rem)_1fr]">
+                                {facts.map((fact) => (
+                                    <div key={fact.label} className="contents">
+                                        <dt className="text-muted-foreground">{fact.label}</dt>
+                                        <dd className="min-w-0 break-words">{fact.value}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        )}
+                        {detail && (
+                            <pre className="max-h-72 overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs break-words whitespace-pre-wrap">
+                                {detail}
+                            </pre>
+                        )}
+                    </div>
                 )}
             </div>
         </li>
     );
+}
+
+/** A tool answer that is JSON reads better indented. */
+function prettyJson(text: string) {
+    try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+        return text;
+    }
 }

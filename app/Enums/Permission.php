@@ -25,7 +25,7 @@ enum Permission: string
             self::TalkToAllAgents => 'Falar com todos os agentes',
             self::DecideAllApprovals => 'Aprovar acções de qualquer agente',
             self::ReadAllConversations => 'Ler as conversas de todos',
-            self::RequestConversationReports => 'Pedir reports sobre conversas',
+            self::RequestConversationReports => 'Pedir relatórios sobre conversas',
             self::ConfirmTrustLevels => 'Confirmar níveis de confiança',
         };
     }

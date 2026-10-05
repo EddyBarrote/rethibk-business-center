@@ -183,7 +183,7 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
 
             <SettingsBlock
                 title="Configuração"
-                description="Enquanto o servidor do ERP não estiver pronto, use o servidor falso local, com dados fictícios."
+                description="Enquanto o servidor do ERP não estiver pronto, use o servidor de demonstração, com dados fictícios."
             >
                 <form onSubmit={submit} className="flex flex-col gap-5 rounded-xl border bg-card p-5">
                     <div className="grid gap-5 sm:grid-cols-2">
@@ -202,7 +202,7 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                                 onChange={(e) => form.setData('transport', e.target.value as Transport)}
                             >
                                 <option value="web">Servidor do ERP (HTTP)</option>
-                                <option value="local">Servidor falso local (desenvolvimento)</option>
+                                <option value="local">Servidor de demonstração (dados fictícios)</option>
                             </NativeSelect>
                         </Field>
                     </div>

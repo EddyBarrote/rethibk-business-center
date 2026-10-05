@@ -28,7 +28,7 @@ export default function TenantsIndex({ tenants }: { tenants: TenantRow[] }) {
         <AdminLayout title="Organizações">
             <PageHeader
                 title="Organizações"
-                description="Cada organização é um tenant isolado, com os seus utilizadores, agentes e orçamento de IA."
+                description="Cada organização tem os seus utilizadores, agentes e orçamento de IA, separados das outras."
                 actions={
                     <Button asChild>
                         <Link href="/tenants/create">

@@ -9,7 +9,7 @@ import { Pagination } from '@/Components/Pagination';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, duration, usd } from '@/lib/format';
+import { ago, dateTime, duration, runTitle, usd } from '@/lib/format';
 import type { Paginated, RunSummary } from '@/types';
 
 const statuses = [
@@ -60,7 +60,7 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                                         <AgentAvatar name={run.agent.name} />
                                     </div>
                                 }
-                                title={run.input}
+                                title={runTitle(run.input)}
                                 subtitle={`${run.agent.name} · ${run.trigger_label}${run.requested_by ? ` · ${run.requested_by}` : ''}`}
                                 meta={
                                     <>

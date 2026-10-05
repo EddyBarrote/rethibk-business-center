@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, usd } from '@/lib/format';
+import { ago, dateTime, runTitle, usd } from '@/lib/format';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
 
 interface Props {
@@ -418,7 +418,7 @@ function RunList({ runs }: { runs: RunSummary[] }) {
                     key={run.id}
                     href={`/runs/${run.id}`}
                     leading={<span className="w-12 font-mono text-xs text-muted-foreground tabular-nums">#{run.id}</span>}
-                    title={run.input}
+                    title={runTitle(run.input)}
                     subtitle={run.trigger_label}
                     meta={
                         <>

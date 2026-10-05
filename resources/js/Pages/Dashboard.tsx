@@ -13,7 +13,7 @@ import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge, StatusDot } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, usd } from '@/lib/format';
+import { ago, dateTime, runTitle, usd } from '@/lib/format';
 import type { AgentSummary, ApprovalSummary, BriefingSummary, Issue, RunSummary, SharedProps } from '@/types';
 
 interface Metrics {
@@ -89,7 +89,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{run.agent.name}</span>
                                 </div>
                                 <RunStatusBadge status={run.status} label={run.status_label} />
-                                <p className="line-clamp-2 text-sm text-muted-foreground">{run.input}</p>
+                                <p className="line-clamp-2 text-sm text-muted-foreground">{runTitle(run.input)}</p>
                                 <p className="font-mono text-[11px] text-muted-foreground">
                                     #{run.id} · {ago(run.created_at)}
                                 </p>
@@ -265,7 +265,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                     key={run.id}
                                     href={`/runs/${run.id}`}
                                     leading={<AgentAvatar name={run.agent.name} />}
-                                    title={run.input}
+                                    title={runTitle(run.input)}
                                     subtitle={run.agent.name}
                                     meta={<span title={dateTime(run.created_at)}>{ago(run.created_at)}</span>}
                                     trailing={<RunStatusBadge status={run.status} label={run.status_label} />}

@@ -21,7 +21,7 @@ export default function TenantsCreate() {
 
     return (
         <AdminLayout title="Nova organização" breadcrumbs={[{ label: 'Organizações', href: '/tenants' }, { label: 'Nova organização' }]}>
-            <PageHeader title="Nova organização" description="Cria o tenant, o utilizador proprietário e o catálogo de capacidades locais." />
+            <PageHeader title="Nova organização" description="Cria a organização, o utilizador proprietário e o catálogo de capacidades locais." />
 
             <form onSubmit={submit} className="flex max-w-2xl flex-col gap-6">
                 <section className="rounded-xl border bg-card p-5">
