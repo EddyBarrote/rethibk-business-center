@@ -12,6 +12,7 @@ use App\Enums\TaskStatus;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\EmailMessage;
 use App\Models\Goal;
 use App\Models\Task;
 use App\Models\TaskMessage;
@@ -159,6 +160,7 @@ class TaskController extends Controller
                 'started_at' => $task->started_at?->toIso8601String(),
                 'completed_at' => $task->completed_at?->toIso8601String(),
                 'parent' => $task->parent ? ['id' => $task->parent->id, 'ref' => $task->parent->identifier(), 'title' => $task->parent->title] : null,
+                'source' => $this->source($task),
                 'agent' => $task->assigneeAgent ? Present::agent($task->assigneeAgent) : null,
             ],
             'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name'])->get()->map(fn (TaskMessage $m) => [
@@ -307,5 +309,20 @@ class TaskController extends Controller
             'statuses' => collect(TaskStatus::cases())->map(fn (TaskStatus $s) => ['value' => $s->value, 'label' => $s->label()]),
             'priorities' => collect(TaskPriority::cases())->map(fn (TaskPriority $p) => ['value' => $p->value, 'label' => $p->label()]),
         ];
+    }
+
+    /**
+     * Where the task came from, as a link the person can open.
+     *
+     * @return array{label: string, href: string}|null
+     */
+    private function source(Task $task): ?array
+    {
+        $source = $task->source;
+
+        return match (true) {
+            $source instanceof EmailMessage => ['label' => "Email: {$source->subject}", 'href' => "/inbox/{$source->id}"],
+            default => null,
+        };
     }
 }

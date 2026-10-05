@@ -13,6 +13,7 @@ use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
 use App\Models\FollowUp;
 use App\Models\Mailbox;
+use App\Models\Task;
 use App\Models\Tender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,6 +98,8 @@ class InboxController extends Controller
                     'downloadable' => $a->path !== null, 'ocr_status' => $a->ocr_status,
                 ]),
             ]),
+            'tasks' => Task::query()->where('source_type', $message->getMorphClass())->where('source_id', $message->id)->with('tenant:id,slug')->get()
+                ->map(fn (Task $t) => ['id' => $t->id, 'ref' => $t->identifier(), 'title' => $t->title]),
             'tenders' => Tender::query()->where('email_message_id', $message->id)->get(['id', 'title', 'deadline_at', 'status'])->map(fn (Tender $t) => [
                 'id' => $t->id, 'title' => $t->title, 'deadline_at' => $t->deadline_at?->toIso8601String(), 'status_label' => $t->status->label(),
             ]),

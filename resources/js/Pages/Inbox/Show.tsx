@@ -32,6 +32,7 @@ interface ConversationMessage extends EmailSummary {
 interface Props {
     message: EmailSummary;
     conversation: ConversationMessage[];
+    tasks: { id: number; ref: string; title: string }[];
     tenders: { id: number; title: string; deadline_at: string | null; status_label: string }[];
     followUps: { id: number; title: string; due_at: string; done: boolean }[];
     categories: Option[];
@@ -160,7 +161,7 @@ function MessageBlock({ m, current }: { m: ConversationMessage; current: boolean
     );
 }
 
-export default function InboxShow({ message, conversation, tenders, followUps, categories }: Props) {
+export default function InboxShow({ message, conversation, tasks, tenders, followUps, categories }: Props) {
     const [category, setCategory] = useState(message.category ?? '');
     const current = conversation.find((m) => m.id === message.id) ?? conversation[0];
     const draftsInThread = conversation.filter((m) => m.status === 'draft');
@@ -235,6 +236,13 @@ export default function InboxShow({ message, conversation, tenders, followUps, c
                             </Property>
                             <Property label="Estado">
                                 <StatusBadge tone={emailTone(current.status)}>{current.status_label}</StatusBadge>
+                            </Property>
+                            <Property label="Tarefa">
+                                {tasks.map((task) => (
+                                    <Link key={task.id} href={`/tasks/${task.id}`} className="block truncate hover:underline" title={task.title}>
+                                        <span className="font-mono">{task.ref}</span> {task.title}
+                                    </Link>
+                                ))}
                             </Property>
                             <Property label="Encaminhado a">{current.routed_to}</Property>
                             <Property label="Departamento">{current.department}</Property>

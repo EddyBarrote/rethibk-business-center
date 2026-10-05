@@ -6,18 +6,22 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Ai\Runs\AgentDirectory;
-use App\Ai\Runs\AgentRunner;
 use App\Enums\EmailCategory;
-use App\Enums\TriggerType;
+use App\Enums\TaskKind;
+use App\Enums\TaskPriority;
+use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\Department;
 use App\Models\EmailMessage;
+use App\Models\Task;
 use App\Models\User;
 use App\Support\Notifier;
+use App\Tasks\TaskThread;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
 
@@ -31,7 +35,7 @@ final class ClassifyEmail extends LocalCapability
     public function __construct(
         private readonly Notifier $notifier,
         private readonly AgentDirectory $agents,
-        private readonly AgentRunner $runner,
+        private readonly TaskThread $threads,
     ) {}
 
     public function key(): string
@@ -117,29 +121,31 @@ final class ClassifyEmail extends LocalCapability
             'routed_to_user_id' => $user->id ?? $message->routed_to_user_id,
         ])->save();
 
-        $notified = null;
+        $category = EmailCategory::from($data['category']);
         $recipient = $user ?? $department?->users()->where('is_active', true)->whereIn('role', ['owner', 'admin', 'manager'])->first();
+        $task = $this->handOff($message, $category, $data, $recipient, $deadline, $context);
+        $person = $task?->user ?? $recipient;
 
-        if ($recipient !== null && $data['category'] !== EmailCategory::Spam->value) {
-            $label = EmailCategory::from($data['category'])->label();
+        $notified = null;
+
+        if ($person !== null && $category !== EmailCategory::Spam) {
             $this->notifier->notify(
-                $recipient,
-                "{$label}: {$message->subject}",
+                $person,
+                $task !== null ? "Nova tarefa {$task->identifier()}: {$task->title}" : "{$category->label()}: {$message->subject}",
                 $data['summary'].($deadline ? ' Prazo: '.$deadline->format('d/m/Y').'.' : ''),
-                "/inbox/{$message->id}",
+                $task !== null ? "/tasks/{$task->id}" : "/inbox/{$message->id}",
                 $context->agent->name,
                 in_array($data['priority'], ['high', 'urgent'], true) ? 'warning' : 'info',
             );
-            $notified = $recipient->name;
+            $notified = $person->name;
         }
-
-        $handler = $this->handOff($message, EmailCategory::from($data['category']), $context);
 
         return CapabilityResult::data([
             'email_id' => $message->id,
             'category' => $data['category'],
             'routed_to' => $notified,
-            'handed_to_agent' => $handler?->name,
+            'handed_to_agent' => $task?->assigneeAgent?->name,
+            'task' => $task?->identifier(),
             'department' => $department?->name,
             'deadline' => $deadline?->toIso8601String(),
             'warnings' => array_values(array_filter([
@@ -152,9 +158,14 @@ final class ClassifyEmail extends LocalCapability
     /**
      * Supplier invoices go to the finance agent, quotes to procurement, CVs
      * to HR and client requests to the client manager, when those agents
-     * exist and are active. Once per email.
+     * exist and are active. Once per email, as a task assigned to that agent
+     * (docs/DECISOES.md, realinhamento L13). The task is with the person the
+     * email was routed to, or else the person the agent answers to, so it
+     * lands in their tasks.
+     *
+     * @param  array<string, mixed>  $data
      */
-    private function handOff(EmailMessage $message, EmailCategory $category, CapabilityContext $context): ?Agent
+    private function handOff(EmailMessage $message, EmailCategory $category, array $data, ?User $recipient, ?Carbon $deadline, CapabilityContext $context): ?Task
     {
         $role = $category->handlerRole();
         $agent = $role !== null ? $this->agents->forRole($role) : null;
@@ -165,14 +176,22 @@ final class ClassifyEmail extends LocalCapability
 
         $message->forceFill(['flags' => [...($message->flags ?? []), 'handed_off']])->save();
 
-        $this->runner->dispatch(
-            $agent,
-            "A triagem classificou o email #{$message->id} como «{$category->label()}». Lê-o com email.read e trata-o dentro das tuas competências.",
-            TriggerType::Agent,
-            source: $message,
-        );
+        $from = trim(($message->from_name ? "{$message->from_name} " : '')."<{$message->from_address}>");
 
-        return $agent;
+        return $this->threads->open([
+            'kind' => TaskKind::Task,
+            'title' => Str::limit("{$category->label()}: ".($message->subject ?: '(sem assunto)'), 200, '…'),
+            'description' => "A triagem classificou o email #{$message->id} como «{$category->label()}».\n\n"
+                ."De: {$from}\nAssunto: {$message->subject}\n\nResumo da triagem: {$data['summary']}\n\n"
+                ."Lê o email com email.read (email_id {$message->id}) e trata-o dentro das tuas competências.",
+            'status' => TaskStatus::Todo,
+            'priority' => TaskPriority::from($data['priority']),
+            'assignee_agent_id' => $agent->id,
+            'user_id' => $recipient->id ?? $agent->reports_to_user_id,
+            'due_at' => $deadline,
+            'source_type' => $message->getMorphClass(),
+            'source_id' => $message->id,
+        ], $context->agent);
     }
 
     private function date(?string $value): ?Carbon

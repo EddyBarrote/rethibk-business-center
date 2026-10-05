@@ -6,12 +6,15 @@ use App\Enums\ApprovalStatus;
 use App\Enums\EmailCategory;
 use App\Enums\EmailStatus;
 use App\Enums\RunStatus;
+use App\Enums\TaskPriority;
+use App\Enums\TaskStatus;
 use App\Mail\AgentMessage;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Department;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
+use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
@@ -120,11 +123,48 @@ it('hands supplier invoices, CVs and client requests to the agent of the area', 
 
         $runs = AgentRun::query()->with('agent')->orderBy('id')->get();
 
+        $task = Task::query()->sole();
+
         expect($runs)->toHaveCount(2)
             ->and($runs[1]->agent->key)->toBe('finance')
             ->and($runs[1]->trigger_type->value)->toBe('agent')
-            ->and($runs[1]->trigger_source_id)->toBe($email->id)
-            ->and($email->fresh()->hasFlag('handed_off'))->toBeTrue();
+            ->and($runs[1]->task_id)->toBe($task->id)
+            ->and($email->fresh()->hasFlag('handed_off'))->toBeTrue()
+            ->and($task->assigneeAgent->key)->toBe('finance')
+            ->and($task->createdByAgent->key)->toBe('triage')
+            ->and($task->source->is($email))->toBeTrue()
+            ->and($task->title)->toContain('Factura de fornecedor')
+            ->and($task->description)->toContain("email_id {$email->id}")
+            ->and($task->status)->toBe(TaskStatus::InProgress);
+    });
+});
+
+it('puts the handed-over email in the tasks of the person who answers for the area agent, with a link to the email', function () {
+    asTenant($this->tenant, fn () => templateAgent('finance')->update(['reports_to_user_id' => $this->owner->id]));
+
+    GenericAgent::fake([
+        toolCall('t1', 'email_classify', fn () => ['email_id' => inboundId(), 'category' => 'supplier_invoice', 'confidence' => 0.97, 'priority' => 'high', 'summary' => 'Factura FT 2026/0877, 72.848 MT.']),
+        'Passada às Finanças.',
+        'Vou registá-la.',
+    ]);
+
+    $task = asTenant($this->tenant, function () {
+        app(InboundEmailIngestor::class)->ingest($this->mailbox, mailFixture('supplier-invoice'));
+
+        return Task::query()->sole();
+    });
+
+    expect($task->user_id)->toBe($this->owner->id)
+        ->and($task->priority)->toBe(TaskPriority::High);
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?view=mine'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('tasks.0.id', $task->id));
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('task.source.href', "/inbox/{$task->source_id}"));
+
+    asTenant($this->tenant, function () use ($task) {
+        expect($this->owner->notifications()->latest()->first()->data['url'] ?? null)->toBe("/tasks/{$task->id}");
     });
 });
 

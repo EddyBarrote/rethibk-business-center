@@ -38,6 +38,7 @@ interface Props extends TaskFormOptions {
         started_at: string | null;
         completed_at: string | null;
         parent: { id: number; ref: string; title: string } | null;
+        source: { label: string; href: string } | null;
         agent: AgentSummary | null;
     };
     messages: Message[];
@@ -427,6 +428,13 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                                         {task.created_by_agent && <AgentAvatar name={task.created_by} className="size-5 rounded-md text-[9px]" />}
                                         {task.created_by}
                                     </span>
+                                )}
+                            </Property>
+                            <Property label="Origem">
+                                {task.source && (
+                                    <Link href={task.source.href} className="truncate hover:underline">
+                                        {task.source.label}
+                                    </Link>
                                 )}
                             </Property>
                             <Property label="Criada">

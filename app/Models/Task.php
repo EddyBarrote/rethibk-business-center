@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -38,6 +39,8 @@ use Illuminate\Support\Str;
  * @property int|null $created_by_agent_id
  * @property int|null $goal_id
  * @property int|null $parent_id
+ * @property string|null $source_type
+ * @property int|null $source_id
  * @property Carbon|null $due_at
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
@@ -47,7 +50,7 @@ use Illuminate\Support\Str;
  */
 #[Fillable([
     'number', 'kind', 'chat_key', 'title', 'description', 'status', 'priority', 'assignee_agent_id', 'user_id', 'created_by_user_id',
-    'created_by_agent_id', 'goal_id', 'parent_id', 'due_at', 'started_at', 'completed_at', 'last_activity_at',
+    'created_by_agent_id', 'goal_id', 'parent_id', 'source_type', 'source_id', 'due_at', 'started_at', 'completed_at', 'last_activity_at',
 ])]
 class Task extends Model
 {
@@ -131,6 +134,16 @@ class Task extends Model
     public function goal(): BelongsTo
     {
         return $this->belongsTo(Goal::class);
+    }
+
+    /**
+     * What the task came from, such as the email the triage handed over.
+     *
+     * @return MorphTo<Model, $this>
+     */
+    public function source(): MorphTo
+    {
+        return $this->morphTo();
     }
 
     /**
