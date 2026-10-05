@@ -80,7 +80,7 @@ Route::middleware('auth')->group(function () {
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::put('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
     Route::get('org', [OrgController::class, 'index'])->name('org.index');
-    Route::put('org/{agent}', [OrgController::class, 'update'])->name('org.update');
+    Route::put('org', [OrgController::class, 'update'])->name('org.update');
     Route::get('runs', [AgentRunController::class, 'index'])->name('runs.index');
     Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
 

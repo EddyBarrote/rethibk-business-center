@@ -9,62 +9,103 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
 use App\Models\Task;
+use App\Models\User;
 use App\Tasks\OrgChart;
-use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The agent org chart (Paperclip's org page): who reports to whom, and what
- * each agent has on its plate.
+ * The org chart (Paperclip's org page), with people and agents side by side
+ * (docs/DECISOES.md, realinhamento L3): who reports to whom, and what each
+ * one has on their plate.
  */
 class OrgController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, OrgChart $chart): Response
     {
         $user = $this->user($request);
         $agents = Agent::query()->where('status', '!=', AgentStatus::Draft)->with(['reportsTo:id,name', 'department:id,name'])->orderBy('name')->get();
-        $open = Task::query()->open()->whereNotNull('assignee_agent_id')->selectRaw('assignee_agent_id, count(*) as total')->groupBy('assignee_agent_id')->pluck('total', 'assignee_agent_id');
+        $people = User::query()->where('is_active', true)->with('department:id,name')->orderBy('name')->get();
+
+        $openByAgent = Task::query()->open()->whereNotNull('assignee_agent_id')->selectRaw('assignee_agent_id, count(*) as total')->groupBy('assignee_agent_id')->pluck('total', 'assignee_agent_id');
+        $openByUser = Task::query()->open()->whereNotNull('assignee_user_id')->selectRaw('assignee_user_id, count(*) as total')->groupBy('assignee_user_id')->pluck('total', 'assignee_user_id');
         $waiting = Task::query()->where('status', TaskStatus::WaitingHuman)->selectRaw('assignee_agent_id, count(*) as total')->groupBy('assignee_agent_id')->pluck('total', 'assignee_agent_id');
         $running = AgentRun::query()->whereIn('status', [RunStatus::Queued, RunStatus::Running])->pluck('agent_id')->flip();
 
+        $members = $agents->map(fn (Agent $agent) => [
+            'key' => OrgChart::key($agent),
+            'type' => 'agent',
+            'id' => $agent->id,
+            'name' => $agent->name,
+            'avatar_url' => $agent->avatarUrl(),
+            'title' => $agent->title,
+            'status' => $agent->status->value,
+            'status_label' => $agent->status->label(),
+            'autonomy_level' => $agent->autonomy_level->value,
+            'department' => $agent->department?->name,
+            'responsible' => $agent->reportsTo?->name,
+            'manager' => $chart->managerOf($agent),
+            'open_tasks' => (int) ($openByAgent[$agent->id] ?? 0),
+            'waiting_tasks' => (int) ($waiting[$agent->id] ?? 0),
+            'running' => isset($running[$agent->id]),
+        ])->concat($people->map(fn (User $person) => [
+            'key' => OrgChart::key($person),
+            'type' => 'user',
+            'id' => $person->id,
+            'name' => $person->name,
+            'avatar_url' => null,
+            'title' => $person->job_title ?? $person->role->label(),
+            'status' => 'active',
+            'status_label' => 'Activo',
+            'autonomy_level' => null,
+            'department' => $person->department?->name,
+            'responsible' => null,
+            'manager' => $chart->managerOf($person),
+            'open_tasks' => (int) ($openByUser[$person->id] ?? 0),
+            'waiting_tasks' => 0,
+            'running' => false,
+        ]));
+
         return Inertia::render('Org/Index', [
-            'agents' => $agents->map(fn (Agent $agent) => [
-                'id' => $agent->id,
-                'name' => $agent->name,
-                'title' => $agent->title,
-                'status' => $agent->status->value,
-                'status_label' => $agent->status->label(),
-                'autonomy_level' => $agent->autonomy_level->value,
-                'department' => $agent->department?->name,
-                'reports_to_user' => $agent->reportsTo?->name,
-                'reports_to_agent_id' => $agent->reports_to_agent_id,
-                'open_tasks' => (int) ($open[$agent->id] ?? 0),
-                'waiting_tasks' => (int) ($waiting[$agent->id] ?? 0),
-                'running' => isset($running[$agent->id]),
-            ]),
+            'members' => $members->values(),
             'can_manage' => $user->canManageTenant(),
         ]);
     }
 
-    public function update(Request $request, Agent $agent, OrgChart $chart): RedirectResponse
+    public function update(Request $request, OrgChart $chart): RedirectResponse
     {
-        Gate::authorize('manage', $agent);
+        $user = $this->user($request);
+        abort_unless($user->canManageTenant(), 403);
 
-        $data = $request->validate(['reports_to_agent_id' => ['nullable', 'integer', TenantRule::exists('agents')]]);
-        $manager = $data['reports_to_agent_id'] ?? null;
+        $data = $request->validate([
+            'member' => ['required', 'string', 'regex:/^(agent|user):\d+$/'],
+            'manager' => ['nullable', 'string', 'regex:/^(agent|user):\d+$/'],
+        ]);
 
-        if ($chart->createsCycle($agent, $manager)) {
-            throw ValidationException::withMessages(['reports_to_agent_id' => 'Isso criava um ciclo no organigrama.']);
+        $member = $this->find($data['member']) ?? abort(404);
+        $manager = $data['manager'] ?? null;
+
+        if ($manager !== null && $this->find($manager) === null) {
+            throw ValidationException::withMessages(['manager' => 'Essa chefia não existe.']);
         }
 
-        $agent->forceFill(['reports_to_agent_id' => $manager])->save();
-        AuditLog::record($this->user($request), 'agent.org_changed', ['reports_to_agent_id' => $manager], subject: $agent);
+        if ($manager === $data['member'] || $chart->loops($member, $manager)) {
+            throw ValidationException::withMessages(['manager' => 'Isso criava um ciclo no organigrama.']);
+        }
+
+        $chart->assign($member, $manager);
+        AuditLog::record($user, 'org.changed', ['member' => $data['member'], 'manager' => $manager], subject: $member);
 
         return back()->with('success', 'Organigrama actualizado.');
+    }
+
+    private function find(string $key): Agent|User|null
+    {
+        [$type, $id] = explode(':', $key, 2);
+
+        return $type === 'agent' ? Agent::query()->find((int) $id) : User::query()->find((int) $id);
     }
 }

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
+import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { PageHeader } from '@/Components/PageHeader';
@@ -13,98 +14,102 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AppLayout from '@/Layouts/AppLayout';
 import { cn } from '@/lib/utils';
 
-interface OrgAgent {
+interface Member {
+    key: string;
+    type: 'agent' | 'user';
     id: number;
     name: string;
+    avatar_url: string | null;
     title: string | null;
     status: 'active' | 'suspended' | 'draft';
     status_label: string;
-    autonomy_level: number;
+    autonomy_level: number | null;
     department: string | null;
-    reports_to_user: string | null;
-    reports_to_agent_id: number | null;
+    responsible: string | null;
+    manager: string | null;
     open_tasks: number;
     waiting_tasks: number;
     running: boolean;
 }
 
 interface Props {
-    agents: OrgAgent[];
+    members: Member[];
     can_manage: boolean;
 }
 
 const NONE = 'none';
 
-export default function OrgIndex({ agents, can_manage }: Props) {
-    const [errors, setErrors] = useState<Record<number, string>>({});
-    const ids = new Set(agents.map((agent) => agent.id));
-    const reports = new Map<number | null, OrgAgent[]>();
-    agents.forEach((agent) => {
-        const manager = agent.reports_to_agent_id !== null && ids.has(agent.reports_to_agent_id) ? agent.reports_to_agent_id : null;
-        reports.set(manager, [...(reports.get(manager) ?? []), agent]);
+export default function OrgIndex({ members, can_manage }: Props) {
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const keys = new Set(members.map((member) => member.key));
+    const reports = new Map<string | null, Member[]>();
+    members.forEach((member) => {
+        const manager = member.manager !== null && keys.has(member.manager) ? member.manager : null;
+        reports.set(manager, [...(reports.get(manager) ?? []), member]);
     });
-    const roots = reports.get(null) ?? [];
+    // People first at the top: the CEO and the board sit above the agents.
+    const roots = [...(reports.get(null) ?? [])].sort((a, b) => (a.type === b.type ? 0 : a.type === 'user' ? -1 : 1));
 
-    const below = (id: number): Set<number> => {
-        const out = new Set<number>([id]);
-        const stack = [id];
+    const below = (key: string): Set<string> => {
+        const out = new Set<string>([key]);
+        const stack = [key];
         while (stack.length > 0) {
             (reports.get(stack.pop()!) ?? []).forEach((child) => {
-                if (!out.has(child.id)) {
-                    out.add(child.id);
-                    stack.push(child.id);
+                if (!out.has(child.key)) {
+                    out.add(child.key);
+                    stack.push(child.key);
                 }
             });
         }
         return out;
     };
 
-    const move = (agent: OrgAgent, manager: number | null) =>
+    const move = (member: Member, manager: string | null) =>
         router.put(
-            `/org/${agent.id}`,
-            { reports_to_agent_id: manager },
+            '/org',
+            { member: member.key, manager },
             {
                 preserveScroll: true,
-                onSuccess: () => setErrors(({ [agent.id]: _, ...rest }) => rest),
+                onSuccess: () => setErrors(({ [member.key]: _, ...rest }) => rest),
                 onError: (bag) => {
-                    const message = bag.reports_to_agent_id ?? Object.values(bag)[0] ?? 'Não foi possível mudar o organigrama.';
-                    setErrors((current) => ({ ...current, [agent.id]: message }));
+                    const message = bag.manager ?? Object.values(bag)[0] ?? 'Não foi possível mudar o organigrama.';
+                    setErrors((current) => ({ ...current, [member.key]: message }));
                     toast.error(message);
                 },
             },
         );
 
+    const agents = members.filter((member) => member.type === 'agent');
+    const people = members.filter((member) => member.type === 'user');
     const running = agents.filter((agent) => agent.running).length;
     const waiting = agents.reduce((sum, agent) => sum + agent.waiting_tasks, 0);
 
-    const renderNode = (agent: OrgAgent, seen: Set<number>, nested = false) => {
-        const children = (reports.get(agent.id) ?? []).filter((child) => !seen.has(child.id));
-        const nextSeen = new Set([...seen, agent.id]);
-        const excluded = can_manage ? below(agent.id) : new Set<number>();
+    const renderNode = (member: Member, seen: Set<string>, nested = false) => {
+        const children = (reports.get(member.key) ?? []).filter((child) => !seen.has(child.key));
+        const nextSeen = new Set([...seen, member.key]);
+        const excluded = can_manage ? below(member.key) : new Set<string>();
 
         return (
-            <li key={agent.id} className="relative">
+            <li key={member.key} className="relative">
                 {nested && <span className="absolute top-5 -left-5 h-px w-4 bg-border sm:-left-7 sm:w-6" aria-hidden="true" />}
                 <OrgNode
-                    agent={agent}
-                    error={errors[agent.id]}
+                    member={member}
+                    error={errors[member.key]}
                     managerSelect={
                         can_manage ? (
-                            <Select
-                                value={agent.reports_to_agent_id !== null ? String(agent.reports_to_agent_id) : NONE}
-                                onValueChange={(value) => move(agent, value === NONE ? null : Number(value))}
-                            >
-                                <SelectTrigger size="sm" className="h-7 w-full text-xs sm:w-44" aria-label={`${agent.name} reporta a`}>
+                            <Select value={member.manager ?? NONE} onValueChange={(value) => move(member, value === NONE ? null : value)}>
+                                <SelectTrigger size="sm" className="h-7 w-full text-xs sm:w-48" aria-label={`${member.name} reporta a`}>
                                     <span className="text-muted-foreground">Reporta a</span>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={NONE}>Ninguém (topo)</SelectItem>
-                                    {agents
-                                        .filter((candidate) => !excluded.has(candidate.id))
+                                    {members
+                                        .filter((candidate) => !excluded.has(candidate.key))
                                         .map((candidate) => (
-                                            <SelectItem key={candidate.id} value={String(candidate.id)}>
+                                            <SelectItem key={candidate.key} value={candidate.key}>
                                                 {candidate.name}
+                                                {candidate.type === 'agent' ? ' (agente)' : ''}
                                             </SelectItem>
                                         ))}
                                 </SelectContent>
@@ -128,17 +133,17 @@ export default function OrgIndex({ agents, can_manage }: Props) {
             <PageHeader
                 title="Organigrama"
                 description={
-                    agents.length > 0
-                        ? `${agents.length} agentes · ${running} a trabalhar · ${waiting} ${waiting === 1 ? 'tarefa' : 'tarefas'} à espera de pessoas`
-                        : 'Quem reporta a quem entre os agentes, e o que cada um tem em mãos.'
+                    members.length > 0
+                        ? `${people.length} pessoas e ${agents.length} agentes · ${running} a trabalhar · ${waiting} ${waiting === 1 ? 'tarefa' : 'tarefas'} à espera de pessoas`
+                        : 'Quem reporta a quem, pessoas e agentes, e o que cada um tem em mãos.'
                 }
             />
 
-            {agents.length === 0 ? (
+            {members.length === 0 ? (
                 <EmptyState
                     icon={Network}
-                    title="Ainda sem agentes"
-                    description="Quando a Rethink activar os primeiros agentes, o organigrama mostra quem reporta a quem e o trabalho de cada um."
+                    title="Ainda sem ninguém"
+                    description="Quando houver pessoas e agentes, o organigrama mostra quem reporta a quem."
                 />
             ) : (
                 <ul className="flex flex-col gap-6">{roots.map((root) => renderNode(root, new Set()))}</ul>
@@ -147,8 +152,9 @@ export default function OrgIndex({ agents, can_manage }: Props) {
     );
 }
 
-function OrgNode({ agent, managerSelect, error }: { agent: OrgAgent; managerSelect: React.ReactNode; error?: string }) {
+function OrgNode({ member: agent, managerSelect, error }: { member: Member; managerSelect: React.ReactNode; error?: string }) {
     const tone = agentTone(agent.status, agent.running);
+    const isAgent = agent.type === 'agent';
 
     return (
         <div className="flex max-w-3xl flex-col gap-1">
@@ -161,7 +167,11 @@ function OrgNode({ agent, managerSelect, error }: { agent: OrgAgent; managerSele
             >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="relative">
-                        <AgentAvatar name={agent.name} className="size-9 rounded-lg text-xs" />
+                        {isAgent ? (
+                            <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-9 rounded-lg text-xs" />
+                        ) : (
+                            <Monogram name={agent.name} className="size-9 rounded-lg text-xs" />
+                        )}
                         <span
                             className="absolute -right-0.5 -bottom-0.5 rounded-full bg-card p-0.5"
                             title={agent.running ? 'A trabalhar' : agent.status_label}
@@ -171,23 +181,28 @@ function OrgNode({ agent, managerSelect, error }: { agent: OrgAgent; managerSele
                     </span>
                     <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-2">
-                            <Link href={`/agents/${agent.id}`} className="truncate text-sm font-medium hover:underline">
-                                {agent.name}
-                            </Link>
+                            {isAgent ? (
+                                <Link href={`/agents/${agent.id}`} className="truncate text-sm font-medium hover:underline">
+                                    {agent.name}
+                                </Link>
+                            ) : (
+                                <span className="truncate text-sm font-medium">{agent.name}</span>
+                            )}
+                            {!isAgent && <span className="rounded bg-muted px-1.5 text-[10px] text-muted-foreground">pessoa</span>}
                             {agent.running && <span className="text-xs text-status-running">a trabalhar</span>}
                             {agent.status === 'suspended' && <span className="text-xs text-status-danger">{agent.status_label.toLowerCase()}</span>}
                         </div>
                         <p className="truncate text-xs text-muted-foreground">
                             {[agent.title, agent.department].filter(Boolean).join(' · ') || 'Sem função definida'}
-                            {agent.reports_to_user && <span> · responde a {agent.reports_to_user}</span>}
+                            {agent.responsible && <span> · responde a {agent.responsible}</span>}
                         </p>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
-                    <AutonomyBadge level={agent.autonomy_level} />
+                    {agent.autonomy_level !== null && <AutonomyBadge level={agent.autonomy_level} />}
                     <Link
-                        href={`/tasks?view=all&agent=${agent.id}`}
+                        href={isAgent ? `/tasks?view=all&agent=${agent.id}` : `/tasks?view=all&person=${agent.id}`}
                         className="inline-flex h-5 items-center gap-1 rounded-full bg-muted px-2 text-xs text-muted-foreground hover:text-foreground"
                         title="Tarefas abertas"
                     >

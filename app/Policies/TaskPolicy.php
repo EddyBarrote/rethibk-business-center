@@ -27,7 +27,7 @@ class TaskPolicy
             return false;
         }
 
-        if ($actor->canManageTenant() || in_array($actor->id, [$task->user_id, $task->created_by_user_id], true)) {
+        if ($actor->canManageTenant() || in_array($actor->id, [$task->user_id, $task->created_by_user_id, $task->assignee_user_id], true)) {
             return true;
         }
 

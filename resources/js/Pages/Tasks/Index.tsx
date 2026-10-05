@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, ListTodo, MessageSquare,
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
@@ -35,6 +36,7 @@ export interface TaskSummary {
     priority: TaskPriority;
     priority_label: string;
     assignee: { id: number; name: string } | null;
+    assignee_user: { id: number; name: string } | null;
     user: string | null;
     created_by: string | null;
     created_by_agent: boolean;
@@ -50,6 +52,7 @@ export interface TaskFormOptions {
     agents: { id: number; name: string; title: string | null }[];
     goals: { id: number; title: string }[];
     projects: { id: number; name: string; goal_id: number | null }[];
+    people: { id: number; name: string }[];
     statuses: Option[];
     priorities: Option[];
 }
@@ -219,8 +222,9 @@ const emptyCopy: Record<View, { title: string; description: string }> = {
     closed: { title: 'Nada fechado', description: 'As tarefas feitas ou canceladas aparecem aqui.' },
 };
 
-export default function TasksIndex({ tasks, filters, counts, agents, goals, projects, priorities }: Props) {
-    const { tenant } = usePage<SharedProps>().props;
+export default function TasksIndex({ tasks, filters, counts, agents, people, goals, projects, priorities }: Props) {
+    const { tenant, auth } = usePage<SharedProps>().props;
+    const canCreate = auth.user?.is_manager ?? false;
     const [open, setOpen] = useState(false);
     const [q, setQ] = useState(filters.q ?? '');
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -265,10 +269,12 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, proj
                 title="Tarefas"
                 description="O trabalho dos agentes e as conversas consigo: o que está em curso, o que espera por si."
                 actions={
-                    <Button onClick={() => setOpen(true)}>
-                        <Plus />
-                        Nova tarefa
-                    </Button>
+                    canCreate && (
+                        <Button onClick={() => setOpen(true)}>
+                            <Plus />
+                            Nova tarefa
+                        </Button>
+                    )
                 }
             />
 
@@ -350,10 +356,12 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, proj
                                 : emptyCopy[filters.view].description
                         }
                         action={
-                            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-                                <Plus />
-                                Nova tarefa
-                            </Button>
+                            canCreate && (
+                                <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+                                    <Plus />
+                                    Nova tarefa
+                                </Button>
+                            )
                         }
                     />
                 ) : (
@@ -398,6 +406,7 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, proj
                 open={open}
                 onOpenChange={setOpen}
                 agents={agents}
+                people={people}
                 goals={goals}
                 projects={projects}
                 priorities={priorities}
@@ -441,7 +450,9 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                 </div>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-mono sm:hidden">{task.ref}</span>
-                    {task.assignee && <span className={cn('truncate', !compact && 'md:hidden')}>{task.assignee.name}</span>}
+                    {(task.assignee ?? task.assignee_user) && (
+                        <span className={cn('truncate', !compact && 'md:hidden')}>{(task.assignee ?? task.assignee_user)!.name}</span>
+                    )}
                     {task.created_by_agent && task.created_by && <span className="truncate">delegada por {task.created_by}</span>}
                     {!task.created_by_agent && task.user && !compact && <span className="hidden truncate lg:inline">com {task.user}</span>}
                 </div>
@@ -454,8 +465,13 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                             <AgentAvatar name={task.assignee.name} className="size-5 rounded-md text-[9px]" />
                             <span className="truncate text-foreground/80">{task.assignee.name}</span>
                         </span>
+                    ) : task.assignee_user ? (
+                        <span className="flex w-36 items-center gap-2 truncate">
+                            <Monogram name={task.assignee_user.name} className="size-5 rounded-md text-[9px]" />
+                            <span className="truncate text-foreground/80">{task.assignee_user.name}</span>
+                        </span>
                     ) : (
-                        <span className="w-36">Sem agente</span>
+                        <span className="w-36">Por atribuir</span>
                     )}
                 </div>
             )}
@@ -478,6 +494,7 @@ function NewTaskDialog({
     open,
     onOpenChange,
     agents,
+    people,
     goals,
     projects,
     priorities,
@@ -487,6 +504,7 @@ function NewTaskDialog({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     agents: TaskFormOptions['agents'];
+    people: TaskFormOptions['people'];
     goals: TaskFormOptions['goals'];
     projects: TaskFormOptions['projects'];
     priorities: Option[];
@@ -495,7 +513,7 @@ function NewTaskDialog({
 }) {
     const form = useForm({
         kind: 'task' as 'task' | 'chat',
-        assignee_agent_id: defaultAgent ? String(defaultAgent) : '',
+        assignee: defaultAgent ? `agent:${defaultAgent}` : '',
         title: '',
         message: '',
         priority: 'normal',
@@ -509,7 +527,8 @@ function NewTaskDialog({
         form.transform((data) => ({
             ...data,
             title: data.kind === 'chat' ? null : data.title,
-            assignee_agent_id: data.assignee_agent_id ? Number(data.assignee_agent_id) : null,
+            assignee_agent_id: data.assignee.startsWith('agent:') ? Number(data.assignee.slice(6)) : null,
+            assignee_user_id: data.assignee.startsWith('user:') ? Number(data.assignee.slice(5)) : null,
             goal_id: data.goal_id ? Number(data.goal_id) : null,
             project_id: data.project_id ? Number(data.project_id) : null,
         }));
@@ -544,22 +563,32 @@ function NewTaskDialog({
                         className="w-fit"
                     />
 
-                    <Field id="assignee_agent_id" label="Agente" error={form.errors.assignee_agent_id}>
-                        <Select
-                            value={form.data.assignee_agent_id || NONE}
-                            onValueChange={(value) => form.setData('assignee_agent_id', value === NONE ? '' : value)}
-                        >
-                            <SelectTrigger id="assignee_agent_id" className="w-full">
-                                <SelectValue placeholder="Escolha um agente" />
+                    <Field
+                        id="assignee"
+                        label={isChat ? 'Agente' : 'Responsável'}
+                        error={
+                            (form.errors as Record<string, string | undefined>).assignee_agent_id ??
+                            (form.errors as Record<string, string | undefined>).assignee_user_id
+                        }
+                    >
+                        <Select value={form.data.assignee || NONE} onValueChange={(value) => form.setData('assignee', value === NONE ? '' : value)}>
+                            <SelectTrigger id="assignee" className="w-full">
+                                <SelectValue placeholder="Escolha um agente ou uma pessoa" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={NONE}>Sem agente (por atribuir)</SelectItem>
+                                <SelectItem value={NONE}>Por atribuir</SelectItem>
                                 {agents.map((agent) => (
-                                    <SelectItem key={agent.id} value={String(agent.id)}>
+                                    <SelectItem key={`agent:${agent.id}`} value={`agent:${agent.id}`}>
                                         {agent.name}
                                         {agent.title && <span className="text-muted-foreground"> · {agent.title}</span>}
                                     </SelectItem>
                                 ))}
+                                {!isChat &&
+                                    people.map((person) => (
+                                        <SelectItem key={`user:${person.id}`} value={`user:${person.id}`}>
+                                            {person.name} <span className="text-muted-foreground">· pessoa</span>
+                                        </SelectItem>
+                                    ))}
                             </SelectContent>
                         </Select>
                     </Field>

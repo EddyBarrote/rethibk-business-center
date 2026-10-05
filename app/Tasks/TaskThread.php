@@ -101,6 +101,10 @@ final class TaskThread
             $this->notifyUser($task, "{$author->name} quer falar consigo", Str::limit((string) ($message ?? $task->title), 300));
         }
 
+        if ($task->assignee_user_id !== null && $task->assignee_user_id !== ($author instanceof User ? $author->id : null)) {
+            $this->notifyAssignee($task, $author);
+        }
+
         return $task;
     }
 
@@ -120,10 +124,14 @@ final class TaskThread
 
         $fromAssignee = $author instanceof Agent && $author->id === $task->assignee_agent_id;
 
+        // Answering a waiting agent, or a person sending back work in review,
+        // hands the turn back to the agent.
+        $handsBack = ! $fromAssignee && ($task->status === TaskStatus::WaitingHuman
+            || ($task->status === TaskStatus::InReview && $author instanceof User && $task->assignee_agent_id !== null && $task->kind === TaskKind::Task));
+
         $task->forceFill([
             'last_activity_at' => now(),
-            // A person answering a waiting agent hands the turn back to it.
-            'status' => ! $fromAssignee && $task->status === TaskStatus::WaitingHuman ? TaskStatus::InProgress : $task->status,
+            'status' => $handsBack ? TaskStatus::InProgress : $task->status,
         ])->save();
 
         if ($fromAssignee) {
@@ -181,6 +189,14 @@ final class TaskThread
             $this->reportToParent($task, $by);
         }
 
+        if ($status === TaskStatus::InReview && $by instanceof Agent && $task->kind === TaskKind::Task) {
+            $this->notifyUser($task, "{$task->identifier()} pronta para rever", $note ?? $task->title, urgent: true);
+        }
+
+        if ($status === TaskStatus::Done && $by instanceof Agent && $task->parent_id === null && $task->kind === TaskKind::Task) {
+            $this->notifyUser($task, "{$by->name} concluiu {$task->identifier()}", $note ?? $task->title);
+        }
+
         if ($status === TaskStatus::WaitingHuman) {
             $this->notifyUser($task, ($by->name ?? 'Um agente').' está à sua espera', $note ?? $task->title, urgent: true);
         }
@@ -217,6 +233,17 @@ final class TaskThread
         }
 
         return $this->runner()->dispatch($agent, $this->input($task, $source), $trigger, $requestedBy, $source, $task->id);
+    }
+
+    /**
+     * The heartbeat: a platform note in the thread wakes its agent to pick
+     * the work back up.
+     */
+    public function nudge(Task $task): ?AgentRun
+    {
+        $note = $this->note($task, 'Batimento: esta tarefa está parada. Retoma-a, ou marca-a como bloqueada e diz porquê.');
+
+        return $this->wake($task, null, $note, TriggerType::Schedule);
     }
 
     /**
@@ -355,7 +382,7 @@ final class TaskThread
             return;
         }
 
-        $last = $task->messages()->where('author_type', ActorType::Agent)->reorder('id', 'desc')->first();
+        $last = $task->messages()->whereIn('author_type', [ActorType::Agent, ActorType::User])->reorder('id', 'desc')->first();
         $summary = "A tarefa delegada {$task->identifier()} «{$task->title}» foi concluída".($by ? " por {$by->name}" : '').'.'
             .($last ? "\n\nÚltima resposta:\n".Str::limit($last->body, 1500) : '');
 
@@ -363,6 +390,37 @@ final class TaskThread
 
         if ($parent->assignee_agent_id !== null && ! ($by instanceof Agent && $by->id === $parent->assignee_agent_id)) {
             $this->wake($parent, null, $note, TriggerType::Agent);
+        }
+    }
+
+    /**
+     * Give the task to a person (or take it from one). A task has one owner,
+     * so the agent lets go of it.
+     */
+    public function assignPerson(Task $task, ?User $person, User|Agent $by): Task
+    {
+        $task->forceFill([
+            'assignee_user_id' => $person?->id,
+            'assignee_agent_id' => $person !== null ? null : $task->assignee_agent_id,
+        ])->save();
+
+        $this->note($task, $person !== null ? "{$by->name} atribuiu a {$person->name}." : "{$by->name} retirou a pessoa responsável.");
+
+        if ($person !== null && ! ($by instanceof User && $by->id === $person->id)) {
+            $this->notifyAssignee($task, $by);
+        }
+
+        TaskUpdated::live($task);
+
+        return $task;
+    }
+
+    private function notifyAssignee(Task $task, User|Agent $by): void
+    {
+        $person = $task->assigneeUser;
+
+        if ($person !== null) {
+            $this->notifier->notify($person, "Nova tarefa {$task->identifier()}: {$task->title}", Str::limit((string) ($task->description ?? $task->title), 300), "/tasks/{$task->id}", $by->name, $task->priority->value === 'urgent' ? 'warning' : 'info');
         }
     }
 

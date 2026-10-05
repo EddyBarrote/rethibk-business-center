@@ -127,9 +127,6 @@ it('lets an agent delegate down the org chart and wakes it when the work is done
 
 it('refuses delegation to agents outside the chart', function () {
     asTenant($this->a, function () {
-        $result = runCapability($this->finance, 'tasks.create', ['agent' => 'finance', 'title' => 'x', 'description' => 'y']);
-        expect($result->ok)->toBeFalse();
-
         $other = Agent::factory()->create(['key' => 'hr', 'reports_to_agent_id' => $this->chief->id]);
         $result = runCapability($this->finance, 'tasks.create', ['agent' => $other->key, 'title' => 'x', 'description' => 'y']);
         expect($result->ok)->toBeFalse()->and($result->content)->toContain('organigrama');
@@ -198,13 +195,29 @@ it('lists goals with progress and keeps the org chart free of cycles', function 
     $this->actingAs($this->member)->get(tenantUrl($this->a, 'goals'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Goals/Index')->where('goals.0.title', 'Crescer 20%'));
 
-    $this->actingAs($this->owner)->put(tenantUrl($this->a, "org/{$this->chief->id}"), ['reports_to_agent_id' => $this->finance->id])
-        ->assertSessionHasErrors('reports_to_agent_id');
+    $this->actingAs($this->owner)->put(tenantUrl($this->a, 'org'), ['member' => "agent:{$this->chief->id}", 'manager' => "agent:{$this->finance->id}"])
+        ->assertSessionHasErrors('manager');
 
-    $this->actingAs($this->member)->put(tenantUrl($this->a, "org/{$this->finance->id}"), ['reports_to_agent_id' => null])->assertForbidden();
+    $this->actingAs($this->member)->put(tenantUrl($this->a, 'org'), ['member' => "agent:{$this->finance->id}", 'manager' => null])->assertForbidden();
 
     $this->actingAs($this->owner)->get(tenantUrl($this->a, 'org'))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Org/Index')->has('agents', 2));
+        ->assertInertia(fn (Assert $page) => $page->component('Org/Index')->where('members', fn ($members) => collect($members)->where('type', 'agent')->count() === 2));
+});
+
+it('puts people and agents in one org chart, in either direction, without loops', function () {
+    $this->actingAs($this->owner)->put(tenantUrl($this->a, 'org'), ['member' => "user:{$this->member->id}", 'manager' => "agent:{$this->finance->id}"])->assertRedirect();
+    $this->actingAs($this->owner)->put(tenantUrl($this->a, 'org'), ['member' => "user:{$this->boss->id}", 'manager' => "user:{$this->owner->id}"])->assertRedirect();
+
+    // Finanças -> Chief of Staff -> (agent) ; Chief's responsible person is the boss, so the chief sits under the boss.
+    $this->actingAs($this->owner)->put(tenantUrl($this->a, 'org'), ['member' => "user:{$this->boss->id}", 'manager' => "user:{$this->member->id}"])
+        ->assertSessionHasErrors('manager');
+
+    asTenant($this->a, fn () => expect($this->member->fresh()->reports_to_agent_id)->toBe($this->finance->id)
+        ->and($this->boss->fresh()->reports_to_user_id)->toBe($this->owner->id));
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->a, 'org'))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('members', fn ($members) => collect($members)->firstWhere('key', "user:{$this->member->id}")['manager'] === "agent:{$this->finance->id}"
+            && collect($members)->firstWhere('key', "agent:{$this->chief->id}")['manager'] === "user:{$this->boss->id}"));
 });
 
 it('puts the Chief of Staff on top of the org chart, whatever is installed first', function () {

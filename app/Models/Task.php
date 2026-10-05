@@ -34,6 +34,7 @@ use Illuminate\Support\Str;
  * @property TaskStatus $status
  * @property TaskPriority $priority
  * @property int|null $assignee_agent_id
+ * @property int|null $assignee_user_id
  * @property int|null $user_id
  * @property int|null $created_by_user_id
  * @property int|null $created_by_agent_id
@@ -50,7 +51,7 @@ use Illuminate\Support\Str;
  * @property Carbon $updated_at
  */
 #[Fillable([
-    'number', 'kind', 'chat_key', 'title', 'description', 'status', 'priority', 'assignee_agent_id', 'user_id', 'created_by_user_id',
+    'number', 'kind', 'chat_key', 'title', 'description', 'status', 'priority', 'assignee_agent_id', 'assignee_user_id', 'user_id', 'created_by_user_id',
     'created_by_agent_id', 'goal_id', 'project_id', 'parent_id', 'source_type', 'source_id', 'due_at', 'started_at', 'completed_at', 'last_activity_at',
 ])]
 class Task extends Model
@@ -98,7 +99,7 @@ class Task extends Model
     }
 
     /**
-     * What is on a person's desk: tasks with them or created by them, and
+     * What is on a person's desk: tasks they own, are with or created, and
      * tasks whose agent has an action waiting for their decision.
      *
      * @param  Builder<self>  $query
@@ -109,7 +110,19 @@ class Task extends Model
         $query->where(fn (Builder $q) => $q
             ->where('user_id', $user->id)
             ->orWhere('created_by_user_id', $user->id)
+            ->orWhere('assignee_user_id', $user->id)
             ->orWhereHas('runs.approvals', fn (Builder $approvals) => $approvals->pending()->visibleTo($user)));
+    }
+
+    /**
+     * A person who owns the task (docs/DECISOES.md, realinhamento L4). A task
+     * has one owner: an agent or a person, never both.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function assigneeUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assignee_user_id');
     }
 
     /**
