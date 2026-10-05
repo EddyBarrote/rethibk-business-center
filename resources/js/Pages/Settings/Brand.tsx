@@ -38,7 +38,7 @@ export default function BrandSettings({ brand, default_color }: Props) {
             />
 
             <form onSubmit={submit} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
-                <div className="flex flex-col gap-5 rounded-xl border bg-card p-5">
+                <div className="flex flex-col gap-5 self-start rounded-xl border bg-card p-5">
                     <Field
                         id="color"
                         label="Cor principal"
