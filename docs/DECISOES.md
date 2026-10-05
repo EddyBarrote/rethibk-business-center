@@ -114,3 +114,16 @@ Pedido do Barrote: qualquer administrador de uma empresa deve conseguir criar fe
 | Cara do agente | Foto carregada, ou gerada com o modelo de imagem do Gemini quando há chave; sem foto, as iniciais. Ficheiro privado, servido só a pessoas do mesmo tenant. | `AgentAvatars`, `AgentAvatarController` |
 | Assistente de criação | "Descreva o colega de que precisa": a IA propõe nome (próprio, de pessoa), função, personalidade, instruções, nível de autonomia, capacidades e skills existentes, e sugere skills que fariam falta. Fica em rascunho no formulário; nada é guardado sem rever. Sem chave de IA, o formulário funciona à mão. O custo desta chamada não entra no orçamento mensal (é pequena); a chamada é recusada se o orçamento já estiver esgotado. | `AgentDrafting`, `AgentDrafter` |
 | Para outros módulos | Capacidades locais registam-se com `CapabilityRegistry::register()` num service provider, e `giveToEveryAgent()` dá-as a todos os agentes. | [CAPACIDADES.md](CAPACIDADES.md) |
+
+## Ecrãs de entrada com cara de produto (05.10.2026)
+
+Pedido do Barrote: o login tem de parecer um produto a sério, com "Desenvolvido por Rethink Technologies". Escolhas por omissão:
+
+| Tema | Decisão | Onde está |
+|---|---|---|
+| Nome do produto | **Rethink Business Center**, com "Plataforma de Agentes" como descrição. O `APP_NAME` do `.env` não mudou. | `PRODUCT_NAME` em `Components/RethinkMark.tsx` |
+| Âmbito | Entrar, recuperar acesso, nova palavra-passe (tenant) e entrar do super admin partilham o mesmo `AuthLayout`: painel ilustrado à esquerda (só em ecrãs largos), formulário à direita, claro e escuro, botão de tema. | `Layouts/AuthLayout.tsx` |
+| Marca do tenant | Na entrada de um tenant aparece o logótipo de Definições › Marca (ou a inicial na cor da marca); o produto fica em segundo plano. O logótipo é servido sem sessão em `/login/logo`, como em qualquer página de entrada. | `Auth\LoginBrand`, `LoginController::logo` |
+| Recuperar palavra-passe | Novo, só para pessoas dos tenants: link por email (60 min), resposta igual quer a conta exista ou não, só contas activas, procura limitada ao tenant do endereço. A tabela `password_reset_tokens` é a do Laravel (chave = email); se o mesmo email existir em dois tenants, o pedido mais recente substitui o anterior. Os super admins não têm recuperação no ecrã: é feita por um operador. | `ForgotPasswordController`, `ResetPasswordController` |
+| Logótipo | Marca em SVG desenhada à mão (R de um traço que chega a um nó), na cor primária do tema; também é o favicon. A proposta do nano banana saiu demasiado carregada para um ícone de 28 px e ficou só como referência. | `RethinkMark`, `public/favicon.svg` |
+| Ilustração | Gerada com nano banana (Gemini 3 Pro Image, 2K), versão clara e escura, optimizadas para WebP 1400 px (~22 e ~32 KB). Prompts em [UI.md](UI.md#imagens-geradas). | `public/images/auth/` |

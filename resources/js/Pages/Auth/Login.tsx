@@ -1,16 +1,18 @@
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
+import { Loader2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 import { Field } from '@/Components/Field';
-import { RethinkMark } from '@/Components/RethinkMark';
+import { PasswordInput } from '@/Components/PasswordInput';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
+import { AuthLayout, AuthStatus, type LoginBrand } from '@/Layouts/AuthLayout';
 import type { SharedProps } from '@/types';
 
-export default function Login() {
-    const { tenant } = usePage<SharedProps>().props;
+export default function Login({ brand }: { brand: LoginBrand | null }) {
+    const { flash } = usePage<SharedProps>().props;
     const form = useForm({ email: '', password: '', remember: false });
 
     const submit = (event: FormEvent) => {
@@ -19,67 +21,63 @@ export default function Login() {
     };
 
     return (
-        <div className="flex min-h-svh flex-col items-center justify-center bg-muted/40 p-4">
-            <Head title="Entrar" />
+        <AuthLayout
+            title="Entrar"
+            brand={brand}
+            heading="Bem-vindo de volta"
+            description={brand ? `Entre na área de trabalho de ${brand.name}.` : 'Entre com o email e a palavra-passe da sua conta.'}
+        >
+            <AuthStatus message={flash.success} />
 
-            <div className="flex w-full max-w-sm flex-col gap-6">
-                <div className="flex flex-col items-center gap-3 text-center">
-                    <RethinkMark className="size-10 rounded-lg text-lg" />
-                    <div className="space-y-0.5">
-                        <p className="text-sm font-semibold">{tenant?.name ?? 'Plataforma de Agentes'}</p>
-                        <p className="text-xs text-muted-foreground">Plataforma de Agentes · Rethink</p>
+            <form onSubmit={submit} className="flex flex-col gap-5">
+                <Field id="email" label="Email" error={form.errors.email}>
+                    <Input
+                        id="email"
+                        type="email"
+                        autoComplete="username"
+                        autoFocus
+                        required
+                        placeholder="nome@empresa.co.mz"
+                        className="h-10"
+                        value={form.data.email}
+                        onChange={(event) => form.setData('email', event.target.value)}
+                        aria-invalid={!!form.errors.email}
+                    />
+                </Field>
+
+                <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Palavra-passe</Label>
+                        <Link href="/forgot-password" className="text-xs font-medium text-primary underline-offset-4 hover:underline">
+                            Esqueceu-se?
+                        </Link>
                     </div>
+                    <PasswordInput
+                        id="password"
+                        autoComplete="current-password"
+                        required
+                        className="h-10"
+                        value={form.data.password}
+                        onChange={(event) => form.setData('password', event.target.value)}
+                        aria-invalid={!!form.errors.password}
+                    />
+                    {form.errors.password && <p className="text-sm text-destructive">{form.errors.password}</p>}
                 </div>
 
-                <div className="rounded-xl border bg-card p-6 shadow-sm">
-                    <div className="mb-6 space-y-1">
-                        <h1 className="text-lg font-semibold tracking-tight">Entrar</h1>
-                        <p className="text-sm text-muted-foreground">Use o email e a palavra-passe da sua conta.</p>
-                    </div>
-
-                    <form onSubmit={submit} className="flex flex-col gap-4">
-                        <Field id="email" label="Email" error={form.errors.email}>
-                            <Input
-                                id="email"
-                                type="email"
-                                autoComplete="username"
-                                autoFocus
-                                required
-                                value={form.data.email}
-                                onChange={(event) => form.setData('email', event.target.value)}
-                                aria-invalid={!!form.errors.email}
-                            />
-                        </Field>
-
-                        <Field id="password" label="Palavra-passe" error={form.errors.password}>
-                            <Input
-                                id="password"
-                                type="password"
-                                autoComplete="current-password"
-                                required
-                                value={form.data.password}
-                                onChange={(event) => form.setData('password', event.target.value)}
-                                aria-invalid={!!form.errors.password}
-                            />
-                        </Field>
-
-                        <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="remember"
-                                checked={form.data.remember}
-                                onCheckedChange={(checked) => form.setData('remember', checked === true)}
-                            />
-                            <Label htmlFor="remember" className="font-normal text-muted-foreground">
-                                Manter sessão iniciada
-                            </Label>
-                        </div>
-
-                        <Button type="submit" className="mt-2 w-full" disabled={form.processing}>
-                            Entrar
-                        </Button>
-                    </form>
+                <div className="flex items-center gap-2">
+                    <Checkbox id="remember" checked={form.data.remember} onCheckedChange={(checked) => form.setData('remember', checked === true)} />
+                    <Label htmlFor="remember" className="font-normal text-muted-foreground">
+                        Manter sessão iniciada
+                    </Label>
                 </div>
-            </div>
-        </div>
+
+                <Button type="submit" size="lg" className="mt-1 w-full" disabled={form.processing}>
+                    {form.processing && <Loader2 className="size-4 animate-spin" />}
+                    Entrar
+                </Button>
+            </form>
+
+            <p className="mt-8 text-center text-xs text-muted-foreground">Não tem conta? Peça acesso ao administrador da sua empresa.</p>
+        </AuthLayout>
     );
 }

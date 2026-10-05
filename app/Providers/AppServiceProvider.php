@@ -4,10 +4,12 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Tenancy\TenantManager;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\DevCommands;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -38,6 +40,15 @@ class AppServiceProvider extends ServiceProvider
 
         // `composer dev` also runs the scheduler: mail fetch, routines, briefings and watchers.
         DevCommands::artisan('schedule:work', 'scheduler');
+
+        // The reset link points at the host it was asked from, so it lands on the right tenant.
+        ResetPassword::toMailUsing(fn (User $user, string $token) => (new MailMessage)
+            ->subject('Definir uma nova palavra-passe')
+            ->greeting('Olá '.$user->name.',')
+            ->line('Recebemos um pedido para definir uma nova palavra-passe para a sua conta.')
+            ->action('Definir palavra-passe', route('password.reset', ['token' => $token, 'email' => $user->email]))
+            ->line('O link é válido durante '.config('auth.passwords.users.expire').' minutos. Se não fez este pedido, ignore este email.')
+            ->salutation('Rethink Business Center'));
 
         RateLimiter::for('login', function (Request $request) {
             $email = strtolower((string) $request->input('email'));

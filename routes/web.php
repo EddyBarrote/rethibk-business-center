@@ -5,7 +5,9 @@ use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AgentDefinitionController;
 use App\Http\Controllers\AgentRunController;
 use App\Http\Controllers\ApprovalController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\BriefingController;
 use App\Http\Controllers\CapabilityController;
 use App\Http\Controllers\ClientController;
@@ -37,7 +39,14 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
     Route::post('login', [LoginController::class, 'store'])->middleware('throttle:login');
+    Route::get('forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
+    Route::post('forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:login')->name('password.email');
+    Route::get('reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
+    Route::post('reset-password', [ResetPasswordController::class, 'store'])->middleware('throttle:login')->name('password.store');
 });
+
+// The tenant's logo on the sign-in screens (Definições > Marca); public, like any login page logo.
+Route::get('login/logo', [LoginController::class, 'logo'])->name('login.logo');
 
 Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');

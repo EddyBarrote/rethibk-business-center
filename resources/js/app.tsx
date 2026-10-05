@@ -11,7 +11,7 @@ if (import.meta.env.VITE_REVERB_APP_KEY) {
     configureEcho({ broadcaster: 'reverb' });
 }
 
-const appName = import.meta.env.VITE_APP_NAME || 'Plataforma de Agentes';
+const appName = import.meta.env.VITE_APP_NAME || 'Rethink Business Center';
 
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),

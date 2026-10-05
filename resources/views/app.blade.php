@@ -12,6 +12,7 @@
                 document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
             })();
         </script>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <title inertia>{{ config('app.name') }}</title>
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx'])
