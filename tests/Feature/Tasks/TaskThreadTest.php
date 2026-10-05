@@ -8,6 +8,7 @@ use App\Enums\ActorType;
 use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
 use App\Enums\TriggerType;
+use App\Events\TaskReplyStreaming;
 use App\Jobs\RunAgent;
 use App\Models\Agent;
 use App\Models\AgentRun;
@@ -16,6 +17,7 @@ use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tasks\TaskThread;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -240,4 +242,21 @@ it('keeps one persistent conversation per person and agent', function () {
     // A conversation keeps its agent.
     $this->actingAs($this->boss)->patch(tenantUrl($this->a, "tasks/{$chat->id}"), ['assignee_agent_id' => $this->finance->id])->assertRedirect();
     expect(asTenant($this->a, fn () => $chat->fresh()->assignee_agent_id))->toBe($this->chief->id);
+});
+
+it('streams the answer to the thread while the agent writes it', function () {
+    Event::fake([TaskReplyStreaming::class]);
+    GenericAgent::fake(['As contas estão em dia e não há facturas em atraso.']);
+
+    asTenant($this->a, function () {
+        $threads = app(TaskThread::class);
+        $chat = $threads->conversation($this->boss, $this->chief);
+        $threads->post($chat, $this->boss, 'Como estão as contas?');
+
+        app(AgentRunner::class)->run(AgentRun::query()->sole());
+
+        Event::assertDispatched(TaskReplyStreaming::class, fn (TaskReplyStreaming $event) => str_contains($event->text, 'facturas em atraso')
+            && $event->broadcastOn()[0]->name === "private-tenant.{$this->a->id}.task.{$chat->id}");
+        expect($chat->messages()->where('author_type', ActorType::Agent)->sole()->body)->toBe('As contas estão em dia e não há facturas em atraso.');
+    });
 });

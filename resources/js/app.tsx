@@ -7,7 +7,8 @@ import { createRoot } from 'react-dom/client';
 
 // Single Echo connection for the whole app; components subscribe through a
 // shared hook (section 11.3 of docs/SPEC.md), never open their own.
-if (import.meta.env.VITE_REVERB_APP_KEY) {
+// An unexpanded "${REVERB_APP_KEY}" is not a key: screens then poll instead (see vite.config.ts).
+if (import.meta.env.VITE_REVERB_APP_KEY && !String(import.meta.env.VITE_REVERB_APP_KEY).includes('${')) {
     configureEcho({ broadcaster: 'reverb' });
 }
 

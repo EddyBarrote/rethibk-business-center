@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Send, Zap } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useEffect, useRef } from 'react';
+import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Send, Wrench, Zap } from 'lucide-react';
+import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
@@ -56,12 +56,31 @@ export default function TaskShow({ task, messages, children, runs, working, can,
     const bottom = useRef<HTMLDivElement>(null);
     const seen = useRef(messages.length);
     const reload = () => router.reload({ only: reloadProps });
+    // The answer as the agent writes it (TaskReplyStreaming), until the final message lands.
+    const [stream, setStream] = useState<{ run_id: number; text: string; tool: string | null } | null>(null);
 
-    useLive(tenant ? `tenant.${tenant.id}.task.${task.id}` : null, ['TaskUpdated'], reload, {
-        only: reloadProps,
-        poll: working !== null,
-        intervalMs: 3000,
-    });
+    useLive<{ run_id: number; text: string; tool: string | null }>(
+        tenant ? `tenant.${tenant.id}.task.${task.id}` : null,
+        ['TaskUpdated', 'TaskReplyStreaming'],
+        (event, payload) => (event === 'TaskReplyStreaming' ? setStream(payload) : reload()),
+        { only: reloadProps, poll: working !== null, intervalMs: 3000 },
+    );
+
+    // Once the run's message is in the thread (or nothing is running), the draft goes away.
+    useEffect(() => {
+        if (
+            stream &&
+            (working === null || working.id !== stream.run_id || messages.some((m) => m.run_id === stream.run_id && m.kind === 'message'))
+        ) {
+            setStream(null);
+        }
+    }, [messages, working]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (stream) {
+            bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+    }, [stream?.text]); // eslint-disable-line react-hooks/exhaustive-deps
     useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished'], reload);
 
     useEffect(() => {
@@ -212,18 +231,36 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                                 ),
                             )}
 
-                            {working && (
-                                <div className="flex gap-3 rounded-xl px-3 py-3">
-                                    <span className="relative">
-                                        <AgentAvatar name={working.agent.name} />
+                            {(working || stream) && (
+                                <div className="flex gap-3 rounded-xl bg-accent/40 px-3 py-3">
+                                    <span className="relative h-fit">
+                                        <AgentAvatar name={working?.agent.name ?? agentName} />
                                         <StatusDot tone="running" className="absolute -right-0.5 -bottom-0.5" />
                                     </span>
-                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                                        <span className="font-medium">{working.agent.name}</span>
-                                        <span className="animate-pulse text-muted-foreground">A pensar…</span>
-                                        <Link href={`/runs/${working.id}`} className="font-mono text-xs text-muted-foreground hover:text-foreground">
-                                            ver execução #{working.id}
-                                        </Link>
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                                            <span className="font-medium">{working?.agent.name ?? agentName}</span>
+                                            {stream?.tool ? (
+                                                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                                    <Wrench className="size-3" />a usar <span className="font-mono">{stream.tool}</span>
+                                                </span>
+                                            ) : (
+                                                !stream?.text && <span className="animate-pulse text-muted-foreground">A pensar…</span>
+                                            )}
+                                            {working && (
+                                                <Link
+                                                    href={`/runs/${working.id}`}
+                                                    className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                                                >
+                                                    ver execução #{working.id}
+                                                </Link>
+                                            )}
+                                        </div>
+                                        {stream?.text && (
+                                            <div className="text-sm [&>*:last-child]:after:ml-0.5 [&>*:last-child]:after:inline-block [&>*:last-child]:after:h-4 [&>*:last-child]:after:w-1.5 [&>*:last-child]:after:animate-pulse [&>*:last-child]:after:bg-primary [&>*:last-child]:after:align-middle [&>*:last-child]:after:content-['']">
+                                                <Markdown>{stream.text}</Markdown>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

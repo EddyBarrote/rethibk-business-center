@@ -15,6 +15,7 @@ use App\Enums\StepType;
 use App\Enums\TriggerType;
 use App\Events\AgentRunFinished;
 use App\Events\AgentRunStarted;
+use App\Events\TaskReplyStreaming;
 use App\Jobs\RunAgent;
 use App\Models\Agent;
 use App\Models\AgentRun;
@@ -24,6 +25,10 @@ use App\Tasks\TaskThread;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Laravel\Ai\Events\StepCompleted;
+use Laravel\Ai\Responses\StreamedAgentResponse;
+use Laravel\Ai\Streaming\Events\StreamStart;
+use Laravel\Ai\Streaming\Events\TextDelta;
+use Laravel\Ai\Streaming\Events\ToolCall;
 use Throwable;
 
 /**
@@ -103,7 +108,8 @@ final class AgentRunner
             $generic = new GenericAgent($agent, $run, $this->composer->for($agent, $run), $this->tools->for($context), $this->threads->history($run));
 
             $this->runCosts[$run->id] = 0.0;
-            $response = $generic->prompt($run->input);
+            // In a task thread the answer streams to the console as it is written.
+            $response = $run->task_id !== null ? $this->streamToThread($generic, $run) : $generic->prompt($run->input);
 
             $provider = $response->meta->provider;
             $model = $response->meta->model;
@@ -179,6 +185,42 @@ final class AgentRunner
         }
 
         throw new MissingProviderKey("Falta a chave da API do provedor {$provider} no ficheiro .env (por exemplo GEMINI_API_KEY ou ANTHROPIC_API_KEY). Depois de a pôr, reinicie o composer dev.");
+    }
+
+    /**
+     * Stream the model's answer and broadcast it to the task thread a few times
+     * a second, with the tool in use in between, so people see it being written.
+     */
+    private function streamToThread(GenericAgent $generic, AgentRun $run): StreamedAgentResponse
+    {
+        $stream = $generic->stream($run->input);
+        $final = null;
+        $stream->then(function (StreamedAgentResponse $response) use (&$final): void {
+            $final = $response;
+        });
+
+        $text = '';
+        $sentAt = 0.0;
+
+        foreach ($stream as $event) {
+            if ($event instanceof StreamStart && trim($text) !== '') {
+                $text = rtrim($text)."\n\n";
+            } elseif ($event instanceof TextDelta) {
+                $text .= $event->delta;
+
+                if (microtime(true) - $sentAt >= 0.2) {
+                    TaskReplyStreaming::live($run, $text);
+                    $sentAt = microtime(true);
+                }
+            } elseif ($event instanceof ToolCall) {
+                TaskReplyStreaming::live($run, $text, $event->toolCall->name);
+                $sentAt = microtime(true);
+            }
+        }
+
+        TaskReplyStreaming::live($run, $text);
+
+        return $final ?? throw new \RuntimeException('O modelo terminou sem resposta.');
     }
 
     public function onStepCompleted(StepCompleted $event): void
