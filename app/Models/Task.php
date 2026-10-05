@@ -73,7 +73,11 @@ class Task extends Model
 
     public function identifier(): string
     {
-        $prefix = Str::upper(Str::substr(Str::slug((string) $this->tenant?->slug, ''), 0, 3)) ?: 'T';
+        // The current tenant is the task's tenant almost always; using it avoids
+        // a lazy load per task when a list of them is shown to an agent.
+        $current = Tenant::current();
+        $tenant = $this->relationLoaded('tenant') || $current?->id !== $this->tenant_id ? $this->tenant : $current;
+        $prefix = Str::upper(Str::substr(Str::slug((string) $tenant?->slug, ''), 0, 3)) ?: 'T';
 
         return "{$prefix}-{$this->number}";
     }
