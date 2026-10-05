@@ -39,15 +39,24 @@ use Illuminate\Support\Carbon;
  * @property ExecutionStatus $execution_status
  * @property array<string, mixed>|null $execution_result
  * @property Carbon|null $executed_at
+ * @property string|null $review_stage
+ * @property int|null $review_agent_id
+ * @property int|null $decided_by_agent_id
+ * @property string|null $review_note
  * @property Carbon $created_at
  */
 #[Fillable([
     'agent_run_id', 'agent_id', 'capability_id', 'action_type', 'action_summary', 'payload', 'required_level', 'agent_level',
     'ceiling_reason', 'status', 'assigned_to_user_id', 'decided_by_user_id', 'decided_at', 'decision_note', 'expires_at',
-    'execution_status', 'execution_result', 'executed_at',
+    'execution_status', 'execution_result', 'executed_at', 'review_stage', 'review_agent_id', 'decided_by_agent_id', 'review_note',
 ])]
 class Approval extends Model
 {
+    /** Stages of the revalidation: first the Chief of Staff, then people. */
+    public const STAGE_AGENT = 'agent';
+
+    public const STAGE_HUMAN = 'human';
+
     /** @use HasFactory<ApprovalFactory> */
     use BelongsToTenant, HasFactory;
 
@@ -121,6 +130,24 @@ class Approval extends Model
     public function decidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by_user_id');
+    }
+
+    /**
+     * The agent that revalidates the action before people (realinhamento L11).
+     *
+     * @return BelongsTo<Agent, $this>
+     */
+    public function reviewAgent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'review_agent_id');
+    }
+
+    /**
+     * @return BelongsTo<Agent, $this>
+     */
+    public function decidedByAgent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'decided_by_agent_id');
     }
 
     protected function casts(): array

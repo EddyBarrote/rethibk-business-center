@@ -166,6 +166,11 @@ export default function TaskShow({
                                 <p className="truncate text-sm text-muted-foreground">
                                     {task.agent?.title ?? 'Assistente'} · uma só conversa contínua, com todo o histórico
                                 </p>
+                                {/* Fixed notice (realinhamento, decisão 26). */}
+                                <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Lock className="size-3" />
+                                    As conversas podem ser consultadas pela direcção.
+                                </p>
                             </div>
                             {task.assignee && (
                                 <Link href={`/agents/${task.assignee.id}`} className="shrink-0 text-sm text-muted-foreground hover:text-foreground">

@@ -39,7 +39,7 @@ class AgentRunController extends Controller
         return Inertia::render('Runs/Show', [
             'run' => Present::run($run->load(['agent', 'requestedBy'])),
             'steps' => $run->steps()->orderBy('seq')->get()->map(fn (AgentRunStep $step) => $step->toBroadcast()),
-            'approvals' => $run->approvals()->with(['agent:id,name', 'assignedTo:id,name', 'decidedBy:id,name'])->get()
+            'approvals' => $run->approvals()->with(Present::APPROVAL_RELATIONS)->get()
                 ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
         ]);
     }

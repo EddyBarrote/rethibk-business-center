@@ -36,6 +36,7 @@ final class InstructionComposer
             $run?->task !== null ? $this->task($run) : null,
             // The agent's own consolidated memory (realinhamento L7).
             app(MemoryConsolidator::class)->forPrompt($agent, $run?->task?->user) ?: null,
+            $this->chiefOfStaff($agent),
             $this->decisions(),
             "## Autonomia\nO teu nível é {$level->code()} ({$level->label()}). ".$this->autonomyRule($level),
             <<<'TXT'
@@ -98,6 +99,23 @@ final class InstructionComposer
             .' Para perguntar algo a uma pessoa usa tasks.ask_human e espera a resposta.'
             ." Usa tasks.update_status para marcar a tua tarefa como feita, em revisão ou bloqueada; o trabalho pedido por uma pessoa fica em revisão até ela o aceitar.\n"
             .($lines !== '' ? "Agentes activos:\n{$lines}" : 'Não há outros agentes activos.');
+    }
+
+    /**
+     * What the Chief of Staff does for the CEO (docs/DECISOES.md, realinhamento
+     * L10, L11), whatever its own instructions say.
+     */
+    private function chiefOfStaff(Agent $agent): ?string
+    {
+        if (! in_array('chief_of_staff', [$agent->key, $agent->settings['template'] ?? null], true)) {
+            return null;
+        }
+
+        return "## Como Chief of Staff\n"
+            ."- Quando o CEO (ou quem a matriz de acessos permite) te pedir o que se passa nas conversas, pesquisa com conversations.search e responde com um resumo, os excertos citados entre aspas e a ligação de cada conversa. Não inventes o que não encontraste.\n"
+            ."- Quando outro agente quer fazer algo acima do seu nível, recebes uma tarefa \"Revalidar\": revê com approvals.review. Aprova só o que está certo e cabe no teu nível; devolve o que está errado; passa às pessoas quando duvidas.\n"
+            ."- Quando o histórico de um agente o justificar (acções aceites sem correcção, ou devolvidas), propõe mudar o nível dele com agents.set_trust_level; uma pessoa confirma.\n"
+            .'- Os avisos urgentes dos outros agentes chegam-te como tarefas urgentes: decide o que fazer e, se for caso disso, avisa o CEO.';
     }
 
     /**

@@ -184,3 +184,21 @@ regras, rotas e dados ficam iguais. Padrões em `docs/UI.md` › "Padrões de ec
 - **Utilizadores** continuam a criar-se e editar-se numa página própria: a fase 4 do realinhamento (matriz de acessos)
   vai mudar esse formulário, e um modal agora só criaria conflitos.
 
+
+### Onde ficou o realinhamento (05.10.2026)
+
+| Lacuna | Onde está |
+|---|---|
+| L1 Ecrãs de negócio apagados | Rotas e páginas removidas; os agentes mantêm as capacidades. A reconciliação bancária confirma-se numa aprovação (`bank.confirm_match`, sempre no tecto). |
+| L2 A minha caixa | `HomeController` em `/`; o painel passou para `/painel`; a caixa de email chama-se Emails. |
+| L3 Organigrama misto | `users.reports_to_user_id` / `reports_to_agent_id`; `OrgChart::managerOf()`, `loops()`, `assign()`; `PUT /org` com `member` e `manager` (`agent:ID` / `user:ID`). |
+| L4 Tarefas para pessoas | `tasks.assignee_user_id` (um só responsável); `TaskThread::assignPerson()`. O agente entrega em revisão o que uma pessoa pediu (`tasks.update_status`), a pessoa aceita ou devolve escrevendo. |
+| L5 Pedir na conversa | `tasks.create` com a chave do próprio agente cria a tarefa a partir da conversa; "Nova tarefa" só para quem chefia. |
+| L6 Batimentos | `agents:heartbeat` a cada 15 min; `business.heartbeat_minutes` (60 por omissão, 0 desliga). |
+| L7 Memória | `agent_memories`, `MemoryConsolidator` (no fim de cada tarefa entregue e `agents:consolidate-memory` às 21:00); artigo "Memória de {agente}" na base de conhecimento; separador Memória no agente. |
+| L8 Acesso a agentes | `agent_assignments.role` = `chat` ou `work`; `AgentPolicy::run`, `requestWork`, `manageAccess`. |
+| L9 Matriz de acessos | `access_roles` e `App\Enums\Permission`; `User::hasPermission()`; `canManageTenant()` e `isManager()` derivam da matriz. Empresa › Papéis e acessos. |
+| L10 Reports sobre conversas | `conversations.search` (só do Chief of Staff, só a pedido de quem tem a permissão); `escalate.urgent` para todos os agentes; nota fixa nas conversas. |
+| L11 Revalidação e confiança | `approvals.review_stage`; `ApprovalService::reviewerFor()`, `approveByAgent()`, `escalate()`; `approvals.review` e `agents.set_trust_level` (decide quem tem "Confirmar níveis de confiança"). |
+| L12 Projectos | `projects`, `tasks.project_id`; Trabalho › Projectos. |
+| L13 Triagem como tarefa | `ClassifyEmail::handOff()` abre uma tarefa ligada ao email (`tasks.source`). |

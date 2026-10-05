@@ -12,6 +12,7 @@ use App\Ai\Capabilities\Local\CreateTask;
 use App\Ai\Capabilities\Local\DetectIssues;
 use App\Ai\Capabilities\Local\DraftEmailReply;
 use App\Ai\Capabilities\Local\DraftReport;
+use App\Ai\Capabilities\Local\EscalateUrgent;
 use App\Ai\Capabilities\Local\ImportBankStatement;
 use App\Ai\Capabilities\Local\InboxSummary;
 use App\Ai\Capabilities\Local\ListContracts;
@@ -24,6 +25,7 @@ use App\Ai\Capabilities\Local\MonthSummary;
 use App\Ai\Capabilities\Local\NotifyUser;
 use App\Ai\Capabilities\Local\OrganisationOverview;
 use App\Ai\Capabilities\Local\ProjectMargins;
+use App\Ai\Capabilities\Local\ProposeTrustLevel;
 use App\Ai\Capabilities\Local\PublishBriefing;
 use App\Ai\Capabilities\Local\RateSupplier;
 use App\Ai\Capabilities\Local\ReadAttachment;
@@ -32,7 +34,9 @@ use App\Ai\Capabilities\Local\ReadSkillFile;
 use App\Ai\Capabilities\Local\ReadWebPage;
 use App\Ai\Capabilities\Local\RecordTender;
 use App\Ai\Capabilities\Local\RememberDecision;
+use App\Ai\Capabilities\Local\ReviewApproval;
 use App\Ai\Capabilities\Local\ScheduleFollowUp;
+use App\Ai\Capabilities\Local\SearchConversations;
 use App\Ai\Capabilities\Local\SearchEmails;
 use App\Ai\Capabilities\Local\SearchKnowledge;
 use App\Ai\Capabilities\Local\SendEmail;
@@ -95,6 +99,11 @@ final class CapabilityRegistry
         AskHuman::class,
         UpdateTaskStatus::class,
         ListTasks::class,
+        // Chief of Staff (realinhamento L10, L11) and urgent escalation.
+        ReviewApproval::class,
+        SearchConversations::class,
+        ProposeTrustLevel::class,
+        EscalateUrgent::class,
         // Skills (docs/CAPACIDADES.md): given to agents that have skills.
         LoadSkill::class,
         ReadSkillFile::class,
@@ -115,7 +124,10 @@ final class CapabilityRegistry
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list'];
+    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list', 'escalate.urgent'];
+
+    /** What the Chief of Staff gets for its role (realinhamento L10, L11). */
+    public const CHIEF_OF_STAFF = ['approvals.review', 'conversations.search', 'agents.set_trust_level'];
 
     /**
      * @return list<LocalCapability>

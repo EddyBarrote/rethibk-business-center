@@ -129,6 +129,17 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
 
             <Reason approval={approval} />
 
+            {approval.status === 'pending' && approval.review_stage === 'agent' && approval.review_agent && (
+                <p className="text-xs text-muted-foreground">
+                    Com <span className="text-foreground">{approval.review_agent}</span> para revalidar; pode decidir já se quiser.
+                </p>
+            )}
+            {approval.review_stage === 'human' && approval.review_note && (
+                <p className="text-xs text-muted-foreground">
+                    Passada às pessoas por {approval.review_agent ?? 'o Chief of Staff'}: “{approval.review_note}”
+                </p>
+            )}
+
             {approval.decided_by && (
                 <p className="text-xs text-muted-foreground">
                     {approval.status_label} por <span className="text-foreground">{approval.decided_by}</span> {ago(approval.decided_at)}

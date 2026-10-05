@@ -85,6 +85,9 @@ export interface ApprovalSummary {
     decided_by: string | null;
     decided_at: string | null;
     decision_note: string | null;
+    review_stage: 'agent' | 'human' | null;
+    review_agent: string | null;
+    review_note: string | null;
     execution_status: 'not_executed' | 'executed' | 'failed';
     execution_result: { ok?: boolean; content?: string; data?: unknown } | null;
     created_at: string;

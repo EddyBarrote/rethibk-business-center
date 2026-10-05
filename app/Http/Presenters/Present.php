@@ -78,7 +78,10 @@ final class Present
             'status' => $approval->status->value,
             'status_label' => $approval->status->label(),
             'assigned_to' => $approval->assignedTo?->name,
-            'decided_by' => $approval->decidedBy?->name,
+            'decided_by' => $approval->decidedBy->name ?? $approval->decidedByAgent?->name,
+            'review_stage' => $approval->review_stage,
+            'review_agent' => $approval->reviewAgent?->name,
+            'review_note' => $approval->review_note,
             'decided_at' => $approval->decided_at?->toIso8601String(),
             'decision_note' => $approval->decision_note,
             'execution_status' => $approval->execution_status->value,
@@ -92,7 +95,7 @@ final class Present
     public const TASK_RELATIONS = ['assigneeAgent:id,name', 'assigneeUser:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'];
 
     /** Relations Present::approval() reads. */
-    public const APPROVAL_RELATIONS = ['agent', 'assignedTo:id,name', 'decidedBy:id,name'];
+    public const APPROVAL_RELATIONS = ['agent', 'assignedTo:id,name', 'decidedBy:id,name', 'decidedByAgent:id,name', 'reviewAgent:id,name'];
 
     /**
      * A task or conversation as a row (Tarefas, A minha caixa).

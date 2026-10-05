@@ -23,7 +23,7 @@ class DashboardController extends Controller
         $user = $this->user($request);
 
         return Inertia::render('Dashboard', [
-            'approvals' => Approval::query()->visibleTo($user)->pending()->with(['agent', 'assignedTo:id,name', 'decidedBy:id,name'])->latest('id')->limit(5)->get()
+            'approvals' => Approval::query()->visibleTo($user)->pending()->with(Present::APPROVAL_RELATIONS)->latest('id')->limit(5)->get()
                 ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
             'agents' => Agent::query()->where('status', '!=', AgentStatus::Draft)->with(['department:id,name', 'reportsTo:id,name'])->orderBy('name')->get()
                 ->map(fn (Agent $agent) => Present::agent($agent)),

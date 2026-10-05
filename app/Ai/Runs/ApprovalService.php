@@ -11,14 +11,19 @@ use App\Enums\AuditResult;
 use App\Enums\ExecutionStatus;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
+use App\Enums\TaskKind;
+use App\Enums\TaskPriority;
+use App\Enums\TaskStatus;
 use App\Events\AgentRunFinished;
 use App\Events\ApprovalDecided;
 use App\Events\ApprovalRequested;
 use App\Jobs\ExecuteApprovedAction;
+use App\Models\Agent;
 use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\Capability;
 use App\Models\User;
+use App\Tasks\TaskThread;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
@@ -69,14 +74,136 @@ final class ApprovalService
             'reason' => $decision->reason(),
         ], $capability->key);
 
+        $reviewer = $this->reviewerFor($approval);
+
+        if ($reviewer !== null) {
+            // The Chief of Staff revalidates first (realinhamento L11).
+            $approval->forceFill(['review_stage' => Approval::STAGE_AGENT, 'review_agent_id' => $reviewer->id])->save();
+            $this->askReviewer($approval, $reviewer);
+        } else {
+            $approval->forceFill(['review_stage' => Approval::STAGE_HUMAN])->save();
+            $this->announce($approval);
+        }
+
+        return $approval;
+    }
+
+    /**
+     * The Chief of Staff approves within its own trust level.
+     */
+    public function approveByAgent(Approval $approval, Agent $reviewer, string $note): Approval
+    {
+        $this->decideByAgent($approval, $reviewer, ApprovalStatus::Approved, $note);
+
+        ExecuteApprovedAction::dispatch($approval->tenant_id, $approval->id);
+
+        return $approval;
+    }
+
+    public function rejectByAgent(Approval $approval, Agent $reviewer, string $note): Approval
+    {
+        $this->decideByAgent($approval, $reviewer, ApprovalStatus::Rejected, $note);
+
+        $this->recorder->step($approval->run, StepType::Approval, [
+            'approval_id' => $approval->id,
+            'status' => 'rejected',
+            'decided_by' => $reviewer->name,
+            'note' => $note,
+        ], $approval->action_type);
+
+        ApprovalDecided::live($approval);
+        $this->settleRun($approval);
+
+        return $approval;
+    }
+
+    /**
+     * Beyond the Chief of Staff's level, or its call: people decide.
+     */
+    public function escalate(Approval $approval, ?Agent $reviewer, string $note): Approval
+    {
+        $approval->forceFill(['review_stage' => Approval::STAGE_HUMAN, 'review_note' => $note])->save();
+
+        if ($reviewer !== null) {
+            AuditLog::record($reviewer, 'approval.escalated', ['approval_id' => $approval->id, 'note' => $note], AuditResult::Ok, $approval);
+        }
+
+        $this->announce($approval);
+
+        return $approval;
+    }
+
+    /**
+     * Who revalidates: the Chief of Staff, unless the action is under the
+     * absolute ceiling, is the Chief's own, or is about budgets or trust.
+     */
+    private function reviewerFor(Approval $approval): ?Agent
+    {
+        if ($approval->ceiling_reason !== null || in_array($approval->action_type, ['budget.override', 'agents.set_trust_level'], true)) {
+            return null;
+        }
+
+        $chief = app(AgentDirectory::class)->forRole('chief_of_staff');
+
+        return $chief !== null && $chief->id !== $approval->agent_id ? $chief : null;
+    }
+
+    private function askReviewer(Approval $approval, Agent $reviewer): void
+    {
+        $agent = $approval->agent;
+
+        app(TaskThread::class)->open([
+            'kind' => TaskKind::Task,
+            'title' => Str::limit("Revalidar: {$approval->action_summary}", 200, '…'),
+            'description' => "{$agent->name} quer fazer uma acção acima do seu nível ({$approval->agent_level->code()}; a acção pede {$approval->required_level->code()}).\n\n"
+                ."Acção: {$approval->action_summary}\nAprovação #{$approval->id}.\n\n"
+                .'Revê-a com approvals.review: aprova se está certa e cabe no teu nível, devolve se está errada, ou passa às pessoas (escalate) se não tens a certeza ou não cabe no teu nível.',
+            'status' => TaskStatus::Todo,
+            'priority' => TaskPriority::High,
+            'assignee_agent_id' => $reviewer->id,
+            'source_type' => $approval->getMorphClass(),
+            'source_id' => $approval->id,
+        ], $agent);
+    }
+
+    private function announce(Approval $approval): void
+    {
+        $agent = $approval->agent;
         $notify = array_values(array_unique(array_filter([
             $agent->reports_to_user_id,
             ...$agent->assignees()->pluck('users.id')->all(),
         ])));
 
         ApprovalRequested::live($approval, $notify);
+    }
 
-        return $approval;
+    private function decideByAgent(Approval $approval, Agent $reviewer, ApprovalStatus $status, string $note): void
+    {
+        $updated = Approval::query()
+            ->whereKey($approval->id)
+            ->where('status', ApprovalStatus::Pending)
+            ->update([
+                'status' => $status,
+                'decided_by_agent_id' => $reviewer->id,
+                'decided_at' => now(),
+                'decision_note' => $note,
+            ]);
+
+        if ($updated === 0) {
+            throw new LogicException('Esta aprovação já foi decidida.');
+        }
+
+        $approval->refresh();
+
+        AuditLog::record($reviewer, 'approval.'.$status->value, [
+            'approval_id' => $approval->id,
+            'action' => $approval->action_type,
+            'note' => $note,
+        ], AuditResult::Ok, $approval);
+
+        if ($status === ApprovalStatus::Rejected) {
+            ApprovalDecided::live($approval);
+        }
     }
 
     public function approve(Approval $approval, User $user, ?string $note = null): Approval

@@ -41,6 +41,11 @@ class ApprovalPolicy
             return $actor->canManageTenant();
         }
 
+        // An agent's trust level is confirmed by those the matrix allows (realinhamento L11).
+        if ($approval->action_type === 'agents.set_trust_level') {
+            return $actor->hasPermission(Permission::ConfirmTrustLevels);
+        }
+
         if ($actor->hasPermission(Permission::DecideAllApprovals)) {
             return true;
         }

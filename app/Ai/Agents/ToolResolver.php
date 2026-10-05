@@ -29,6 +29,10 @@ final class ToolResolver
 
         $alwaysOn = CapabilityRegistry::alwaysOn();
 
+        if (in_array('chief_of_staff', [$context->agent->key, $context->agent->settings['template'] ?? null], true)) {
+            $alwaysOn = [...$alwaysOn, ...CapabilityRegistry::CHIEF_OF_STAFF];
+        }
+
         if ($this->skills->for($context->agent)->isNotEmpty()) {
             $alwaysOn = [...$alwaysOn, ...CapabilityRegistry::SKILL_TOOLS];
         }

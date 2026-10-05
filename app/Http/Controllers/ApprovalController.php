@@ -25,7 +25,7 @@ class ApprovalController extends Controller
         $status = $request->query('status', 'pending');
 
         $approvals = Approval::query()
-            ->with(['agent', 'assignedTo:id,name', 'decidedBy:id,name'])
+            ->with(Present::APPROVAL_RELATIONS)
             ->visibleTo($user)
             ->when($status !== 'all', fn (Builder $query) => $query->where('status', $status))
             ->latest('id')
