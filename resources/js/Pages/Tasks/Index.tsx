@@ -262,8 +262,12 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, proj
             <Head title="Tarefas" />
 
             <PageHeader
-                title="Tarefas"
-                description="O trabalho dos agentes e as conversas consigo: o que está em curso, o que espera por si."
+                title={filters.view === 'chats' ? 'Conversas' : 'Tarefas'}
+                description={
+                    filters.view === 'chats'
+                        ? 'As suas conversas com os agentes: uma por agente, sempre a mesma, com o que lhe pediu e o que ele respondeu.'
+                        : 'O trabalho dos agentes e as conversas consigo: o que está em curso, o que espera por si.'
+                }
                 actions={
                     <Button onClick={() => setOpen(true)}>
                         <Plus />

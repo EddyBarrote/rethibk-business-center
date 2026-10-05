@@ -154,7 +154,7 @@ export default function DocumentsIndex({ documents, filter, formats, templates }
                     ))}
                 </ListPanel>
             )}
-            <Pagination page={documents} />
+            <Pagination page={documents} noun={['ficheiro', 'ficheiros']} />
 
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent className="sm:max-w-2xl">

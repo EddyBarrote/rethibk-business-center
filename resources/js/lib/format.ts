@@ -46,3 +46,35 @@ export const bytes = (value: number | null | undefined) => {
 
     return `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: exponent === 0 ? 0 : 1 }).format(value / 1024 ** exponent)} ${units[exponent]}`;
 };
+
+/* Names for the fields agents extract from emails and documents; anything else reads as words. */
+const fieldNames: Record<string, string> = {
+    amount: 'Valor',
+    company: 'Empresa',
+    company_name: 'Empresa',
+    contact_email: 'Email de contacto',
+    contact_name: 'Contacto',
+    contact_phone: 'Telefone',
+    currency: 'Moeda',
+    date: 'Data',
+    deadline: 'Prazo',
+    description: 'Descrição',
+    due_date: 'Vencimento',
+    email: 'Email',
+    estimated_value: 'Valor estimado',
+    invoice_number: 'N.º da factura',
+    issue_date: 'Data de emissão',
+    name: 'Nome',
+    notes: 'Notas',
+    nuit: 'NUIT',
+    phone: 'Telefone',
+    position: 'Função',
+    project_id: 'Projecto',
+    reference: 'Referência',
+    source: 'Origem',
+    title: 'Título',
+    total: 'Total',
+    vat: 'IVA',
+};
+
+export const fieldLabel = (key: string) => fieldNames[key] ?? key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');

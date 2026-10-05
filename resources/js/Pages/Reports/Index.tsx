@@ -77,7 +77,7 @@ export default function ReportsIndex({ reports, types, filter }: { reports: Pagi
                     ))}
                 </ListPanel>
             )}
-            <Pagination page={reports} />
+            <Pagination page={reports} noun={['documento', 'documentos']} />
         </AppLayout>
     );
 }

@@ -96,7 +96,7 @@ export default function NotificationsIndex({ notifications }: { notifications: P
                     </ListPanel>
                 </Section>
             )}
-            <Pagination page={notifications} />
+            <Pagination page={notifications} noun={['notificação', 'notificações']} />
         </AppLayout>
     );
 }

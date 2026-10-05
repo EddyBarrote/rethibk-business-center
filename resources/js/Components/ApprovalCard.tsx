@@ -71,7 +71,7 @@ function Reason({ approval }: { approval: ApprovalSummary }) {
  * why it needs a person, and the decision. Rejecting asks for the reason in a
  * dialog; the details dialog shows everything the agent would send.
  */
-export function ApprovalCard({ approval, compact = false }: { approval: ApprovalSummary; compact?: boolean }) {
+export function ApprovalCard({ approval, compact = false, taskHref }: { approval: ApprovalSummary; compact?: boolean; taskHref?: string | null }) {
     const [details, setDetails] = useState(false);
     const [rejecting, setRejecting] = useState(false);
     const form = useForm({ note: '' });
@@ -144,9 +144,16 @@ export function ApprovalCard({ approval, compact = false }: { approval: Approval
                         </Button>
                     </div>
                 )}
-                <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setDetails(true)}>
-                    Ver detalhes
-                </Button>
+                <div className="flex items-center gap-1">
+                    {taskHref && (
+                        <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
+                            <Link href={taskHref}>Abrir a tarefa</Link>
+                        </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setDetails(true)}>
+                        Ver detalhes
+                    </Button>
+                </div>
             </footer>
 
             <FormDialog
