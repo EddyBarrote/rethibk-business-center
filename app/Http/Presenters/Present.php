@@ -89,7 +89,7 @@ final class Present
     }
 
     /** Relations Present::task() reads; eager-load them with the tasks. */
-    public const TASK_RELATIONS = ['assigneeAgent:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'];
+    public const TASK_RELATIONS = ['assigneeAgent:id,name', 'assigneeUser:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'];
 
     /** Relations Present::approval() reads. */
     public const APPROVAL_RELATIONS = ['agent', 'assignedTo:id,name', 'decidedBy:id,name'];
@@ -112,6 +112,7 @@ final class Present
             'priority' => $task->priority->value,
             'priority_label' => $task->priority->label(),
             'assignee' => $task->assigneeAgent ? ['id' => $task->assigneeAgent->id, 'name' => $task->assigneeAgent->name] : null,
+            'assignee_user' => $task->assigneeUser ? ['id' => $task->assigneeUser->id, 'name' => $task->assigneeUser->name] : null,
             'user' => $task->user?->name,
             'created_by' => $task->createdByAgent->name ?? $task->createdByUser->name ?? null,
             'created_by_agent' => $task->created_by_agent_id !== null,

@@ -22,4 +22,8 @@ return [
 
     // Bank lines left unreconciled longer than this are an issue (E05).
     'unreconciled_days' => 7,
+
+    // Agents wake on their own for work of theirs that has been quiet this
+    // long, Paperclip's heartbeat (realinhamento L6). 0 turns it off.
+    'heartbeat_minutes' => 60,
 ];

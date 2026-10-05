@@ -18,12 +18,15 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property string $name
  * @property string $email
+ * @property string|null $job_title
  * @property int|null $department_id
+ * @property int|null $reports_to_user_id
+ * @property int|null $reports_to_agent_id
  * @property Role $role
  * @property bool $is_active
  * @property Carbon|null $last_seen_at
  */
-#[Fillable(['name', 'email', 'password', 'department_id', 'role', 'is_active'])]
+#[Fillable(['name', 'job_title', 'email', 'password', 'department_id', 'reports_to_user_id', 'reports_to_agent_id', 'role', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -36,6 +39,26 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * The person this one reports to in the org chart.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function reportsToUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reports_to_user_id');
+    }
+
+    /**
+     * An agent can be a person's manager too (docs/DECISOES.md, realinhamento L3).
+     *
+     * @return BelongsTo<Agent, $this>
+     */
+    public function reportsToAgent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'reports_to_agent_id');
     }
 
     public function canManageTenant(): bool

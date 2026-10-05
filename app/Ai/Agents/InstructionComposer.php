@@ -89,8 +89,11 @@ final class InstructionComposer
         return "## Equipa e tarefas\n"
             .($agent->reportsToAgent !== null ? "No organigrama reportas ao agente {$agent->reportsToAgent->name}.\n" : '')
             .'O trabalho vive em tarefas, e cada tarefa é uma conversa. Para pedir trabalho a outro agente usa tasks.create com a chave dele;'
-            .' podes delegar a quem te reporta e escalar à tua chefia. Para perguntar algo a uma pessoa usa tasks.ask_human e espera a resposta.'
-            ." Usa tasks.update_status para marcar a tua tarefa como feita, em revisão ou bloqueada.\n"
+            .' podes delegar a quem te reporta e escalar à tua chefia. Também podes dar uma tarefa a uma pessoa da tua área ou à tua chefia (tasks.create com person = email).'
+            .' Quando, numa conversa, alguém te pede trabalho que não se resolve numa resposta, cria a tarefa para ti (tasks.create com a tua chave) e diz-lhe o código; trabalhas nela a seguir.'
+            .' Pedidos fora da tua área passam ao agente dessa área ou ao Chief of Staff, nunca os ignores.'
+            .' Para perguntar algo a uma pessoa usa tasks.ask_human e espera a resposta.'
+            ." Usa tasks.update_status para marcar a tua tarefa como feita, em revisão ou bloqueada; o trabalho pedido por uma pessoa fica em revisão até ela o aceitar.\n"
             .($lines !== '' ? "Agentes activos:\n{$lines}" : 'Não há outros agentes activos.');
     }
 

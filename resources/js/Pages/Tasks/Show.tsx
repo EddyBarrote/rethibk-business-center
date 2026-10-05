@@ -59,7 +59,21 @@ interface PendingApproval {
     can_decide: boolean;
 }
 
-export default function TaskShow({ task, messages, children, runs, working, approvals, can, agents, goals, projects, statuses, priorities }: Props) {
+export default function TaskShow({
+    task,
+    messages,
+    children,
+    runs,
+    working,
+    approvals,
+    can,
+    agents,
+    people,
+    goals,
+    projects,
+    statuses,
+    priorities,
+}: Props) {
     const { tenant } = usePage<SharedProps>().props;
     const form = useForm({ body: '', mode: 'message' as 'message' | 'action' });
     const bottom = useRef<HTMLDivElement>(null);
@@ -297,6 +311,20 @@ export default function TaskShow({ task, messages, children, runs, working, appr
                             </div>
                         ) : null}
 
+                        {task.status === 'in_review' && task.kind === 'task' && can.update && (
+                            <div className="flex flex-col gap-3 rounded-xl border border-status-success/40 bg-status-success/10 px-4 py-3 sm:flex-row sm:items-center">
+                                <div className="min-w-0 flex-1 space-y-1 text-sm">
+                                    <p className="font-medium">Pronta para rever</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Aceite para a fechar, ou escreva abaixo o que falta e ela volta para quem a fez.
+                                    </p>
+                                </div>
+                                <Button size="sm" onClick={() => update({ status: 'done' })}>
+                                    Aceitar
+                                </Button>
+                            </div>
+                        )}
+
                         {approvals.map((approval) => (
                             <ApprovalCard key={approval.id} approval={approval} />
                         ))}
@@ -404,16 +432,33 @@ export default function TaskShow({ task, messages, children, runs, working, appr
                                     <PriorityIcon priority={task.priority} label={task.priority_label} withLabel />
                                 )}
                             </Property>
-                            <Property label="Agente">
+                            <Property label="Responsável">
                                 {can.update ? (
                                     <InlineSelect
-                                        value={task.assignee ? String(task.assignee.id) : NONE}
-                                        onChange={(value) => update({ assignee_agent_id: value === NONE ? null : Number(value) })}
+                                        value={
+                                            task.assignee ? `agent:${task.assignee.id}` : task.assignee_user ? `user:${task.assignee_user.id}` : NONE
+                                        }
+                                        onChange={(value) =>
+                                            update(
+                                                value.startsWith('user:')
+                                                    ? { assignee_user_id: Number(value.slice(5)) }
+                                                    : { assignee_agent_id: value === NONE ? null : Number(value.slice(6)) },
+                                            )
+                                        }
                                         options={[
-                                            { value: NONE, label: <span className="text-muted-foreground">Sem agente</span> },
+                                            { value: NONE, label: <span className="text-muted-foreground">Por atribuir</span> },
                                             ...withCurrent(agents, task.assignee).map((agent) => ({
-                                                value: String(agent.id),
+                                                value: `agent:${agent.id}`,
                                                 label: <AgentOption name={agent.name} />,
+                                            })),
+                                            ...withCurrent(people, task.assignee_user).map((person) => ({
+                                                value: `user:${person.id}`,
+                                                label: (
+                                                    <span className="inline-flex items-center gap-1.5">
+                                                        <Monogram name={person.name} className="size-5 rounded-md text-[9px]" />
+                                                        {person.name}
+                                                    </span>
+                                                ),
                                             })),
                                         ]}
                                     />
@@ -421,7 +466,9 @@ export default function TaskShow({ task, messages, children, runs, working, appr
                                     <Link href={`/agents/${task.assignee.id}`} className="hover:underline">
                                         <AgentOption name={task.assignee.name} />
                                     </Link>
-                                ) : null}
+                                ) : (
+                                    task.assignee_user?.name
+                                )}
                             </Property>
                             <Property label="Projecto">
                                 {can.update ? (

@@ -47,6 +47,7 @@ class TaskController extends Controller
             'agent' => ['nullable', 'integer'],
             'goal' => ['nullable', 'integer'],
             'project' => ['nullable', 'integer'],
+            'person' => ['nullable', 'integer'],
             'q' => ['nullable', 'string', 'max:120'],
         ]);
         $view = $filters['view'] ?? 'mine';
@@ -62,6 +63,7 @@ class TaskController extends Controller
             ->when($filters['agent'] ?? null, fn (Builder $q, $agent) => $q->where('assignee_agent_id', $agent))
             ->when($filters['goal'] ?? null, fn (Builder $q, $goal) => $q->where('goal_id', $goal))
             ->when($filters['project'] ?? null, fn (Builder $q, $project) => $q->where('project_id', $project))
+            ->when($filters['person'] ?? null, fn (Builder $q, $person) => $q->where('assignee_user_id', $person))
             ->when($filters['q'] ?? null, fn (Builder $q, $term) => $q->where('title', 'like', '%'.$term.'%'))
             ->orderByDesc('last_activity_at');
 
@@ -88,6 +90,7 @@ class TaskController extends Controller
             'title' => ['required_if:kind,task', 'nullable', 'string', 'max:200'],
             'message' => ['nullable', 'string', 'max:10000', 'required_if:kind,chat'],
             'assignee_agent_id' => ['nullable', 'required_if:kind,chat', 'integer', TenantRule::exists('agents')],
+            'assignee_user_id' => ['nullable', 'prohibits:assignee_agent_id', 'integer', TenantRule::exists('users')],
             'priority' => ['nullable', Rule::enum(TaskPriority::class)],
             'goal_id' => ['nullable', 'integer', TenantRule::exists('goals')],
             'project_id' => ['nullable', 'integer', TenantRule::exists('projects')],
@@ -102,6 +105,11 @@ class TaskController extends Controller
 
         $kind = TaskKind::from($data['kind']);
         $message = $data['message'] ?? null;
+
+        // Work is asked for in the conversation with an agent; chefias may also
+        // open a task directly, for instance for a person (realinhamento L5).
+        abort_if($kind === TaskKind::Task && ! $user->isManager(), 403, 'Peça trabalho na conversa com o agente.');
+        $person = isset($data['assignee_user_id']) ? User::query()->where('is_active', true)->find($data['assignee_user_id']) : null;
 
         // A chat is the one conversation with that agent, never a new one.
         if ($kind === TaskKind::Chat && $agent !== null) {
@@ -118,6 +126,7 @@ class TaskController extends Controller
             'status' => $kind === TaskKind::Chat ? TaskStatus::InProgress : TaskStatus::Todo,
             'priority' => $data['priority'] ?? TaskPriority::Normal->value,
             'assignee_agent_id' => $agent?->id,
+            'assignee_user_id' => $person?->id,
             'user_id' => $user->id,
             'goal_id' => $data['goal_id'] ?? $this->goalOf($data['project_id'] ?? null),
             'project_id' => $data['project_id'] ?? null,
@@ -232,6 +241,7 @@ class TaskController extends Controller
             'status' => ['sometimes', Rule::enum(TaskStatus::class)],
             'priority' => ['sometimes', Rule::enum(TaskPriority::class)],
             'assignee_agent_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('agents')],
+            'assignee_user_id' => ['sometimes', 'nullable', 'prohibits:assignee_agent_id', 'integer', TenantRule::exists('users')],
             'goal_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('goals')],
             'project_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('projects')],
             'due_at' => ['sometimes', 'nullable', 'date'],
@@ -239,7 +249,14 @@ class TaskController extends Controller
 
         if ($task->chat_key !== null) {
             // A conversation belongs to one person and one agent.
-            unset($data['assignee_agent_id']);
+            unset($data['assignee_agent_id'], $data['assignee_user_id']);
+        }
+
+        if (array_key_exists('assignee_user_id', $data) && $data['assignee_user_id'] !== $task->assignee_user_id) {
+            $person = $data['assignee_user_id'] ? User::query()->where('is_active', true)->findOrFail($data['assignee_user_id']) : null;
+            abort_unless($user->isManager() || $person?->id === $user->id, 403);
+
+            $threads->assignPerson($task, $person, $user);
         }
 
         if (array_key_exists('assignee_agent_id', $data) && $data['assignee_agent_id'] !== $task->assignee_agent_id) {
@@ -249,7 +266,7 @@ class TaskController extends Controller
                 Gate::authorize('run', $agent);
             }
 
-            $task->forceFill(['assignee_agent_id' => $agent?->id])->save();
+            $task->forceFill(['assignee_agent_id' => $agent?->id, 'assignee_user_id' => $agent !== null ? null : $task->assignee_user_id])->save();
             $threads->note($task, $agent ? "{$user->name} atribuiu a {$agent->name}." : "{$user->name} retirou o agente.");
 
             if ($agent !== null && $task->kind === TaskKind::Task && ! $task->status->isClosed()) {
@@ -290,6 +307,7 @@ class TaskController extends Controller
 
         return $query->where(fn (Builder $q) => $q->where('user_id', $user->id)
             ->orWhere('created_by_user_id', $user->id)
+            ->orWhere('assignee_user_id', $user->id)
             ->orWhereIn('assignee_agent_id', $agents));
     }
 
@@ -306,6 +324,7 @@ class TaskController extends Controller
                 ->map(fn (Agent $agent) => ['id' => $agent->id, 'name' => $agent->name, 'title' => $agent->title])
                 ->values(),
             'goals' => Goal::query()->whereIn('status', [GoalStatus::Planned, GoalStatus::Active])->orderBy('title')->get(['id', 'title']),
+            'people' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'projects' => Project::query()->whereIn('status', [ProjectStatus::Planned, ProjectStatus::Active])->orderBy('name')->get(['id', 'name', 'goal_id']),
             'statuses' => collect(TaskStatus::cases())->map(fn (TaskStatus $s) => ['value' => $s->value, 'label' => $s->label()]),
             'priorities' => collect(TaskPriority::cases())->map(fn (TaskPriority $p) => ['value' => $p->value, 'label' => $p->label()]),

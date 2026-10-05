@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Enums\AutonomyLevel;
+use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Tasks\TaskThread;
@@ -67,9 +68,19 @@ final class UpdateTaskStatus extends LocalCapability
             return CapabilityResult::error('só podes mudar o estado de tarefas tuas.');
         }
 
-        $this->threads->setStatus($task, TaskStatus::from($data['status']), $context->agent, $data['note'] ?? null);
+        $status = TaskStatus::from($data['status']);
 
-        return CapabilityResult::text("{$task->identifier()} está agora «{$task->status->label()}».");
+        // Work a person asked for is accepted by that person (realinhamento,
+        // decisão 13): the agent delivers it for review instead of closing it.
+        if ($status === TaskStatus::Done && $task->kind === TaskKind::Task && $task->parent_id === null && ($task->user_id !== null || $task->created_by_user_id !== null)) {
+            $status = TaskStatus::InReview;
+        }
+
+        $this->threads->setStatus($task, $status, $context->agent, $data['note'] ?? null);
+
+        return CapabilityResult::text($status === TaskStatus::InReview && $data['status'] === TaskStatus::Done->value
+            ? "{$task->identifier()} ficou «Em revisão»: quem a pediu aceita-a ou devolve-a."
+            : "{$task->identifier()} está agora «{$task->status->label()}».");
     }
 
     public function summarise(array $arguments): string
