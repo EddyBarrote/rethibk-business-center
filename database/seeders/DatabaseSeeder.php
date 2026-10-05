@@ -41,6 +41,7 @@ class DatabaseSeeder extends Seeder
 
             $owner = User::query()->firstOrCreate(['email' => 'owner@micomoc.test'], [
                 'name' => 'Proprietário (dev)',
+                'job_title' => 'CEO',
                 'password' => 'password',
                 'role' => Role::Owner,
                 'department_id' => $general->id,
@@ -53,7 +54,8 @@ class DatabaseSeeder extends Seeder
                 'direccao-de-rh' => ['Direcção de RH', 'rh@micomoc.test', 'Directora de RH (dev)'],
             ] as $slug => [$name, $email, $person]) {
                 $department = Department::query()->firstOrCreate(['slug' => $slug], ['name' => $name, 'parent_id' => $general->id]);
-                User::query()->firstOrCreate(['email' => $email], ['name' => $person, 'password' => 'password', 'role' => Role::Manager, 'department_id' => $department->id]);
+                // The directors report to the CEO in the org chart (realinhamento L3).
+                User::query()->firstOrCreate(['email' => $email], ['name' => $person, 'password' => 'password', 'role' => Role::Manager, 'department_id' => $department->id, 'reports_to_user_id' => $owner->id]);
             }
 
             User::query()->firstOrCreate(['email' => 'tecnico@micomoc.test'], [
@@ -61,6 +63,7 @@ class DatabaseSeeder extends Seeder
                 'password' => 'password',
                 'role' => Role::Member,
                 'department_id' => Department::query()->where('slug', 'direccao-de-operacoes')->value('id'),
+                'reports_to_user_id' => User::query()->where('email', 'operacoes@micomoc.test')->value('id'),
             ]);
 
             // Until the ERP team ships its MCP server, the fake one stands in (section 8.2).
