@@ -127,3 +127,45 @@ Pedido do Barrote: o login tem de parecer um produto a sério, com "Desenvolvido
 | Recuperar palavra-passe | Para pessoas dos tenants e para super admins: link por email (60 min), resposta igual quer a conta exista ou não, só contas activas. Nos tenants a procura fica limitada ao tenant do endereço e usa `password_reset_tokens` (chave = email; se o mesmo email existir em dois tenants, o pedido mais recente substitui o anterior). Os super admins têm tokens próprios (`platform_admin_password_reset_tokens`) e o link aponta para o host de administração. Com `APP_ENV=local` e email em `log`, o link aparece também no ecrã, porque o email nunca chega a ninguém. | `Auth\ForgotPasswordController`, `Auth\ResetPasswordController` e as subclasses em `Admin\` |
 | Logótipo | Um fluxo de três passos ligados por um caminho, com a faísca da IA ao lado (o Barrote pediu algo sobre IA e workflows, não o "R"). Conceito gerado com nano banana e redesenhado à mão em SVG para ler bem a 24 px, na cor primária do tema; também é o favicon. | `RethinkMark`, `public/favicon.svg` |
 | Ilustração | Gerada com nano banana (Gemini 3 Pro Image, 2K), versão clara e escura, optimizadas para WebP 1400 px (~22 e ~32 KB). Prompts em [UI.md](UI.md#imagens-geradas). | `public/images/auth/` |
+
+## Realinhamento: pessoas e agentes como colegas (05.10.2026)
+
+O Barrote achou que muito do que existia estava fora do que espera e do que o Paperclip faz, e respondeu a um questionário de alinhamento. Estas decisões **substituem** as anteriores onde as contradizem. A lista do que muda no código está em `alinhamento/lacunas.md` (pasta partilhada do projecto).
+
+Visão, nas palavras dele: pessoas e agentes de IA colaboram como colegas de trabalho; uma pessoa envia trabalho a um agente da sua área; os agentes têm memória consolidada; cada funcionário só fala com os agentes a que lhe dão acesso; o Chief of Staff consegue reportar ao CEO o que se passa nas conversas.
+
+| # | Tema | Decisão |
+|---|---|---|
+| 1 | O produto | Um "escritório" como o Paperclip: tarefas, conversas, organigrama, objectivos, projectos, conhecimento. As áreas de negócio são trabalho dos agentes (skills e capacidades), não ecrãs. |
+| 2 | Ecrãs de negócio | **Apagar** Concursos, Finanças, Compras, Contratos e Clientes (ecrãs e rotas). Os agentes dessas áreas ficam. |
+| 4 | Entrada | "A minha caixa": tarefas atribuídas a mim, perguntas dos agentes, aprovações, e os meus colegas (pessoas e agentes) ao lado. O painel de métricas deixa de ser a entrada. |
+| 5 | Organigrama | Uma só árvore com pessoas e agentes. Um agente pode ter uma pessoa como chefia e vice-versa. |
+| 6 | Responsável da tarefa | Uma pessoa ou um agente (um só responsável). |
+| 7 | Agente → pessoa | Um agente pode atribuir tarefas às pessoas da sua área e à sua chefia. |
+| 8 | Área | O departamento. Cada pessoa e cada agente pertence a um. |
+| 9 | CEO | Uma pessoa. O Chief of Staff é o agente de topo e trabalha para o CEO. |
+| 10 | Assistente pessoal | Não por agora. |
+| 11 | Pedir trabalho | Pela conversa: o agente cria a tarefa a partir dela e mostra-a no fio. As chefias também podem criar uma tarefa directamente (por exemplo para atribuir a uma pessoa). |
+| 12 | Outra área | Não directamente: pede-se ao agente da própria área, que passa ao agente certo ou ao Chief of Staff. |
+| 13 | Tarefa feita | Quem pediu aceita: o agente entrega, a tarefa fica "em revisão", a pessoa aceita ou devolve. |
+| 14 | Trabalho autónomo | Como no Paperclip: os agentes acordam quando lhes atribuem uma tarefa e em horário fixo para ver o pendente. |
+| 15 | Memória consolidada | Cada agente tem memória própria, que junta o que aprendeu em todas as conversas e tarefas, além da base de conhecimento. |
+| 16 | Memória entre pessoas | Factos de trabalho aprendidos com uma pessoa servem para as outras; o que é pessoal ou marcado privado não. |
+| 17 | Consolidação | No fim de cada tarefa e uma vez por dia para as conversas. |
+| 18 | Ver a memória | A chefia do agente e os administradores, num separador "Memória" do agente, com editar e apagar. |
+| 19 | Memória → conhecimento | **Automático**: o que o agente consolida passa a conhecimento da empresa, visível aos outros agentes (respeitando os domínios). |
+| 20 | Com quem se fala | Com nenhum agente até lhe darem acesso, agente a agente. |
+| 21 | Quem dá acesso | Administradores e a chefia do departamento do agente. |
+| 22 | Níveis de acesso | Dois: "conversar" e "pedir trabalho". Aprovar acções fica à parte. |
+| 23 | Ler conversas | Administradores e o dono podem ler sempre as conversas dos funcionários com agentes. |
+| 24 | Reportar ao CEO | Modelo "a pedido": o CEO pergunta ao Chief of Staff, que tem uma ferramenta para pesquisar as conversas e fazer o report. Por iniciativa própria, um agente só avisa o Chief of Staff em casos urgentes (dinheiro alto, risco legal, prazo crítico). |
+| 25 | Forma do report | Resumo com os excertos citados e ligação para cada conversa. |
+| 26 | Aviso ao funcionário | Nota fixa na conversa: "as conversas podem ser consultadas pela direcção". |
+| 27 | Conversas excluídas | Nenhuma: tudo pode ser pesquisado. |
+| 28 | Quem pede reports | O CEO, e quem a matriz de acessos permitir. |
+| 28b | Matriz de acessos | Papéis (ex.: CEO, Director, Chefia, Funcionário) com uma grelha de permissões ligadas/desligadas (pesquisar conversas, ler conversas, dar acesso a agentes, aprovar, criar tarefas…). Cada pessoa tem um papel e pode ter excepções individuais. |
+| 29 | Confiança dos agentes | Mantém-se um nível de confiança por agente. Uma acção acima do nível vai primeiro ao Chief of Staff, que a revalida e aprova o que está dentro do nível dele; pagamentos, contratos, contratações e o resto do tecto absoluto sobem sempre a uma pessoa. |
+| 29c | Mudar o nível | O Chief of Staff propõe subir ou descer com base no histórico do agente; o CEO ou um administrador confirma. |
+| 30 | Primeira versão | **Fica:** caixas de email por agente (Hostinger/IMAP). **Adiado:** ERP por MCP (continua o servidor falso), WhatsApp/Telegram, agentes externos (Claude Code, Codex, Hermes). |
+| 31 | Projectos | Sim: objectivo → projecto → tarefas. |
+| — | Primeiro fluxo a testar | Agente de Triagem: chega um email à caixa da Triagem, ela classifica e passa ao agente da área certa, que cria a tarefa ou fala com a pessoa responsável. |
