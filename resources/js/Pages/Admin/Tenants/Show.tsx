@@ -537,7 +537,14 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                             </StatusBadge>
                         </Property>
                         <Property label="Consola">
-                            <a href={tenant.url} target="_blank" rel="noreferrer" className="font-mono text-xs hover:underline">
+                            {/* One line, ending in "…" if the column is narrow, never broken inside the port. */}
+                            <a
+                                href={tenant.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block truncate font-mono text-xs whitespace-nowrap hover:underline"
+                                title={host}
+                            >
                                 {host}
                             </a>
                         </Property>
@@ -550,11 +557,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                         <Property label="Contacto">{tenant.profile.contact_email}</Property>
                         <Property label="Caixas">{tenant.mail_domain && <span className="font-mono text-xs">{tenant.mail_domain}</span>}</Property>
                         <Property label="Tecto mensal">
-                            {cap !== null ? (
-                                <span className="text-xs">{usd(cap)}</span>
-                            ) : (
-                                <span className="text-muted-foreground">Sem tecto</span>
-                            )}
+                            {cap !== null ? <span className="text-xs">{usd(cap)}</span> : <span className="text-muted-foreground">Sem tecto</span>}
                         </Property>
                         <Property label="ID">
                             <span className="font-mono text-xs">#{tenant.id}</span>

@@ -74,7 +74,7 @@ it('lets nobody talk to an agent until given access, and the level decides what 
     // The chefia of the agent's department grants access; a person outside it cannot.
     $this->actingAs($this->boss)->put(tenantUrl($this->tenant, "agents/{$this->agent->id}/assignees"), ['access' => [['user_id' => $this->clerk->id, 'level' => 'chat']]])->assertRedirect();
 
-    $this->actingAs($this->clerk)->get(tenantUrl($this->tenant, "agents/{$this->agent->id}/chat"))->assertRedirect();
+    $this->actingAs($this->clerk)->get(tenantUrl($this->tenant, "agents/{$this->agent->id}/chat"))->assertOk();
     $chat = asTenant($this->tenant, fn () => app(TaskThread::class)->conversation($this->clerk, $this->agent));
 
     $this->actingAs($this->clerk)->post(tenantUrl($this->tenant, "tasks/{$chat->id}/messages"), ['body' => 'Olá', 'mode' => 'message'])->assertRedirect();

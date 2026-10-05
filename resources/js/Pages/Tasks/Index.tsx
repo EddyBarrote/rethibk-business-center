@@ -431,7 +431,7 @@ function Count({ value, warn = false }: { value: number; warn?: boolean }) {
             className={cn(
                 'inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 font-mono text-[10px] tabular-nums',
                 warn
-                    ? 'bg-status-warning/20 text-[color-mix(in_oklch,var(--status-warning)_70%,var(--foreground))]'
+                    ? 'bg-status-warning/20 text-warning-strong'
                     : 'bg-muted text-muted-foreground',
             )}
         >

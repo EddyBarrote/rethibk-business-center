@@ -2,10 +2,13 @@
 
 namespace App\Http\Presenters;
 
+use App\Enums\TaskKind;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
 use App\Models\AgentRun;
 use App\Models\Approval;
+use App\Models\Contract;
+use App\Models\EmailMessage;
 use App\Models\Task;
 
 /**
@@ -62,20 +65,59 @@ final class Present
         ];
     }
 
+    /** Scheduled checks that start a run without a routine, by the start of their prompt. */
+    private const SCHEDULED = [
+        'Prepara o briefing semanal' => 'Briefing semanal',
+        'Prepara o briefing diário' => 'Briefing diário',
+        'Persegue os recebimentos' => 'Cobrança de facturas em atraso',
+        'Encontrei concursos novos' => 'Concursos novos nas fontes',
+        'O pedido do cliente no email' => 'Pedido de cliente fora do prazo',
+    ];
+
     /**
-     * A run started by a routine is called by the routine's name ("Férias
-     * pendentes"); its prompt, written for the agent, names tools by key.
-     * Null for other runs: the screen titles them from the request.
+     * What a run is about, in the words of the screen it came from: the
+     * routine's name, the task, the email, the contract. The prompt itself is
+     * written for the agent and names tools by key. Null for a conversation
+     * turn, which the screen titles from the person's message.
      */
     private static function runTitle(AgentRun $run): ?string
     {
-        if ($run->trigger_source_type !== (new AgentRoutine)->getMorphClass() || $run->trigger_source_id === null) {
-            return null;
+        $source = $run->trigger_source_type;
+        $id = $run->trigger_source_id;
+
+        if ($source === (new AgentRoutine)->getMorphClass() && $id !== null) {
+            return $run->relationLoaded('triggerSource')
+                ? $run->triggerSource?->getAttribute('name')
+                : AgentRoutine::query()->whereKey($id)->value('name');
         }
 
-        return $run->relationLoaded('triggerSource')
-            ? $run->triggerSource?->getAttribute('name')
-            : AgentRoutine::query()->whereKey($run->trigger_source_id)->value('name');
+        if ($source === (new EmailMessage)->getMorphClass() && $id !== null) {
+            $subject = EmailMessage::query()->whereKey($id)->value('subject');
+
+            return 'Triagem do email «'.($subject ?: 'sem assunto').'»';
+        }
+
+        if ($source === (new Contract)->getMorphClass() && $id !== null) {
+            return 'Contrato a terminar: «'.Contract::query()->whereKey($id)->value('title').'»';
+        }
+
+        if ($run->task_id !== null && ($source === (new Task)->getMorphClass() || str_starts_with($run->input, '[Nota da plataforma]'))) {
+            $task = Task::query()->whereKey($run->task_id)->first(['id', 'tenant_id', 'number', 'title', 'kind']);
+
+            if ($task !== null && $task->kind === TaskKind::Task) {
+                $ref = $task->identifier().' · '.$task->title;
+
+                return str_contains($run->input, 'Batimento') ? "Retomar {$ref}" : $ref;
+            }
+        }
+
+        foreach (self::SCHEDULED as $start => $title) {
+            if (str_starts_with($run->input, $start)) {
+                return $title;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -127,7 +169,8 @@ final class Present
             'ref' => $task->identifier(),
             'kind' => $task->kind->value,
             'is_conversation' => $task->chat_key !== null,
-            'title' => $task->title,
+            // A conversation is always called after its agent, whatever its first message was ("Hello").
+            'title' => $task->kind === TaskKind::Chat && $task->assigneeAgent !== null ? "Conversa com {$task->assigneeAgent->name}" : $task->title,
             'status' => $task->status->value,
             'status_label' => $task->status->label(),
             'priority' => $task->priority->value,

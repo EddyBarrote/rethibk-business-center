@@ -44,13 +44,18 @@ final class TaskThread
 
     public function __construct(private readonly Notifier $notifier) {}
 
+    public static function chatKey(User $user, Agent $agent): string
+    {
+        return "{$user->id}:{$agent->id}";
+    }
+
     /**
      * The one persistent conversation between a person and an agent (like
      * Grok): created on first use, reopened if it was closed, never duplicated.
      */
     public function conversation(User $user, Agent $agent): Task
     {
-        $key = "{$user->id}:{$agent->id}";
+        $key = self::chatKey($user, $agent);
         $chat = Task::query()->where('chat_key', $key)->first();
 
         if ($chat === null) {
@@ -352,8 +357,8 @@ final class TaskThread
     {
         return match ($task->source_id === null ? null : $task->source_type) {
             (new EmailMessage)->getMorphClass() => "\n\nOrigem: o email #{$task->source_id}. Lê-o com email.read (email_id {$task->source_id}) e trata-o dentro das tuas competências.",
-            (new Approval)->getMorphClass() => "\n\nOrigem: a aprovação #{$task->source_id}. Revê-a com approvals.review: aprova se está certa e cabe no teu nível, "
-                .'devolve se está errada, ou passa às pessoas (escalate) se não tens a certeza ou não cabe no teu nível.',
+            (new Approval)->getMorphClass() => "\n\nOrigem: a aprovação #{$task->source_id}. Acção: ".Approval::query()->whereKey($task->source_id)->value('action_summary')
+                .".\nRevê-a com approvals.review: aprova se está certa e cabe no teu nível, devolve se está errada, ou passa às pessoas (escalate) se não tens a certeza ou não cabe no teu nível.",
             default => '',
         };
     }

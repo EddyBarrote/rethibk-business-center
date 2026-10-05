@@ -225,6 +225,15 @@
     }
 }
 @layer utilities {
+    /* Amber text on the light cards reaches 5.3:1 (plain amber is about 2:1); the dark theme keeps the amber itself. */
+    .text-warning-strong {
+        color: color-mix(in oklch, var(--status-warning) 60%, var(--foreground));
+    }
+
+    .dark .text-warning-strong {
+        color: var(--status-warning);
+    }
+
     /* Machine values (ids, costs, tokens, timestamps) look machine-made. */
     .tabular {
         font-family: var(--font-mono);
@@ -308,6 +317,19 @@
 
     .table-stack tbody td[data-empty] {
         display: none;
+    }
+
+    /* One line between cards; none between the lines of a card (markdown tables draw cell borders). */
+    .table-stack tbody td {
+        border-width: 0;
+    }
+
+    .table-stack tbody tr {
+        border-bottom: 1px solid var(--border);
+    }
+
+    .table-stack tbody tr:last-child {
+        border-bottom: 0;
     }
 }
 

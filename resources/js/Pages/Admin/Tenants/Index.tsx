@@ -57,7 +57,7 @@ export default function TenantsIndex({ tenants }: { tenants: TenantRow[] }) {
                 <div className="overflow-hidden rounded-xl border bg-card">
                     <Table className="table-stack">
                         <TableHeader>
-                            <TableRow className="hover:bg-transparent [&>th]:text-xs [&>th]:tracking-wide [&>th]:text-muted-foreground [&>th]:uppercase">
+                            <TableRow className="hover:bg-transparent [&>th]:text-xs [&>th]:text-muted-foreground">
                                 <TableHead className="h-9 px-4 text-xs font-medium">Nome</TableHead>
                                 <TableHead className="h-9 text-xs font-medium">Endereço</TableHead>
                                 <TableHead className="h-9 text-xs font-medium">Estado</TableHead>

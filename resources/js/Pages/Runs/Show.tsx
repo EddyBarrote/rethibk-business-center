@@ -172,7 +172,7 @@ export default function RunShow({
                         {run.model ? <span className="font-mono text-xs">{`${run.provider} · ${run.model}`}</span> : null}
                     </Property>
                     <Property label="Tokens">
-                        <span className="font-mono text-xs tabular-nums" title="Entrada / saída">
+                        <span className="tabular-nums" title="Entrada / saída">
                             {number(run.input_tokens)} / {number(run.output_tokens)}
                         </span>
                     </Property>
@@ -180,7 +180,7 @@ export default function RunShow({
                         <span className="tabular-nums">{usdPrecise(run.cost_usd)}</span>
                     </Property>
                     <Property label="Duração">
-                        {run.duration_ms !== null ? <span className="font-mono tabular-nums">{duration(run.duration_ms)}</span> : null}
+                        {run.duration_ms !== null ? <span className="tabular-nums">{duration(run.duration_ms)}</span> : null}
                     </Property>
                     <Property label="Início">
                         <span className="tabular-nums">{dateTime(run.created_at)}</span>

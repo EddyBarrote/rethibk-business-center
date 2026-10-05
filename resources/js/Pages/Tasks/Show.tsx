@@ -657,7 +657,7 @@ function MessageRow({ message }: { message: Message }) {
                     <span className="text-sm font-medium">{message.author}</span>
                     {isAgent && <span className="text-[11px] text-muted-foreground">agente</span>}
                     {isAction && (
-                        <span className="inline-flex h-5 items-center gap-1 rounded-full bg-status-warning/15 px-2 text-[11px] font-medium text-[color-mix(in_oklch,var(--status-warning)_70%,var(--foreground))]">
+                        <span className="inline-flex h-5 items-center gap-1 rounded-full bg-status-warning/15 px-2 text-[11px] font-medium text-warning-strong">
                             <Zap className="size-3" />
                             Acção directa
                         </span>

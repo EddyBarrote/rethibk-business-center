@@ -20,7 +20,7 @@ const dot: Record<Tone, string> = {
 const badge: Record<Tone, string> = {
     running: 'bg-status-running/12 text-status-running ring-status-running/25',
     success: 'bg-status-success/12 text-status-success ring-status-success/25',
-    warning: 'bg-status-warning/15 text-[color-mix(in_oklch,var(--status-warning)_70%,var(--foreground))] ring-status-warning/30',
+    warning: 'bg-status-warning/15 text-warning-strong ring-status-warning/30',
     danger: 'bg-status-danger/12 text-status-danger ring-status-danger/25',
     idle: 'bg-muted text-muted-foreground ring-border',
 };

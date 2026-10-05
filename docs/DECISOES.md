@@ -250,6 +250,22 @@ A segunda avaliação deu 7/10. O que ficou mexe sobretudo no texto que as pesso
   As conversas e execuções de teste do Barrote ficam como estão. As contas de entrada da semente (`@micomoc.test`)
   ficam: são as credenciais de desenvolvimento e nunca existem numa organização real.
 
+## Polimento final da revisão visual (05.10.2026)
+
+A terceira avaliação deu 8/10. Esta passagem fecha o que restava e quatro regressões:
+
+- **Abrir uma conversa não cria nada.** `GET /agents/{agent}/chat` leva à conversa se já existir; senão mostra uma
+  conversa em branco (`Agents/Chat`), e só a primeira mensagem (`POST /agents/{agent}/chat`) a cria. As conversas
+  sem mensagens saem das listas de Tarefas e Conversas; as que já existiam na base local ficam onde estão. Uma
+  conversa chama-se sempre "Conversa com {agente}", seja qual for a primeira mensagem.
+- **Execuções separam trabalho de conversa.** Por omissão a lista é o trabalho dos agentes; o filtro de origem tem
+  Rotinas, Tarefas, Email e Conversas, e em Conversas as mensagens aparecem agrupadas por conversa (número de mensagens,
+  custo, última resposta). A actividade recente do Painel também deixa as conversas de fora.
+- **Cada execução com nome** (`Present::run()` → `title`): rotina, tarefa ("MIC-11 · …", "Retomar MIC-5 · …" no
+  batimento), triagem do email «assunto», contrato a terminar, briefings e cobrança.
+- **Revalidação do Chief of Staff em português:** a tarefa chama-se "Revalidar «Registar oportunidade» de {agente}";
+  os argumentos da acção vão só para o pedido do agente.
+- **Organigrama** abre em tamanho real; "Ajustar ao ecrã" nunca deixa os nomes abaixo de 12 px.
 
 ## Caixas de email por pessoa e matriz completa de permissões (05.10.2026)
 
@@ -264,7 +280,7 @@ papéis passam a cobrir tudo o que uma pessoa pode fazer no sistema.
 | Os donos escolhem que agentes lêem a caixa. Por omissão, o primeiro agente activo do departamento da pessoa, que também vê cada email novo. | `MailboxReader` (`processes_new`), `Mailbox::processor()` |
 | O agente que lê uma caixa pessoal lê, resume, classifica, cria tarefas para o dono e prepara rascunhos. Não encaminha para outras áreas e só notifica o dono do que é urgente. | `EmailPrompt::forPerson`, `ClassifyEmail`, `CapabilityRegistry::MAILBOX_READER` |
 | Os agentes nunca enviam de uma caixa de pessoa: o rascunho fica na caixa dela e só um dono o envia. `MailboxMailer` recusa enviar de uma caixa pessoal sem um dono a pedir; `comms.send_email` só usa a caixa do próprio agente, com as regras de aprovação de sempre. | `MailboxMailer`, `SendEmail`, `DraftEmailReply` |
-| Os agentes lêem a email de triagem (caixas de agentes) e as caixas pessoais que os donos lhes deram; nunca as outras. Resumos e alertas da organização (painel, SLA, resumo do mês) contam só a triagem. | `EmailMessage::readableBy`, `EmailMessage::triage` |
+| Os agentes lêem o email de triagem (caixas de agentes) e as caixas pessoais que os donos lhes deram; nunca as outras. Resumos e alertas da organização (painel, SLA, resumo do mês) contam só a triagem. | `EmailMessage::readableBy`, `EmailMessage::triage` |
 | Uma pessoa vê em Emails as suas caixas, os emails de triagem encaminhados para ela e, com "Ver emails de triagem", toda a triagem. Ninguém lê a caixa pessoal de outra pessoa, nem os administradores: "Gerir todas as caixas" dá a configuração, não o conteúdo. Deixou de haver visibilidade por departamento. | `EmailMessage::visibleTo`, `InboxController` |
 | A matriz passou de 8 para 25 permissões, em 9 áreas (Trabalho, Agentes, Conversas, Emails, Conhecimento, Documentos, Aprovações, Custos de IA, Empresa). Os papéis passam a ser colunas e as permissões linhas, por área. | `App\Enums\Permission`, `Pages/Settings/Roles.tsx` |
 | Cada permissão é verificada no servidor; o menu e os botões só escondem o que a pessoa não pode usar (`auth.user.permissions`, `useCan`). `canManageTenant()` passou a querer dizer só "Administrar a empresa" (departamentos, marca, ERP). | políticas e controladores |

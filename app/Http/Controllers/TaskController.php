@@ -56,6 +56,8 @@ class TaskController extends Controller
         $query = $this->visible(Task::query(), $user)
             ->with(Present::TASK_RELATIONS)
             ->withCount('messages')
+            // A conversation nobody has written in yet is not work: it stays out of the lists.
+            ->where(fn (Builder $q) => $q->whereNot('kind', TaskKind::Chat)->orWhereHas('messages'))
             ->when($view === 'mine', fn (Builder $q) => $q->open()->needing($user))
             ->when($view === 'all', fn (Builder $q) => $q->open()->where('kind', TaskKind::Task))
             ->when($view === 'chats', fn (Builder $q) => $q->where('kind', TaskKind::Chat)->whereNot('status', TaskStatus::Cancelled))
@@ -139,13 +141,22 @@ class TaskController extends Controller
     }
 
     /**
-     * Open the person's one conversation with an agent (Grok-style), creating it on first use.
+     * Open the person's one conversation with an agent (Grok-style). Opening
+     * it creates nothing: until the first message the page is a blank
+     * conversation, and the message (agents.chat) creates it.
      */
-    public function conversation(Request $request, Agent $agent, TaskThread $threads): RedirectResponse
+    public function conversation(Request $request, Agent $agent, TaskThread $threads): RedirectResponse|Response
     {
         Gate::authorize('run', $agent);
+        $user = $this->user($request);
 
-        return to_route('tasks.show', $threads->conversation($this->user($request), $agent));
+        if (Task::query()->where('chat_key', TaskThread::chatKey($user, $agent))->exists()) {
+            return to_route('tasks.show', $threads->conversation($user, $agent));
+        }
+
+        return Inertia::render('Agents/Chat', [
+            'agent' => ['id' => $agent->id, 'name' => $agent->name, 'title' => $agent->title, 'avatar_url' => $agent->avatarUrl()],
+        ]);
     }
 
     /**

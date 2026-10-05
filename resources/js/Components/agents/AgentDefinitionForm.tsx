@@ -451,7 +451,7 @@ export default function AgentDefinitionForm({
                                                     </span>
                                                     <span className="block truncate font-mono text-[11px] text-muted-foreground">{capability.key}</span>
                                                     {checked && gated && (
-                                                        <span className="mt-0.5 flex items-center gap-1.5 text-xs text-status-warning">
+                                                        <span className="mt-0.5 flex items-center gap-1.5 text-xs text-warning-strong">
                                                             <StatusDot tone="warning" pulse={false} className="size-1.5 [&>span]:size-1.5" />
                                                             Pede aprovação a este nível.
                                                         </span>

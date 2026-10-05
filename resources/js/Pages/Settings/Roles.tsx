@@ -72,7 +72,7 @@ export default function Roles({ roles, permissions, ceo_keeps }: Props) {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-muted/40 hover:bg-muted/40">
-                            <TableHead className="sticky left-0 z-10 h-auto min-w-56 bg-muted/40 px-4 py-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                            <TableHead className="sticky left-0 z-10 h-auto min-w-56 bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">
                                 Permissão
                             </TableHead>
                             {roles.map((role) => (

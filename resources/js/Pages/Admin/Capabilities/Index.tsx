@@ -120,13 +120,13 @@ export default function CapabilitiesIndex({
                         <Table className="table-stack">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
-                                    <TableHead className="h-9 px-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                    <TableHead className="h-9 px-4 text-xs font-medium text-muted-foreground">
                                         Capacidade
                                     </TableHead>
-                                    <TableHead className="h-9 text-xs font-medium tracking-wide text-muted-foreground uppercase">Origem</TableHead>
-                                    <TableHead className="h-9 text-xs font-medium tracking-wide text-muted-foreground uppercase">Tipo</TableHead>
-                                    <TableHead className="h-9 text-xs font-medium tracking-wide text-muted-foreground uppercase">Risco</TableHead>
-                                    <TableHead className="h-9 px-4 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">Origem</TableHead>
+                                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">Tipo</TableHead>
+                                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">Risco</TableHead>
+                                    <TableHead className="h-9 px-4 text-right text-xs font-medium text-muted-foreground">
                                         Agentes
                                     </TableHead>
                                 </TableRow>

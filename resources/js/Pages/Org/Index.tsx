@@ -44,7 +44,8 @@ const NONE = 'none';
 export default function OrgIndex({ members, can_manage }: Props) {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [editing, setEditing] = useState(false);
-    const [fit, setFit] = useState(true);
+    // Real size by default (names at 13 px), scrolling sideways; fitting never shrinks text below 12 px.
+    const [fit, setFit] = useState(false);
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
     const toggle = (key: string) =>
         setCollapsed((current) => {
@@ -315,7 +316,7 @@ function Counters({ member }: { member: Member }) {
             {member.waiting_tasks > 0 && (
                 <Link
                     href={`/tasks?view=waiting&agent=${member.id}`}
-                    className="inline-flex h-5 items-center gap-1 rounded-full bg-status-warning/15 px-2 text-xs text-[color-mix(in_oklch,var(--status-warning)_70%,var(--foreground))]"
+                    className="inline-flex h-5 items-center gap-1 rounded-full bg-status-warning/15 px-2 text-xs text-warning-strong"
                     title="À tua espera"
                 >
                     <CircleHelp className="size-3" />
@@ -391,7 +392,7 @@ function OrgRow({ member }: { member: Member }) {
                         )}
                         {!isAgent && <span className="rounded bg-muted px-1.5 text-[10px] text-muted-foreground">pessoa</span>}
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
                         {[member.title, member.department].filter(Boolean).join(' · ') || 'Sem função definida'}
                     </p>
                 </div>
@@ -403,6 +404,9 @@ function OrgRow({ member }: { member: Member }) {
         </div>
     );
 }
+
+/** Names are 13 px; fitting stops where they would read below 12 px. */
+const MIN_SCALE = 12 / 13;
 
 /**
  * Shrinks the chart to the width of its box (never enlarges it), keeping the
@@ -419,10 +423,14 @@ function FitToWidth({ enabled, children }: { enabled: boolean; children: ReactNo
                 return;
             }
             const width = inner.current.scrollWidth;
-            const scale = enabled ? Math.min(1, outer.current.clientWidth / width) : 1;
+            const scale = enabled ? Math.max(MIN_SCALE, Math.min(1, outer.current.clientWidth / width)) : 1;
             setSize({ scale, height: inner.current.scrollHeight * scale });
         };
         measure();
+        // At real size the chart opens centred on the top of the organisation, scrolling to either side.
+        if (!enabled && outer.current) {
+            outer.current.scrollLeft = (outer.current.scrollWidth - outer.current.clientWidth) / 2;
+        }
         const observer = new ResizeObserver(measure);
         if (outer.current) observer.observe(outer.current);
         if (inner.current) observer.observe(inner.current);
@@ -433,7 +441,7 @@ function FitToWidth({ enabled, children }: { enabled: boolean; children: ReactNo
     return (
         <div
             ref={outer}
-            className={cn('w-full', enabled ? 'overflow-hidden' : 'overflow-x-auto')}
+            className={cn('w-full', enabled && size.scale > MIN_SCALE ? 'overflow-hidden' : 'overflow-x-auto')}
             style={enabled ? { height: size.height || undefined } : undefined}
         >
             <div

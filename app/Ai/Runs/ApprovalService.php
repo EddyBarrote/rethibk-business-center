@@ -148,16 +148,22 @@ final class ApprovalService
         return $chief !== null && $chief->id !== $approval->agent_id ? $chief : null;
     }
 
+    /** The capability's name in the catalogue ("Registar oportunidade"), or its key when it has none. */
+    public static function actionName(Approval $approval): string
+    {
+        return Capability::query()->where('key', $approval->action_type)->value('name') ?? $approval->action_type;
+    }
+
     private function askReviewer(Approval $approval, Agent $reviewer): void
     {
         $agent = $approval->agent;
 
         app(TaskThread::class)->open([
             'kind' => TaskKind::Task,
-            'title' => Str::limit("Revalidar: {$approval->action_summary}", 200, '…'),
-            // People read this; how to review it goes only to the agent's brief (TaskThread::input).
-            'description' => "{$agent->name} quer fazer uma acção acima do seu nível ({$approval->agent_level->code()}; a acção pede {$approval->required_level->code()}).\n\n"
-                ."Acção: {$approval->action_summary}",
+            // People read the title and description: the capability by its name, never its arguments
+            // ("estimated_value: …"). The arguments and how to review go to the agent's brief (TaskThread::input).
+            'title' => Str::limit('Revalidar «'.self::actionName($approval)."» de {$agent->name}", 200, '…'),
+            'description' => "{$agent->name} quer «".self::actionName($approval)."», uma acção acima do seu nível ({$approval->agent_level->code()}; a acção pede {$approval->required_level->code()}).",
             'status' => TaskStatus::Todo,
             'priority' => TaskPriority::High,
             'assignee_agent_id' => $reviewer->id,

@@ -77,7 +77,7 @@ export default function KnowledgeEdit({ item, defaults, domains, folders, types 
                                 id="content"
                                 value={form.data.content}
                                 onChange={(content) => form.setData('content', content)}
-                                placeholder={'## Procedimento de compras\n\n1. Pedir três cotações a fornecedores aprovados.\n2. …'}
+                                placeholder="Escreva aqui o artigo: um procedimento, uma regra da empresa, uma lista de contactos… Use a barra acima para títulos e listas."
                                 invalid={!!form.errors.content}
                             />
                             {form.errors.content && <p className="text-sm text-destructive">{form.errors.content}</p>}

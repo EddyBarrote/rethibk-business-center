@@ -74,7 +74,7 @@ const actionLabel: Record<string, string> = {
 
 const actorLabel: Record<Call['actor_type'], string> = { user: 'Utilizador', agent: 'Agente', system: 'Sistema' };
 
-const head = 'h-9 px-4 text-xs font-medium tracking-wide text-muted-foreground uppercase';
+const head = 'h-9 px-4 text-xs font-medium text-muted-foreground';
 
 /** Settings row: what the group is about on the left, its controls on the right. */
 function SettingsBlock({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
