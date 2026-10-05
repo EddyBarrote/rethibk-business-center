@@ -10,12 +10,9 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\BriefingController;
 use App\Http\Controllers\CapabilityController;
-use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConnectorController;
-use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
-use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Knowledge\DomainController;
@@ -23,7 +20,6 @@ use App\Http\Controllers\Knowledge\FolderController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
-use App\Http\Controllers\ProcurementController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
@@ -31,7 +27,6 @@ use App\Http\Controllers\Settings\ErpConnectionController;
 use App\Http\Controllers\Settings\UserController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\TaskController;
-use App\Http\Controllers\TenderController;
 use Illuminate\Support\Facades\Route;
 
 // Every web route runs on a tenant host; IdentifyTenant is prepended to the web group.
@@ -122,9 +117,6 @@ Route::middleware('auth')->group(function () {
     Route::post('inbox/{message}/retriage', [InboxController::class, 'retriage'])->middleware('throttle:20,1')->name('inbox.retriage');
     Route::get('attachments/{attachment}', [InboxController::class, 'attachment'])->name('attachments.download');
 
-    Route::get('tenders', [TenderController::class, 'index'])->name('tenders.index');
-    Route::put('tenders/{tender}', [TenderController::class, 'update'])->name('tenders.update');
-
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('notifications/{notification}', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read');
@@ -135,22 +127,6 @@ Route::middleware('auth')->group(function () {
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('reports/{report}/review', [ReportController::class, 'review'])->name('reports.review');
-
-    Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
-    Route::post('finance/statements', [FinanceController::class, 'upload'])->name('finance.upload');
-    Route::post('finance/transactions/{transaction}', [FinanceController::class, 'reconcile'])->name('finance.reconcile');
-    Route::post('finance/ask', [FinanceController::class, 'ask'])->middleware('throttle:10,1')->name('finance.ask');
-
-    Route::get('procurement', [ProcurementController::class, 'index'])->name('procurement.index');
-    Route::post('procurement', [ProcurementController::class, 'store'])->name('procurement.store');
-    Route::get('procurement/{purchase}', [ProcurementController::class, 'show'])->name('procurement.show');
-    Route::post('procurement/{purchase}/cancel', [ProcurementController::class, 'cancel'])->name('procurement.cancel');
-
-    Route::resource('contracts', ContractController::class)->only(['index', 'show', 'store', 'update']);
-
-    Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
-    Route::get('clients/{account}', [ClientController::class, 'show'])->name('clients.show');
-    Route::post('clients/{account}/brief', [ClientController::class, 'brief'])->middleware('throttle:10,1')->name('clients.brief');
 
     // Capabilities, connectors and skills of the company (docs/CAPACIDADES.md).
     Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');

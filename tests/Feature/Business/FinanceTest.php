@@ -6,14 +6,13 @@ use App\Email\InboundEmailIngestor;
 use App\Enums\BankTransactionStatus;
 use App\Finance\BankReconciler;
 use App\Finance\BankStatementImporter;
-use App\Models\AgentRun;
+use App\Models\Approval;
 use App\Models\BankStatement;
 use App\Models\BankTransaction;
 use App\Models\EmailAttachment;
 use App\Models\Mailbox;
 use App\Models\Tenant;
 use App\Models\User;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -74,50 +73,37 @@ it('offers the ERP invoices a credit can settle, by number or amount', function 
     });
 });
 
-it('imports the statement emailed to the finance mailbox and suggests the matches for a person to confirm', function () {
+it('imports the statement emailed to the finance mailbox, suggests the matches, and a person confirms them by approving', function () {
     GenericAgent::fake([
         toolCall('f1', 'bank_import_statement', fn () => ['attachment_id' => lastId(EmailAttachment::class), 'account_name' => 'BCI conta à ordem MZN', 'bank' => 'BCI']),
         new ToolCall('f2', 'bank_unreconciled', []),
         toolCall('f3', 'bank_suggest_match', fn () => ['transaction_id' => hotelTransfer()->id, 'match_type' => 'invoice', 'match_ref' => 'INV-0001', 'note' => 'Número FT 2026/118 e montante iguais.']),
-        'Extracto importado; 1 reconciliação proposta.',
+        toolCall('f4', 'bank_confirm_match', fn () => ['transaction_id' => hotelTransfer()->id, 'action' => 'confirm', 'match_type' => 'invoice', 'match_ref' => 'INV-0001', 'note' => 'Número FT 2026/118 e montante iguais.']),
+        'Extracto importado; 1 reconciliação à espera de confirmação.',
     ]);
 
-    asTenant($this->tenant, function () {
+    $approval = asTenant($this->tenant, function () {
         $mailbox = Mailbox::query()->where('agent_id', $this->finance->id)->sole();
         app(InboundEmailIngestor::class)->ingest($mailbox, mailFixture('bank-statement'));
 
         expect(EmailAttachment::query()->sole()->filename)->toBe('extracto-bci-2026-09.csv');
 
         expect(BankStatement::query()->sole())->source->toBe('email')->transaction_count->toBe(5)
-            ->and(hotelTransfer())->status->toBe(BankTransactionStatus::Suggested)->match_ref->toBe('INV-0001')
-            ->and(AgentRun::query()->latest('id')->first()->status->value)->toBe('completed');
+            ->and(hotelTransfer())->status->toBe(BankTransactionStatus::Suggested)->match_ref->toBe('INV-0001');
+
+        // Even at the highest autonomy, only a person reconciles.
+        return Approval::query()->sole();
     });
 
-    $owner = asTenant($this->tenant, fn () => $this->owner);
+    expect($approval->ceiling_reason)->toContain('decidido por uma pessoa')
+        ->and($approval->action_summary)->toContain('INV-0001');
 
-    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'finance'))->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Finance/Index')->where('totals.suggested', 1)->where('transactions.data.0.match_ref', 'INV-0001'));
-
-    $transfer = asTenant($this->tenant, fn () => hotelTransfer()->id);
-    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, "finance/transactions/{$transfer}"), ['action' => 'confirm'])->assertRedirect();
+    $this->actingAs(asTenant($this->tenant, fn () => $this->owner), 'web')
+        ->post(tenantUrl($this->tenant, "approvals/{$approval->id}/approve"))->assertRedirect();
 
     asTenant($this->tenant, fn () => expect(hotelTransfer())
         ->status->toBe(BankTransactionStatus::Reconciled)
         ->reconciled_by_user_id->toBe($this->owner->id));
-});
-
-it('lets managers upload a CSV, which wakes the finance agent, and keeps members out', function () {
-    GenericAgent::fake(['Vou propor as reconciliações.']);
-    [$owner, $member] = asTenant($this->tenant, fn () => [$this->owner, $this->member]);
-    $file = UploadedFile::fake()->createWithContent('extracto.csv', $this->csv);
-
-    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, 'finance'))->assertForbidden();
-    $this->actingAs($member, 'web')->post(tenantUrl($this->tenant, 'finance/statements'), ['account_name' => 'BCI', 'file' => $file])->assertForbidden();
-
-    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, 'finance/statements'), ['account_name' => 'BCI', 'file' => $file])
-        ->assertRedirect()->assertSessionHas('success', '5 movimento(s) importado(s).');
-
-    asTenant($this->tenant, fn () => expect(AgentRun::query()->sole())->agent_id->toBe($this->finance->id));
 });
 
 it('flags projects over budget or under the minimum margin, with per-tenant thresholds', function () {

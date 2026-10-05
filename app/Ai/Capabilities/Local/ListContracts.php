@@ -62,7 +62,6 @@ final class ListContracts extends LocalCapability
             'sla_response_hours' => $c->sla_response_hours,
             'status' => $c->status->value,
             'owner' => $c->owner?->only(['name', 'email']),
-            'link' => "/contracts/{$c->id}",
         ])->all()]);
     }
 }

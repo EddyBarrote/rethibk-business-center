@@ -11,7 +11,7 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Validator;
 
 /**
- * The agent proposes; a person confirms the reconciliation on /finance.
+ * The agent proposes; a person confirms the reconciliation.
  */
 final class SuggestBankMatch extends LocalCapability
 {

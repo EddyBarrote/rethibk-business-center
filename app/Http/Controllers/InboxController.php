@@ -14,7 +14,6 @@ use App\Models\EmailMessage;
 use App\Models\FollowUp;
 use App\Models\Mailbox;
 use App\Models\Task;
-use App\Models\Tender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -100,9 +99,6 @@ class InboxController extends Controller
             ]),
             'tasks' => Task::query()->where('source_type', $message->getMorphClass())->where('source_id', $message->id)->with('tenant:id,slug')->get()
                 ->map(fn (Task $t) => ['id' => $t->id, 'ref' => $t->identifier(), 'title' => $t->title]),
-            'tenders' => Tender::query()->where('email_message_id', $message->id)->get(['id', 'title', 'deadline_at', 'status'])->map(fn (Tender $t) => [
-                'id' => $t->id, 'title' => $t->title, 'deadline_at' => $t->deadline_at?->toIso8601String(), 'status_label' => $t->status->label(),
-            ]),
             'followUps' => FollowUp::query()->where('subject_type', $message->getMorphClass())->where('subject_id', $message->id)->orderBy('due_at')->get()->map(fn (FollowUp $f) => [
                 'id' => $f->id, 'title' => $f->title, 'due_at' => $f->due_at->toIso8601String(), 'done' => $f->done_at !== null,
             ]),

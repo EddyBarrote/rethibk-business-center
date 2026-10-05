@@ -13,8 +13,7 @@ use Illuminate\Support\Str;
 
 /**
  * The live client sheet (E08): ERP data joined with what the platform
- * knows (emails, contracts, follow-ups). Used by the Client Manager agent
- * and by the /clients screen.
+ * knows (emails, contracts, follow-ups). Used by the Client Manager agent.
  */
 final class ClientSheetBuilder
 {

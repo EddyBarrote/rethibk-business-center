@@ -82,7 +82,7 @@ final class AgentTemplates
             Briefing diário (dias úteis) e semanal (segunda-feira):
             1. Recolhe a fotografia com platform.overview (24 h no diário, 168 h no semanal) e os problemas com platform.detect_issues.
             2. Junta os números do ERP que importam: contas a receber em atraso (erp.invoices.list_receivables com overdue_only), margens (finance.project_margins) e pedidos de clientes fora do SLA (clients.sla_status).
-            3. Escreve o briefing em markdown, curto: "Precisa de decisão hoje", "O que mudou", "Riscos e bloqueios", "Números", "Próximos prazos". Cada ponto que precisa de decisão leva ligação para a consola (/approvals, /inbox/ID, /contracts/ID...).
+            3. Escreve o briefing em markdown, curto: "Precisa de decisão hoje", "O que mudou", "Riscos e bloqueios", "Números", "Próximos prazos". Cada ponto que precisa de decisão leva ligação para a consola (/approvals, /inbox/ID, /tasks/ID...).
             4. Publica-o com briefings.publish (tipo daily ou weekly) para a tua chefia; põe as decisões pendentes em decisions_pending.
             Quando a Direcção decidir algo numa conversa contigo, regista-o com memory.remember_decision: as decisões chegam a todos os agentes.
             Se encontrares duas áreas a trabalhar com dados que não batem certo (ex.: uma lead sem registo no ERP, uma requisição encomendada sem nota de encomenda), diz qual é a inconsistência e quem a deve resolver.
@@ -107,13 +107,13 @@ final class AgentTemplates
             personality: 'Meticuloso e prudente. Mostra sempre os números de onde tira as conclusões.',
             instructions: <<<'TXT'
             Facturas de fornecedor (por email): lê o anexo, confirma fornecedor, NUIT, número, data, valor sem IVA, IVA (16%) e total; regista com erp.expenses.create e classifica com erp.expenses.classify (categoria e projecto, se o descobrires). Se os totais não batem certo, não registes: notifica a chefia.
-            Extractos bancários (por email): importa com bank.import_statement; depois propõe as reconciliações com bank.unreconciled e bank.suggest_match. Uma pessoa confirma em /finance.
+            Extractos bancários (por email): importa com bank.import_statement; depois propõe as reconciliações com bank.unreconciled e bank.suggest_match, e pede a confirmação de cada uma com bank.confirm_match (uma pessoa decide na aprovação).
             Facturação a clientes: só crias rascunhos (erp.invoices.create_draft). A emissão é pedida com erp.invoices.issue depois da aprovação, e confirmada por uma pessoa no ERP.
             Recebimentos: para cada factura em atraso, prepara um email cordial ao contacto financeiro do cliente com número, valor e dias de atraso. O envio espera aprovação.
             Margens: com finance.project_margins, assinala projectos acima do limite de orçamento ou abaixo da margem mínima e explica a causa provável (erp.projects.get).
             Fecho do mês: junta os números com finance.month_summary e escreve o pacote com reports.draft (tipo month_close).
             TXT,
-            capabilities: [...self::EMAIL, ...self::COMMON, 'bank.import_statement', 'bank.unreconciled', 'bank.suggest_match', 'finance.project_margins', 'finance.month_summary',
+            capabilities: [...self::EMAIL, ...self::COMMON, 'bank.import_statement', 'bank.unreconciled', 'bank.suggest_match', 'bank.confirm_match', 'finance.project_margins', 'finance.month_summary',
                 'erp.invoices.create_draft', 'erp.invoices.issue', 'erp.invoices.list_receivables', 'erp.invoices.get', 'erp.expenses.create', 'erp.expenses.classify', 'erp.expenses.list_by_project',
                 'erp.projects.get', 'erp.projects.list', 'erp.crm.get_account', 'erp.crm.search_accounts', 'erp.procurement.list_orders'],
             routines: [

@@ -49,19 +49,11 @@ it('renders every console page for the owner', function (string $path, string $c
     ['knowledge', 'Knowledge/Index'],
     ['inbox', 'Inbox/Index'],
     ['inbox/{EmailMessage}', 'Inbox/Show'],
-    ['tenders', 'Tenders/Index'],
     ['notifications', 'Notifications/Index'],
     ['briefings', 'Briefings/Index'],
     ['briefings/{Briefing}', 'Briefings/Show'],
     ['reports', 'Reports/Index'],
     ['reports/{Report}', 'Reports/Show'],
-    ['finance', 'Finance/Index'],
-    ['procurement', 'Procurement/Index'],
-    ['procurement/{PurchaseRequest}', 'Procurement/Show'],
-    ['contracts', 'Contracts/Index'],
-    ['contracts/{Contract}', 'Contracts/Show'],
-    ['clients', 'Clients/Index'],
-    ['clients/ACC-0001', 'Clients/Show'],
     ['settings/erp', 'Settings/Erp'],
 ]);
 
@@ -81,5 +73,4 @@ it('shows members only the emails routed to them or their department', function 
         ->assertInertia(fn ($page) => $page->where('messages.data', fn ($rows) => collect($rows)->pluck('subject')->all() === ['Para as obras']));
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$mine->id}"))->assertOk();
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$theirs->id}"))->assertForbidden();
-    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, 'finance'))->assertForbidden();
 });

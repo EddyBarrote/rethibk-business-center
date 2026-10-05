@@ -9,18 +9,14 @@ import {
     Network,
     Target,
     Bot,
-    Briefcase,
     Building2,
     CheckSquare,
     ChevronsUpDown,
-    FileSignature,
     FileText,
     Files,
     FolderOpen,
-    Gavel,
     Inbox,
     LayoutDashboard,
-    Landmark,
     Library,
     LogOut,
     type LucideIcon,
@@ -29,7 +25,6 @@ import {
     Palette,
     Pencil,
     PlugZap,
-    ShoppingCart,
     Sun,
     Users,
 } from 'lucide-react';
@@ -86,7 +81,6 @@ interface NavItem {
     label: string;
     href: string;
     icon: LucideIcon;
-    managersOnly?: boolean;
     tenantManagersOnly?: boolean;
     badge?: 'approvals' | 'notifications' | 'waiting';
 }
@@ -107,14 +101,6 @@ const workNav: NavItem[] = [
     { label: 'Documentos', href: '/reports', icon: Files },
     { label: 'Ficheiros', href: '/documents', icon: FolderOpen },
     { label: 'Conhecimento', href: '/knowledge', icon: Library },
-];
-
-const areasNav: NavItem[] = [
-    { label: 'Concursos', href: '/tenders', icon: Gavel },
-    { label: 'Clientes', href: '/clients', icon: Briefcase, managersOnly: true },
-    { label: 'Finanças', href: '/finance', icon: Landmark, managersOnly: true },
-    { label: 'Compras', href: '/procurement', icon: ShoppingCart },
-    { label: 'Contratos', href: '/contracts', icon: FileSignature, managersOnly: true },
 ];
 
 const companyNav: NavItem[] = [
@@ -342,7 +328,7 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
         return (url === href || url.startsWith(`${href}/`)) && !(href === '/tasks' && fullUrl.includes('view=chats'));
     };
     const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks };
-    const allNav = [...topNav, ...workNav, ...areasNav, ...companyNav];
+    const allNav = [...topNav, ...workNav, ...companyNav];
     const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
     const trail: Crumb[] = breadcrumbs ?? (current ? [{ label: current.label }] : url.startsWith('/agents') ? [{ label: 'Agentes' }] : []);
 
@@ -370,12 +356,6 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
                         <NavGroup items={topNav} isActive={isActive} counts={counts} />
                         <NavGroup label="Trabalho" items={workNav} isActive={isActive} counts={counts} />
                         <AgentsGroup url={url} />
-                        <NavGroup
-                            label="Áreas"
-                            items={areasNav.filter((item) => !item.managersOnly || user?.is_manager)}
-                            isActive={isActive}
-                            counts={counts}
-                        />
                         <NavGroup
                             label="Empresa"
                             items={companyNav.filter((item) => !item.tenantManagersOnly || user?.can_manage_tenant)}

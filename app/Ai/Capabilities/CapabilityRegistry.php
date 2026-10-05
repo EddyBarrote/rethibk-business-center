@@ -7,6 +7,7 @@ use App\Ai\Capabilities\Local\BudgetOverride;
 use App\Ai\Capabilities\Local\ClassifyEmail;
 use App\Ai\Capabilities\Local\ClientSheet;
 use App\Ai\Capabilities\Local\CompareQuotes;
+use App\Ai\Capabilities\Local\ConfirmBankMatch;
 use App\Ai\Capabilities\Local\CreateTask;
 use App\Ai\Capabilities\Local\DetectIssues;
 use App\Ai\Capabilities\Local\DraftEmailReply;
@@ -74,6 +75,7 @@ final class CapabilityRegistry
         ImportBankStatement::class,
         ListUnreconciled::class,
         SuggestBankMatch::class,
+        ConfirmBankMatch::class,
         ProjectMargins::class,
         MonthSummary::class,
         // E06: procurement
