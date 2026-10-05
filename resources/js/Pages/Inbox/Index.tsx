@@ -162,18 +162,20 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                             Por triar
                         </Chip>
                         {/* Only the categories with mail in the last 30 days, plus the one being looked at: no row of empty filters. */}
-                        {categories.filter((category) => category.count > 0 || filters.category === category.value).map((category) => (
-                            <Chip
-                                key={category.value}
-                                active={filters.category === category.value}
-                                onClick={() => apply({ category: category.value })}
-                            >
-                                {category.label}
-                                {category.count > 0 && (
-                                    <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{category.count}</span>
-                                )}
-                            </Chip>
-                        ))}
+                        {categories
+                            .filter((category) => category.count > 0 || filters.category === category.value)
+                            .map((category) => (
+                                <Chip
+                                    key={category.value}
+                                    active={filters.category === category.value}
+                                    onClick={() => apply({ category: category.value })}
+                                >
+                                    {category.label}
+                                    {category.count > 0 && (
+                                        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{category.count}</span>
+                                    )}
+                                </Chip>
+                            ))}
                     </div>
                 )}
             </div>
@@ -226,7 +228,12 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
 
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-baseline gap-2 sm:hidden">
-                                        <span className={cn('min-w-0 flex-1 truncate text-sm', message.unread ? 'font-semibold' : 'text-muted-foreground')}>
+                                        <span
+                                            className={cn(
+                                                'min-w-0 flex-1 truncate text-sm',
+                                                message.unread ? 'font-semibold' : 'text-muted-foreground',
+                                            )}
+                                        >
                                             {inbound ? message.from : message.mailbox}
                                         </span>
                                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{ago(message.date)}</span>

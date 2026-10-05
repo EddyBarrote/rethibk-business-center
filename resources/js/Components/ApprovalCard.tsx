@@ -37,7 +37,9 @@ export function PayloadView({ payload }: { payload: Record<string, unknown> | nu
                             Array.isArray(value) && value.every((item) => typeof item !== 'object') ? (
                                 value.join(', ')
                             ) : (
-                                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-2 font-mono text-xs">{JSON.stringify(value, null, 2)}</pre>
+                                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-2 font-mono text-xs">
+                                    {JSON.stringify(value, null, 2)}
+                                </pre>
                             )
                         ) : (
                             String(value)
@@ -111,7 +113,10 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                 <div className="flex shrink-0 flex-col items-end gap-1">
                     <StatusBadge tone={approvalTone(approval.status)}>{approval.status_label}</StatusBadge>
                     {approval.status === 'approved' && (
-                        <StatusBadge tone={approval.execution_status === 'failed' ? 'danger' : approval.execution_status === 'executed' ? 'success' : 'idle'} dot={false}>
+                        <StatusBadge
+                            tone={approval.execution_status === 'failed' ? 'danger' : approval.execution_status === 'executed' ? 'success' : 'idle'}
+                            dot={false}
+                        >
                             {executionLabel[approval.execution_status]}
                         </StatusBadge>
                     )}
@@ -128,7 +133,9 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
             )}
 
             {executed && !compact && approval.execution_result?.content && (
-                <p className="line-clamp-3 rounded-lg bg-muted px-3 py-2 text-xs whitespace-pre-wrap text-muted-foreground">{approval.execution_result.content}</p>
+                <p className="line-clamp-3 rounded-lg bg-muted px-3 py-2 text-xs whitespace-pre-wrap text-muted-foreground">
+                    {approval.execution_result.content}
+                </p>
             )}
 
             <footer className={cn('flex flex-wrap items-center gap-2', approval.can_decide ? 'justify-between' : 'justify-end')}>
@@ -176,7 +183,12 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                 onSubmit={() => decide('reject')}
                 size="sm"
             >
-                <Field id={`reject-note-${approval.id}`} label="Motivo" error={form.errors.note} hint="O agente lê o motivo e ajusta o que faz a seguir.">
+                <Field
+                    id={`reject-note-${approval.id}`}
+                    label="Motivo"
+                    error={form.errors.note}
+                    hint="O agente lê o motivo e ajusta o que faz a seguir."
+                >
                     <Textarea
                         id={`reject-note-${approval.id}`}
                         rows={3}
@@ -220,12 +232,24 @@ export function ApprovalCard({ approval, compact = false, taskHref }: { approval
                         {executed && approval.execution_result?.content && (
                             <div className="grid gap-2">
                                 <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Resultado</p>
-                                <pre className="max-h-48 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap">{approval.execution_result.content}</pre>
+                                <pre className="max-h-48 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap">
+                                    {approval.execution_result.content}
+                                </pre>
                             </div>
                         )}
                         {approval.can_decide && (
-                            <Field id={`note-${approval.id}`} label="Nota" error={form.errors.note} hint="Opcional ao aprovar; obrigatória ao rejeitar.">
-                                <Textarea id={`note-${approval.id}`} rows={2} value={form.data.note} onChange={(event) => form.setData('note', event.target.value)} />
+                            <Field
+                                id={`note-${approval.id}`}
+                                label="Nota"
+                                error={form.errors.note}
+                                hint="Opcional ao aprovar; obrigatória ao rejeitar."
+                            >
+                                <Textarea
+                                    id={`note-${approval.id}`}
+                                    rows={2}
+                                    value={form.data.note}
+                                    onChange={(event) => form.setData('note', event.target.value)}
+                                />
                             </Field>
                         )}
                     </div>

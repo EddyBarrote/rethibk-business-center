@@ -28,10 +28,7 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
             <Head title="Execuções" />
             <PageHeader title="Execuções" description="Tudo o que os agentes fizeram, com custo e resultado." />
 
-            <Tabs
-                value={filters.status ?? ''}
-                onValueChange={(status) => router.get('/runs', status ? { status } : {}, { preserveState: true })}
-            >
+            <Tabs value={filters.status ?? ''} onValueChange={(status) => router.get('/runs', status ? { status } : {}, { preserveState: true })}>
                 <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b pb-1">
                     {statuses.map(([value, label]) => (
                         <TabsTrigger key={value} value={value} className="flex-none">
@@ -68,7 +65,9 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                                 subtitle={`${run.agent.name} · ${run.trigger_label}${run.requested_by ? ` · ${run.requested_by}` : ''}`}
                                 meta={
                                     <>
-                                        <span className="hidden w-16 text-right font-mono tabular-nums lg:block">{duration(run.duration_ms) ?? '—'}</span>
+                                        <span className="hidden w-16 text-right font-mono tabular-nums lg:block">
+                                            {duration(run.duration_ms) ?? '—'}
+                                        </span>
                                         <span className="w-20 text-right font-mono tabular-nums">{usd(run.cost_usd)}</span>
                                         <span className="w-20 text-right" title={dateTime(run.created_at)}>
                                             {ago(run.created_at)}

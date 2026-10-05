@@ -9,6 +9,7 @@ import { FileIcon } from '@/Components/FileIcon';
 import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
+import { PaginationBar, usePaged } from '@/Components/Pagination';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
@@ -72,6 +73,7 @@ function NavRow({
 }
 
 export default function KnowledgeIndex({ domains, domain, folder, folders, items, filters, pending, semantic, accept, can }: Props) {
+    const paged = usePaged(items, 20);
     const [query, setQuery] = useState(filters.q);
     const [uploading, setUploading] = useState(false);
     const [creatingFolder, setCreatingFolder] = useState(false);
@@ -331,10 +333,11 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                     ) : (
                         <Section title={heading} action={<span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>}>
                             <ListPanel>
-                                {items.map((item) => (
+                                {paged.items.map((item) => (
                                     <KnowledgeEntry key={item.id} item={item} showDomain={!domain || !browsing} />
                                 ))}
                             </ListPanel>
+                            {items.length > 20 && <PaginationBar {...paged.pager} noun={['item', 'itens']} />}
                         </Section>
                     )}
                 </div>

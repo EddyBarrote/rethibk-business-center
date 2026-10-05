@@ -38,7 +38,21 @@ export function pageWindow(current: number, last: number): (number | 'gap')[] {
     return pages;
 }
 
-function PagerItem({ href, onSelect, active, disabled, label, children }: { href?: string | null; onSelect?: () => void; active?: boolean; disabled?: boolean; label?: string; children: ReactNode }) {
+function PagerItem({
+    href,
+    onSelect,
+    active,
+    disabled,
+    label,
+    children,
+}: {
+    href?: string | null;
+    onSelect?: () => void;
+    active?: boolean;
+    disabled?: boolean;
+    label?: string;
+    children: ReactNode;
+}) {
     const classes = cn(
         buttonVariants({ variant: active ? 'outline' : 'ghost', size: 'sm' }),
         'h-8 min-w-8 px-2 font-mono text-xs tabular-nums',
