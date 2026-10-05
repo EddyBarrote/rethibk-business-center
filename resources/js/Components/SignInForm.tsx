@@ -63,10 +63,13 @@ export function SignInForm() {
 
             <Link
                 href="/forgot-password"
-                className="mt-6 flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+                className="mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-lg border border-dashed px-3 py-2.5 text-center text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
             >
-                <KeyRound className="size-4 text-primary" />
-                Esqueceu-se da palavra-passe? <span className="font-medium text-primary">Recuperar acesso</span>
+                <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                    <KeyRound className="size-4 text-primary" />
+                    Esqueceu-se da palavra-passe?
+                </span>
+                <span className="font-medium whitespace-nowrap text-primary">Recuperar acesso</span>
             </Link>
         </>
     );

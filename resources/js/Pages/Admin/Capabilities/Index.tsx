@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
+import { PaginationBar, usePaged } from '@/Components/Pagination';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -27,10 +28,25 @@ interface CapabilityRow {
     agents: number;
 }
 
-export default function CapabilitiesIndex({ tenant, capabilities, levels }: { tenant: { id: number; name: string }; capabilities: CapabilityRow[]; levels: LevelOption[] }) {
+export default function CapabilitiesIndex({
+    tenant,
+    capabilities,
+    levels,
+}: {
+    tenant: { id: number; name: string };
+    capabilities: CapabilityRow[];
+    levels: LevelOption[];
+}) {
     const [filter, setFilter] = useState('');
     const [syncing, setSyncing] = useState(false);
-    const visible = capabilities.filter((capability) => `${capability.key} ${capability.name}`.toLowerCase().includes(filter.toLowerCase()));
+    const [kind, setKind] = useState<'all' | 'platform' | 'erp' | 'write'>('all');
+    const visible = capabilities.filter(
+        (capability) =>
+            `${capability.key} ${capability.name}`.toLowerCase().includes(filter.toLowerCase()) &&
+            (kind === 'all' ||
+                (kind === 'erp' ? capability.source === 'mcp' : kind === 'platform' ? capability.source === 'local' : capability.is_mutating)),
+    );
+    const paged = usePaged(visible, 25);
 
     const sync = () =>
         router.post(
@@ -42,7 +58,11 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
     return (
         <AdminLayout
             title={`Capacidades · ${tenant.name}`}
-            breadcrumbs={[{ label: 'Organizações', href: '/tenants' }, { label: tenant.name, href: `/tenants/${tenant.id}` }, { label: 'Capacidades' }]}
+            breadcrumbs={[
+                { label: 'Organizações', href: '/tenants' },
+                { label: tenant.name, href: `/tenants/${tenant.id}` },
+                { label: 'Capacidades' },
+            ]}
         >
             <PageHeader
                 title="Capacidades"
@@ -69,14 +89,31 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                 />
             ) : (
                 <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="relative w-full max-w-64">
-                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input className="pl-8" placeholder="Filtrar…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-wrap items-center gap-1">
+                            {(
+                                [
+                                    ['all', 'Todas'],
+                                    ['platform', 'Plataforma'],
+                                    ['erp', 'ERP'],
+                                    ['write', 'Só escrita'],
+                                ] as const
+                            ).map(([value, label]) => (
+                                <Button
+                                    key={value}
+                                    size="xs"
+                                    variant={kind === value ? 'secondary' : 'ghost'}
+                                    className={kind === value ? 'font-medium' : 'font-normal text-muted-foreground'}
+                                    onClick={() => setKind(value)}
+                                >
+                                    {label}
+                                </Button>
+                            ))}
                         </div>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                            {visible.length} de {capabilities.length}
-                        </span>
+                        <div className="relative w-full sm:max-w-64">
+                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input className="pl-8" placeholder="Filtrar capacidades…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                        </div>
                     </div>
 
                     <div className="overflow-hidden rounded-xl border bg-card">
@@ -84,7 +121,7 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead className="h-9 px-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                                        Capability
+                                        Capacidade
                                     </TableHead>
                                     <TableHead className="h-9 text-xs font-medium tracking-wide text-muted-foreground uppercase">Origem</TableHead>
                                     <TableHead className="h-9 text-xs font-medium tracking-wide text-muted-foreground uppercase">Tipo</TableHead>
@@ -102,7 +139,7 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                                         </TableCell>
                                     </TableRow>
                                 )}
-                                {visible.map((capability) => (
+                                {paged.items.map((capability) => (
                                     <TableRow key={capability.id} className={cn(!capability.is_available && 'opacity-50')}>
                                         <TableCell className="max-w-md px-4 py-2.5 whitespace-normal">
                                             <p className="flex items-center gap-2 font-medium">
@@ -123,7 +160,13 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                                         </TableCell>
                                         <TableCell className="py-2.5">
                                             <span className="inline-flex h-5 items-center rounded-full border px-2 font-mono text-[11px] text-muted-foreground">
-                                                {capability.source === 'mcp' ? 'ERP' : capability.source === 'connector' ? (capability.scope === 'global' ? 'conector global' : 'conector') : 'plataforma'}
+                                                {capability.source === 'mcp'
+                                                    ? 'ERP'
+                                                    : capability.source === 'connector'
+                                                      ? capability.scope === 'global'
+                                                          ? 'conector global'
+                                                          : 'conector'
+                                                      : 'plataforma'}
                                             </span>
                                         </TableCell>
                                         <TableCell className="py-2.5">
@@ -134,7 +177,7 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                                         <TableCell className="py-2.5">
                                             {capability.is_mutating ? (
                                                 <NativeSelect
-                                                    className="w-56"
+                                                    className="w-64"
                                                     value={capability.risk}
                                                     aria-label={`Risco de ${capability.name}`}
                                                     onChange={(e) =>
@@ -152,7 +195,7 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                                                     ))}
                                                 </NativeSelect>
                                             ) : (
-                                                <span className="text-sm text-muted-foreground">sem gate</span>
+                                                <span className="text-sm text-muted-foreground">sem aprovação</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="px-4 py-2.5 text-right tabular-nums">{capability.agents}</TableCell>
@@ -161,6 +204,7 @@ export default function CapabilitiesIndex({ tenant, capabilities, levels }: { te
                             </TableBody>
                         </Table>
                     </div>
+                    <PaginationBar {...paged.pager} noun={['capacidade', 'capacidades']} />
                 </div>
             )}
         </AdminLayout>

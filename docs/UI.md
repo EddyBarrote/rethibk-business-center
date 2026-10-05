@@ -28,6 +28,35 @@ Cada ecrã responde, por esta ordem: **o que está a acontecer, precisa de mim, 
    fazer primeiro.
 8. Mensagens de sucesso/erro do servidor (`flash`) aparecem como toast; não repetir em banners.
 
+## Padrões de ecrã (revisão de 05.10.2026)
+
+Peças partilhadas, a usar antes de escrever outra:
+
+| Precisa de | Use | Onde |
+|---|---|---|
+| Lista com muitas linhas vinda do servidor | `<Pagination page={…} noun={['item', 'itens']} />` com o paginador do Laravel | `Components/Pagination.tsx` |
+| Lista que chega inteira ao browser (catálogos, até ~100) | `usePaged(rows, 20)` e `<PaginationBar {...paged.pager} />` | idem |
+| Perguntar antes de apagar ou de algo sem volta | `<ConfirmDialog destructive … />`, nunca `window.confirm()` | `Components/Dialogs.tsx` |
+| Criar ou editar algo com poucos campos | `<FormDialog>`: título, porquê, campos, Cancelar à esquerda e a acção à direita | idem |
+| Escolher um ficheiro | `<FileInput>` (português, aceita arrastar), nunca `<Input type="file">` à vista | `Components/FileInput.tsx` |
+| Escolha numa lista | `Select` do shadcn em formulários e diálogos; `NativeSelect` só em formulários longos (desenha a mesma seta nos dois temas) | `Components/ui` |
+| Uma aprovação | `<ApprovalCard>`: quem pede, porquê precisa de uma pessoa, Aprovar num clique, Rejeitar com motivo num diálogo, detalhes num diálogo | `Components/ApprovalCard.tsx` |
+
+Regras que saíram da revisão:
+
+1. **Modal ou página.** Criar e editar com até ~6 campos é um `FormDialog` aberto a partir do botão do cabeçalho
+   ("Novo domínio", "Novo departamento"). Formulários longos ou com várias secções (agente, skill, organização)
+   continuam a ser uma página. Nunca um formulário de criação solto no fundo de uma lista.
+2. **Filtros de estado são separadores** (`Tabs variant="line"`), como em Aprovações e Execuções; filtros secundários
+   são botões `xs` (`secondary` quando activos), como a origem nas Capacidades. Não mostrar filtros vazios.
+3. **Toda a lista diz quantos tem**, no pager ("1–20 de 78 capacidades"), também quando cabe numa página.
+4. **Texto de máquina não vai cru para a pessoa:** campos extraídos e dados de aprovações aparecem como etiqueta e
+   valor (`fieldLabel()` em `lib/format.ts`); JSON só dentro de "Ver dados".
+5. **Markdown dos agentes** passa sempre por `<Markdown>`; tabelas largas deslizam dentro da coluna.
+6. **No telemóvel** o título de uma linha nunca é espremido por insígnias: estados e níveis descem para debaixo do
+   título ou escondem-se abaixo de `sm`.
+7. Plurais escritos ("1 agente", "2 agentes"), nunca "agente(s)".
+
 ## Imagens geradas
 
 Geradas com a skill nano banana (Gemini), redimensionadas para 1400 px e convertidas para WebP (`cwebp -q 80`). Têm a marca de água invisível SynthID.

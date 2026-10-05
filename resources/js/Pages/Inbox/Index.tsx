@@ -95,7 +95,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
 
     return (
         <AppLayout wide>
-            <Head title="Caixa" />
+            <Head title="Emails" />
             <PageHeader
                 title="Emails"
                 description="O correio das caixas dos agentes, já triado: categoria, resumo, prazo e a quem foi encaminhado."
@@ -126,10 +126,10 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                         ))}
                     </div>
 
-                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
                         {filters.view === 'inbound' && mailboxes.length > 1 && (
                             <NativeSelect
-                                className="h-8 w-56 text-sm"
+                                className="h-8 w-full text-sm sm:w-56"
                                 value={filters.mailbox ?? ''}
                                 onChange={(e) => apply({ mailbox: e.target.value ? Number(e.target.value) : null })}
                             >
@@ -141,38 +141,41 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                                 ))}
                             </NativeSelect>
                         )}
-                        <form onSubmit={search} className="relative">
+                        <form onSubmit={search} className="relative w-full sm:w-auto">
                             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 placeholder="Assunto, remetente…"
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                className="h-8 w-60 pl-8 text-sm"
+                                className="h-8 w-full pl-8 text-sm sm:w-60"
                             />
                         </form>
                     </div>
                 </div>
 
                 {filters.view === 'inbound' && (
-                    <div className="-mx-1 flex items-center gap-0.5 overflow-x-auto px-1 pb-1">
+                    <div className="flex flex-wrap items-center gap-0.5">
                         <Chip active={!filters.category} onClick={() => apply({ category: null })}>
                             Todas
                         </Chip>
                         <Chip active={filters.category === 'none'} onClick={() => apply({ category: 'none' })}>
                             Por triar
                         </Chip>
-                        {categories.map((category) => (
-                            <Chip
-                                key={category.value}
-                                active={filters.category === category.value}
-                                onClick={() => apply({ category: category.value })}
-                            >
-                                {category.label}
-                                {category.count > 0 && (
-                                    <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{category.count}</span>
-                                )}
-                            </Chip>
-                        ))}
+                        {/* Only the categories with mail in the last 30 days, plus the one being looked at: no row of empty filters. */}
+                        {categories
+                            .filter((category) => category.count > 0 || filters.category === category.value)
+                            .map((category) => (
+                                <Chip
+                                    key={category.value}
+                                    active={filters.category === category.value}
+                                    onClick={() => apply({ category: category.value })}
+                                >
+                                    {category.label}
+                                    {category.count > 0 && (
+                                        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{category.count}</span>
+                                    )}
+                                </Chip>
+                            ))}
                     </div>
                 )}
             </div>
@@ -198,12 +201,12 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                                 key={message.id}
                                 href={`/inbox/${message.id}`}
                                 className={cn(
-                                    'group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/60',
+                                    'group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/60 sm:items-center sm:py-2.5',
                                     message.unread && 'bg-primary/[0.03]',
                                 )}
                             >
                                 <span
-                                    className="flex w-2 shrink-0 justify-center"
+                                    className="flex w-2 shrink-0 justify-center pt-1.5 sm:pt-0"
                                     title={tone === 'danger' ? 'Urgente' : tone === 'warning' ? 'Prioridade alta' : undefined}
                                 >
                                     {tone ? (
@@ -215,7 +218,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
 
                                 <span
                                     className={cn(
-                                        'w-40 shrink-0 truncate text-sm lg:w-52',
+                                        'hidden w-40 shrink-0 truncate text-sm sm:block lg:w-52',
                                         message.unread ? 'font-semibold' : 'text-muted-foreground',
                                     )}
                                     title={message.from_address ?? undefined}
@@ -224,6 +227,17 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                                 </span>
 
                                 <div className="min-w-0 flex-1">
+                                    <div className="flex items-baseline gap-2 sm:hidden">
+                                        <span
+                                            className={cn(
+                                                'min-w-0 flex-1 truncate text-sm',
+                                                message.unread ? 'font-semibold' : 'text-muted-foreground',
+                                            )}
+                                        >
+                                            {inbound ? message.from : message.mailbox}
+                                        </span>
+                                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{ago(message.date)}</span>
+                                    </div>
                                     <div className="flex min-w-0 items-center gap-2">
                                         <span className={cn('truncate text-sm', message.unread ? 'font-semibold' : 'font-medium')}>
                                             {message.subject}
@@ -260,7 +274,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                                 </div>
 
                                 <span
-                                    className="w-16 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums"
+                                    className="hidden w-16 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums sm:block"
                                     title={dateTime(message.date)}
                                 >
                                     {ago(message.date)}
@@ -271,7 +285,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                 </div>
             )}
 
-            <Pagination page={messages} />
+            <Pagination page={messages} noun={['email', 'emails']} />
         </AppLayout>
     );
 }

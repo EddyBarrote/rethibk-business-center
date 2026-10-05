@@ -3,6 +3,7 @@ import { AlertTriangle, Brain, CheckSquare, CornerDownRight, type LucideIcon, Me
 import { useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { Markdown } from '@/Components/Markdown';
 import { ApprovalCard } from '@/Components/ApprovalCard';
 import { Properties, Property, Section } from '@/Components/Blocks';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
@@ -125,7 +126,9 @@ export default function RunShow({ run, steps: initialSteps, approvals }: { run: 
 
                     {run.output && (
                         <Section title="Resposta final">
-                            <div className="rounded-xl border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">{run.output}</div>
+                            <div className="rounded-xl border bg-card px-5 py-3">
+                                <Markdown>{run.output}</Markdown>
+                            </div>
                         </Section>
                     )}
 
@@ -206,8 +209,9 @@ function StepItem({ step, last }: { step: Step; last: boolean }) {
                 {text && (
                     <p
                         className={cn(
-                            'mt-1 line-clamp-6 text-sm whitespace-pre-wrap',
+                            'mt-1 line-clamp-6 text-sm break-words whitespace-pre-wrap',
                             step.type === 'error' ? 'text-status-danger' : step.type === 'message' ? 'text-foreground' : 'text-muted-foreground',
+                            /^\s*[[{]/.test(text) && 'font-mono text-xs leading-relaxed',
                         )}
                     >
                         {text}

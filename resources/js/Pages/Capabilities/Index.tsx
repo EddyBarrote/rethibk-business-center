@@ -6,8 +6,10 @@ import { CeilingPill, SourcePill } from '@/Components/agents/FormParts';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, Section } from '@/Components/Blocks';
 import { type ConnectorData, ConnectorSheet } from '@/Components/catalog/ConnectorSheet';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
+import { PaginationBar, usePaged } from '@/Components/Pagination';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -55,83 +57,106 @@ interface Props {
     levels: LevelOption[];
 }
 
-const patch = (capability: CapabilityRow, data: { is_enabled?: boolean; risk?: number }) => router.patch(`/capabilities/${capability.id}`, data, { preserveScroll: true });
+const patch = (capability: CapabilityRow, data: { is_enabled?: boolean; risk?: number }) =>
+    router.patch(`/capabilities/${capability.id}`, data, { preserveScroll: true });
 
 function CapabilityList({ rows, levels, editableRisk }: { rows: CapabilityRow[]; levels: LevelOption[]; editableRisk: boolean }) {
+    const paged = usePaged(rows, 20);
+
     if (rows.length === 0) {
-        return <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">Nada aqui.</p>;
+        return (
+            <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">Nenhuma capacidade com este filtro.</p>
+        );
     }
 
     return (
-        <ListPanel>
-            {rows.map((capability) => (
-                <EntityRow
-                    key={capability.id}
-                    className={!capability.is_available ? 'opacity-60' : undefined}
-                    title={
-                        <span className="flex flex-wrap items-center gap-1.5">
-                            {capability.name}
-                            <SourcePill source={capability.source} scope={capability.scope} />
-                            {capability.ceiling && <CeilingPill />}
-                            {!capability.is_available && (
-                                <StatusBadge tone="idle" dot={false}>
-                                    indisponível
-                                </StatusBadge>
-                            )}
-                        </span>
-                    }
-                    subtitle={
-                        <>
-                            <span className="font-mono">{capability.key}</span>
-                            {capability.description && <span> · {capability.description}</span>}
-                        </>
-                    }
-                    meta={<span className="tabular-nums">{capability.agents} agente(s)</span>}
-                    trailing={
-                        <>
-                            {capability.is_mutating ? (
-                                editableRisk ? (
-                                    <NativeSelect
-                                        aria-label="Risco"
-                                        className="h-8 w-44 text-xs"
-                                        value={capability.risk}
-                                        onChange={(e) => patch(capability, { risk: Number(e.target.value) })}
-                                    >
-                                        {levels.map((level) => (
-                                            <option key={level.value} value={level.value}>
-                                                Sem aprovação a partir de {level.code}
-                                            </option>
-                                        ))}
-                                    </NativeSelect>
+        <div className="flex flex-col gap-3">
+            <ListPanel>
+                {paged.items.map((capability) => (
+                    <EntityRow
+                        key={capability.id}
+                        className={!capability.is_available ? 'opacity-60' : undefined}
+                        title={
+                            <span className="flex flex-wrap items-center gap-1.5">
+                                {capability.name}
+                                <SourcePill source={capability.source} scope={capability.scope} />
+                                {capability.ceiling && <CeilingPill />}
+                                {!capability.is_available && (
+                                    <StatusBadge tone="idle" dot={false}>
+                                        indisponível
+                                    </StatusBadge>
+                                )}
+                            </span>
+                        }
+                        subtitle={
+                            <>
+                                <span className="font-mono">{capability.key}</span>
+                                {capability.description && <span> · {capability.description}</span>}
+                            </>
+                        }
+                        meta={
+                            <span className="tabular-nums">
+                                {capability.agents} {capability.agents === 1 ? 'agente' : 'agentes'}
+                            </span>
+                        }
+                        trailing={
+                            <>
+                                {capability.is_mutating ? (
+                                    editableRisk ? (
+                                        <NativeSelect
+                                            aria-label="Risco"
+                                            className="h-8 w-44 text-xs"
+                                            value={capability.risk}
+                                            onChange={(e) => patch(capability, { risk: Number(e.target.value) })}
+                                        >
+                                            {levels.map((level) => (
+                                                <option key={level.value} value={level.value}>
+                                                    Sem aprovação a partir de {level.code}
+                                                </option>
+                                            ))}
+                                        </NativeSelect>
+                                    ) : (
+                                        <AutonomyBadge level={capability.risk} />
+                                    )
                                 ) : (
-                                    <AutonomyBadge level={capability.risk} />
-                                )
-                            ) : (
-                                <StatusBadge tone="idle" dot={false}>
-                                    leitura
-                                </StatusBadge>
-                            )}
-                            <Switch
-                                aria-label={capability.is_enabled ? 'Desligar' : 'Ligar'}
-                                checked={capability.is_enabled}
-                                onCheckedChange={(on) => patch(capability, { is_enabled: on })}
-                            />
-                        </>
-                    }
-                />
-            ))}
-        </ListPanel>
+                                    <StatusBadge tone="idle" dot={false}>
+                                        leitura
+                                    </StatusBadge>
+                                )}
+                                <Switch
+                                    aria-label={capability.is_enabled ? 'Desligar' : 'Ligar'}
+                                    checked={capability.is_enabled}
+                                    onCheckedChange={(on) => patch(capability, { is_enabled: on })}
+                                />
+                            </>
+                        }
+                    />
+                ))}
+            </ListPanel>
+            {rows.length > 20 && <PaginationBar {...paged.pager} noun={['capacidade', 'capacidades']} />}
+        </div>
     );
 }
+
+const origins = [
+    { value: 'all', label: 'Todas' },
+    { value: 'platform', label: 'Plataforma' },
+    { value: 'erp', label: 'ERP' },
+    { value: 'write', label: 'Só escrita' },
+] as const;
 
 export default function CapabilitiesIndex({ capabilities, connectors, globalConnectors, levels }: Props) {
     const [filter, setFilter] = useState('');
     const [syncing, setSyncing] = useState(false);
     const [editing, setEditing] = useState<ConnectorData | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
-    const match = (capability: CapabilityRow) => `${capability.key} ${capability.name} ${capability.description ?? ''}`.toLowerCase().includes(filter.toLowerCase());
+    const match = (capability: CapabilityRow) =>
+        `${capability.key} ${capability.name} ${capability.description ?? ''}`.toLowerCase().includes(filter.toLowerCase());
 
-    const platform = capabilities.filter((c) => c.source !== 'connector' && match(c));
+    const [origin, setOrigin] = useState<(typeof origins)[number]['value']>('all');
+    const ofOrigin = (c: CapabilityRow) =>
+        origin === 'all' || (origin === 'erp' ? c.source === 'mcp' : origin === 'platform' ? c.source === 'local' : c.is_mutating);
+    const platform = capabilities.filter((c) => c.source !== 'connector' && match(c) && ofOrigin(c));
     const fromGlobal = capabilities.filter((c) => c.source === 'connector' && c.scope === 'global' && match(c));
     const own = capabilities.filter((c) => c.scope === 'tenant' && match(c));
 
@@ -152,7 +177,11 @@ export default function CapabilitiesIndex({ capabilities, connectors, globalConn
                             variant="outline"
                             disabled={syncing}
                             onClick={() =>
-                                router.post('/capabilities/sync', {}, { preserveScroll: true, onStart: () => setSyncing(true), onFinish: () => setSyncing(false) })
+                                router.post(
+                                    '/capabilities/sync',
+                                    {},
+                                    { preserveScroll: true, onStart: () => setSyncing(true), onFinish: () => setSyncing(false) },
+                                )
                             }
                         >
                             <RefreshCw className={syncing ? 'animate-spin' : undefined} />
@@ -202,7 +231,23 @@ export default function CapabilitiesIndex({ capabilities, connectors, globalConn
                                     <CapabilityList rows={fromGlobal} levels={levels} editableRisk={false} />
                                 </Section>
                             )}
-                            <Section title="Plataforma e ERP" action={<span className="text-xs text-muted-foreground">risco definido pela Rethink</span>}>
+                            <Section
+                                title="Plataforma e ERP"
+                                action={<span className="text-xs text-muted-foreground">risco definido pela Rethink</span>}
+                            >
+                                <div className="flex flex-wrap items-center gap-1">
+                                    {origins.map((option) => (
+                                        <Button
+                                            key={option.value}
+                                            size="xs"
+                                            variant={origin === option.value ? 'secondary' : 'ghost'}
+                                            className={origin === option.value ? 'font-medium' : 'font-normal text-muted-foreground'}
+                                            onClick={() => setOrigin(option.value)}
+                                        >
+                                            {option.label}
+                                        </Button>
+                                    ))}
+                                </div>
                                 <CapabilityList rows={platform} levels={levels} editableRisk={false} />
                             </Section>
                         </>
@@ -245,7 +290,9 @@ export default function CapabilitiesIndex({ capabilities, connectors, globalConn
                                     subtitle={<span className="font-mono">{connector.url}</span>}
                                     meta={
                                         <>
-                                            <span className="tabular-nums">{connector.tools} ferramenta(s)</span>
+                                            <span className="tabular-nums">
+                                                {connector.tools} {connector.tools === 1 ? 'ferramenta' : 'ferramentas'}
+                                            </span>
                                             <span title={connector.last_synced_at ?? undefined}>lido {ago(connector.last_synced_at)}</span>
                                         </>
                                     }
@@ -262,18 +309,23 @@ export default function CapabilitiesIndex({ capabilities, connectors, globalConn
                                             <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => openSheet(connector)}>
                                                 <Pencil />
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label="Apagar"
-                                                className="hover:text-status-danger"
-                                                onClick={() =>
-                                                    confirm(`Apagar ${connector.name}? As capacidades dele saem de todos os agentes.`) &&
-                                                    router.delete(`/connectors/${connector.id}`, { preserveScroll: true })
+                                            <ConfirmDialog
+                                                title={`Apagar o conector ${connector.name}?`}
+                                                description="As capacidades dele saem de todos os agentes que as usam. Não se pode desfazer."
+                                                confirmLabel="Apagar conector"
+                                                destructive
+                                                onConfirm={() => router.delete(`/connectors/${connector.id}`, { preserveScroll: true })}
+                                                trigger={
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`Apagar ${connector.name}`}
+                                                        className="hover:text-status-danger"
+                                                    >
+                                                        <Trash2 />
+                                                    </Button>
                                                 }
-                                            >
-                                                <Trash2 />
-                                            </Button>
+                                            />
                                         </>
                                     }
                                 />
@@ -284,7 +336,11 @@ export default function CapabilitiesIndex({ capabilities, connectors, globalConn
 
                 <TabsContent value="globais">
                     {globalConnectors.length === 0 ? (
-                        <EmptyState icon={Globe} title="Sem conectores globais" description="A Rethink ainda não disponibilizou conectores para todas as organizações." />
+                        <EmptyState
+                            icon={Globe}
+                            title="Sem conectores globais"
+                            description="A Rethink ainda não disponibilizou conectores para todas as organizações."
+                        />
                     ) : (
                         <ListPanel>
                             {globalConnectors.map((connector) => (
@@ -300,7 +356,11 @@ export default function CapabilitiesIndex({ capabilities, connectors, globalConn
                                         </span>
                                     }
                                     subtitle={connector.description}
-                                    meta={<span className="tabular-nums">{connector.tools} ferramenta(s)</span>}
+                                    meta={
+                                        <span className="tabular-nums">
+                                            {connector.tools} {connector.tools === 1 ? 'ferramenta' : 'ferramentas'}
+                                        </span>
+                                    }
                                     trailing={
                                         <Switch
                                             aria-label={connector.activated ? 'Desligar' : 'Activar'}

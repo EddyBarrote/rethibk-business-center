@@ -268,7 +268,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
 
                 <Section title="Agentes" action={<Link href="/agents" className="text-muted-foreground hover:text-foreground">Ver todos</Link>}>
                     {agents.length === 0 ? (
-                        <EmptyState icon={Bot} title="Nenhum agente activo" description="Os agentes são criados pela Rethink na consola de administração." />
+                        <EmptyState icon={Bot} title="Nenhum agente activo" description="Crie o primeiro agente em Agentes, ou peça à Rethink que instale os modelos." />
                     ) : (
                         <ListPanel>
                             {agents.map((agent) => (

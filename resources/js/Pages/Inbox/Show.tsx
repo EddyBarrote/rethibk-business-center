@@ -4,6 +4,7 @@ import { type FormEvent, useState } from 'react';
 
 import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { CategoryBadge } from '@/Components/CategoryBadge';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
@@ -12,7 +13,7 @@ import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, date, dateTime } from '@/lib/format';
+import { ago, date, dateTime, fieldLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { emailTone, type EmailSummary } from '@/Pages/Inbox/Index';
 import type { Option } from '@/types';
@@ -88,10 +89,19 @@ function DraftEditor({ draft }: { draft: ConversationMessage }) {
                 </Field>
             </div>
             <div className="flex items-center justify-between gap-2 border-t px-5 py-3">
-                <Button type="button" variant="ghost" onClick={() => confirm('Descartar este rascunho?') && router.delete(`/inbox/${draft.id}`)}>
-                    <Trash2 />
-                    Descartar
-                </Button>
+                <ConfirmDialog
+                    title="Descartar este rascunho?"
+                    description="O rascunho sai da caixa e não é enviado. O email original fica como está."
+                    confirmLabel="Descartar"
+                    destructive
+                    onConfirm={() => router.delete(`/inbox/${draft.id}`)}
+                    trigger={
+                        <Button type="button" variant="ghost">
+                            <Trash2 />
+                            Descartar
+                        </Button>
+                    }
+                />
                 <Button type="submit" disabled={form.processing}>
                     <Send />
                     Enviar
@@ -112,7 +122,7 @@ function MessageBlock({ m, current }: { m: ConversationMessage; current: boolean
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-2">
                         <span className="truncate text-sm font-medium">{sender}</span>
-                        {!outbound && m.from_address && m.from_address !== m.from && (
+                        {!outbound && m.from_address && !(m.from ?? '').includes(m.from_address) && (
                             <span className="truncate text-xs text-muted-foreground">&lt;{m.from_address}&gt;</span>
                         )}
                     </div>
@@ -172,7 +182,7 @@ export default function InboxShow({ message, conversation, tasks, followUps, cat
 
             <PageHeader
                 title={message.subject}
-                description={`${message.mailbox ?? ''} · ${conversation.length} mensagem(ns) na conversa`}
+                description={`${message.mailbox ?? ''} · ${conversation.length} ${conversation.length === 1 ? 'mensagem' : 'mensagens'} na conversa`}
                 actions={
                     message.direction === 'inbound' ? (
                         <Button variant="outline" onClick={() => router.post(`/inbox/${message.id}/retriage`)}>
@@ -315,7 +325,7 @@ export default function InboxShow({ message, conversation, tasks, followUps, cat
                     {current?.extracted && Object.keys(current.extracted).length > 0 && (
                         <Properties title="Dados extraídos">
                             {Object.entries(current.extracted).map(([key, value]) => (
-                                <Property key={key} label={key}>
+                                <Property key={key} label={fieldLabel(key)}>
                                     <span className="text-xs">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
                                 </Property>
                             ))}

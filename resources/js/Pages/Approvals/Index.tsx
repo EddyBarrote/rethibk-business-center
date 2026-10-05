@@ -80,7 +80,7 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
                     ))}
                 </div>
             )}
-            <Pagination page={approvals} />
+            <Pagination page={approvals} noun={['aprovação', 'aprovações']} />
         </AppLayout>
     );
 }

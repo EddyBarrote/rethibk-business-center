@@ -63,17 +63,12 @@ export default function Home({ waiting, review, approvals, work, colleagues }: P
                         <Section title="Para aprovar">
                             <div className="flex flex-col gap-3">
                                 {approvals.map((approval) => (
-                                    <div key={approval.id} className="flex flex-col gap-1">
-                                        <ApprovalCard approval={approval} compact />
-                                        {approval.task_id !== null && (
-                                            <Link
-                                                href={`/tasks/${approval.task_id}`}
-                                                className="self-end text-xs text-muted-foreground hover:text-foreground"
-                                            >
-                                                Abrir a tarefa
-                                            </Link>
-                                        )}
-                                    </div>
+                                    <ApprovalCard
+                                        key={approval.id}
+                                        approval={approval}
+                                        compact
+                                        taskHref={approval.task_id !== null ? `/tasks/${approval.task_id}` : null}
+                                    />
                                 ))}
                             </div>
                         </Section>

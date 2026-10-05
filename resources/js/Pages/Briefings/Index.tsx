@@ -66,7 +66,7 @@ export default function BriefingsIndex({ briefings }: { briefings: Paginated<Bri
                     ))}
                 </ListPanel>
             )}
-            <Pagination page={briefings} />
+            <Pagination page={briefings} noun={['briefing', 'briefings']} />
         </AppLayout>
     );
 }

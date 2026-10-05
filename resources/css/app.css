@@ -230,3 +230,26 @@
         font-variant-numeric: tabular-nums;
     }
 }
+
+/*
+ * The browser draws its own arrow on a <select>, different per OS and theme.
+ * NativeSelect hides it (appearance-none) and draws the same chevron as the
+ * shadcn Select, in the muted foreground of each theme.
+ */
+@layer components {
+    .native-select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858279' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: right 0.6rem center;
+        background-repeat: no-repeat;
+        background-size: 1rem;
+    }
+
+    .native-select option {
+        background-color: var(--popover);
+        color: var(--popover-foreground);
+    }
+
+    .dark .native-select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3afa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
+}

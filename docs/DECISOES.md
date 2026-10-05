@@ -169,3 +169,18 @@ Visão, nas palavras dele: pessoas e agentes de IA colaboram como colegas de tra
 | 30 | Primeira versão | **Fica:** caixas de email por agente (Hostinger/IMAP). **Adiado:** ERP por MCP (continua o servidor falso), WhatsApp/Telegram, agentes externos (Claude Code, Codex, Hermes). |
 | 31 | Projectos | Sim: objectivo → projecto → tarefas. |
 | — | Primeiro fluxo a testar | Agente de Triagem: chega um email à caixa da Triagem, ela classifica e passa ao agente da área certa, que cria a tarefa ou fala com a pessoa responsável. |
+
+## Revisão visual de todos os ecrãs (05.10.2026)
+
+Pedido do Barrote: profissionalizar todos os ecrãs, com modais onde fazem falta e paginação a sério. Só apresentação;
+regras, rotas e dados ficam iguais. Padrões em `docs/UI.md` › "Padrões de ecrã".
+
+- **Duas correcções no servidor**, mínimas: o detalhe de um email (`InboxController@show`) e a lista de Documentos
+  (`ReportController@index`) davam erro 500 quando havia mais de uma linha, por carregarem relações sem as pedir
+  (`mailbox`, `reviewer`). Passam a pedi-las; `tests/Feature/Business/ListsWithSeveralRowsTest.php` abre as listas e
+  detalhes com várias linhas para apanhar isto.
+- **Paginação:** o pager mantém os filtros do ecrã a partir do endereço actual, mesmo onde o servidor não usa
+  `withQueryString()`. Os catálogos que já chegam inteiros (capacidades, conhecimento) são paginados no browser.
+- **Utilizadores** continuam a criar-se e editar-se numa página própria: a fase 4 do realinhamento (matriz de acessos)
+  vai mudar esse formulário, e um modal agora só criaria conflitos.
+

@@ -26,7 +26,7 @@ class ReportController extends Controller
 
         return Inertia::render('Reports/Index', [
             'reports' => $this->visible($user)
-                ->with('agent:id,name')
+                ->with(['agent:id,name', 'reviewer:id,name'])
                 ->when($type, fn ($q, $t) => $q->where('type', $t))
                 ->latest('id')
                 ->paginate(25)
