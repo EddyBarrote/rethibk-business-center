@@ -49,6 +49,13 @@ it('turns a request in a conversation into a task of the agent, with the person,
     asTenant($this->tenant, function () {
         $chat = app(TaskThread::class)->conversation($this->clerk, $this->agent);
 
+        // With only the "conversar" level the agent does not open work for her.
+        $this->agent->assignees()->attach($this->clerk->id, ['role' => 'chat']);
+        $refused = runInTask($this->agent, $chat, 'tasks.create', ['agent' => 'finance', 'title' => 'x', 'description' => 'y']);
+        expect($refused->ok)->toBeFalse()->and($refused->content)->toContain('não pedir-te trabalho');
+
+        $this->agent->assignees()->updateExistingPivot($this->clerk->id, ['role' => 'work']);
+
         $result = runInTask($this->agent, $chat, 'tasks.create', ['agent' => 'finance', 'title' => 'Reconciliar Setembro', 'description' => 'Pedido na conversa.']);
         $task = Task::query()->where('kind', TaskKind::Task)->sole();
 

@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Permission;
 use App\Models\Task;
 use App\Models\User;
 
@@ -25,6 +26,12 @@ class TaskPolicy
     {
         if ($actor->tenant_id !== $task->tenant_id) {
             return false;
+        }
+
+        // A conversation is the person's own; reading other people's needs the
+        // permission for it (realinhamento, decisão 23).
+        if ($task->chat_key !== null) {
+            return $task->user_id === $actor->id || $actor->hasPermission(Permission::ReadAllConversations);
         }
 
         if ($actor->canManageTenant() || in_array($actor->id, [$task->user_id, $task->created_by_user_id, $task->assignee_user_id], true)) {

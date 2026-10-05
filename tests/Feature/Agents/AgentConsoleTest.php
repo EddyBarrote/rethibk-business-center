@@ -66,15 +66,19 @@ it('lets owners suspend and reactivate, and nobody else', function () {
     expect(asTenant($this->a, fn () => $this->agent->fresh()->status))->toBe(AgentStatus::Active);
 });
 
-it('assigns only people of the same tenant', function () {
+it('gives people access to an agent, at one of two levels, only within the tenant', function () {
     $userB = asTenant($this->b, fn () => User::factory()->create());
 
-    $this->actingAs($this->owner)->put(tenantUrl($this->a, "agents/{$this->agent->id}/assignees"), ['user_ids' => [$userB->id]])
-        ->assertSessionHasErrors('user_ids.0');
+    $this->actingAs($this->owner)->put(tenantUrl($this->a, "agents/{$this->agent->id}/assignees"), ['access' => [['user_id' => $userB->id, 'level' => 'chat']]])
+        ->assertSessionHasErrors('access.0.user_id');
 
-    $this->actingAs($this->owner)->put(tenantUrl($this->a, "agents/{$this->agent->id}/assignees"), ['user_ids' => [$this->member->id]])->assertRedirect();
+    $this->actingAs($this->owner)->put(tenantUrl($this->a, "agents/{$this->agent->id}/assignees"), ['access' => [['user_id' => $this->member->id, 'level' => 'chat']]])->assertRedirect();
 
-    expect(asTenant($this->a, fn () => $this->agent->assignees()->pluck('users.id')->all()))->toBe([$this->member->id]);
+    asTenant($this->a, function () {
+        expect($this->agent->assignees()->pluck('users.id')->all())->toBe([$this->member->id])
+            ->and($this->member->can('run', $this->agent))->toBeTrue()
+            ->and($this->member->can('requestWork', $this->agent))->toBeFalse();
+    });
 });
 
 it('lets the right people decide, and only once', function () {

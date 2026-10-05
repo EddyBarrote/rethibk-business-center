@@ -15,8 +15,11 @@ import type { Option, Role } from '@/types';
 interface EditableUser {
     id: number;
     name: string;
+    job_title: string | null;
     email: string;
     role: Role;
+    access_role_id: number;
+    permission_overrides: Record<string, boolean>;
     department_id: number | null;
     is_active: boolean;
 }
@@ -24,6 +27,8 @@ interface EditableUser {
 interface Props {
     user?: EditableUser;
     roles: Option[];
+    access_roles: { id: number; name: string; base: Role; permissions: string[] }[];
+    permissions: { value: string; label: string; description: string }[];
     departments: { id: number; name: string }[];
 }
 
@@ -40,12 +45,14 @@ function SettingsBlock({ title, description, children }: { title: string; descri
     );
 }
 
-export default function UserForm({ user, roles, departments }: Props) {
+export default function UserForm({ user, access_roles, permissions, departments }: Props) {
     const editing = user !== undefined;
     const form = useForm({
         name: user?.name ?? '',
+        job_title: user?.job_title ?? '',
         email: user?.email ?? '',
-        role: user?.role ?? 'member',
+        access_role_id: String(user?.access_role_id ?? access_roles.find((role) => role.base === 'member')?.id ?? ''),
+        permission_overrides: (user?.permission_overrides ?? {}) as Record<string, boolean>,
         department_id: user?.department_id ? String(user.department_id) : '',
         is_active: user?.is_active ?? true,
         password: '',
@@ -53,7 +60,12 @@ export default function UserForm({ user, roles, departments }: Props) {
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
-        form.transform((data) => ({ ...data, department_id: data.department_id || null }));
+        form.transform((data) => ({
+            ...data,
+            job_title: data.job_title || null,
+            access_role_id: data.access_role_id ? Number(data.access_role_id) : null,
+            department_id: data.department_id || null,
+        }));
 
         if (editing) {
             form.put(`/settings/users/${user.id}`);
@@ -81,6 +93,14 @@ export default function UserForm({ user, roles, departments }: Props) {
                             aria-invalid={!!form.errors.name}
                         />
                     </Field>
+                    <Field
+                        id="job_title"
+                        label="Cargo"
+                        error={form.errors.job_title}
+                        hint="Opcional. Aparece no organigrama, por exemplo CEO ou Contabilista."
+                    >
+                        <Input id="job_title" value={form.data.job_title} onChange={(e) => form.setData('job_title', e.target.value)} />
+                    </Field>
                     <Field id="email" label="Email" error={form.errors.email}>
                         <Input
                             id="email"
@@ -94,11 +114,19 @@ export default function UserForm({ user, roles, departments }: Props) {
 
                 <SettingsBlock title="Acesso" description="O papel define o que a pessoa pode ver e aprovar; o departamento, que agentes acompanha.">
                     <div className="grid gap-5 sm:grid-cols-2">
-                        <Field id="role" label="Papel" error={form.errors.role}>
-                            <NativeSelect id="role" value={form.data.role} onChange={(e) => form.setData('role', e.target.value as Role)}>
-                                {roles.map((role) => (
-                                    <option key={role.value} value={role.value}>
-                                        {role.label}
+                        <Field
+                            id="access_role_id"
+                            label="Papel"
+                            error={form.errors.access_role_id ?? (form.errors as Record<string, string | undefined>).role}
+                        >
+                            <NativeSelect
+                                id="access_role_id"
+                                value={form.data.access_role_id}
+                                onChange={(e) => form.setData('access_role_id', e.target.value)}
+                            >
+                                {access_roles.map((role) => (
+                                    <option key={role.id} value={role.id}>
+                                        {role.name}
                                     </option>
                                 ))}
                             </NativeSelect>
@@ -133,6 +161,45 @@ export default function UserForm({ user, roles, departments }: Props) {
                         </div>
                         <InputError message={form.errors.is_active} />
                     </div>
+                </SettingsBlock>
+
+                <SettingsBlock
+                    title="Excepções"
+                    description="Por omissão a pessoa tem o que o papel tem. Aqui pode dar-lhe ou tirar-lhe uma permissão só a ela."
+                >
+                    <div className="flex flex-col divide-y">
+                        {permissions.map((permission) => {
+                            const fromRole =
+                                access_roles.find((role) => String(role.id) === form.data.access_role_id)?.permissions.includes(permission.value) ??
+                                false;
+                            const override = form.data.permission_overrides[permission.value];
+                            return (
+                                <div key={permission.value} className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-medium">{permission.label}</div>
+                                        <div className="text-xs text-muted-foreground">{permission.description}</div>
+                                    </div>
+                                    <NativeSelect
+                                        aria-label={permission.label}
+                                        className="sm:w-48"
+                                        value={override === undefined ? 'role' : override ? 'allow' : 'deny'}
+                                        onChange={(e) => {
+                                            const { [permission.value]: _, ...rest } = form.data.permission_overrides;
+                                            form.setData(
+                                                'permission_overrides',
+                                                e.target.value === 'role' ? rest : { ...rest, [permission.value]: e.target.value === 'allow' },
+                                            );
+                                        }}
+                                    >
+                                        <option value="role">Do papel ({fromRole ? 'sim' : 'não'})</option>
+                                        <option value="allow">Permitir</option>
+                                        <option value="deny">Negar</option>
+                                    </NativeSelect>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <InputError message={(form.errors as Record<string, string | undefined>).permission_overrides} />
                 </SettingsBlock>
 
                 <SettingsBlock

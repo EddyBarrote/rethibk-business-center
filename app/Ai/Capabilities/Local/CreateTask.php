@@ -98,6 +98,12 @@ final class CreateTask extends LocalCapability
             }
         }
 
+        // In a conversation the agent works for that person, so it opens work
+        // only for people allowed to ask it for work (realinhamento L8).
+        if ($fromChat && $parent->user !== null && ! $parent->user->can('requestWork', $context->agent)) {
+            return CapabilityResult::error("{$parent->user->name} pode conversar contigo mas não pedir-te trabalho. Diz-lhe que peça acesso à chefia ou que fale com quem o tem.");
+        }
+
         if ($parent !== null && ! $fromChat && $parent->depth() >= TaskThread::MAX_DEPTH) {
             return CapabilityResult::error('a cadeia de delegação já é longa demais; faz tu o trabalho ou pergunta a uma pessoa.');
         }

@@ -6,6 +6,7 @@ use App\Concerns\BelongsToTenant;
 use App\Enums\ApprovalStatus;
 use App\Enums\AutonomyLevel;
 use App\Enums\ExecutionStatus;
+use App\Enums\Permission;
 use Database\Factories\ApprovalFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -97,7 +98,7 @@ class Approval extends Model
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
-        if ($user->canManageTenant()) {
+        if ($user->hasPermission(Permission::DecideAllApprovals)) {
             return;
         }
 
