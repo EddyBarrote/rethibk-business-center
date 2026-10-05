@@ -98,9 +98,12 @@ export default function OrgIndex({ members, can_manage }: Props) {
                     managerSelect={
                         can_manage ? (
                             <Select value={member.manager ?? NONE} onValueChange={(value) => move(member, value === NONE ? null : value)}>
-                                <SelectTrigger size="sm" className="h-7 w-full text-xs sm:w-48" aria-label={`${member.name} reporta a`}>
-                                    <span className="text-muted-foreground">Reporta a</span>
-                                    <SelectValue />
+                                <SelectTrigger size="sm" className="h-7 w-full text-xs sm:w-56" aria-label={`${member.name} reporta a`}>
+                                    <span className="shrink-0 text-muted-foreground">Reporta a</span>
+                                    {/* The name ends in "…" instead of being cut mid-letter. */}
+                                    <span className="min-w-0 flex-1 truncate text-left">
+                                        <SelectValue />
+                                    </span>
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={NONE}>Ninguém (topo)</SelectItem>

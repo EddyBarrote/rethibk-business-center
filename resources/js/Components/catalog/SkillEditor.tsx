@@ -4,6 +4,7 @@ import { type FormEvent, useRef } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { FormSection } from '@/Components/agents/FormParts';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
 import { Markdown } from '@/Components/Markdown';
 import { StatusBadge } from '@/Components/Status';
@@ -151,15 +152,19 @@ export function SkillEditor({
                             <Link href={cancelHref}>Voltar</Link>
                         </Button>
                         {skill && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="text-muted-foreground hover:text-status-danger"
-                                onClick={() => confirm(`Apagar a skill ${skill.name}? Os agentes deixam de a ter.`) && router.delete(`${base}/${skill.id}`)}
-                            >
-                                <Trash2 />
-                                Apagar
-                            </Button>
+                            <ConfirmDialog
+                                title={`Apagar a skill ${skill.name}?`}
+                                description="Os agentes que a usam deixam de a ter, e os ficheiros dela também saem."
+                                confirmLabel="Apagar skill"
+                                destructive
+                                onConfirm={() => router.delete(`${base}/${skill.id}`)}
+                                trigger={
+                                    <Button type="button" variant="ghost" className="text-muted-foreground hover:text-status-danger">
+                                        <Trash2 />
+                                        Apagar
+                                    </Button>
+                                }
+                            />
                         )}
                     </div>
                     <div className="flex items-center gap-3">

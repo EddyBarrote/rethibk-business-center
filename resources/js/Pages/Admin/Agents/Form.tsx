@@ -6,6 +6,7 @@ import { AgentAvatar } from '@/Components/AgentAvatar';
 import AgentDefinitionForm, { type AgentData, type AgentFormOptions } from '@/Components/agents/AgentDefinitionForm';
 import { FormSection, str } from '@/Components/agents/FormParts';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
 import { agentTone, StatusBadge, StatusDot, type Tone } from '@/Components/Status';
@@ -206,16 +207,19 @@ function RoutineRow({ base, routine }: { base: string; routine: Routine }) {
                     Última execução: <span title={dateTime(routine.last_run_at)}>{routine.last_run_at ? ago(routine.last_run_at) : 'nunca'}</span>
                 </p>
                 <div className="flex gap-2">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-status-danger"
-                        onClick={() => confirm('Apagar esta rotina?') && router.delete(`${base}/${routine.id}`, { preserveScroll: true })}
-                    >
-                        <Trash2 />
-                        Apagar
-                    </Button>
+                    <ConfirmDialog
+                        title="Apagar esta rotina?"
+                        description="O agente deixa de a fazer a partir de agora. As execuções passadas ficam no histórico."
+                        confirmLabel="Apagar rotina"
+                        destructive
+                        onConfirm={() => router.delete(`${base}/${routine.id}`, { preserveScroll: true })}
+                        trigger={
+                            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground hover:text-status-danger">
+                                <Trash2 />
+                                Apagar
+                            </Button>
+                        }
+                    />
                     <Button type="submit" size="sm" variant="outline" disabled={form.processing || !form.isDirty}>
                         Guardar
                     </Button>

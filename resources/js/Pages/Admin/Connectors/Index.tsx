@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { EntityRow, ListPanel } from '@/Components/Blocks';
 import { type ConnectorData, ConnectorSheet } from '@/Components/catalog/ConnectorSheet';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
@@ -72,17 +73,18 @@ export default function PlatformConnectorsIndex({ connectors }: { connectors: Ro
                                     <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => edit(connector)}>
                                         <Pencil />
                                     </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label="Apagar"
-                                        className="hover:text-status-danger"
-                                        onClick={() =>
-                                            confirm(`Apagar ${connector.name}? Sai de todas as organizações.`) && router.delete(`/connectors/${connector.id}`, { preserveScroll: true })
+                                    <ConfirmDialog
+                                        title={`Apagar o conector ${connector.name}?`}
+                                        description="Sai de todas as organizações, e as capacidades dele saem dos agentes que as usam."
+                                        confirmLabel="Apagar conector"
+                                        destructive
+                                        onConfirm={() => router.delete(`/connectors/${connector.id}`, { preserveScroll: true })}
+                                        trigger={
+                                            <Button variant="ghost" size="icon" aria-label={`Apagar ${connector.name}`} className="hover:text-status-danger">
+                                                <Trash2 />
+                                            </Button>
                                         }
-                                    >
-                                        <Trash2 />
-                                    </Button>
+                                    />
                                 </>
                             }
                         />
