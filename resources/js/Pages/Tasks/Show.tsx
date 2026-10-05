@@ -59,7 +59,7 @@ interface PendingApproval {
     can_decide: boolean;
 }
 
-export default function TaskShow({ task, messages, children, runs, working, approvals, can, agents, goals, statuses, priorities }: Props) {
+export default function TaskShow({ task, messages, children, runs, working, approvals, can, agents, goals, projects, statuses, priorities }: Props) {
     const { tenant } = usePage<SharedProps>().props;
     const form = useForm({ body: '', mode: 'message' as 'message' | 'action' });
     const bottom = useRef<HTMLDivElement>(null);
@@ -422,6 +422,23 @@ export default function TaskShow({ task, messages, children, runs, working, appr
                                         <AgentOption name={task.assignee.name} />
                                     </Link>
                                 ) : null}
+                            </Property>
+                            <Property label="Projecto">
+                                {can.update ? (
+                                    <InlineSelect
+                                        value={task.project ? String(task.project.id) : NONE}
+                                        onChange={(value) => update({ project_id: value === NONE ? null : Number(value) })}
+                                        options={[
+                                            { value: NONE, label: <span className="text-muted-foreground">Nenhum</span> },
+                                            ...withCurrent(projects, task.project).map((project) => ({
+                                                value: String(project.id),
+                                                label: project.name,
+                                            })),
+                                        ]}
+                                    />
+                                ) : (
+                                    task.project?.name
+                                )}
                             </Property>
                             <Property label="Objectivo">
                                 {can.update ? (

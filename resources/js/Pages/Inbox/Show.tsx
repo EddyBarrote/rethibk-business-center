@@ -33,7 +33,6 @@ interface Props {
     message: EmailSummary;
     conversation: ConversationMessage[];
     tasks: { id: number; ref: string; title: string }[];
-    tenders: { id: number; title: string; deadline_at: string | null; status_label: string }[];
     followUps: { id: number; title: string; due_at: string; done: boolean }[];
     categories: Option[];
 }
@@ -161,14 +160,14 @@ function MessageBlock({ m, current }: { m: ConversationMessage; current: boolean
     );
 }
 
-export default function InboxShow({ message, conversation, tasks, tenders, followUps, categories }: Props) {
+export default function InboxShow({ message, conversation, tasks, followUps, categories }: Props) {
     const [category, setCategory] = useState(message.category ?? '');
     const current = conversation.find((m) => m.id === message.id) ?? conversation[0];
     const draftsInThread = conversation.filter((m) => m.status === 'draft');
     const priority = current?.priority ? priorities[current.priority] : null;
 
     return (
-        <AppLayout wide breadcrumbs={[{ label: 'Caixa', href: '/inbox' }, { label: message.subject }]}>
+        <AppLayout wide breadcrumbs={[{ label: 'Emails', href: '/inbox' }, { label: message.subject }]}>
             <Head title={message.subject} />
 
             <PageHeader
@@ -321,22 +320,6 @@ export default function InboxShow({ message, conversation, tasks, tenders, follo
                                 </Property>
                             ))}
                         </Properties>
-                    )}
-
-                    {tenders.length > 0 && (
-                        <Section title="Concurso">
-                            <ListPanel>
-                                {tenders.map((t) => (
-                                    <EntityRow
-                                        key={t.id}
-                                        href="/tenders"
-                                        leading={<FileText className="size-4 text-muted-foreground" />}
-                                        title={t.title}
-                                        subtitle={`${t.status_label} · prazo ${date(t.deadline_at)}`}
-                                    />
-                                ))}
-                            </ListPanel>
-                        </Section>
                     )}
 
                     {followUps.length > 0 && (

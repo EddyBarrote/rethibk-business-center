@@ -9,27 +9,24 @@ import {
     Network,
     Target,
     Bot,
-    Briefcase,
     Building2,
     CheckSquare,
     ChevronsUpDown,
-    FileSignature,
     FileText,
     Files,
+    FolderKanban,
     FolderOpen,
-    Gavel,
     Inbox,
     LayoutDashboard,
-    Landmark,
     Library,
     LogOut,
     type LucideIcon,
+    Mail,
     Monitor,
     Moon,
     Palette,
     Pencil,
     PlugZap,
-    ShoppingCart,
     Sun,
     Users,
 } from 'lucide-react';
@@ -86,35 +83,28 @@ interface NavItem {
     label: string;
     href: string;
     icon: LucideIcon;
-    managersOnly?: boolean;
     tenantManagersOnly?: boolean;
     badge?: 'approvals' | 'notifications' | 'waiting';
 }
 
 const topNav: NavItem[] = [
-    { label: 'Painel', href: '/', icon: LayoutDashboard },
+    { label: 'A minha caixa', href: '/', icon: Inbox },
     { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
-    { label: 'Caixa de entrada', href: '/inbox', icon: Inbox },
+    { label: 'Emails', href: '/inbox', icon: Mail },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
     { label: 'Notificações', href: '/notifications', icon: Bell, badge: 'notifications' },
 ];
 
 const workNav: NavItem[] = [
     { label: 'Conversas', href: '/tasks?view=chats', icon: MessagesSquare },
+    { label: 'Painel', href: '/painel', icon: LayoutDashboard },
     { label: 'Objectivos', href: '/goals', icon: Target },
+    { label: 'Projectos', href: '/projects', icon: FolderKanban },
     { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Briefings', href: '/briefings', icon: FileText },
     { label: 'Documentos', href: '/reports', icon: Files },
     { label: 'Ficheiros', href: '/documents', icon: FolderOpen },
     { label: 'Conhecimento', href: '/knowledge', icon: Library },
-];
-
-const areasNav: NavItem[] = [
-    { label: 'Concursos', href: '/tenders', icon: Gavel },
-    { label: 'Clientes', href: '/clients', icon: Briefcase, managersOnly: true },
-    { label: 'Finanças', href: '/finance', icon: Landmark, managersOnly: true },
-    { label: 'Compras', href: '/procurement', icon: ShoppingCart },
-    { label: 'Contratos', href: '/contracts', icon: FileSignature, managersOnly: true },
 ];
 
 const companyNav: NavItem[] = [
@@ -227,7 +217,15 @@ function AgentsGroup({ url }: { url: string }) {
                             className="h-8 rounded-lg text-sidebar-foreground/85"
                         >
                             {/* Grok-style: an agent in the sidebar is your conversation with it. */}
-                            <Link href={!agent.can_chat ? `/agents/${agent.id}` : agent.chat_id !== null ? `/tasks/${agent.chat_id}` : `/agents/${agent.id}/chat`}>
+                            <Link
+                                href={
+                                    !agent.can_chat
+                                        ? `/agents/${agent.id}`
+                                        : agent.chat_id !== null
+                                          ? `/tasks/${agent.chat_id}`
+                                          : `/agents/${agent.id}/chat`
+                                }
+                            >
                                 <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-4 rounded-[5px] text-[8px]" />
                                 <span className={cn(agent.status === 'suspended' && 'text-muted-foreground line-through')}>{agent.name}</span>
                                 {agent.running > 0 ? (
@@ -342,7 +340,7 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
         return (url === href || url.startsWith(`${href}/`)) && !(href === '/tasks' && fullUrl.includes('view=chats'));
     };
     const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks };
-    const allNav = [...topNav, ...workNav, ...areasNav, ...companyNav];
+    const allNav = [...topNav, ...workNav, ...companyNav];
     const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
     const trail: Crumb[] = breadcrumbs ?? (current ? [{ label: current.label }] : url.startsWith('/agents') ? [{ label: 'Agentes' }] : []);
 
@@ -370,12 +368,6 @@ export default function AppLayout({ children, breadcrumbs, wide = false }: { chi
                         <NavGroup items={topNav} isActive={isActive} counts={counts} />
                         <NavGroup label="Trabalho" items={workNav} isActive={isActive} counts={counts} />
                         <AgentsGroup url={url} />
-                        <NavGroup
-                            label="Áreas"
-                            items={areasNav.filter((item) => !item.managersOnly || user?.is_manager)}
-                            isActive={isActive}
-                            counts={counts}
-                        />
                         <NavGroup
                             label="Empresa"
                             items={companyNav.filter((item) => !item.tenantManagersOnly || user?.can_manage_tenant)}

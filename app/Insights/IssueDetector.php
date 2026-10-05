@@ -57,7 +57,7 @@ final class IssueDetector
 
         $warning = TenantSettings::int('deadline_warning_hours');
         foreach (Tender::query()->whereIn('status', [TenderStatus::New, TenderStatus::Reviewing])->whereBetween('deadline_at', [now(), now()->addHours(max($warning, 72))])->get() as $tender) {
-            $add('Concursos', 'alta', "Concurso a fechar em {$tender->deadline_at?->diffForHumans()} ainda sem decisão: {$tender->title}", '/tenders');
+            $add('Concursos', 'alta', "Concurso a fechar em {$tender->deadline_at?->diffForHumans()} ainda sem decisão: {$tender->title}");
         }
 
         foreach (FollowUp::query()->whereNull('done_at')->where('due_at', '<', now()->subDay())->limit(20)->get() as $followUp) {
@@ -66,21 +66,21 @@ final class IssueDetector
 
         foreach (Contract::query()->where('status', ContractStatus::Active)->whereNotNull('ends_at')->where('ends_at', '<=', today()->addDays(120))->get() as $contract) {
             if ($contract->ends_at !== null && $contract->ends_at->lte(today()->addDays($contract->notice_days))) {
-                $add('Contratos', $contract->ends_at->isPast() ? 'alta' : 'média', "Contrato «{$contract->title}» com {$contract->party_name} termina a {$contract->ends_at->format('d/m/Y')}", "/contracts/{$contract->id}");
+                $add('Contratos', $contract->ends_at->isPast() ? 'alta' : 'média', "Contrato «{$contract->title}» com {$contract->party_name} termina a {$contract->ends_at->format('d/m/Y')}");
             }
         }
 
         foreach (PurchaseRequest::query()->whereNotIn('status', [PurchaseRequestStatus::Ordered, PurchaseRequestStatus::Received, PurchaseRequestStatus::Cancelled])->whereNotNull('needed_by')->where('needed_by', '<', today()->addDays(3))->get() as $request) {
-            $add('Compras', 'alta', "Requisição «{$request->title}» precisa de estar entregue até {$request->needed_by?->format('d/m/Y')} e ainda está em «{$request->status->label()}».", "/procurement/{$request->id}");
+            $add('Compras', 'alta', "Requisição «{$request->title}» precisa de estar entregue até {$request->needed_by?->format('d/m/Y')} e ainda está em «{$request->status->label()}».");
         }
 
         foreach (PurchaseRequest::query()->where('status', PurchaseRequestStatus::Ordered)->whereNull('erp_po_id')->get() as $request) {
-            $add('Compras', 'média', "Requisição «{$request->title}» marcada como encomendada sem nota de encomenda no ERP.", "/procurement/{$request->id}");
+            $add('Compras', 'média', "Requisição «{$request->title}» marcada como encomendada sem nota de encomenda no ERP.");
         }
 
         $stale = BankTransaction::query()->where('status', BankTransactionStatus::Unmatched)->where('booked_at', '<', today()->subDays(TenantSettings::int('unreconciled_days')))->count();
         if ($stale > 0) {
-            $add('Finanças', 'média', "{$stale} movimento(s) bancário(s) por reconciliar há mais de ".TenantSettings::int('unreconciled_days').' dias.', '/finance');
+            $add('Finanças', 'média', "{$stale} movimento(s) bancário(s) por reconciliar há mais de ".TenantSettings::int('unreconciled_days').' dias.');
         }
 
         foreach ((new SlaMonitor)->breaches() as $breach) {

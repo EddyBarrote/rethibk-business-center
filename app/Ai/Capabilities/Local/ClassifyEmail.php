@@ -124,7 +124,7 @@ final class ClassifyEmail extends LocalCapability
         $category = EmailCategory::from($data['category']);
         $recipient = $user ?? $department?->users()->where('is_active', true)->whereIn('role', ['owner', 'admin', 'manager'])->first();
         $task = $this->handOff($message, $category, $data, $recipient, $deadline, $context);
-        $person = $task?->user ?? $recipient;
+        $person = $task->user ?? $recipient;
 
         $notified = null;
 

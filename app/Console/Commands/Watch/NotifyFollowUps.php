@@ -4,11 +4,8 @@ namespace App\Console\Commands\Watch;
 
 use App\Ai\Runs\AgentRunner;
 use App\Enums\TriggerType;
-use App\Models\Contract;
 use App\Models\EmailMessage;
 use App\Models\FollowUp;
-use App\Models\PurchaseRequest;
-use App\Models\Tender;
 use App\Models\User;
 use App\Support\Notifier;
 use App\Tenancy\TenantManager;
@@ -55,9 +52,6 @@ class NotifyFollowUps extends Command
     {
         return match ($followUp->subject_type) {
             EmailMessage::class => "/inbox/{$followUp->subject_id}",
-            Tender::class => '/tenders',
-            Contract::class => "/contracts/{$followUp->subject_id}",
-            PurchaseRequest::class => "/procurement/{$followUp->subject_id}",
             default => '/',
         };
     }

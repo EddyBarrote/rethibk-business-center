@@ -46,7 +46,7 @@ class WatchContracts extends Command
                 $when = $days >= 0 ? "termina dentro de {$days} dia(s)" : 'já terminou há '.abs($days).' dia(s)';
                 $person = $contract->owner ?? User::query()->where('role', Role::Owner)->where('is_active', true)->first();
 
-                $person && $notifier->notify($person, "Contrato a terminar: {$contract->title}", "O contrato com {$contract->party_name} {$when} (".$contract->ends_at->format('d/m/Y').').'.($contract->auto_renews ? ' Renova automaticamente.' : ''), "/contracts/{$contract->id}", 'Vigilância de contratos', 'warning');
+                $person && $notifier->notify($person, "Contrato a terminar: {$contract->title}", "O contrato com {$contract->party_name} {$when} (".$contract->ends_at->format('d/m/Y').').'.($contract->auto_renews ? ' Renova automaticamente.' : ''), null, 'Vigilância de contratos', 'warning');
 
                 [$role, $task] = $contract->party_type === PartyType::Client
                     ? ['client_manager', 'prepara a proposta de renovação (reports.draft, tipo proposal) com a ficha do cliente e um rascunho de email ao cliente']

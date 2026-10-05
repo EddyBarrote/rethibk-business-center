@@ -42,7 +42,7 @@ class WatchDeadlines extends Command
 
             foreach (Tender::query()->whereIn('status', [TenderStatus::New, TenderStatus::Reviewing, TenderStatus::Bidding])->whereBetween('deadline_at', [now(), $until])->get() as $tender) {
                 if ($this->once("tender:{$tender->id}")) {
-                    $fallback && $notifier->notify($fallback, 'Concurso a fechar: '.$tender->title, 'Submissão termina '.$tender->deadline_at?->diffForHumans().' ('.$tender->status->label().').', '/tenders', 'Vigilância de prazos', 'warning');
+                    $fallback && $notifier->notify($fallback, 'Concurso a fechar: '.$tender->title, 'Submissão termina '.$tender->deadline_at?->diffForHumans().' ('.$tender->status->label().').', null, 'Vigilância de prazos', 'warning');
                     $count++;
                 }
             }

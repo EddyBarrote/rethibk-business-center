@@ -39,6 +39,7 @@ export interface TaskSummary {
     created_by: string | null;
     created_by_agent: boolean;
     goal: { id: number; title: string } | null;
+    project: { id: number; name: string } | null;
     messages_count: number | null;
     last_activity_at: string | null;
     created_at: string;
@@ -48,6 +49,7 @@ export interface TaskSummary {
 export interface TaskFormOptions {
     agents: { id: number; name: string; title: string | null }[];
     goals: { id: number; title: string }[];
+    projects: { id: number; name: string; goal_id: number | null }[];
     statuses: Option[];
     priorities: Option[];
 }
@@ -197,6 +199,7 @@ interface Filters {
     view: View;
     agent: number | null;
     goal: number | null;
+    project: number | null;
     q: string;
 }
 
@@ -216,7 +219,7 @@ const emptyCopy: Record<View, { title: string; description: string }> = {
     closed: { title: 'Nada fechado', description: 'As tarefas feitas ou canceladas aparecem aqui.' },
 };
 
-export default function TasksIndex({ tasks, filters, counts, agents, goals, priorities }: Props) {
+export default function TasksIndex({ tasks, filters, counts, agents, goals, projects, priorities }: Props) {
     const { tenant } = usePage<SharedProps>().props;
     const [open, setOpen] = useState(false);
     const [q, setQ] = useState(filters.q ?? '');
@@ -234,6 +237,7 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, prio
         const params: Record<string, string | number> = { view: merged.view };
         if (merged.agent) params.agent = merged.agent;
         if (merged.goal) params.goal = merged.goal;
+        if (merged.project) params.project = merged.project;
         if (merged.q) params.q = merged.q;
         router.get('/tasks', params, { preserveState: true, preserveScroll: true, replace: true });
     };
@@ -251,6 +255,7 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, prio
         .map((status) => ({ status, items: tasks.filter((task) => task.status === status) }))
         .filter((group) => group.items.length > 0);
     const goalFilter = filters.goal ? goals.find((goal) => goal.id === filters.goal) : null;
+    const projectFilter = filters.project ? projects.find((project) => project.id === filters.project) : null;
 
     return (
         <AppLayout wide>
@@ -292,6 +297,16 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, prio
                     </Tabs>
 
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {projectFilter && (
+                            <button
+                                type="button"
+                                onClick={() => visit({ project: null })}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                                title="Retirar filtro"
+                            >
+                                Projecto: <span className="max-w-40 truncate text-foreground">{projectFilter.name}</span> ×
+                            </button>
+                        )}
                         {goalFilter && (
                             <button
                                 type="button"
@@ -328,9 +343,9 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, prio
                 {groups.length === 0 ? (
                     <EmptyState
                         icon={filters.view === 'chats' ? MessagesSquare : ListTodo}
-                        title={filters.q || filters.agent || filters.goal ? 'Nada encontrado' : emptyCopy[filters.view].title}
+                        title={filters.q || filters.agent || filters.goal || filters.project ? 'Nada encontrado' : emptyCopy[filters.view].title}
                         description={
-                            filters.q || filters.agent || filters.goal
+                            filters.q || filters.agent || filters.goal || filters.project
                                 ? 'Experimente retirar os filtros ou mudar de vista.'
                                 : emptyCopy[filters.view].description
                         }
@@ -379,7 +394,16 @@ export default function TasksIndex({ tasks, filters, counts, agents, goals, prio
                 )}
             </div>
 
-            <NewTaskDialog open={open} onOpenChange={setOpen} agents={agents} goals={goals} priorities={priorities} defaultAgent={filters.agent} />
+            <NewTaskDialog
+                open={open}
+                onOpenChange={setOpen}
+                agents={agents}
+                goals={goals}
+                projects={projects}
+                priorities={priorities}
+                defaultAgent={filters.agent}
+                defaultProject={filters.project}
+            />
         </AppLayout>
     );
 }
@@ -455,15 +479,19 @@ function NewTaskDialog({
     onOpenChange,
     agents,
     goals,
+    projects,
     priorities,
     defaultAgent,
+    defaultProject,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     agents: TaskFormOptions['agents'];
     goals: TaskFormOptions['goals'];
+    projects: TaskFormOptions['projects'];
     priorities: Option[];
     defaultAgent: number | null;
+    defaultProject: number | null;
 }) {
     const form = useForm({
         kind: 'task' as 'task' | 'chat',
@@ -472,6 +500,7 @@ function NewTaskDialog({
         message: '',
         priority: 'normal',
         goal_id: '',
+        project_id: defaultProject ? String(defaultProject) : '',
     });
     const isChat = form.data.kind === 'chat';
 
@@ -482,6 +511,7 @@ function NewTaskDialog({
             title: data.kind === 'chat' ? null : data.title,
             assignee_agent_id: data.assignee_agent_id ? Number(data.assignee_agent_id) : null,
             goal_id: data.goal_id ? Number(data.goal_id) : null,
+            project_id: data.project_id ? Number(data.project_id) : null,
         }));
         form.post('/tasks', {
             onSuccess: () => {
@@ -571,6 +601,24 @@ function NewTaskDialog({
                                         {priorities.map((priority) => (
                                             <SelectItem key={priority.value} value={priority.value}>
                                                 <PriorityIcon priority={priority.value} label={priority.label} withLabel />
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                            <Field id="project_id" label="Projecto" error={form.errors.project_id}>
+                                <Select
+                                    value={form.data.project_id || NONE}
+                                    onValueChange={(value) => form.setData('project_id', value === NONE ? '' : value)}
+                                >
+                                    <SelectTrigger id="project_id" className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={NONE}>Nenhum</SelectItem>
+                                        {projects.map((project) => (
+                                            <SelectItem key={project.id} value={String(project.id)}>
+                                                {project.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
