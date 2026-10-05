@@ -9,6 +9,7 @@ use App\Enums\AutonomyLevel;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
 use App\Models\Goal;
+use App\Models\Project;
 use App\Tasks\OrgChart;
 use App\Tasks\TaskThread;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -56,6 +57,7 @@ final class CreateTask extends LocalCapability
             'description' => $schema->string()->description('O que fazer, com o contexto todo: o outro agente não vê a tua conversa.')->required(),
             'priority' => $schema->string()->enum(array_column(TaskPriority::cases(), 'value')),
             'goal_id' => $schema->integer()->description('Objectivo da empresa que a tarefa serve, se houver.'),
+            'project_id' => $schema->integer()->description('Projecto a que a tarefa pertence, se houver (tasks.list mostra os projectos).'),
         ];
     }
 
@@ -67,6 +69,7 @@ final class CreateTask extends LocalCapability
             'description' => 'required|string|max:8000',
             'priority' => ['nullable', Rule::enum(TaskPriority::class)],
             'goal_id' => 'nullable|integer',
+            'project_id' => 'nullable|integer',
         ])->validate();
 
         $target = $this->chart->find($data['agent']);
@@ -85,6 +88,8 @@ final class CreateTask extends LocalCapability
             return CapabilityResult::error('a cadeia de delegação já é longa demais; faz tu o trabalho ou pergunta a uma pessoa.');
         }
 
+        $project = isset($data['project_id']) ? Project::query()->find($data['project_id']) : null;
+
         $task = $this->threads->open([
             'kind' => TaskKind::Task,
             'title' => $data['title'],
@@ -92,7 +97,8 @@ final class CreateTask extends LocalCapability
             'priority' => $data['priority'] ?? TaskPriority::Normal->value,
             'assignee_agent_id' => $target->id,
             'user_id' => $parent?->user_id,
-            'goal_id' => isset($data['goal_id']) && Goal::query()->whereKey($data['goal_id'])->exists() ? $data['goal_id'] : $parent?->goal_id,
+            'goal_id' => isset($data['goal_id']) && Goal::query()->whereKey($data['goal_id'])->exists() ? $data['goal_id'] : ($project->goal_id ?? $parent?->goal_id),
+            'project_id' => $project->id ?? $parent?->project_id,
             'parent_id' => $parent?->id,
         ], $context->agent);
 

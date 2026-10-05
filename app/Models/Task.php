@@ -38,6 +38,7 @@ use Illuminate\Support\Str;
  * @property int|null $created_by_user_id
  * @property int|null $created_by_agent_id
  * @property int|null $goal_id
+ * @property int|null $project_id
  * @property int|null $parent_id
  * @property string|null $source_type
  * @property int|null $source_id
@@ -50,7 +51,7 @@ use Illuminate\Support\Str;
  */
 #[Fillable([
     'number', 'kind', 'chat_key', 'title', 'description', 'status', 'priority', 'assignee_agent_id', 'user_id', 'created_by_user_id',
-    'created_by_agent_id', 'goal_id', 'parent_id', 'source_type', 'source_id', 'due_at', 'started_at', 'completed_at', 'last_activity_at',
+    'created_by_agent_id', 'goal_id', 'project_id', 'parent_id', 'source_type', 'source_id', 'due_at', 'started_at', 'completed_at', 'last_activity_at',
 ])]
 class Task extends Model
 {
@@ -149,6 +150,14 @@ class Task extends Model
     public function goal(): BelongsTo
     {
         return $this->belongsTo(Goal::class);
+    }
+
+    /**
+     * @return BelongsTo<Project, $this>
+     */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
     }
 
     /**

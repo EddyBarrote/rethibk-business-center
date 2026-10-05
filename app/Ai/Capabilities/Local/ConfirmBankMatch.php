@@ -49,7 +49,7 @@ final class ConfirmBankMatch extends LocalCapability
         return true;
     }
 
-    public function ceilingReason(array $arguments, CapabilityContext $context): ?string
+    public function ceilingReason(array $arguments, CapabilityContext $context): string
     {
         return 'reconciliar movimentos bancários é decidido por uma pessoa';
     }

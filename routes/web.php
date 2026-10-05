@@ -21,6 +21,7 @@ use App\Http\Controllers\Knowledge\FolderController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
+use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
@@ -75,6 +76,9 @@ Route::middleware('auth')->group(function () {
     Route::get('goals', [GoalController::class, 'index'])->name('goals.index');
     Route::post('goals', [GoalController::class, 'store'])->name('goals.store');
     Route::put('goals/{goal}', [GoalController::class, 'update'])->name('goals.update');
+    Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
+    Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
+    Route::put('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
     Route::get('org', [OrgController::class, 'index'])->name('org.index');
     Route::put('org/{agent}', [OrgController::class, 'update'])->name('org.update');
     Route::get('runs', [AgentRunController::class, 'index'])->name('runs.index');

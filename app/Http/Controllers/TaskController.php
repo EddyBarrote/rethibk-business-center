@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
 use App\Enums\GoalStatus;
+use App\Enums\ProjectStatus;
 use App\Enums\RunStatus;
 use App\Enums\TaskKind;
 use App\Enums\TaskMessageKind;
@@ -16,6 +17,7 @@ use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\EmailMessage;
 use App\Models\Goal;
+use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
@@ -44,12 +46,13 @@ class TaskController extends Controller
             'view' => ['nullable', Rule::in(['mine', 'all', 'chats', 'waiting', 'closed'])],
             'agent' => ['nullable', 'integer'],
             'goal' => ['nullable', 'integer'],
+            'project' => ['nullable', 'integer'],
             'q' => ['nullable', 'string', 'max:120'],
         ]);
         $view = $filters['view'] ?? 'mine';
 
         $query = $this->visible(Task::query(), $user)
-            ->with(['assigneeAgent:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'tenant:id,slug'])
+            ->with(['assigneeAgent:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'])
             ->withCount('messages')
             ->when($view === 'mine', fn (Builder $q) => $q->open()->needing($user))
             ->when($view === 'all', fn (Builder $q) => $q->open()->where('kind', TaskKind::Task))
@@ -58,6 +61,7 @@ class TaskController extends Controller
             ->when($view === 'closed', fn (Builder $q) => $q->whereIn('status', [TaskStatus::Done, TaskStatus::Cancelled]))
             ->when($filters['agent'] ?? null, fn (Builder $q, $agent) => $q->where('assignee_agent_id', $agent))
             ->when($filters['goal'] ?? null, fn (Builder $q, $goal) => $q->where('goal_id', $goal))
+            ->when($filters['project'] ?? null, fn (Builder $q, $project) => $q->where('project_id', $project))
             ->when($filters['q'] ?? null, fn (Builder $q, $term) => $q->where('title', 'like', '%'.$term.'%'))
             ->orderByDesc('last_activity_at');
 
@@ -65,7 +69,7 @@ class TaskController extends Controller
 
         return Inertia::render('Tasks/Index', [
             'tasks' => $query->limit(200)->get()->map(fn (Task $task) => [...Present::task($task), 'working' => isset($running[$task->id])]),
-            'filters' => ['view' => $view, 'agent' => $filters['agent'] ?? null, 'goal' => $filters['goal'] ?? null, 'q' => $filters['q'] ?? ''],
+            'filters' => ['view' => $view, 'agent' => $filters['agent'] ?? null, 'goal' => $filters['goal'] ?? null, 'project' => $filters['project'] ?? null, 'q' => $filters['q'] ?? ''],
             'counts' => [
                 'mine' => $this->visible(Task::query(), $user)->open()->needing($user)->count(),
                 'waiting' => $this->visible(Task::query(), $user)->where('status', TaskStatus::WaitingHuman)->count(),
@@ -86,6 +90,7 @@ class TaskController extends Controller
             'assignee_agent_id' => ['nullable', 'required_if:kind,chat', 'integer', TenantRule::exists('agents')],
             'priority' => ['nullable', Rule::enum(TaskPriority::class)],
             'goal_id' => ['nullable', 'integer', TenantRule::exists('goals')],
+            'project_id' => ['nullable', 'integer', TenantRule::exists('projects')],
             'due_at' => ['nullable', 'date'],
         ]);
 
@@ -114,7 +119,8 @@ class TaskController extends Controller
             'priority' => $data['priority'] ?? TaskPriority::Normal->value,
             'assignee_agent_id' => $agent?->id,
             'user_id' => $user->id,
-            'goal_id' => $data['goal_id'] ?? null,
+            'goal_id' => $data['goal_id'] ?? $this->goalOf($data['project_id'] ?? null),
+            'project_id' => $data['project_id'] ?? null,
             'due_at' => $data['due_at'] ?? null,
         ], $user, $kind === TaskKind::Chat ? $message : null);
 
@@ -227,6 +233,7 @@ class TaskController extends Controller
             'priority' => ['sometimes', Rule::enum(TaskPriority::class)],
             'assignee_agent_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('agents')],
             'goal_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('goals')],
+            'project_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('projects')],
             'due_at' => ['sometimes', 'nullable', 'date'],
         ]);
 
@@ -250,7 +257,12 @@ class TaskController extends Controller
             }
         }
 
-        $task->fill(collect($data)->only(['title', 'priority', 'goal_id', 'due_at'])->all())->save();
+        if (! empty($data['project_id']) && $task->goal_id === null && ! array_key_exists('goal_id', $data)) {
+            // A task in a project serves that project's goal.
+            $data['goal_id'] = $this->goalOf($data['project_id']);
+        }
+
+        $task->fill(collect($data)->only(['title', 'priority', 'goal_id', 'project_id', 'due_at'])->all())->save();
 
         if (isset($data['status'])) {
             $threads->setStatus($task, TaskStatus::from($data['status']), $user);
@@ -281,7 +293,6 @@ class TaskController extends Controller
             ->orWhereIn('assignee_agent_id', $agents));
     }
 
-
     /**
      * Choices for the new-task dialog and the properties panel.
      *
@@ -295,9 +306,15 @@ class TaskController extends Controller
                 ->map(fn (Agent $agent) => ['id' => $agent->id, 'name' => $agent->name, 'title' => $agent->title])
                 ->values(),
             'goals' => Goal::query()->whereIn('status', [GoalStatus::Planned, GoalStatus::Active])->orderBy('title')->get(['id', 'title']),
+            'projects' => Project::query()->whereIn('status', [ProjectStatus::Planned, ProjectStatus::Active])->orderBy('name')->get(['id', 'name', 'goal_id']),
             'statuses' => collect(TaskStatus::cases())->map(fn (TaskStatus $s) => ['value' => $s->value, 'label' => $s->label()]),
             'priorities' => collect(TaskPriority::cases())->map(fn (TaskPriority $p) => ['value' => $p->value, 'label' => $p->label()]),
         ];
+    }
+
+    private function goalOf(?int $projectId): ?int
+    {
+        return $projectId === null ? null : Project::query()->whereKey($projectId)->value('goal_id');
     }
 
     /**
