@@ -411,7 +411,7 @@ export default function AgentDefinitionForm({
                                 )}
                             </p>
                         ) : (
-                            <ul className="grid max-h-[32rem] gap-px overflow-y-auto rounded-lg border bg-border sm:grid-cols-2">
+                            <ul className="relative grid max-h-[32rem] gap-px overflow-y-auto rounded-lg border bg-border sm:grid-cols-2">
                                 {visibleCapabilities.map((capability) => {
                                     const checked = form.data.capabilities.includes(capability.id);
                                     const gated = capability.ceiling || (capability.is_mutating && level < capability.risk);

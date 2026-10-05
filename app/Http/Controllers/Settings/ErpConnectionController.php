@@ -39,9 +39,10 @@ class ErpConnectionController extends Controller
             ->get()
             ->map(fn (AuditLog $log) => [
                 'id' => $log->id,
-                'action' => $log->action,
-                'tool' => $log->payload['tool'] ?? null,
-                'tool_name' => $names->get('erp.'.($log->payload['tool'] ?? '')),
+                // An approval request is audited under the capability key ("erp.expenses.classify").
+                'action' => $names->has($log->action) ? 'erp.approval_requested' : $log->action,
+                'tool' => $log->payload['tool'] ?? ($names->has($log->action) ? substr($log->action, 4) : null),
+                'tool_name' => $names->get($names->has($log->action) ? $log->action : 'erp.'.($log->payload['tool'] ?? '')),
                 'actor_type' => $log->actor_type->value,
                 'result' => $log->result->value,
                 'duration_ms' => $log->payload['duration_ms'] ?? null,

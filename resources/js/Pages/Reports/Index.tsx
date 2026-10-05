@@ -8,7 +8,7 @@ import { Pagination } from '@/Components/Pagination';
 import { StatusBadge } from '@/Components/Status';
 import { NativeSelect } from '@/Components/ui/native-select';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime } from '@/lib/format';
+import { ago, dateTime, period } from '@/lib/format';
 import type { Option, Paginated } from '@/types';
 
 export interface ReportSummary {
@@ -74,7 +74,7 @@ export default function ReportsIndex({ reports, types, filter }: { reports: Pagi
                             href={`/reports/${r.id}`}
                             leading={<FileText className="size-4 text-muted-foreground" />}
                             title={r.title}
-                            subtitle={[r.agent, r.period, r.subject_ref].filter(Boolean).join(' · ')}
+                            subtitle={[r.agent, period(r.period), r.subject_ref].filter(Boolean).join(' · ')}
                             meta={
                                 <>
                                     <span className="flex w-28 justify-end">

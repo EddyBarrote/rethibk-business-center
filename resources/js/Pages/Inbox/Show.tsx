@@ -14,7 +14,7 @@ import { NativeSelect } from '@/Components/ui/native-select';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
 import { factValue } from '@/lib/approvals';
-import { ago, bytes, date, dateTime, fieldLabel } from '@/lib/format';
+import { ago, bytes, date, dateTime, deadline, fieldLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { emailTone, type EmailSummary } from '@/Pages/Inbox/Index';
 import type { Option } from '@/types';
@@ -257,7 +257,7 @@ export default function InboxShow({ message, conversation, tasks, followUps, cat
                             <Property label="Prazo">
                                 {current.deadline_at && (
                                     <span className="tabular-nums" title={dateTime(current.deadline_at)}>
-                                        {dateTime(current.deadline_at)}
+                                        {deadline(current.deadline_at)}
                                     </span>
                                 )}
                             </Property>
@@ -339,7 +339,7 @@ export default function InboxShow({ message, conversation, tasks, followUps, cat
                                         key={f.id}
                                         leading={<StatusDot tone={f.done ? 'success' : 'warning'} pulse={false} />}
                                         title={<span className={f.done ? 'text-muted-foreground line-through' : ''}>{f.title}</span>}
-                                        subtitle={<span title={dateTime(f.due_at)}>{dateTime(f.due_at)}</span>}
+                                        subtitle={<span title={dateTime(f.due_at)}>{deadline(f.due_at)}</span>}
                                     />
                                 ))}
                             </ListPanel>

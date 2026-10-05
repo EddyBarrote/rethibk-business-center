@@ -90,7 +90,7 @@ export default function TenantsIndex({ tenants }: { tenants: TenantRow[] }) {
                                         </TableCell>
                                         <TableCell data-label="Utilizadores" className="py-2.5 text-right tabular-nums">{tenant.users}</TableCell>
                                         <TableCell data-label="Agentes" className="py-2.5 text-right tabular-nums">{tenant.agents}</TableCell>
-                                        <TableCell data-label="IA este mês" className="px-4 py-2.5 text-right font-mono text-xs tabular-nums">
+                                        <TableCell data-label="IA este mês" className="px-4 py-2.5 text-right tabular-nums">
                                             <span className={cn(over >= 1 && 'text-status-danger', over >= 0.8 && over < 1 && 'text-status-warning')}>
                                                 {usd(tenant.spent_usd)}
                                             </span>

@@ -10,7 +10,7 @@ import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime } from '@/lib/format';
+import { ago, dateTime, deadline } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Option, Paginated } from '@/types';
 
@@ -265,7 +265,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
                                     <div className="truncate text-xs text-muted-foreground">
                                         {[
                                             message.routed_to && `Encaminhado a ${message.routed_to}`,
-                                            message.deadline_at && `Prazo ${dateTime(message.deadline_at)}`,
+                                            message.deadline_at && `Prazo ${deadline(message.deadline_at)}`,
                                             message.mailbox,
                                         ]
                                             .filter(Boolean)

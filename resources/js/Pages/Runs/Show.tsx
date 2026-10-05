@@ -177,7 +177,7 @@ export default function RunShow({
                         </span>
                     </Property>
                     <Property label="Custo">
-                        <span className="font-mono tabular-nums">{usdPrecise(run.cost_usd)}</span>
+                        <span className="tabular-nums">{usdPrecise(run.cost_usd)}</span>
                     </Property>
                     <Property label="Duração">
                         {run.duration_ms !== null ? <span className="font-mono tabular-nums">{duration(run.duration_ms)}</span> : null}

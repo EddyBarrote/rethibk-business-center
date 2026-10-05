@@ -134,7 +134,9 @@ it('hands supplier invoices, CVs and client requests to the agent of the area', 
             ->and($task->createdByAgent->key)->toBe('triage')
             ->and($task->source->is($email))->toBeTrue()
             ->and($task->title)->toContain('Factura de fornecedor')
-            ->and($task->description)->toContain("email_id {$email->id}")
+            // People read the description; only the agent's brief says how to open the email.
+            ->and($task->description)->not->toContain('email.read')
+            ->and($runs[1]->input)->toContain("email.read (email_id {$email->id})")
             ->and($task->status)->toBe(TaskStatus::InProgress);
     });
 });

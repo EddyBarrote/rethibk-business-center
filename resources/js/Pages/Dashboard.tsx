@@ -6,14 +6,14 @@ import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, MetricCard, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
-import { Markdown } from '@/Components/Markdown';
 import { MiniBars } from '@/Components/MiniBars';
 import { PageHeader } from '@/Components/PageHeader';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge, StatusDot } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, runTitle, usd } from '@/lib/format';
+import { ago, dateTime, plainText, runTitle, usd } from '@/lib/format';
+import { pathLabel } from '@/lib/paths';
 import type { AgentSummary, ApprovalSummary, BriefingSummary, Issue, RunSummary, SharedProps } from '@/types';
 
 interface Metrics {
@@ -73,6 +73,9 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
     const succeeded = activity.reduce((sum, day) => sum + day.completed, 0);
     const budget = metrics.month_budget_usd;
 
+    // What waits on a decision is counted live above; the briefing's own count is from when it was written.
+    const highlights = (briefing?.highlights ?? []).filter((highlight) => !/pendente/i.test(highlight));
+
     return (
         <AppLayout>
             <Head title="Painel" />
@@ -80,16 +83,27 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
             <PageHeader title={`${greeting}, ${firstName}`} description="O que está a acontecer, o que precisa de si e o estado dos agentes." />
 
             {live.length > 0 && (
-                <Section title="A trabalhar agora" action={<Link href="/runs" className="text-muted-foreground hover:text-foreground">Ver execuções</Link>}>
+                <Section
+                    title="A trabalhar agora"
+                    action={
+                        <Link href="/runs" className="text-muted-foreground hover:text-foreground">
+                            Ver execuções
+                        </Link>
+                    }
+                >
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {live.map((run) => (
-                            <Link key={run.id} href={`/runs/${run.id}`} className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/60">
+                            <Link
+                                key={run.id}
+                                href={`/runs/${run.id}`}
+                                className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/60"
+                            >
                                 <div className="flex items-center gap-2">
                                     <AgentAvatar name={run.agent.name} />
                                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{run.agent.name}</span>
                                 </div>
                                 <RunStatusBadge status={run.status} label={run.status_label} />
-                                <p className="line-clamp-2 text-sm text-muted-foreground">{runTitle(run.input)}</p>
+                                <p className="line-clamp-2 text-sm text-muted-foreground">{run.title ?? runTitle(run.input)}</p>
                                 <p className="font-mono text-[11px] text-muted-foreground">
                                     #{run.id} · {ago(run.created_at)}
                                 </p>
@@ -118,8 +132,16 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     icon={CircleDollarSign}
                     value={usd(metrics.month_spend_usd)}
                     label="Gasto de IA no mês"
-                    description={budget ? `de ${usd(budget)} (${Math.round((metrics.month_spend_usd / budget) * 100)}%)` : 'Sem tecto mensal definido'}
-                    tone={budget && metrics.month_spend_usd >= budget ? 'danger' : budget && metrics.month_spend_usd >= budget * 0.8 ? 'warning' : undefined}
+                    description={
+                        budget ? `de ${usd(budget)} (${Math.round((metrics.month_spend_usd / budget) * 100)}%)` : 'Sem tecto mensal definido'
+                    }
+                    tone={
+                        budget && metrics.month_spend_usd >= budget
+                            ? 'danger'
+                            : budget && metrics.month_spend_usd >= budget * 0.8
+                              ? 'warning'
+                              : undefined
+                    }
                 />
                 <MetricCard
                     icon={CheckSquare}
@@ -144,11 +166,17 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     />
                 </ChartCard>
                 <ChartCard title="Gasto de IA">
-                    <MiniBars data={activity} series={[{ key: 'cost_usd', label: 'Gasto', className: 'bg-primary' }]} format={(value) => usd(value)} />
+                    <MiniBars
+                        data={activity}
+                        series={[{ key: 'cost_usd', label: 'Gasto', className: 'bg-primary' }]}
+                        format={(value) => usd(value)}
+                    />
                 </ChartCard>
                 <ChartCard title="Taxa de sucesso">
                     <div className="flex flex-1 flex-col justify-center gap-2">
-                        <span className="text-3xl font-semibold tracking-tight tabular-nums">{finished ? `${Math.round((succeeded / finished) * 100)}%` : '—'}</span>
+                        <span className="text-3xl font-semibold tracking-tight tabular-nums">
+                            {finished ? `${Math.round((succeeded / finished) * 100)}%` : '—'}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                             {finished ? `${succeeded} de ${finished} execuções terminadas acabaram bem` : 'Ainda sem execuções terminadas'}
                         </span>
@@ -175,7 +203,11 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     }
                 >
                     {approvals.length === 0 && issues.length === 0 ? (
-                        <EmptyState icon={CheckSquare} title="Nada à espera" description="Quando um agente tentar uma acção acima do seu nível de autonomia, ela aparece aqui." />
+                        <EmptyState
+                            icon={CheckSquare}
+                            title="Nada à espera"
+                            description="Quando um agente tentar uma acção acima do seu nível de autonomia, ela aparece aqui."
+                        />
                     ) : (
                         <div className="grid gap-3">
                             {approvals.length > 0 && (
@@ -184,7 +216,10 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                         <ApprovalCard key={approval.id} approval={approval} />
                                     ))}
                                     {auth.pending_approvals > 3 && (
-                                        <Link href="/approvals" className="block px-4 py-2.5 text-center text-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground">
+                                        <Link
+                                            href="/approvals"
+                                            className="block px-4 py-2.5 text-center text-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                                        >
                                             Ver as {auth.pending_approvals} aprovações
                                         </Link>
                                     )}
@@ -196,7 +231,11 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                         <EntityRow
                                             key={index}
                                             href={issue.link ?? undefined}
-                                            leading={<AlertTriangle className={issue.severity === 'alta' ? 'size-4 text-status-danger' : 'size-4 text-status-warning'} />}
+                                            leading={
+                                                <AlertTriangle
+                                                    className={issue.severity === 'alta' ? 'size-4 text-status-danger' : 'size-4 text-status-warning'}
+                                                />
+                                            }
                                             title={issue.issue}
                                             trailing={<span className="text-xs text-muted-foreground">{issue.area}</span>}
                                         />
@@ -219,43 +258,74 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     }
                 >
                     {briefing ? (
+                        // The headline of the briefing only: what stands out and what waits on a decision, with live
+                        // counts. The full text (which repeats the decisions) opens in the briefing itself.
                         <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
                             <div>
-                                <p className="text-sm font-medium">{briefing.title}</p>
+                                <Link href={`/briefings/${briefing.id}`} className="text-sm font-medium hover:underline">
+                                    {briefing.title}
+                                </Link>
                                 <p className="text-xs text-muted-foreground">
                                     {briefing.agent ?? 'Chief of Staff'} · {dateTime(briefing.created_at)}
                                 </p>
                             </div>
                             {briefing.decisions_pending.length > 0 && (
                                 <div className="rounded-lg bg-status-warning/10 p-3">
-                                    <p className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Decisões pendentes</p>
-                                    <ul className="grid gap-1 text-sm">
-                                        {briefing.decisions_pending.map((decision, index) => (
-                                            <li key={index}>
-                                                {decision.link ? (
-                                                    <Link href={decision.link} className="underline-offset-2 hover:underline">
-                                                        {decision.title}
-                                                    </Link>
-                                                ) : (
-                                                    decision.title
-                                                )}
-                                            </li>
-                                        ))}
+                                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">Precisa da sua decisão</p>
+                                    <ul className="grid gap-1.5 text-sm">
+                                        {briefing.decisions_pending.map((decision, index) => {
+                                            const page = decision.link ? pathLabel(decision.link) : null;
+
+                                            return (
+                                                <li key={index} className="flex items-baseline justify-between gap-3">
+                                                    <span className="min-w-0">{decision.title}</span>
+                                                    {decision.link && page?.live && (
+                                                        <Link
+                                                            href={decision.link}
+                                                            className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline"
+                                                        >
+                                                            {decision.link === '/approvals' ? `${auth.pending_approvals} pendentes` : 'Abrir'}
+                                                        </Link>
+                                                    )}
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 </div>
                             )}
-                            <div className="max-h-80 overflow-y-auto">
-                                <Markdown>{briefing.content ?? ''}</Markdown>
-                            </div>
+                            {highlights.length > 0 && (
+                                <ul className="grid gap-1.5 text-sm text-muted-foreground">
+                                    {highlights.slice(0, 4).map((highlight, index) => (
+                                        <li key={index} className="flex gap-2">
+                                            <span className="mt-2 size-1 shrink-0 rounded-full bg-muted-foreground/60" />
+                                            <span className="line-clamp-2">{plainText(highlight)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            <Link href={`/briefings/${briefing.id}`} className="border-t pt-3 text-xs font-medium text-primary hover:underline">
+                                Ler o briefing completo
+                            </Link>
                         </div>
                     ) : (
-                        <EmptyState icon={FileText} title="Ainda sem briefings" description="O Chief of Staff prepara o briefing diário às 06:30 dos dias úteis quando estiver activo." />
+                        <EmptyState
+                            icon={FileText}
+                            title="Ainda sem briefings"
+                            description="O Chief of Staff prepara o briefing diário às 06:30 dos dias úteis quando estiver activo."
+                        />
                     )}
                 </Section>
             </div>
 
             <div className="grid gap-8 lg:grid-cols-2">
-                <Section title="Actividade recente" action={<Link href="/runs" className="text-muted-foreground hover:text-foreground">Ver todas</Link>}>
+                <Section
+                    title="Actividade recente"
+                    action={
+                        <Link href="/runs" className="text-muted-foreground hover:text-foreground">
+                            Ver todas
+                        </Link>
+                    }
+                >
                     {runs.length === 0 ? (
                         <EmptyState icon={Loader} title="Sem actividade" description="As execuções dos agentes aparecem aqui assim que começarem." />
                     ) : (
@@ -265,7 +335,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                     key={run.id}
                                     href={`/runs/${run.id}`}
                                     leading={<AgentAvatar name={run.agent.name} />}
-                                    title={runTitle(run.input)}
+                                    title={run.title ?? runTitle(run.input)}
                                     subtitle={run.agent.name}
                                     meta={<span title={dateTime(run.created_at)}>{ago(run.created_at)}</span>}
                                     trailing={<RunStatusBadge status={run.status} label={run.status_label} />}
@@ -275,9 +345,20 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     )}
                 </Section>
 
-                <Section title="Agentes" action={<Link href="/agents" className="text-muted-foreground hover:text-foreground">Ver todos</Link>}>
+                <Section
+                    title="Agentes"
+                    action={
+                        <Link href="/agents" className="text-muted-foreground hover:text-foreground">
+                            Ver todos
+                        </Link>
+                    }
+                >
                     {agents.length === 0 ? (
-                        <EmptyState icon={Bot} title="Nenhum agente activo" description="Crie o primeiro agente em Agentes, ou peça à Rethink que instale os modelos." />
+                        <EmptyState
+                            icon={Bot}
+                            title="Nenhum agente activo"
+                            description="Crie o primeiro agente em Agentes, ou peça à Rethink que instale os modelos."
+                        />
                     ) : (
                         <ListPanel>
                             {agents.map((agent) => (

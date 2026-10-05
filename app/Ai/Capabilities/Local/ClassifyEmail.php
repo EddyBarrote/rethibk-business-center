@@ -181,9 +181,9 @@ final class ClassifyEmail extends LocalCapability
         return $this->threads->open([
             'kind' => TaskKind::Task,
             'title' => Str::limit("{$category->label()}: ".($message->subject ?: '(sem assunto)'), 200, '…'),
-            'description' => "A triagem classificou o email #{$message->id} como «{$category->label()}».\n\n"
-                ."De: {$from}\nAssunto: {$message->subject}\n\nResumo da triagem: {$data['summary']}\n\n"
-                ."Lê o email com email.read (email_id {$message->id}) e trata-o dentro das tuas competências.",
+            // People read this description; how the agent opens the email is added to its brief (TaskThread::input).
+            'description' => "A triagem classificou este email como «{$category->label()}».\n\n"
+                ."De: {$from}\nAssunto: {$message->subject}\n\nResumo da triagem: {$data['summary']}",
             'status' => TaskStatus::Todo,
             'priority' => TaskPriority::from($data['priority']),
             'assignee_agent_id' => $agent->id,

@@ -543,7 +543,7 @@ export default function TaskShow({
                         title="Execuções"
                         action={
                             runs.length > 0 && (
-                                <span className="font-mono text-xs text-muted-foreground tabular-nums" title="Soma das execuções mostradas">
+                                <span className="text-xs text-muted-foreground tabular-nums" title="Soma das execuções mostradas">
                                     {usd(spent)}
                                 </span>
                             )
@@ -566,7 +566,7 @@ export default function TaskShow({
                                         <span className="flex-1 truncate text-right text-muted-foreground" title={dateTime(run.created_at)}>
                                             {ago(run.created_at)}
                                         </span>
-                                        <span className="w-14 text-right font-mono tabular-nums">{usd(run.cost_usd)}</span>
+                                        <span className="w-14 text-right tabular-nums">{usd(run.cost_usd)}</span>
                                     </Link>
                                 ))}
                             </ListPanel>

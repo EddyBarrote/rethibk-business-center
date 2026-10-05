@@ -76,12 +76,12 @@ export default function RunsIndex({ runs, filters }: { runs: Paginated<RunSummar
                                         <AgentAvatar name={run.agent.name} />
                                     </div>
                                 }
-                                title={runTitle(run.input)}
+                                title={run.title ?? runTitle(run.input)}
                                 subtitle={`${run.agent.name} · ${run.trigger_label}${run.requested_by ? ` · ${run.requested_by}` : ''}`}
                                 meta={
                                     <>
-                                        <span className="hidden w-16 text-right font-mono tabular-nums lg:block">{duration(run.duration_ms)}</span>
-                                        <span className="w-20 text-right font-mono tabular-nums">{usd(run.cost_usd)}</span>
+                                        <span className="hidden w-16 text-right tabular-nums lg:block">{duration(run.duration_ms)}</span>
+                                        <span className="w-20 text-right tabular-nums">{usd(run.cost_usd)}</span>
                                         <span className="w-20 text-right" title={dateTime(run.created_at)}>
                                             {ago(run.created_at)}
                                         </span>

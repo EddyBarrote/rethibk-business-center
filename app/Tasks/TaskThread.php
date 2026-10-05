@@ -16,6 +16,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
+use App\Models\EmailMessage;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
@@ -332,6 +333,7 @@ final class TaskThread
     {
         if ($source instanceof Task) {
             return "Foi-te atribuída a tarefa {$task->identifier()}: {$task->title}\n\n".($task->description ?: 'Sem descrição.')
+                .$this->origin($task)
                 ."\n\nTrabalha nela com as tuas ferramentas. Quando terminares, marca-a como feita (tasks.update_status) e resume o resultado.";
         }
 
@@ -340,6 +342,19 @@ final class TaskThread
         }
 
         return $this->speaker($source).$source->body;
+    }
+
+    /**
+     * Where the task came from, in the agent's terms. The description is
+     * written for people; the tool to open the origin goes only to the agent.
+     */
+    private function origin(Task $task): string
+    {
+        if ($task->source_type !== (new EmailMessage)->getMorphClass() || $task->source_id === null) {
+            return '';
+        }
+
+        return "\n\nOrigem: o email #{$task->source_id}. Lê-o com email.read (email_id {$task->source_id}) e trata-o dentro das tuas competências.";
     }
 
     private function speaker(TaskMessage $message): string

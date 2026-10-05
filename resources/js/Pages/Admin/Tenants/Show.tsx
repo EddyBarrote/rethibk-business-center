@@ -13,7 +13,7 @@ import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { ago, dateTime, usd } from '@/lib/format';
+import { ago, dateTime, period, usd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 interface TenderSource {
@@ -147,8 +147,8 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
             <div className="grid grid-cols-1 divide-y rounded-xl border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0 [&>*]:min-w-0">
                 <MetricCard
                     icon={CircleDollarSign}
-                    value={<span className="font-mono">{usd(usage.spent_usd)}</span>}
-                    label={`Gasto em IA (${usage.month})`}
+                    value={<span className="">{usd(usage.spent_usd)}</span>}
+                    label={`Gasto em IA (${period(usage.month)})`}
                     tone={ratio >= 1 ? 'danger' : ratio >= 0.8 ? 'warning' : undefined}
                     description={
                         cap !== null ? (
@@ -163,7 +163,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                                     />
                                 </span>
                                 <span>
-                                    de <span className="font-mono">{usd(cap)}</span> por mês
+                                    de <span className="">{usd(cap)}</span> por mês
                                 </span>
                             </span>
                         ) : (
@@ -243,7 +243,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                                         meta={
                                             <>
                                                 <AutonomyBadge level={agent.autonomy_level} />
-                                                <span className="w-20 text-right font-mono tabular-nums" title="IA este mês">
+                                                <span className="w-20 text-right tabular-nums" title="IA este mês">
                                                     {usd(agent.spent_usd)}
                                                 </span>
                                             </>
@@ -512,7 +512,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                                             </>
                                         }
                                         subtitle={
-                                            <span className="font-mono tabular-nums">
+                                            <span className="tabular-nums">
                                                 {usd(event.spent_usd)} / {usd(event.cap_usd)}
                                             </span>
                                         }
@@ -551,7 +551,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                         <Property label="Caixas">{tenant.mail_domain && <span className="font-mono text-xs">{tenant.mail_domain}</span>}</Property>
                         <Property label="Tecto mensal">
                             {cap !== null ? (
-                                <span className="font-mono text-xs">{usd(cap)}</span>
+                                <span className="text-xs">{usd(cap)}</span>
                             ) : (
                                 <span className="text-muted-foreground">Sem tecto</span>
                             )}

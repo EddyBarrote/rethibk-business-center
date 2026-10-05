@@ -54,7 +54,8 @@ final class SearchEmails extends LocalCapability
             'direction' => $m->direction,
             'from' => $m->from_address,
             'subject' => $m->subject,
-            'category' => $m->classification?->value,
+            // The label, not the key: agents quote this to people ("Factura de fornecedor", not "supplier_invoice").
+            'category' => $m->classification?->label(),
             'priority' => $m->priority,
             'received_at' => $m->received_at?->toIso8601String(),
             'deadline_at' => $m->deadline_at?->toIso8601String(),

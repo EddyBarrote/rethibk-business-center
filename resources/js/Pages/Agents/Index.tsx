@@ -103,7 +103,7 @@ export default function AgentsIndex({ agents, can }: { agents: Row[]; can: { cre
                                         >
                                             {agent.last_run_at ? ago(agent.last_run_at) : 'nunca'}
                                         </span>
-                                        <span className="w-20 text-right font-mono tabular-nums" title="Gasto de IA este mês">
+                                        <span className="w-20 text-right tabular-nums" title="Gasto de IA este mês">
                                             {usd(agent.spent_usd)}
                                         </span>
                                     </>

@@ -314,7 +314,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                                         Só falam com o agente as pessoas aqui, a pessoa a quem ele responde e quem tem no papel "Falar com todos os
                                         agentes". "Conversar" é perguntar; "Pedir trabalho" também cria tarefas e acções directas.
                                     </p>
-                                    <div className="flex max-h-80 flex-col divide-y overflow-y-auto rounded-lg border">
+                                    <div className="relative flex max-h-80 flex-col divide-y overflow-y-auto rounded-lg border">
                                         {users.map((user) => (
                                             <div key={user.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                                                 <span className="min-w-0 flex-1 truncate">{user.name}</span>
@@ -392,7 +392,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                         <span className="tabular-nums">{capabilities.length}</span>
                     </Property>
                     <Property label="Gasto recente">
-                        <span className="font-mono tabular-nums" title={`Soma das últimas ${runs.length} execuções`}>
+                        <span className="tabular-nums" title={`Soma das últimas ${runs.length} execuções`}>
                             {usd(spent)}
                         </span>
                     </Property>
@@ -420,12 +420,12 @@ function RunList({ runs }: { runs: RunSummary[] }) {
                     key={run.id}
                     href={`/runs/${run.id}`}
                     leading={<span className="w-12 font-mono text-xs text-muted-foreground tabular-nums">#{run.id}</span>}
-                    title={runTitle(run.input)}
+                    title={run.title ?? runTitle(run.input)}
                     subtitle={run.trigger_label}
                     meta={
                         <>
                             <span title={dateTime(run.created_at)}>{ago(run.created_at)}</span>
-                            <span className="w-16 text-right font-mono tabular-nums">{usd(run.cost_usd)}</span>
+                            <span className="w-16 text-right tabular-nums">{usd(run.cost_usd)}</span>
                         </>
                     }
                     trailing={<RunStatusBadge status={run.status} label={run.status_label} />}

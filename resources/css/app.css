@@ -29,7 +29,8 @@
     --card-foreground: oklch(0.1908 0.0020 106.5859);
     --popover: oklch(1.0000 0 0);
     --popover-foreground: oklch(0.2671 0.0196 98.9390);
-    --primary: oklch(0.6171 0.1375 39.0427);
+    /* Darkened from L 0.6171 (#C96442, 3.9:1) so white button text reaches 4.6:1 (WCAG AA). */
+    --primary: oklch(0.575 0.1375 39.0427);
     --primary-foreground: oklch(1.0000 0 0);
     --secondary: oklch(0.9245 0.0138 92.9892);
     --secondary-foreground: oklch(0.4334 0.0177 98.6048);
@@ -41,7 +42,7 @@
     --destructive: oklch(0.577 0.215 27.3);
     --border: oklch(0.8847 0.0069 97.3627);
     --input: oklch(0.7621 0.0156 98.3528);
-    --ring: oklch(0.6171 0.1375 39.0427);
+    --ring: oklch(0.575 0.1375 39.0427);
     --sidebar: oklch(0.9663 0.0080 98.8792);
     --sidebar-foreground: oklch(0.3590 0.0051 106.6524);
     --sidebar-accent: oklch(0.9245 0.0138 92.9892);
@@ -53,7 +54,7 @@
     --chart-3: oklch(0.8816 0.0276 93.1280);
     --chart-4: oklch(0.8822 0.0403 298.1792);
     --chart-5: oklch(0.5608 0.1348 42.0584);
-    --sidebar-primary: oklch(0.6171 0.1375 39.0427);
+    --sidebar-primary: oklch(0.575 0.1375 39.0427);
     --sidebar-primary-foreground: oklch(0.9881 0 0);
     --sidebar-ring: oklch(0.7731 0 0);
     --font-sans: 'Outfit Variable', ui-sans-serif, system-ui, sans-serif;

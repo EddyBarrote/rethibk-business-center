@@ -53,6 +53,8 @@ export interface RunSummary {
     agent: { id: number; name: string };
     trigger: string;
     trigger_label: string;
+    /** The routine's name for a scheduled run; null when the screen titles it from the request. */
+    title?: string | null;
     status: RunStatus;
     status_label: string;
     input: string;

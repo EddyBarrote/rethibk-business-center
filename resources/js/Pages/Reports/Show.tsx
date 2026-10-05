@@ -7,7 +7,7 @@ import { Markdown } from '@/Components/Markdown';
 import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime } from '@/lib/format';
+import { ago, dateTime, period } from '@/lib/format';
 import { ReportStatusBadge, type ReportSummary } from '@/Pages/Reports/Index';
 import type { Option } from '@/types';
 
@@ -23,7 +23,7 @@ export default function ReportShow({
             <Head title={report.title} />
             <PageHeader
                 title={report.title}
-                description={[report.type_label, report.agent, report.period].filter(Boolean).join(' · ')}
+                description={[report.type_label, report.agent, period(report.period)].filter(Boolean).join(' · ')}
                 actions={
                     <div className="flex flex-wrap gap-2 print:hidden">
                         <ExportMenu action={`/reports/${report.id}/export`} formats={formats} />
@@ -53,7 +53,7 @@ export default function ReportShow({
                     <Property label="Tipo">
                         <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{report.type_label}</span>
                     </Property>
-                    <Property label="Período">{report.period}</Property>
+                    <Property label="Período">{report.period && period(report.period)}</Property>
                     <Property label="Referência">{report.subject_ref && <span className="font-mono text-xs">{report.subject_ref}</span>}</Property>
                     <Property label="Agente">{report.agent}</Property>
                     <Property label="Criado">

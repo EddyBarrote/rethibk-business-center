@@ -3,6 +3,7 @@
 namespace App\Http\Presenters;
 
 use App\Models\Agent;
+use App\Models\AgentRoutine;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Task;
@@ -43,6 +44,7 @@ final class Present
             'agent' => ['id' => $run->agent_id, 'name' => $run->agent->name],
             'trigger' => $run->trigger_type->value,
             'trigger_label' => $run->trigger_type->label(),
+            'title' => self::runTitle($run),
             'status' => $run->status->value,
             'status_label' => $run->status->label(),
             'input' => $run->input,
@@ -58,6 +60,22 @@ final class Present
             'created_at' => $run->created_at->toIso8601String(),
             'finished_at' => $run->finished_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * A run started by a routine is called by the routine's name ("Férias
+     * pendentes"); its prompt, written for the agent, names tools by key.
+     * Null for other runs: the screen titles them from the request.
+     */
+    private static function runTitle(AgentRun $run): ?string
+    {
+        if ($run->trigger_source_type !== (new AgentRoutine)->getMorphClass() || $run->trigger_source_id === null) {
+            return null;
+        }
+
+        return $run->relationLoaded('triggerSource')
+            ? $run->triggerSource?->getAttribute('name')
+            : AgentRoutine::query()->whereKey($run->trigger_source_id)->value('name');
     }
 
     /**

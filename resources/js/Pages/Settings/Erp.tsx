@@ -69,6 +69,7 @@ const actionLabel: Record<string, string> = {
     'erp.tools_list': 'Listagem de ferramentas',
     'erp.connection_test': 'Teste de ligação',
     'erp.connection_updated': 'Configuração alterada',
+    'erp.approval_requested': 'Pedido de aprovação',
 };
 
 const actorLabel: Record<Call['actor_type'], string> = { user: 'Utilizador', agent: 'Agente', system: 'Sistema' };
@@ -210,7 +211,7 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                                 onChange={(e) => form.setData('transport', e.target.value as Transport)}
                             >
                                 <option value="web">Servidor do ERP (HTTP)</option>
-                                <option value="local">Servidor de demonstração (dados fictícios)</option>
+                                <option value="local">Servidor de demonstração</option>
                             </NativeSelect>
                         </Field>
                     </div>

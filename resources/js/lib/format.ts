@@ -15,6 +15,21 @@ const secondsFormat = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 1,
 export const dateTime = (value: string | null | undefined) => (value ? dateTimeFormat.format(new Date(value)) : '—');
 export const date = (value: string | null | undefined) => (value ? dateFormat.format(new Date(value)) : '—');
 export const time = (value: string | null | undefined) => (value ? timeFormat.format(new Date(value)) : '—');
+const monthFormat = new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric' });
+/** A due date: the day alone when it has no time of day (midnight), day and time otherwise. */
+export const deadline = (value: string | null | undefined) => {
+    if (!value) {
+        return '—';
+    }
+    const at = new Date(value);
+
+    return at.getHours() === 0 && at.getMinutes() === 0 ? dateFormat.format(at) : dateTimeFormat.format(at);
+};
+/** ISO days and months inside a text ("2026-09-01 a 2026-09-30", "2026-10") written the pt-PT way. */
+export const period = (text: string | null | undefined) =>
+    (text ?? '')
+        .replace(/\b\d{4}-\d{2}-\d{2}\b/g, (day) => dateFormat.format(new Date(`${day}T00:00`)))
+        .replace(/\b(\d{4})-(\d{2})\b/g, (_, year: string, month: string) => monthFormat.format(new Date(Number(year), Number(month) - 1, 1)));
 /** "0,04 US$"; an amount that rounds to zero but is not zero reads "< 0,01 US$". */
 export const usd = (value: number | null | undefined) =>
     value === null || value === undefined ? '—' : value > 0 && value < 0.005 ? `< ${usdFormat.format(0.01)}` : usdFormat.format(value);
@@ -184,6 +199,12 @@ export const runTitle = (input: string) => {
     while ((match = rest.match(/^\[([^\]]{1,60})\]\s*/))) {
         tags.push(match[1]);
         rest = rest.slice(match[0].length);
+    }
+
+    // A task handed to an agent reads as the task, not as the brief the agent got.
+    const task = rest.match(/^Foi-te atribuída a tarefa (\S+): ([^\n]+)/);
+    if (task) {
+        return `${task[1]} · ${plainText(task[2])}`;
     }
 
     return plainText(rest) || tags.join(' · ') || input;

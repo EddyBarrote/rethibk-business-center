@@ -35,7 +35,7 @@ final class DemoScenario
 
         $agent = Agent::query()->updateOrCreate(['key' => self::AGENT_KEY], [
             'name' => 'Agente de demonstração',
-            'title' => 'Demonstração da E02',
+            'title' => 'Demonstração das aprovações',
             'description' => 'Agente usado para demonstrar o gate de autonomia e as aprovações.',
             'personality' => 'Directo e cuidadoso. Escreve em português de Moçambique.',
             'instructions' => 'Usa o ERP para encontrar clientes e registar oportunidades comerciais.',

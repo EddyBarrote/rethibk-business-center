@@ -52,3 +52,13 @@ it('renders lists and details with several rows', function (string $path) {
     'notifications',
     'tasks',
 ]);
+
+it('opens a notification at its screen, or on the list when that screen no longer exists', function () {
+    $owner = asTenant($this->tenant, fn () => $this->owner);
+    $owner->notifications()->create(['id' => (string) str()->uuid(), 'type' => 'test', 'data' => ['title' => 'Antiga', 'body' => '', 'url' => '/contracts/1']]);
+    $owner->notifications()->create(['id' => (string) str()->uuid(), 'type' => 'test', 'data' => ['title' => 'Actual', 'body' => '', 'url' => '/approvals']]);
+    [$old, $current] = [$owner->notifications()->where('data->title', 'Antiga')->value('id'), $owner->notifications()->where('data->title', 'Actual')->value('id')];
+
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, "notifications/{$old}"))->assertRedirect('/notifications');
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, "notifications/{$current}"))->assertRedirect('/approvals');
+});
