@@ -1,7 +1,9 @@
 import { Head, useForm } from '@inertiajs/react';
+import { Loader2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { Field } from '@/Components/Field';
+import { FileInput } from '@/Components/FileInput';
 import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
@@ -58,13 +60,14 @@ export default function BrandSettings({ brand, default_color }: Props) {
                             />
                         </div>
                     </Field>
-                    <Field id="logo" label="Logótipo" error={form.errors.logo} hint="PNG ou JPG até 2 MB, de preferência com fundo transparente.">
-                        <Input
+                    <Field id="logo" label="Logótipo" error={form.errors.logo}>
+                        <FileInput
                             id="logo"
-                            type="file"
                             accept=".png,.jpg,.jpeg"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0] ?? null;
+                            file={form.data.logo}
+                            hint="PNG ou JPG até 2 MB, de preferência com fundo transparente."
+                            invalid={!!form.errors.logo}
+                            onChange={(file) => {
                                 form.setData((d) => ({ ...d, logo: file, remove_logo: false }));
                                 setPreview(file ? URL.createObjectURL(file) : brand.has_logo ? '/settings/brand/logo' : null);
                             }}
@@ -95,8 +98,10 @@ export default function BrandSettings({ brand, default_color }: Props) {
                             placeholder={brand.name}
                         />
                     </Field>
-                    <div className="flex justify-end border-t pt-4">
-                        <Button type="submit" disabled={form.processing}>
+                    <div className="flex items-center justify-between gap-3 border-t pt-4">
+                        <span className="text-xs text-muted-foreground">{form.isDirty ? 'Alterações por guardar.' : 'Sem alterações.'}</span>
+                        <Button type="submit" disabled={form.processing || !form.isDirty}>
+                            {form.processing && <Loader2 className="animate-spin" />}
                             Guardar
                         </Button>
                     </div>
