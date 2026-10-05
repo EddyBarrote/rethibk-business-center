@@ -64,7 +64,7 @@ class TaskController extends Controller
         $running = AgentRun::query()->whereNotNull('task_id')->whereIn('status', [RunStatus::Queued, RunStatus::Running])->pluck('task_id')->flip();
 
         return Inertia::render('Tasks/Index', [
-            'tasks' => $query->limit(200)->get()->map(fn (Task $task) => [...$this->summary($task), 'working' => isset($running[$task->id])]),
+            'tasks' => $query->limit(200)->get()->map(fn (Task $task) => [...Present::task($task), 'working' => isset($running[$task->id])]),
             'filters' => ['view' => $view, 'agent' => $filters['agent'] ?? null, 'goal' => $filters['goal'] ?? null, 'q' => $filters['q'] ?? ''],
             'counts' => [
                 'mine' => $this->visible(Task::query(), $user)->open()->needing($user)->count(),
@@ -156,7 +156,7 @@ class TaskController extends Controller
 
         return Inertia::render('Tasks/Show', [
             'task' => [
-                ...$this->summary($task),
+                ...Present::task($task),
                 'description' => $task->description,
                 'due_at' => $task->due_at?->toIso8601String(),
                 'started_at' => $task->started_at?->toIso8601String(),
@@ -175,7 +175,7 @@ class TaskController extends Controller
                 'run_id' => $m->agent_run_id,
                 'created_at' => $m->created_at->toIso8601String(),
             ]),
-            'children' => $task->children()->with(['assigneeAgent:id,name', 'tenant:id,slug'])->orderBy('id')->get()->map(fn (Task $child) => $this->summary($child)),
+            'children' => $task->children()->with(['assigneeAgent:id,name', 'tenant:id,slug'])->orderBy('id')->get()->map(fn (Task $child) => Present::task($child)),
             'runs' => $task->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(10)->get()->map(fn (AgentRun $run) => Present::run($run)),
             'working' => $active ? Present::run($active->load('agent:id,name')) : null,
             'approvals' => Approval::query()
@@ -281,31 +281,6 @@ class TaskController extends Controller
             ->orWhereIn('assignee_agent_id', $agents));
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function summary(Task $task): array
-    {
-        return [
-            'id' => $task->id,
-            'ref' => $task->identifier(),
-            'kind' => $task->kind->value,
-            'is_conversation' => $task->chat_key !== null,
-            'title' => $task->title,
-            'status' => $task->status->value,
-            'status_label' => $task->status->label(),
-            'priority' => $task->priority->value,
-            'priority_label' => $task->priority->label(),
-            'assignee' => $task->assigneeAgent ? ['id' => $task->assigneeAgent->id, 'name' => $task->assigneeAgent->name] : null,
-            'user' => $task->user?->name,
-            'created_by' => $task->createdByAgent->name ?? $task->createdByUser->name ?? null,
-            'created_by_agent' => $task->created_by_agent_id !== null,
-            'goal' => $task->goal ? ['id' => $task->goal->id, 'title' => $task->goal->title] : null,
-            'messages_count' => $task->messages_count ?? null,
-            'last_activity_at' => $task->last_activity_at?->toIso8601String(),
-            'created_at' => $task->created_at->toIso8601String(),
-        ];
-    }
 
     /**
      * Choices for the new-task dialog and the properties panel.

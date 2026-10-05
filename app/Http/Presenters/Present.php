@@ -5,6 +5,7 @@ namespace App\Http\Presenters;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
+use App\Models\Task;
 
 /**
  * Shapes shared by several tenant console screens.
@@ -84,6 +85,34 @@ final class Present
             'execution_result' => $approval->execution_result,
             'created_at' => $approval->created_at->toIso8601String(),
             'can_decide' => $canDecide && $approval->status->value === 'pending',
+        ];
+    }
+
+    /**
+     * A task or conversation as a row (Tarefas, A minha caixa).
+     *
+     * @return array<string, mixed>
+     */
+    public static function task(Task $task): array
+    {
+        return [
+            'id' => $task->id,
+            'ref' => $task->identifier(),
+            'kind' => $task->kind->value,
+            'is_conversation' => $task->chat_key !== null,
+            'title' => $task->title,
+            'status' => $task->status->value,
+            'status_label' => $task->status->label(),
+            'priority' => $task->priority->value,
+            'priority_label' => $task->priority->label(),
+            'assignee' => $task->assigneeAgent ? ['id' => $task->assigneeAgent->id, 'name' => $task->assigneeAgent->name] : null,
+            'user' => $task->user?->name,
+            'created_by' => $task->createdByAgent->name ?? $task->createdByUser->name ?? null,
+            'created_by_agent' => $task->created_by_agent_id !== null,
+            'goal' => $task->goal ? ['id' => $task->goal->id, 'title' => $task->goal->title] : null,
+            'messages_count' => $task->messages_count ?? null,
+            'last_activity_at' => $task->last_activity_at?->toIso8601String(),
+            'created_at' => $task->created_at->toIso8601String(),
         ];
     }
 }

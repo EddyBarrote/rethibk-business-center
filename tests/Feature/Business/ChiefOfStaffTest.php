@@ -78,7 +78,7 @@ it('writes the daily briefing, delivers it by email and console, and links the d
 
     $director = asTenant($this->tenant, fn () => $this->director);
 
-    $this->actingAs($director, 'web')->get(tenantUrl($this->tenant, '/'))->assertOk()
+    $this->actingAs($director, 'web')->get(tenantUrl($this->tenant, 'painel'))->assertOk()
         ->assertInertia(fn ($page) => $page->component('Dashboard')->where('briefing.decisions_pending.0.link', '/contracts/1')->has('issues'));
 
     $briefing = asTenant($this->tenant, fn () => lastId(Briefing::class));

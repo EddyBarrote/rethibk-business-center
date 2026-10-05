@@ -18,7 +18,7 @@ it('redirects guests to the login page', function () {
 
 it('signs in with email and password', function () {
     $this->post(tenantUrl($this->tenant, 'login'), ['email' => 'ana@micomoc.test', 'password' => 'password'])
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('home'));
 
     $this->assertAuthenticatedAs($this->user);
 });
@@ -56,11 +56,13 @@ it('signs out', function () {
     $this->assertGuest();
 });
 
-it('renders the dashboard for signed-in users', function () {
+it('opens the personal desk for signed-in users, with the dashboard one click away', function () {
     $this->actingAs($this->user)
         ->get(tenantUrl($this->tenant, '/'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Dashboard')->where('auth.user.email', 'ana@micomoc.test'));
+        ->assertInertia(fn ($page) => $page->component('Home')->where('auth.user.email', 'ana@micomoc.test'));
+
+    $this->actingAs($this->user)->get(tenantUrl($this->tenant, 'painel'))->assertOk()->assertInertia(fn ($page) => $page->component('Dashboard'));
 });
 
 it('records when the user was last seen', function () {

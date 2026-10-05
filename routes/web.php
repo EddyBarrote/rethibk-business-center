@@ -14,6 +14,7 @@ use App\Http\Controllers\ConnectorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\GoalController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Knowledge\DomainController;
 use App\Http\Controllers\Knowledge\FolderController;
@@ -46,7 +47,8 @@ Route::get('login/logo', [LoginController::class, 'logo'])->name('login.logo');
 Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
-    Route::get('/', DashboardController::class)->name('dashboard');
+    Route::get('/', HomeController::class)->name('home');
+    Route::get('painel', DashboardController::class)->name('dashboard');
 
     Route::get('agents', [AgentController::class, 'index'])->name('agents.index');
     Route::get('agents/new', [AgentDefinitionController::class, 'create'])->name('agents.create');

@@ -97,7 +97,7 @@ export default function InboxIndex({ messages, filters, categories, mailboxes, d
         <AppLayout wide>
             <Head title="Caixa" />
             <PageHeader
-                title="Caixa de entrada"
+                title="Emails"
                 description="O correio das caixas dos agentes, já triado: categoria, resumo, prazo e a quem foi encaminhado."
             />
 

@@ -20,6 +20,7 @@ import {
     Library,
     LogOut,
     type LucideIcon,
+    Mail,
     Monitor,
     Moon,
     Palette,
@@ -86,15 +87,16 @@ interface NavItem {
 }
 
 const topNav: NavItem[] = [
-    { label: 'Painel', href: '/', icon: LayoutDashboard },
+    { label: 'A minha caixa', href: '/', icon: Inbox },
     { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
-    { label: 'Caixa de entrada', href: '/inbox', icon: Inbox },
+    { label: 'Emails', href: '/inbox', icon: Mail },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
     { label: 'Notificações', href: '/notifications', icon: Bell, badge: 'notifications' },
 ];
 
 const workNav: NavItem[] = [
     { label: 'Conversas', href: '/tasks?view=chats', icon: MessagesSquare },
+    { label: 'Painel', href: '/painel', icon: LayoutDashboard },
     { label: 'Objectivos', href: '/goals', icon: Target },
     { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Briefings', href: '/briefings', icon: FileText },
@@ -213,7 +215,15 @@ function AgentsGroup({ url }: { url: string }) {
                             className="h-8 rounded-lg text-sidebar-foreground/85"
                         >
                             {/* Grok-style: an agent in the sidebar is your conversation with it. */}
-                            <Link href={!agent.can_chat ? `/agents/${agent.id}` : agent.chat_id !== null ? `/tasks/${agent.chat_id}` : `/agents/${agent.id}/chat`}>
+                            <Link
+                                href={
+                                    !agent.can_chat
+                                        ? `/agents/${agent.id}`
+                                        : agent.chat_id !== null
+                                          ? `/tasks/${agent.chat_id}`
+                                          : `/agents/${agent.id}/chat`
+                                }
+                            >
                                 <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-4 rounded-[5px] text-[8px]" />
                                 <span className={cn(agent.status === 'suspended' && 'text-muted-foreground line-through')}>{agent.name}</span>
                                 {agent.running > 0 ? (
