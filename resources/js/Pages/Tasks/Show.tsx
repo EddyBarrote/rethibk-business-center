@@ -45,7 +45,7 @@ interface Props extends TaskFormOptions {
     children: TaskSummary[];
     runs: RunSummary[];
     working: RunSummary | null;
-    can: { reply: boolean; update: boolean };
+    can: { reply: boolean; update: boolean; manage_agent: boolean };
 }
 
 const NONE = 'none';
@@ -148,6 +148,11 @@ export default function TaskShow({ task, messages, children, runs, working, can,
                             {task.assignee && (
                                 <Link href={`/agents/${task.assignee.id}`} className="shrink-0 text-sm text-muted-foreground hover:text-foreground">
                                     Ver agente
+                                </Link>
+                            )}
+                            {task.assignee && can.manage_agent && (
+                                <Link href={`/agents/${task.assignee.id}/edit`} className="shrink-0 text-sm text-muted-foreground hover:text-foreground">
+                                    Editar agente
                                 </Link>
                             )}
                         </header>

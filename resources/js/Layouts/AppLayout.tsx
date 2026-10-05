@@ -27,6 +27,7 @@ import {
     Monitor,
     Moon,
     Palette,
+    Pencil,
     PlugZap,
     ShoppingCart,
     Sun,
@@ -61,6 +62,7 @@ import {
     SidebarInset,
     SidebarMenu,
     SidebarMenuBadge,
+    SidebarMenuAction,
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarProvider,
@@ -235,6 +237,13 @@ function AgentsGroup({ url }: { url: string }) {
                                 )}
                             </Link>
                         </SidebarMenuButton>
+                        {agent.can_manage && (
+                            <SidebarMenuAction asChild showOnHover>
+                                <Link href={`/agents/${agent.id}/edit`} title={`Editar ${agent.name}`} aria-label={`Editar ${agent.name}`}>
+                                    <Pencil />
+                                </Link>
+                            </SidebarMenuAction>
+                        )}
                     </SidebarMenuItem>
                 ))}
                 <SidebarMenuItem>

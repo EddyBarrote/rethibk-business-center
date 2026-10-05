@@ -77,7 +77,7 @@ class HandleInertiaRequests extends Middleware
      *
      * Each agent links to the person's one conversation with it, Grok-style.
      *
-     * @return list<array{id: int, name: string, avatar_url: string|null, status: string, running: int, chat_id: int|null, can_chat: bool, chat_waiting: bool}>
+     * @return list<array{id: int, name: string, avatar_url: string|null, status: string, running: int, chat_id: int|null, can_chat: bool, can_manage: bool, chat_waiting: bool}>
      */
     private function sidebarAgents(User $user): array
     {
@@ -101,6 +101,7 @@ class HandleInertiaRequests extends Middleware
                 'running' => (int) ($running[$agent->id] ?? 0),
                 'chat_id' => $chats[$agent->id]->id ?? null,
                 'can_chat' => $user->can('run', $agent),
+                'can_manage' => $user->can('manage', $agent),
                 'chat_waiting' => ($chats[$agent->id]->status ?? null) === TaskStatus::WaitingHuman,
             ])
             ->values()

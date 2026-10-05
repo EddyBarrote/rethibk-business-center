@@ -158,6 +158,19 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                     </TabsContent>
 
                     <TabsContent value="config" className="flex flex-col gap-8">
+                        {can.manage && (
+                            <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
+                                <p className="flex-1 text-sm text-muted-foreground">
+                                    Nome, personalidade, instruções (prompt), modelo, autonomia, capacidades e skills mudam-se na edição do agente.
+                                </p>
+                                <Button size="sm" asChild>
+                                    <Link href={`/agents/${agent.id}/edit`}>
+                                        <Pencil />
+                                        Editar agente
+                                    </Link>
+                                </Button>
+                            </div>
+                        )}
                         <Section title="Capacidades">
                             {capabilities.length === 0 ? (
                                 <EmptyState
@@ -251,7 +264,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                             <Section title="Gestão">
                                 <div className="flex flex-col gap-5 rounded-xl border bg-card p-5">
                                     <p className="text-xs text-muted-foreground">
-                                        A definição do agente é feita pela Rethink; aqui pode suspendê-lo e afectá-lo a pessoas.
+                                        Aqui pode suspendê-lo e afectá-lo a pessoas. Para mudar o prompt e o resto da definição, use «Editar».
                                     </p>
 
                                     {agent.status === 'active' ? (

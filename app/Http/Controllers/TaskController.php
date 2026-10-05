@@ -179,6 +179,7 @@ class TaskController extends Controller
             'can' => [
                 'reply' => $user->can('reply', $task),
                 'update' => $user->can('update', $task),
+                'manage_agent' => $task->assigneeAgent !== null && $user->can('manage', $task->assigneeAgent),
             ],
             ...$this->formOptions($user),
         ]);
