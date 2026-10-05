@@ -56,8 +56,7 @@ class TaskController extends Controller
         $query = $this->visible(Task::query(), $user)
             ->with(Present::TASK_RELATIONS)
             ->withCount('messages')
-            // A conversation nobody has written in yet is not work: it stays out of the lists.
-            ->where(fn (Builder $q) => $q->whereNot('kind', TaskKind::Chat)->orWhereHas('messages'))
+            ->tap($this->listed(...))
             ->when($view === 'mine', fn (Builder $q) => $q->open()->needing($user))
             ->when($view === 'all', fn (Builder $q) => $q->open()->where('kind', TaskKind::Task))
             ->when($view === 'chats', fn (Builder $q) => $q->where('kind', TaskKind::Chat)->whereNot('status', TaskStatus::Cancelled))
@@ -76,11 +75,23 @@ class TaskController extends Controller
             'tasks' => $query->limit(200)->get()->map(fn (Task $task) => [...Present::task($task), 'working' => isset($running[$task->id])]),
             'filters' => ['view' => $view, 'agent' => $filters['agent'] ?? null, 'goal' => $filters['goal'] ?? null, 'project' => $filters['project'] ?? null, 'q' => $filters['q'] ?? ''],
             'counts' => [
-                'mine' => $this->visible(Task::query(), $user)->open()->needing($user)->count(),
-                'waiting' => $this->visible(Task::query(), $user)->where('status', TaskStatus::WaitingHuman)->count(),
+                // Counted with the same rule as the list, so a tab never promises rows it does not show.
+                'mine' => $this->visible(Task::query(), $user)->tap($this->listed(...))->open()->needing($user)->count(),
+                'waiting' => $this->visible(Task::query(), $user)->tap($this->listed(...))->where('status', TaskStatus::WaitingHuman)->count(),
             ],
             ...$this->formOptions($user),
         ]);
+    }
+
+    /**
+     * A conversation nobody has written in yet is not work: it stays out of
+     * the lists and their counters.
+     *
+     * @param  Builder<Task>  $query
+     */
+    private function listed(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q->whereNot('kind', TaskKind::Chat)->orWhereHas('messages'));
     }
 
     public function store(Request $request, TaskThread $threads): RedirectResponse

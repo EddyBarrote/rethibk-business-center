@@ -104,7 +104,7 @@ Terceira passagem:
 Polimento final:
 
 23. **Cabeçalhos de tabela** sempre em minúsculas normais (`text-xs font-medium text-muted-foreground`), como o `ListHeader`.
-24. **Texto âmbar** sobre fundo claro usa `text-warning-strong` (5,3:1); o âmbar puro fica para ícones e pontos.
+24. **Texto âmbar** sobre fundo claro usa `text-warning-strong` (5,5:1 num cartão, 5,2:1 numa linha seleccionada); o âmbar puro fica para ícones e pontos.
 25. **Tabelas de markdown** viram cartões no telemóvel, como as outras (o `<Markdown>` etiqueta cada célula); o código
     em linha só parte depois de `. @ / _ -`.
 26. **Selecção em lote:** a barra "Aprovar n" fica presa no topo ao descer; no telemóvel aparece também em baixo,

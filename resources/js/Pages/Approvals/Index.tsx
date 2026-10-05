@@ -39,11 +39,16 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
     const reload = () => router.reload({ only: ['approvals', 'counts', 'auth'] });
 
     // Owners and admins hear the tenant channel; everyone hears their own.
-    useLive(tenant && auth.user?.permissions.includes('approvals.decide_all') ? `tenant.${tenant.id}.approvals` : null, ['ApprovalRequested', 'ApprovalDecided'], reload, {
-        only: ['approvals', 'counts', 'auth'],
-        poll: filters.status === 'pending',
-        intervalMs: 10000,
-    });
+    useLive(
+        tenant && auth.user?.permissions.includes('approvals.decide_all') ? `tenant.${tenant.id}.approvals` : null,
+        ['ApprovalRequested', 'ApprovalDecided'],
+        reload,
+        {
+            only: ['approvals', 'counts', 'auth'],
+            poll: filters.status === 'pending',
+            intervalMs: 10000,
+        },
+    );
     useLive(tenant && auth.user ? `tenant.${tenant.id}.user.${auth.user.id}` : null, ['ApprovalRequested'], reload);
 
     const pending = counts?.pending ?? auth.pending_approvals;
@@ -108,7 +113,13 @@ export default function ApprovalsIndex({ approvals, filters, counts }: Props) {
                                     : plural(selected.length, 'seleccionada', 'seleccionadas')}
                             </span>
                             <span className="hidden text-xs text-muted-foreground md:inline">· as do tecto absoluto decidem-se uma a uma</span>
-                            <Button size="sm" className="ml-auto" disabled={selected.length === 0 || approving} onClick={approveSelected}>
+                            {/* On a phone the bottom bar carries "Aprovar n" while rows are selected; one button is enough. */}
+                            <Button
+                                size="sm"
+                                className="ml-auto max-sm:hidden"
+                                disabled={selected.length === 0 || approving}
+                                onClick={approveSelected}
+                            >
                                 {approving ? <Loader2 className="animate-spin" /> : <CheckCheck />}
                                 Aprovar {selected.length > 0 ? selected.length : ''}
                             </Button>

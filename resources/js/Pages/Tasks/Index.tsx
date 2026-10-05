@@ -430,9 +430,7 @@ function Count({ value, warn = false }: { value: number; warn?: boolean }) {
         <span
             className={cn(
                 'inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 font-mono text-[10px] tabular-nums',
-                warn
-                    ? 'bg-status-warning/20 text-warning-strong'
-                    : 'bg-muted text-muted-foreground',
+                warn ? 'bg-status-warning/20 text-warning-strong' : 'bg-muted text-muted-foreground',
             )}
         >
             {value}
@@ -486,7 +484,10 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
             )}
             <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
                 {task.messages_count !== null && task.messages_count > 0 && (
-                    <span className="hidden items-center gap-1 tabular-nums sm:inline-flex" title={`${task.messages_count} mensagens`}>
+                    <span
+                        className="hidden items-center gap-1 tabular-nums sm:inline-flex"
+                        title={`${task.messages_count} mensagens na conversa, das pessoas e do agente`}
+                    >
                         <MessageSquare className="size-3.5" />
                         {task.messages_count}
                     </span>

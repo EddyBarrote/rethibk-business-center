@@ -88,3 +88,15 @@ it('keeps chat turns out of the work list and groups them under their conversati
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'runs?origin=tarefa'))->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page->where('runs.total', 1));
 });
+
+it('counts the task tabs with the same rule as the list, leaving out conversations nobody wrote in', function () {
+    $owner = asTenant($this->tenant, fn () => $this->owner);
+    asTenant($this->tenant, function () use ($owner) {
+        $agent = Agent::query()->first();
+        Task::factory()->create(['kind' => 'chat', 'assignee_agent_id' => $agent->id, 'user_id' => $owner->id, 'status' => 'in_progress']);
+        Task::factory()->create(['kind' => 'task', 'assignee_agent_id' => $agent->id, 'user_id' => $owner->id, 'status' => 'in_progress']);
+    });
+
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'tasks'))->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('counts.mine', fn ($count) => $count === count($page->toArray()['props']['tasks'])));
+});

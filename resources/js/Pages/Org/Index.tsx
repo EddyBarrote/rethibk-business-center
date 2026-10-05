@@ -360,7 +360,7 @@ function OrgCard({ member, compact = false }: { member: Member; compact?: boolea
                 {isAgent ? (
                     member.autonomy_level !== null && <AutonomyBadge level={member.autonomy_level} />
                 ) : (
-                    <span className="rounded bg-muted px-1.5 text-[10px] text-muted-foreground">pessoa</span>
+                    <span className="rounded bg-muted px-1.5 text-xs text-muted-foreground">pessoa</span>
                 )}
                 <Counters member={member} />
             </div>
@@ -390,7 +390,7 @@ function OrgRow({ member }: { member: Member }) {
                         ) : (
                             <span className="truncate text-sm font-medium">{member.name}</span>
                         )}
-                        {!isAgent && <span className="rounded bg-muted px-1.5 text-[10px] text-muted-foreground">pessoa</span>}
+                        {!isAgent && <span className="rounded bg-muted px-1.5 text-xs text-muted-foreground">pessoa</span>}
                     </div>
                     <p className="line-clamp-2 text-xs text-muted-foreground">
                         {[member.title, member.department].filter(Boolean).join(' · ') || 'Sem função definida'}

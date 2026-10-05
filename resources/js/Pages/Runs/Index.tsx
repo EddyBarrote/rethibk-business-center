@@ -118,7 +118,10 @@ export default function RunsIndex({
                                     href={`/tasks/${group.task_id}`}
                                     leading={<AgentAvatar name={group.agent ?? 'Agente'} />}
                                     title={`Conversa com ${group.agent ?? 'agente'}`}
-                                    subtitle={[group.person && `com ${group.person}`, plural(group.turns, 'mensagem', 'mensagens')]
+                                    subtitle={[
+                                        group.person && `com ${group.person}`,
+                                        plural(group.turns, 'resposta do agente', 'respostas do agente'),
+                                    ]
                                         .filter(Boolean)
                                         .join(' · ')}
                                     meta={

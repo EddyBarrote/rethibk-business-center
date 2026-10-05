@@ -309,7 +309,7 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                                                 {resultLabel[call.result]}
                                             </StatusBadge>
                                         </TableCell>
-                                        <TableCell data-label="Duração" className="px-4 py-2 text-right font-mono text-xs tabular-nums">
+                                        <TableCell data-label="Duração" className="px-4 py-2 text-right text-xs tabular-nums">
                                             {call.duration_ms !== null ? `${call.duration_ms} ms` : '—'}
                                         </TableCell>
                                     </TableRow>
