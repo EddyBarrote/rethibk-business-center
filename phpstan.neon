@@ -1,0 +1,11 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Section 15 of docs/SPEC.md: Larastan level 6 or higher.
+    level: 6
+    paths:
+        - app
+        - config
+        - database
+        - routes

@@ -1,0 +1,239 @@
+<?php
+
+namespace App\Ai\Runs;
+
+use App\Ai\Agents\GenericAgent;
+use App\Ai\Agents\InstructionComposer;
+use App\Ai\Agents\ToolResolver;
+use App\Ai\Budget\BudgetExceeded;
+use App\Ai\Budget\BudgetGuard;
+use App\Ai\Budget\Pricing;
+use App\Ai\Capabilities\CapabilityContext;
+use App\Enums\AuditResult;
+use App\Enums\RunStatus;
+use App\Enums\StepType;
+use App\Enums\TriggerType;
+use App\Events\AgentRunFinished;
+use App\Events\AgentRunStarted;
+use App\Events\TaskReplyStreaming;
+use App\Jobs\RunAgent;
+use App\Models\Agent;
+use App\Models\AgentRun;
+use App\Models\AuditLog;
+use App\Models\User;
+use App\Tasks\TaskThread;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use Laravel\Ai\Events\StepCompleted;
+use Laravel\Ai\Responses\StreamedAgentResponse;
+use Laravel\Ai\Streaming\Events\StreamStart;
+use Laravel\Ai\Streaming\Events\TextDelta;
+use Laravel\Ai\Streaming\Events\ToolCall;
+use Throwable;
+
+/**
+ * The only place agents run (section 6.4): creates the run, builds the
+ * agent from its configuration, runs it, records steps, tokens and cost,
+ * enforces the budget, and closes the run.
+ */
+final class AgentRunner
+{
+    /**
+     * Cost of the run in progress, per run id, fed by StepCompleted.
+     *
+     * @var array<int, float>
+     */
+    private array $runCosts = [];
+
+    public function __construct(
+        private readonly InstructionComposer $composer,
+        private readonly ToolResolver $tools,
+        private readonly RunRecorder $recorder,
+        private readonly BudgetGuard $budget,
+        private readonly Pricing $pricing,
+        private readonly TaskThread $threads,
+    ) {}
+
+    /**
+     * Queue a run (agents never run inside an HTTP request, section 3.2).
+     */
+    public function dispatch(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null, ?int $taskId = null): AgentRun
+    {
+        $run = $this->create($agent, $input, $trigger, $requestedBy, $source, $taskId);
+
+        RunAgent::dispatch($run->tenant_id, $run->id)
+            ->onQueue((string) config('agents.queues.'.$trigger->value, 'agents'));
+
+        return $run;
+    }
+
+    /**
+     * Record a queued run without dispatching it.
+     */
+    public function create(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null, ?int $taskId = null): AgentRun
+    {
+        return AgentRun::query()->create([
+            'agent_id' => $agent->id,
+            'task_id' => $taskId,
+            'trigger_type' => $trigger,
+            'trigger_source_type' => $source?->getMorphClass(),
+            'trigger_source_id' => $source?->getKey(),
+            'requested_by_user_id' => $requestedBy?->id,
+            'status' => RunStatus::Queued,
+            'input' => $input,
+        ]);
+    }
+
+    public function run(AgentRun $run): AgentRun
+    {
+        if ($run->status !== RunStatus::Queued) {
+            return $run;
+        }
+
+        $agent = $run->agent;
+        $started = hrtime(true);
+
+        $run->forceFill(['status' => RunStatus::Running, 'started_at' => now()])->save();
+        AgentRunStarted::live($run);
+
+        try {
+            if (! $agent->isActive()) {
+                throw new BudgetExceeded('agent', "O agente está {$agent->status->label()}: não pode correr.");
+            }
+
+            $this->budget->assertCanRun($agent);
+            $this->assertProviderConfigured($agent);
+
+            $context = new CapabilityContext($agent, $run);
+            $generic = new GenericAgent($agent, $run, $this->composer->for($agent, $run), $this->tools->for($context), $this->threads->history($run));
+
+            $this->runCosts[$run->id] = 0.0;
+            // In a task thread the answer streams to the console as it is written.
+            $response = $run->task_id !== null ? $this->streamToThread($generic, $run) : $generic->prompt($run->input);
+
+            $provider = $response->meta->provider;
+            $model = $response->meta->model;
+            $input = $response->usage->inputTokens;
+            $output = $response->usage->outputTokens;
+
+            $this->recorder->step($run, StepType::Message, ['text' => $response->text]);
+
+            $run->forceFill([
+                'status' => $run->approvals()->pending()->exists() ? RunStatus::AwaitingApproval : RunStatus::Completed,
+                'output' => ['text' => $response->text],
+                'provider' => $provider,
+                'model' => $model,
+                'input_tokens' => $input,
+                'output_tokens' => $output,
+                'cost_usd' => $this->pricing->cost($provider, $model, $input, $output),
+            ]);
+        } catch (Throwable $e) {
+            $message = $e instanceof BudgetExceeded || $e instanceof MissingProviderKey ? $e->getMessage() : 'O agente falhou: '.Str::limit($e->getMessage(), 500);
+
+            $this->recorder->step($run, StepType::Error, ['message' => $message]);
+
+            $run->forceFill([
+                'status' => RunStatus::Failed,
+                'error' => $message,
+                'cost_usd' => $this->runCosts[$run->id] ?? 0.0,
+            ]);
+
+            if (! $e instanceof BudgetExceeded && ! $e instanceof MissingProviderKey) {
+                report($e);
+            }
+        } finally {
+            unset($this->runCosts[$run->id]);
+        }
+
+        $run->forceFill([
+            'duration_ms' => (int) round((hrtime(true) - $started) / 1_000_000),
+            'finished_at' => $run->status === RunStatus::AwaitingApproval ? null : now(),
+        ])->save();
+
+        AuditLog::record($agent, 'agent.run', [
+            'agent_run_id' => $run->id,
+            'trigger' => $run->trigger_type->value,
+            'status' => $run->status->value,
+            'cost_usd' => $run->cost_usd,
+        ], $run->status === RunStatus::Failed ? AuditResult::Error : AuditResult::Ok, $run);
+
+        $this->budget->afterRun($run);
+
+        if ($run->task_id !== null) {
+            $this->threads->recordReply($run);
+        }
+
+        AgentRunFinished::live($run);
+
+        return $run;
+    }
+
+    /**
+     * Per-run cap (section 14.3): checked after every model step, so a run
+     * that loops on tools is stopped mid-way.
+     */
+    /**
+     * A clear message instead of the provider's 401/403 when the key is missing.
+     */
+    private function assertProviderConfigured(Agent $agent): void
+    {
+        $provider = $agent->provider ?: (string) config('ai.default');
+        $config = config("ai.providers.{$provider}");
+
+        if (GenericAgent::isFaked() || ! is_array($config) || ! array_key_exists('key', $config) || filled($config['key'])) {
+            return;
+        }
+
+        throw new MissingProviderKey("Falta a chave da API do provedor {$provider} no ficheiro .env (por exemplo GEMINI_API_KEY ou ANTHROPIC_API_KEY). Depois de a pôr, reinicie o composer dev.");
+    }
+
+    /**
+     * Stream the model's answer and broadcast it to the task thread a few times
+     * a second, with the tool in use in between, so people see it being written.
+     */
+    private function streamToThread(GenericAgent $generic, AgentRun $run): StreamedAgentResponse
+    {
+        $stream = $generic->stream($run->input);
+        $final = null;
+        $stream->then(function (StreamedAgentResponse $response) use (&$final): void {
+            $final = $response;
+        });
+
+        $text = '';
+        $sentAt = 0.0;
+
+        foreach ($stream as $event) {
+            if ($event instanceof StreamStart && trim($text) !== '') {
+                $text = rtrim($text)."\n\n";
+            } elseif ($event instanceof TextDelta) {
+                $text .= $event->delta;
+
+                if (microtime(true) - $sentAt >= 0.2) {
+                    TaskReplyStreaming::live($run, $text);
+                    $sentAt = microtime(true);
+                }
+            } elseif ($event instanceof ToolCall) {
+                TaskReplyStreaming::live($run, $text, $event->toolCall->name);
+                $sentAt = microtime(true);
+            }
+        }
+
+        TaskReplyStreaming::live($run, $text);
+
+        return $final ?? throw new \RuntimeException('O modelo terminou sem resposta.');
+    }
+
+    public function onStepCompleted(StepCompleted $event): void
+    {
+        if (! $event->agent instanceof GenericAgent || ! isset($this->runCosts[$event->agent->run->id])) {
+            return;
+        }
+
+        $usage = $event->response->usage;
+        $this->runCosts[$event->agent->run->id] += $this->pricing->cost(
+            $event->provider->name(), $event->model, $usage->inputTokens, $usage->outputTokens,
+        );
+
+        $this->budget->assertRunWithinCap($this->runCosts[$event->agent->run->id]);
+    }
+}

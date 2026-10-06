@@ -1,0 +1,53 @@
+<?php
+
+use App\Http\Controllers\Admin\AgentController;
+use App\Http\Controllers\Admin\AgentRoutineController;
+use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\CapabilityController;
+use App\Http\Controllers\Admin\ForgotPasswordController;
+use App\Http\Controllers\Admin\PlatformConnectorController;
+use App\Http\Controllers\Admin\PlatformSkillController;
+use App\Http\Controllers\Admin\ResetPasswordController;
+use App\Http\Controllers\Admin\TenantController;
+use Illuminate\Support\Facades\Route;
+
+// Super admin console (docs/DECISOES.md), on config('tenancy.admin_domain').
+// Routes under {tenant} run inside that tenant (SetTenantFromRoute).
+
+Route::middleware('guest:admin')->group(function () {
+    Route::get('login', [AuthController::class, 'create'])->name('login');
+    Route::post('login', [AuthController::class, 'store'])->middleware('throttle:login');
+    Route::get('forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
+    Route::post('forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:login')->name('password.email');
+    Route::get('reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
+    Route::post('reset-password', [ResetPasswordController::class, 'store'])->middleware('throttle:login')->name('password.store');
+});
+
+Route::middleware('auth:admin')->group(function () {
+    Route::post('logout', [AuthController::class, 'destroy'])->name('logout');
+    Route::redirect('/', '/tenants');
+
+    Route::resource('tenants', TenantController::class)->only(['index', 'create', 'store', 'show', 'update']);
+
+    // Global skills and connectors, offered to every tenant (docs/CAPACIDADES.md).
+    Route::resource('skills', PlatformSkillController::class)->except(['show']);
+    Route::post('skills/{skill}/files', [PlatformSkillController::class, 'storeFile'])->name('skills.files.store');
+    Route::delete('skills/{skill}/files/{file}', [PlatformSkillController::class, 'destroyFile'])->name('skills.files.destroy');
+    Route::get('connectors', [PlatformConnectorController::class, 'index'])->name('connectors.index');
+    Route::post('connectors', [PlatformConnectorController::class, 'store'])->name('connectors.store');
+    Route::put('connectors/{connector}', [PlatformConnectorController::class, 'update'])->name('connectors.update');
+    Route::post('connectors/{connector}/test', [PlatformConnectorController::class, 'test'])->middleware('throttle:10,1')->name('connectors.test');
+    Route::delete('connectors/{connector}', [PlatformConnectorController::class, 'destroy'])->name('connectors.destroy');
+
+    Route::prefix('tenants/{tenant}')->name('tenants.')->group(function () {
+        Route::post('agents/templates', [AgentController::class, 'installTemplates'])->name('agents.templates');
+        Route::resource('agents', AgentController::class)->only(['create', 'store', 'edit', 'update']);
+        Route::get('agents/{agent}/avatar', [AgentController::class, 'avatar'])->name('agents.avatar');
+        Route::put('agents/{agent}/mailbox', [AgentController::class, 'updateMailbox'])->name('agents.mailbox');
+        Route::resource('agents.routines', AgentRoutineController::class)->only(['store', 'update', 'destroy']);
+
+        Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');
+        Route::put('capabilities/{capability}', [CapabilityController::class, 'update'])->name('capabilities.update');
+        Route::post('capabilities/sync', [CapabilityController::class, 'sync'])->middleware('throttle:10,1')->name('capabilities.sync');
+    });
+});

@@ -1,0 +1,510 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/outfit';
+@import '@fontsource-variable/geist-mono';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme "Claude +" from tweakcn (npx shadcn add https://tweakcn.com/r/themes/cmdght103000n04lh3e2ae93r).
+ * Tailwind v4 keeps design tokens in CSS (there is no tailwind.config.js).
+ * The status tokens below are ours: one hue per state, used by every badge,
+ * dot and chart so an operator learns the vocabulary once.
+ */
+:root {
+    --status-running: oklch(0.6 0.15 250);
+    --status-success: oklch(0.6 0.14 155);
+    --status-warning: oklch(0.72 0.15 75);
+    --status-danger: oklch(0.58 0.2 27);
+    --status-idle: oklch(0.65 0.01 95);
+
+    --radius: 1rem;
+    --background: oklch(0.9818 0.0054 95.0986);
+    --foreground: oklch(0.3438 0.0269 95.7226);
+    --card: oklch(0.9665 0.0067 97.3521);
+    --card-foreground: oklch(0.1908 0.0020 106.5859);
+    --popover: oklch(1.0000 0 0);
+    --popover-foreground: oklch(0.2671 0.0196 98.9390);
+    /* Darkened from L 0.6171 (#C96442, 3.9:1) so white button text reaches 4.6:1 (WCAG AA). */
+    --primary: oklch(0.575 0.1375 39.0427);
+    --primary-foreground: oklch(1.0000 0 0);
+    --secondary: oklch(0.9245 0.0138 92.9892);
+    --secondary-foreground: oklch(0.4334 0.0177 98.6048);
+    --muted: oklch(0.9341 0.0153 90.2390);
+    --muted-foreground: oklch(0.5341 0.0078 97.4503);
+    --accent: oklch(0.9245 0.0138 92.9892);
+    --accent-foreground: oklch(0.2671 0.0196 98.9390);
+    /* The theme ships a near-black destructive; errors need to read as errors. */
+    --destructive: oklch(0.577 0.215 27.3);
+    --border: oklch(0.8847 0.0069 97.3627);
+    --input: oklch(0.7621 0.0156 98.3528);
+    --ring: oklch(0.575 0.1375 39.0427);
+    --sidebar: oklch(0.9663 0.0080 98.8792);
+    --sidebar-foreground: oklch(0.3590 0.0051 106.6524);
+    --sidebar-accent: oklch(0.9245 0.0138 92.9892);
+    --sidebar-accent-foreground: oklch(0.3250 0 0);
+    --sidebar-border: oklch(0.9401 0 0);
+    --destructive-foreground: oklch(1.0000 0 0);
+    --chart-1: oklch(0.5583 0.1276 42.9956);
+    --chart-2: oklch(0.6898 0.1581 290.4107);
+    --chart-3: oklch(0.8816 0.0276 93.1280);
+    --chart-4: oklch(0.8822 0.0403 298.1792);
+    --chart-5: oklch(0.5608 0.1348 42.0584);
+    --sidebar-primary: oklch(0.575 0.1375 39.0427);
+    --sidebar-primary-foreground: oklch(0.9881 0 0);
+    --sidebar-ring: oklch(0.7731 0 0);
+    --font-sans: 'Outfit Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+    --shadow-color: oklch(0 0 0);
+    --shadow-opacity: 0.1;
+    --shadow-blur: 3px;
+    --shadow-spread: 0px;
+    --shadow-offset-x: 0;
+    --shadow-offset-y: 1px;
+    --letter-spacing: 0em;
+    --spacing: 0.25rem;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+    --tracking-normal: 0em;
+}
+
+.dark {
+    --status-running: oklch(0.7 0.14 250);
+    --status-success: oklch(0.72 0.15 155);
+    --status-warning: oklch(0.8 0.14 80);
+    --status-danger: oklch(0.68 0.19 25);
+    --status-idle: oklch(0.6 0.01 95);
+    --background: oklch(0.2679 0.0036 106.6427);
+    --foreground: oklch(0.9576 0.0027 106.4494);
+    --card: oklch(0.2928 0.0018 106.5092);
+    --card-foreground: oklch(0.9818 0.0054 95.0986);
+    --popover: oklch(0.3085 0.0035 106.6039);
+    --popover-foreground: oklch(0.9211 0.0040 106.4781);
+    --primary: oklch(0.6724 0.1308 38.7559);
+    --primary-foreground: oklch(0.1908 0.0020 106.5859);
+    --secondary: oklch(0.9818 0.0054 95.0986);
+    --secondary-foreground: oklch(0.3085 0.0035 106.6039);
+    --muted: oklch(0.2213 0.0038 106.7070);
+    --muted-foreground: oklch(0.7713 0.0169 99.0657);
+    --accent: oklch(0.2130 0.0078 95.4245);
+    --accent-foreground: oklch(0.9663 0.0080 98.8792);
+    --destructive: oklch(0.6368 0.2078 25.3313);
+    --border: oklch(0.3618 0.0101 106.8928);
+    --input: oklch(0.4336 0.0113 100.2195);
+    --ring: oklch(0.6724 0.1308 38.7559);
+    --sidebar: oklch(0.2357 0.0024 67.7077);
+    --sidebar-foreground: oklch(0.8074 0.0142 93.0137);
+    --sidebar-accent: oklch(0.1680 0.0020 106.6177);
+    --sidebar-accent-foreground: oklch(0.8074 0.0142 93.0137);
+    --sidebar-border: oklch(0.3618 0.0101 106.8928);
+    --destructive-foreground: oklch(1.0000 0 0);
+    --chart-1: oklch(0.5583 0.1276 42.9956);
+    --chart-2: oklch(0.6898 0.1581 290.4107);
+    --chart-3: oklch(0.2130 0.0078 95.4245);
+    --chart-4: oklch(0.3074 0.0516 289.3230);
+    --chart-5: oklch(0.5608 0.1348 42.0584);
+    --radius: 1rem;
+    --sidebar-primary: oklch(0.3250 0 0);
+    --sidebar-primary-foreground: oklch(0.9881 0 0);
+    --sidebar-ring: oklch(0.7731 0 0);
+    --font-sans: 'Outfit Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+    --shadow-color: oklch(0 0 0);
+    --shadow-opacity: 0.1;
+    --shadow-blur: 3px;
+    --shadow-spread: 0px;
+    --shadow-offset-x: 0;
+    --shadow-offset-y: 1px;
+    --letter-spacing: 0em;
+    --spacing: 0.25rem;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+}
+
+@theme inline {
+    --font-sans: 'Outfit Variable', ui-sans-serif, system-ui, sans-serif;
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-status-running: var(--status-running);
+    --color-status-success: var(--status-success);
+    --color-status-warning: var(--status-warning);
+    --color-status-danger: var(--status-danger);
+    --color-status-idle: var(--status-idle);
+    --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --radius: 1rem;
+    --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+    --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+    --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+    --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+    --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+    --tracking-normal: var(--tracking-normal);
+    --shadow-2xl: var(--shadow-2xl);
+    --shadow-xl: var(--shadow-xl);
+    --shadow-lg: var(--shadow-lg);
+    --shadow-md: var(--shadow-md);
+    --shadow: var(--shadow);
+    --shadow-sm: var(--shadow-sm);
+    --shadow-xs: var(--shadow-xs);
+    --shadow-2xs: var(--shadow-2xs);
+    --spacing: var(--spacing);
+    --letter-spacing: var(--letter-spacing);
+    --shadow-offset-y: var(--shadow-offset-y);
+    --shadow-offset-x: var(--shadow-offset-x);
+    --shadow-spread: var(--shadow-spread);
+    --shadow-blur: var(--shadow-blur);
+    --shadow-opacity: var(--shadow-opacity);
+    --color-shadow-color: var(--shadow-color);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        letter-spacing: var(--tracking-normal);
+    }
+}
+@layer utilities {
+    /*
+     * Amber text on the light theme: 5.5:1 on a card and 5.2:1 on a selected (primary-tinted) row, measured on the
+     * rendered colours (plain amber is about 2:1). The dark theme keeps the amber itself.
+     */
+    .text-warning-strong {
+        color: oklch(0.5 0.11 75);
+    }
+
+    .dark .text-warning-strong {
+        color: var(--status-warning);
+    }
+
+    /* Machine values (ids, costs, tokens, timestamps) look machine-made. */
+    .tabular {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+/*
+ * The browser draws its own arrow on a <select>, different per OS and theme.
+ * NativeSelect hides it (appearance-none) and draws the same chevron as the
+ * shadcn Select, in the muted foreground of each theme.
+ */
+@layer components {
+    .native-select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858279' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: right 0.6rem center;
+        background-repeat: no-repeat;
+        background-size: 1rem;
+    }
+
+    .native-select option {
+        background-color: var(--popover);
+        color: var(--popover-foreground);
+    }
+
+    .dark .native-select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3afa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
+}
+
+/*
+ * Tables that turn into cards on a phone (class "table-stack" on <Table>).
+ * Below 640 px the header hides, each row becomes a card and each cell a
+ * "label · value" line, the label read from the cell's data-label. The first
+ * cell (the name) and cells without a label take the whole line. Unlayered on
+ * purpose: it must win over the cells' padding and nowrap utilities.
+ */
+@media (width < 40rem) {
+    .table-stack thead {
+        display: none;
+    }
+
+    .table-stack tbody tr {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .table-stack tbody td {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0;
+        min-width: 0;
+        text-align: right;
+        white-space: normal;
+    }
+
+    .table-stack tbody td[data-label]::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        color: var(--muted-foreground);
+        font-family: var(--font-sans);
+        letter-spacing: var(--tracking-normal);
+        font-size: 0.75rem;
+        font-weight: 400;
+        text-align: left;
+    }
+
+    .table-stack tbody td:not([data-label]) {
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    .table-stack tbody td[data-actions] {
+        justify-content: flex-end;
+        margin-top: 0.125rem;
+    }
+
+    .table-stack tbody td[data-empty] {
+        display: none;
+    }
+
+    /* One line between cards; none between the lines of a card (markdown tables draw cell borders). */
+    .table-stack tbody td {
+        border-width: 0;
+    }
+
+    .table-stack tbody tr {
+        border-bottom: 1px solid var(--border);
+    }
+
+    .table-stack tbody tr:last-child {
+        border-bottom: 0;
+    }
+}
+
+/*
+ * A row of tabs or chips that scrolls sideways on a phone: the edge fades so
+ * it reads as "there is more", instead of a word cut in half.
+ */
+.scroll-fade {
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+}
+
+.scroll-fade::-webkit-scrollbar {
+    display: none;
+}
+
+@media (width >= 40rem) {
+    .scroll-fade {
+        mask-image: none;
+    }
+}
+
+/*
+ * Organigrama: a top-down tree drawn with borders. Each <ul> of reports hangs
+ * from its manager's card by a vertical line; each <li> draws its half of the
+ * horizontal bar and the drop to its own card. A column of leaves
+ * (.org-leaves) hangs from the left of its manager's card instead.
+ */
+.org-tree ul {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    padding-top: 1.25rem;
+}
+
+.org-tree > ul {
+    padding-top: 0;
+}
+
+.org-tree li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.25rem 0.25rem 0;
+}
+
+.org-tree > ul > li {
+    padding-top: 0;
+}
+
+.org-tree li::before,
+.org-tree li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 50%;
+    width: 50%;
+    height: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.org-tree li::after {
+    right: auto;
+    left: 50%;
+    border-left: 1px solid var(--border);
+}
+
+.org-tree li:only-child::before {
+    display: none;
+}
+
+.org-tree li:only-child::after {
+    border-top: 0;
+}
+
+.org-tree li:first-child::before,
+.org-tree li:last-child::after {
+    border-top: 0;
+}
+
+.org-tree li:last-child::before {
+    border-right: 1px solid var(--border);
+    border-top-right-radius: 0.5rem;
+}
+
+.org-tree li:first-child::after {
+    border-top-left-radius: 0.5rem;
+}
+
+.org-tree li:last-child:not(:only-child)::after {
+    border-left: 0;
+}
+
+.org-tree > ul > li::before,
+.org-tree > ul > li::after {
+    display: none;
+}
+
+.org-tree ul ul::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 1.25rem;
+    border-left: 1px solid var(--border);
+}
+
+.org-leaves {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-left: 1rem;
+    padding-right: 0.25rem;
+}
+
+.org-leaves > * {
+    position: relative;
+    align-self: flex-end;
+}
+
+.org-leaves > *::before {
+    content: '';
+    position: absolute;
+    top: -0.5rem;
+    left: -0.75rem;
+    width: 0.75rem;
+    height: calc(50% + 0.5rem);
+    border-bottom: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    border-bottom-left-radius: 0.375rem;
+}
+
+/* The first leaf reaches up past the fold button (1.25rem) to its manager's card. */
+.org-leaves > :first-child::before {
+    top: -2rem;
+    height: calc(50% + 2rem);
+}
+
+.org-leaves > :not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    bottom: -0.5rem;
+    left: -0.75rem;
+    border-left: 1px solid var(--border);
+}
+
+/* An empty checkbox in the dark theme needs a visible edge: shadcn's input border almost disappears on the card. */
+.dark [data-slot='checkbox'][data-state='unchecked'] {
+    border-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+}
+
+/* More than three leaves: a two-column block hanging from the fold button. */
+.org-group {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.875rem;
+}
+
+.org-group::before {
+    content: '';
+    position: absolute;
+    top: calc(-0.75rem - 1px);
+    left: 50%;
+    height: 0.75rem;
+    border-left: 1px solid var(--border);
+}

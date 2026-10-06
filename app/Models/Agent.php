@@ -1,0 +1,183 @@
+<?php
+
+namespace App\Models;
+
+use App\Concerns\BelongsToTenant;
+use App\Enums\AgentStatus;
+use App\Enums\AutonomyLevel;
+use Database\Factories\AgentFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+
+/**
+ * A generic agent (section 5.2, adapted in docs/DECISOES.md): everything that
+ * makes it a "Finance agent" or a "Triage agent" is configuration.
+ *
+ * @property int $id
+ * @property int $tenant_id
+ * @property string $key
+ * @property string $name
+ * @property string|null $title
+ * @property string|null $description
+ * @property string|null $personality
+ * @property string|null $instructions
+ * @property int|null $department_id
+ * @property int|null $reports_to_user_id
+ * @property int|null $reports_to_agent_id
+ * @property AgentStatus $status
+ * @property string|null $suspended_reason
+ * @property AutonomyLevel $autonomy_level
+ * @property string|null $provider
+ * @property string|null $model
+ * @property float|null $temperature
+ * @property int|null $max_tokens
+ * @property int|null $max_steps
+ * @property array<string, mixed>|null $settings
+ * @property int|null $created_by_admin_id
+ * @property int|null $created_by_user_id
+ * @property string|null $avatar_path
+ * @property Carbon $created_at
+ */
+#[Fillable([
+    'key', 'name', 'title', 'description', 'personality', 'instructions', 'department_id', 'reports_to_user_id', 'reports_to_agent_id',
+    'status', 'suspended_reason', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps', 'settings', 'avatar_path',
+])]
+class Agent extends Model
+{
+    /** @use HasFactory<AgentFactory> */
+    use BelongsToTenant, HasFactory;
+
+    public function isActive(): bool
+    {
+        return $this->status === AgentStatus::Active;
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function active(Builder $query): void
+    {
+        $query->where('status', AgentStatus::Active);
+    }
+
+    /**
+     * @return BelongsTo<Department, $this>
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function reportsTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reports_to_user_id');
+    }
+
+    /**
+     * @return BelongsToMany<User, $this, AgentAssignment>
+     */
+    public function assignees(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'agent_assignments')
+            ->using(AgentAssignment::class)
+            ->withPivot(['id', 'tenant_id', 'role'])
+            ->withTimestamps();
+    }
+
+    /**
+     * @return BelongsToMany<Capability, $this, AgentCapability>
+     */
+    public function capabilities(): BelongsToMany
+    {
+        return $this->belongsToMany(Capability::class)
+            ->using(AgentCapability::class)
+            ->withPivot(['id', 'tenant_id', 'enabled', 'config'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Instruction packages (docs/CAPACIDADES.md), loaded when they apply.
+     *
+     * @return BelongsToMany<Skill, $this, AgentSkill>
+     */
+    public function skills(): BelongsToMany
+    {
+        return $this->belongsToMany(Skill::class)
+            ->using(AgentSkill::class)
+            ->withPivot(['id', 'tenant_id'])
+            ->withTimestamps();
+    }
+
+    /**
+     * The photo, or null for initials. Served by AgentAvatarController.
+     */
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_path === null ? null : '/agents/'.$this->id.'/avatar?v='.substr(md5($this->avatar_path), 0, 8);
+    }
+
+    /**
+     * The agent above this one in the org chart.
+     *
+     * @return BelongsTo<Agent, $this>
+     */
+    public function reportsToAgent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'reports_to_agent_id');
+    }
+
+    /**
+     * @return HasMany<Agent, $this>
+     */
+    public function directReports(): HasMany
+    {
+        return $this->hasMany(Agent::class, 'reports_to_agent_id');
+    }
+
+    /**
+     * @return HasMany<Task, $this>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assignee_agent_id');
+    }
+
+    /**
+     * @return HasMany<AgentRoutine, $this>
+     */
+    public function routines(): HasMany
+    {
+        return $this->hasMany(AgentRoutine::class);
+    }
+
+    /**
+     * @return HasMany<AgentRun, $this>
+     */
+    public function runs(): HasMany
+    {
+        return $this->hasMany(AgentRun::class);
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'status' => AgentStatus::class,
+            'autonomy_level' => AutonomyLevel::class,
+            'temperature' => 'float',
+            'max_tokens' => 'integer',
+            'max_steps' => 'integer',
+            'settings' => 'array',
+        ];
+    }
+}
