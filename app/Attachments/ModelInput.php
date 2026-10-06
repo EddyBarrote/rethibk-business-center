@@ -51,7 +51,7 @@ final class ModelInput
             if ($this->readsNatively($provider, $attachment->mimeType()) && $attachment->sizeBytes() <= $budget) {
                 $files[] = $this->file($kind, $attachment);
                 $budget -= $attachment->sizeBytes();
-                $lines[] = "{$header} — segue em ficheiro]";
+                $lines[] = "{$header} — segue em ficheiro: vê-o ou ouve-o directamente, sem files.read]";
 
                 continue;
             }

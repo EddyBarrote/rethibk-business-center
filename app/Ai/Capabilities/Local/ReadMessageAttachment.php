@@ -33,7 +33,7 @@ final class ReadMessageAttachment extends LocalCapability
 
     public function description(): string
     {
-        return 'Lê o texto de um anexo desta conversa pelo id (anexo #id): documentos, imagens com texto, transcrição de áudio. Para documentos longos, lê por partes com offset.';
+        return 'Lê o texto de um anexo desta conversa pelo id (anexo #id): documentos, imagens com texto, transcrição de áudio. Para documentos longos, lê por partes com offset. Não é preciso para os anexos que já recebeste em ficheiro.';
     }
 
     public function schema(JsonSchema $schema): array
