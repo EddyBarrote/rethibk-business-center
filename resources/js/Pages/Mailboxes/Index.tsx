@@ -12,7 +12,7 @@ import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 
 interface MailboxRow {
     id: number;
@@ -63,7 +63,7 @@ export default function Mailboxes({ mailboxes, agents, people, default_reader_id
     );
 
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Caixas de email" />
 
             <PageHeader
@@ -135,9 +135,11 @@ export default function Mailboxes({ mailboxes, agents, people, default_reader_id
                 description="Os emails já recebidos desta caixa são apagados da plataforma. A caixa no seu fornecedor fica como está."
                 confirmLabel="Remover"
                 destructive
-                onConfirm={() => removing && router.delete(`/mailboxes/${removing.id}`, { preserveScroll: true, onFinish: () => setRemoving(null) })}
+                onConfirm={() =>
+                    removing && router.delete(`/settings/mailboxes/${removing.id}`, { preserveScroll: true, onFinish: () => setRemoving(null) })
+                }
             />
-        </AppLayout>
+        </SettingsLayout>
     );
 }
 
@@ -190,9 +192,9 @@ function MailboxDialog({
         }));
         const options = { preserveScroll: true, onSuccess: onClose };
         if (mailbox) {
-            form.put(`/mailboxes/${mailbox.id}`, options);
+            form.put(`/settings/mailboxes/${mailbox.id}`, options);
         } else {
-            form.post('/mailboxes', options);
+            form.post('/settings/mailboxes', options);
         }
     };
 

@@ -4,6 +4,8 @@
 return [
     'alpha_dash' => 'O campo :attribute só pode conter letras, números, hífenes e sublinhados.',
     'boolean' => 'O campo :attribute tem de ser verdadeiro ou falso.',
+    'confirmed' => 'A confirmação do campo :attribute não coincide.',
+    'current_password' => 'A palavra-passe actual não está certa.',
     'email' => 'O campo :attribute tem de ser um endereço de email válido.',
     'enum' => 'O valor seleccionado para :attribute é inválido.',
     'exists' => 'O valor seleccionado para :attribute é inválido.',
@@ -23,6 +25,7 @@ return [
         'name' => 'nome',
         'email' => 'email',
         'password' => 'palavra-passe',
+        'current_password' => 'palavra-passe actual',
         'role' => 'papel',
         'department_id' => 'departamento',
         'parent_id' => 'departamento superior',

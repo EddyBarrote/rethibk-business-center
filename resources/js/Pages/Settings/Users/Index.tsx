@@ -7,7 +7,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Role } from '@/types';
@@ -36,7 +36,7 @@ export default function UsersIndex({ users }: { users: UserRow[] }) {
     );
 
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Utilizadores" />
 
             <PageHeader title="Utilizadores" description="Pessoas com acesso à plataforma nesta organização." actions={addButton} />
@@ -96,6 +96,6 @@ export default function UsersIndex({ users }: { users: UserRow[] }) {
                     </Table>
                 </div>
             )}
-        </AppLayout>
+        </SettingsLayout>
     );
 }

@@ -111,6 +111,14 @@ Polimento final:
     ao alcance do polegar, enquanto houver linhas seleccionadas.
 27. **Pré-visualizações** dizem "(ver tabela)" em vez de juntar as células numa linha.
 
+Definições:
+
+28. **Páginas de definições** usam `<SettingsLayout>` em vez de `<AppLayout>`: o título "Definições" e a barra
+    lateral agrupada aparecem a partir de 1280 px; entre 640 e 1280 px um menu "secção ▾" por cima da página troca
+    de secção; no telemóvel a página de entrada (`/settings`) é a lista agrupada e cada secção volta com
+    "‹ Definições". Uma secção nova entra em `lib/settings.ts`, com as permissões que o servidor verifica.
+29. **Blocos de formulário** de definições usam `<SettingsBlock>`: o que é à esquerda, os campos num cartão à direita.
+
 ## Imagens geradas
 
 Geradas com a skill nano banana (Gemini), redimensionadas para 1400 px e convertidas para WebP (`cwebp -q 80`). Têm a marca de água invisível SynthID.

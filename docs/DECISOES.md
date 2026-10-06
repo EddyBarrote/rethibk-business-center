@@ -197,7 +197,7 @@ regras, rotas e dados ficam iguais. Padrões em `docs/UI.md` › "Padrões de ec
 | L6 Batimentos | `agents:heartbeat` a cada 15 min; `business.heartbeat_minutes` (60 por omissão, 0 desliga). |
 | L7 Memória | `agent_memories`, `MemoryConsolidator` (no fim de cada tarefa entregue e `agents:consolidate-memory` às 21:00); artigo "Memória de {agente}" na base de conhecimento; separador Memória no agente. |
 | L8 Acesso a agentes | `agent_assignments.role` = `chat` ou `work`; `AgentPolicy::run`, `requestWork`, `manageAccess`. |
-| L9 Matriz de acessos | `access_roles` e `App\Enums\Permission`; `User::hasPermission()`; `canManageTenant()` e `isManager()` derivam da matriz. Empresa › Papéis e acessos. |
+| L9 Matriz de acessos | `access_roles` e `App\Enums\Permission`; `User::hasPermission()`; `canManageTenant()` e `isManager()` derivam da matriz. Definições › Papéis e acessos. |
 | L10 Reports sobre conversas | `conversations.search` (só do Chief of Staff, só a pedido de quem tem a permissão); `escalate.urgent` para todos os agentes; nota fixa nas conversas. |
 | L11 Revalidação e confiança | `approvals.review_stage`; `ApprovalService::reviewerFor()`, `approveByAgent()`, `escalate()`; `approvals.review` e `agents.set_trust_level` (decide quem tem "Confirmar níveis de confiança"). |
 | L12 Projectos | `projects`, `tasks.project_id`; Trabalho › Projectos. |
@@ -276,7 +276,7 @@ papéis passam a cobrir tudo o que uma pessoa pode fazer no sistema.
 | Decisão | Onde |
 |---|---|
 | Uma caixa é de um agente (`kind = agent`, como a da Triagem) ou de uma ou mais pessoas (`kind = person`, pessoal ou partilhada como financas@). Cada caixa tem os seus dados IMAP/SMTP, cifrados. | migração `2026_10_05_160001`, `Mailbox`, `MailboxOwner` |
-| Cada pessoa liga as suas caixas em Empresa › Caixas de email. Quem tem "Gerir todas as caixas de email" cria-as para qualquer pessoa e escolhe os donos. As caixas dos agentes continuam a configurar-se com o agente. | `MailboxController`, `Pages/Mailboxes/Index.tsx` |
+| Cada pessoa liga as suas caixas em Definições › Caixas de email. Quem tem "Gerir todas as caixas de email" cria-as para qualquer pessoa e escolhe os donos. As caixas dos agentes continuam a configurar-se com o agente. | `MailboxController`, `Pages/Mailboxes/Index.tsx` |
 | Os donos escolhem que agentes lêem a caixa. Por omissão, o primeiro agente activo do departamento da pessoa, que também vê cada email novo. | `MailboxReader` (`processes_new`), `Mailbox::processor()` |
 | O agente que lê uma caixa pessoal lê, resume, classifica, cria tarefas para o dono e prepara rascunhos. Não encaminha para outras áreas e só notifica o dono do que é urgente. | `EmailPrompt::forPerson`, `ClassifyEmail`, `CapabilityRegistry::MAILBOX_READER` |
 | Os agentes nunca enviam de uma caixa de pessoa: o rascunho fica na caixa dela e só um dono o envia. `MailboxMailer` recusa enviar de uma caixa pessoal sem um dono a pedir; `comms.send_email` só usa a caixa do próprio agente, com as regras de aprovação de sempre. | `MailboxMailer`, `SendEmail`, `DraftEmailReply` |
@@ -289,3 +289,24 @@ papéis passam a cobrir tudo o que uma pessoa pode fazer no sistema.
 | Os custos de IA (painel e lista de agentes) só aparecem a quem tem "Ver custos de IA"; aprovar o gasto acima do orçamento é "Autorizar gastos acima do orçamento". | `DashboardController`, `ApprovalPolicy` |
 
 Testes: `PersonalMailboxTest`, `PermissionCatalogTest`, e `ConsolePagesTest`/`AccessMatrixTest` actualizados.
+
+## Definições num só lugar (06.10.2026)
+
+Pedido do Barrote: as definições da aplicação (caixas de email, utilizadores, departamentos, marca, integrações,
+acessos, skills e capacidades) ficam numa aba de Definições, agrupadas e com uma barra lateral própria. Proposta
+aprovada antes de programar (`definicoes-proposta-*.png` na pasta partilhada).
+
+| Decisão | Onde |
+|---|---|
+| A barra lateral principal perde o grupo "Empresa". O Organigrama passa para Trabalho e fica uma só entrada "Definições", em baixo, para todos. | `Layouts/AppLayout.tsx` |
+| Definições tem cinco grupos: Empresa (Marca, Departamentos), Pessoas e acessos (Utilizadores, Papéis e acessos), Comunicação (Caixas de email, Integrações), Agentes de IA (Capacidades, Skills, Consumo de IA) e A minha conta (Perfil, Aparência). | `lib/settings.ts`, `Layouts/SettingsLayout.tsx` |
+| Cada secção aparece só a quem tem a permissão que o servidor já pedia (gerir pessoas, administrar a empresa, gerir o catálogo, caixas de email, ver custos); um grupo sem secções desaparece. Departamentos continua visível a todos, só para leitura sem "Administrar a empresa". | `visibleSettings()`, controladores |
+| Todas as moradas passam para `/settings/...`, com os mesmos nomes de rota. As antigas (`/mailboxes`, `/capabilities`, `/skills`, `/skills/{id}/edit`, `/settings/erp`) redireccionam. | `routes/web.php` |
+| Integrações junta o ERP e os conectores (os da empresa e os globais da Rethink), que antes estavam escondidos num separador de Capacidades. O ERP só aparece a quem administra a empresa; os conectores a quem gere o catálogo. Capacidades fica só com o catálogo. | `Settings\IntegrationController`, `Pages/Settings/Integrations.tsx` |
+| Novo: Perfil, onde cada pessoa muda o seu nome e a palavra-passe (com a actual; fica na auditoria). O email, o papel e o departamento continuam com quem gere as pessoas. | `Settings\ProfileController` |
+| Novo: Aparência sai do menu do utilizador para uma página com os três temas; continua guardada por browser. O menu do utilizador leva a Perfil, Aparência e Definições. | `Pages/Settings/Appearance.tsx` |
+| Novo: Consumo de IA, só leitura, para quem tem "Ver custos de IA": gasto do mês face ao tecto (com excepções aprovadas), previsão ao ritmo actual, gasto por agente face ao tecto de cada um e os últimos seis meses. Os tectos continuam a ser definidos pela Rethink. | `Settings\UsageController`, `Pages/Settings/Usage.tsx` |
+| Ficam onde estavam: o modelo de cada agente (na ficha do agente) e os domínios do conhecimento (em Conhecimento). Preferências de notificações ainda não existem. | — |
+
+Testes: `SettingsPagesTest` (novo), `ConsolePagesTest` com todas as páginas de Definições, `PermissionCatalogTest`,
+`CatalogScreensTest`, `ErpSettingsTest` e `PersonalMailboxTest` nas moradas novas.

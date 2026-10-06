@@ -7,7 +7,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Switch } from '@/Components/ui/switch';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago } from '@/lib/format';
 
 interface SkillRow {
@@ -33,14 +33,14 @@ interface GlobalSkillRow {
 
 export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow[]; globalSkills: GlobalSkillRow[] }) {
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Skills" />
             <PageHeader
                 title="Skills"
                 description="O que os agentes sabem: instruções da organização para tipos de trabalho (como fazer uma proposta, a política de compras, o tom da marca). O agente lê uma skill quando ela se aplica."
                 actions={
                     <Button asChild>
-                        <Link href="/skills/create">
+                        <Link href="/settings/skills/create">
                             <Plus />
                             Nova skill
                         </Link>
@@ -57,7 +57,7 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                             description="Escreva a primeira: o nome, quando se aplica e as instruções, com modelos ou exemplos em anexo."
                             action={
                                 <Button asChild>
-                                    <Link href="/skills/create">
+                                    <Link href="/settings/skills/create">
                                         <Plus />
                                         Nova skill
                                     </Link>
@@ -69,7 +69,7 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                             {skills.map((skill) => (
                                 <EntityRow
                                     key={skill.id}
-                                    href={`/skills/${skill.id}/edit`}
+                                    href={`/settings/skills/${skill.id}/edit`}
                                     leading={<BookOpen className="size-4 text-muted-foreground" />}
                                     title={
                                         <span className="flex items-center gap-1.5">
@@ -95,9 +95,14 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                     )}
                 </Section>
 
-                <Section title={`Globais · ${globalSkills.length}`} action={<span className="text-xs text-muted-foreground">escritas pela Rethink; active as que quiser</span>}>
+                <Section
+                    title={`Globais · ${globalSkills.length}`}
+                    action={<span className="text-xs text-muted-foreground">escritas pela Rethink; active as que quiser</span>}
+                >
                     {globalSkills.length === 0 ? (
-                        <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">Ainda não há skills globais.</p>
+                        <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                            Ainda não há skills globais.
+                        </p>
                     ) : (
                         <ListPanel>
                             {globalSkills.map((skill) => (
@@ -116,7 +121,9 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                                         <Switch
                                             aria-label={skill.activated ? 'Desligar' : 'Activar'}
                                             checked={skill.activated}
-                                            onCheckedChange={(on) => router.put(`/skills/global/${skill.id}`, { activated: on }, { preserveScroll: true })}
+                                            onCheckedChange={(on) =>
+                                                router.put(`/settings/skills/global/${skill.id}`, { activated: on }, { preserveScroll: true })
+                                            }
                                         />
                                     }
                                 />
@@ -125,6 +132,6 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                     )}
                 </Section>
             </div>
-        </AppLayout>
+        </SettingsLayout>
     );
 }

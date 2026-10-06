@@ -10,7 +10,7 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 
 interface DepartmentRow {
     id: number;
@@ -79,7 +79,7 @@ export default function DepartmentsIndex({ departments, can }: Props) {
     const rows = tree(departments);
 
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Departamentos" />
 
             <PageHeader
@@ -222,6 +222,6 @@ export default function DepartmentsIndex({ departments, can }: Props) {
                     </Select>
                 </Field>
             </FormDialog>
-        </AppLayout>
+        </SettingsLayout>
     );
 }

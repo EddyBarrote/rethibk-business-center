@@ -1,16 +1,12 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     Activity,
-    AtSign,
-    BookOpen,
-    Puzzle,
     Bell,
     CircleDot,
     MessagesSquare,
     Network,
     Target,
     Bot,
-    Building2,
     CheckSquare,
     ChevronLeft,
     ChevronsUpDown,
@@ -24,14 +20,11 @@ import {
     LogOut,
     type LucideIcon,
     Mail,
-    Monitor,
     Moon,
-    Palette,
     Pencil,
-    PlugZap,
-    ShieldCheck,
+    Settings,
     Sun,
-    Users,
+    UserRound,
 } from 'lucide-react';
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -46,8 +39,6 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/Components/ui/dropdown-menu';
@@ -109,30 +100,18 @@ const workNav: NavItem[] = [
     { label: 'Documentos', href: '/reports', icon: Files },
     { label: 'Ficheiros', href: '/documents', icon: FolderOpen },
     { label: 'Conhecimento', href: '/knowledge', icon: Library },
+    { label: 'Organigrama', href: '/org', icon: Network },
 ];
 
-const companyNav: NavItem[] = [
-    { label: 'Organigrama', href: '/org', icon: Network },
-    { label: 'Caixas de email', href: '/mailboxes', icon: AtSign, permissions: ['emails.own_mailboxes', 'emails.manage_mailboxes'] },
-    { label: 'Capacidades', href: '/capabilities', icon: Puzzle, permissions: ['catalog.manage'] },
-    { label: 'Skills', href: '/skills', icon: BookOpen, permissions: ['catalog.manage'] },
-    { label: 'Utilizadores', href: '/settings/users', icon: Users, permissions: ['people.manage'] },
-    { label: 'Papéis e acessos', href: '/settings/roles', icon: ShieldCheck, permissions: ['people.manage'] },
-    { label: 'Departamentos', href: '/settings/departments', icon: Building2 },
-    { label: 'Marca', href: '/settings/brand', icon: Palette, permissions: ['company.manage'] },
-    { label: 'Ligação ao ERP', href: '/settings/erp', icon: PlugZap, permissions: ['company.manage'] },
-];
+// Everything else that is configured lives in Definições, with its own grouped sidebar (lib/settings.ts).
+const settingsNav: NavItem = { label: 'Definições', href: '/settings', icon: Settings };
 
 export interface Crumb {
     label: string;
     href?: string;
 }
 
-const appearanceOptions: { value: Appearance; label: string; icon: LucideIcon }[] = [
-    { value: 'light', label: 'Claro', icon: Sun },
-    { value: 'dark', label: 'Escuro', icon: Moon },
-    { value: 'system', label: 'Sistema', icon: Monitor },
-];
+const appearanceLabel: Record<Appearance, string> = { light: 'Claro', dark: 'Escuro', system: 'Sistema' };
 
 function sidebarCookieOpen() {
     if (typeof document === 'undefined') {
@@ -270,8 +249,9 @@ function AgentsGroup({ url }: { url: string }) {
 
 function UserMenu() {
     const { auth } = usePage<SharedProps>().props;
-    const { appearance, setAppearance } = useAppearance();
+    const { appearance, resolved } = useAppearance();
     const { isMobile } = useSidebar();
+    const AppearanceIcon = resolved === 'dark' ? Moon : Sun;
     const user = auth.user;
 
     if (!user) {
@@ -298,15 +278,25 @@ function UserMenu() {
                             <p className="text-xs text-muted-foreground">{user.email}</p>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Aparência</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={appearance} onValueChange={(value) => setAppearance(value as Appearance)}>
-                            {appearanceOptions.map((option) => (
-                                <DropdownMenuRadioItem key={option.value} value={option.value}>
-                                    <option.icon className="text-muted-foreground" />
-                                    {option.label}
-                                </DropdownMenuRadioItem>
-                            ))}
-                        </DropdownMenuRadioGroup>
+                        <DropdownMenuItem asChild>
+                            <Link href="/settings/profile">
+                                <UserRound />
+                                Perfil
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href="/settings/appearance">
+                                <AppearanceIcon />
+                                Aparência
+                                <span className="ml-auto text-xs text-muted-foreground">{appearanceLabel[appearance]}</span>
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href="/settings">
+                                <Settings />
+                                Definições
+                            </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onSelect={() => router.post('/logout')}>
                             <LogOut />
@@ -355,7 +345,7 @@ export default function AppLayout({ children, breadcrumbs }: { children: ReactNo
     };
     const allowed = (item: NavItem) => !item.permissions || item.permissions.some((p) => user?.permissions.includes(p));
     const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks };
-    const allNav = [...topNav, ...workNav, ...companyNav];
+    const allNav = [...topNav, ...workNav, settingsNav];
     const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
     const trail: Crumb[] = breadcrumbs ?? (current ? [{ label: current.label }] : url.startsWith('/agents') ? [{ label: 'Agentes' }] : []);
 
@@ -383,10 +373,24 @@ export default function AppLayout({ children, breadcrumbs }: { children: ReactNo
                         <NavGroup items={topNav.filter(allowed)} isActive={isActive} counts={counts} />
                         <NavGroup label="Trabalho" items={workNav.filter(allowed)} isActive={isActive} counts={counts} />
                         <AgentsGroup url={url} />
-                        <NavGroup label="Empresa" items={companyNav.filter(allowed)} isActive={isActive} counts={counts} />
                     </SidebarContent>
 
-                    <SidebarFooter className="border-t border-sidebar-border/60 p-2">
+                    <SidebarFooter className="gap-1 border-t border-sidebar-border/60 p-2">
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={isActive(settingsNav.href)}
+                                    tooltip={settingsNav.label}
+                                    className="h-8 rounded-lg font-medium text-sidebar-foreground/85"
+                                >
+                                    <Link href={settingsNav.href}>
+                                        <settingsNav.icon />
+                                        <span>{settingsNav.label}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
                         <UserMenu />
                     </SidebarFooter>
                     <SidebarRail />

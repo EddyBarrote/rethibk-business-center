@@ -10,7 +10,7 @@ import { Checkbox } from '@/Components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 
 interface AccessRoleRow {
     id: number;
@@ -54,7 +54,7 @@ export default function Roles({ roles, permissions, ceo_keeps }: Props) {
         );
 
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Papéis e acessos" />
 
             <PageHeader
@@ -154,7 +154,7 @@ export default function Roles({ roles, permissions, ceo_keeps }: Props) {
                     removing && router.delete(`/settings/roles/${removing.id}`, { preserveScroll: true, onFinish: () => setRemoving(null) })
                 }
             />
-        </AppLayout>
+        </SettingsLayout>
     );
 }
 

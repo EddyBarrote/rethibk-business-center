@@ -28,6 +28,10 @@ use App\Http\Controllers\Settings\AccessRoleController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\ErpConnectionController;
+use App\Http\Controllers\Settings\IntegrationController;
+use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\SettingsController;
+use App\Http\Controllers\Settings\UsageController;
 use App\Http\Controllers\Settings\UserController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\TaskController;
@@ -126,10 +130,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('inbox/{message}', [InboxController::class, 'discard'])->name('inbox.discard');
     Route::put('inbox/{message}/category', [InboxController::class, 'reclassify'])->name('inbox.reclassify');
     Route::post('inbox/{message}/retriage', [InboxController::class, 'retriage'])->middleware('throttle:20,1')->name('inbox.retriage');
-    Route::get('mailboxes', [MailboxController::class, 'index'])->name('mailboxes.index');
-    Route::post('mailboxes', [MailboxController::class, 'store'])->name('mailboxes.store');
-    Route::put('mailboxes/{mailbox}', [MailboxController::class, 'update'])->name('mailboxes.update');
-    Route::delete('mailboxes/{mailbox}', [MailboxController::class, 'destroy'])->name('mailboxes.destroy');
     Route::get('attachments/{attachment}', [InboxController::class, 'attachment'])->name('attachments.download');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -143,35 +143,62 @@ Route::middleware('auth')->group(function () {
     Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('reports/{report}/review', [ReportController::class, 'review'])->name('reports.review');
 
-    // Capabilities, connectors and skills of the company (docs/CAPACIDADES.md).
-    Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');
-    Route::patch('capabilities/{capability}', [CapabilityController::class, 'update'])->name('capabilities.update');
-    Route::post('capabilities/sync', [CapabilityController::class, 'sync'])->middleware('throttle:10,1')->name('capabilities.sync');
-    Route::post('capabilities/global/{connector}', [CapabilityController::class, 'activate'])->middleware('throttle:10,1')->name('capabilities.global.activate');
-    Route::delete('capabilities/global/{connector}', [CapabilityController::class, 'deactivate'])->name('capabilities.global.deactivate');
-    Route::post('connectors', [ConnectorController::class, 'store'])->middleware('throttle:20,1')->name('connectors.store');
-    Route::put('connectors/{connector}', [ConnectorController::class, 'update'])->middleware('throttle:20,1')->name('connectors.update');
-    Route::post('connectors/{connector}/refresh', [ConnectorController::class, 'refresh'])->middleware('throttle:10,1')->name('connectors.refresh');
-    Route::delete('connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
-    Route::resource('skills', SkillController::class)->except(['show']);
-    Route::put('skills/global/{platformSkill}', [SkillController::class, 'toggleGlobal'])->name('skills.global');
-    Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');
-    Route::delete('skills/{skill}/files/{file}', [SkillController::class, 'destroyFile'])->name('skills.files.destroy');
+    // Definições: every setting in one place, grouped (docs/DECISOES.md, "Definições num só lugar").
+    // Route names stay as they were; only the addresses moved under /settings.
+    Route::prefix('settings')->group(function () {
+        Route::get('/', SettingsController::class)->name('settings.index');
 
-    Route::prefix('settings')->name('settings.')->group(function () {
-        Route::resource('users', UserController::class)->except(['show', 'destroy']);
-        Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::get('roles', [AccessRoleController::class, 'index'])->name('roles.index');
-        Route::post('roles', [AccessRoleController::class, 'store'])->name('roles.store');
-        Route::put('roles/{role}', [AccessRoleController::class, 'update'])->name('roles.update');
-        Route::delete('roles/{role}', [AccessRoleController::class, 'destroy'])->name('roles.destroy');
+        // Empresa
+        Route::get('brand', [BrandController::class, 'show'])->name('settings.brand.show');
+        Route::post('brand', [BrandController::class, 'update'])->name('settings.brand.update');
+        Route::get('brand/logo', [BrandController::class, 'logo'])->name('settings.brand.logo');
+        Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->names('settings.departments');
 
-        Route::get('brand', [BrandController::class, 'show'])->name('brand.show');
-        Route::post('brand', [BrandController::class, 'update'])->name('brand.update');
-        Route::get('brand/logo', [BrandController::class, 'logo'])->name('brand.logo');
+        // Pessoas e acessos
+        Route::resource('users', UserController::class)->except(['show', 'destroy'])->names('settings.users');
+        Route::get('roles', [AccessRoleController::class, 'index'])->name('settings.roles.index');
+        Route::post('roles', [AccessRoleController::class, 'store'])->name('settings.roles.store');
+        Route::put('roles/{role}', [AccessRoleController::class, 'update'])->name('settings.roles.update');
+        Route::delete('roles/{role}', [AccessRoleController::class, 'destroy'])->name('settings.roles.destroy');
 
-        Route::get('erp', [ErpConnectionController::class, 'show'])->name('erp.show');
-        Route::put('erp', [ErpConnectionController::class, 'update'])->name('erp.update');
-        Route::post('erp/test', [ErpConnectionController::class, 'test'])->middleware('throttle:10,1')->name('erp.test');
+        // Comunicação: mailboxes, and the ERP and connectors together as Integrações
+        Route::get('mailboxes', [MailboxController::class, 'index'])->name('mailboxes.index');
+        Route::post('mailboxes', [MailboxController::class, 'store'])->name('mailboxes.store');
+        Route::put('mailboxes/{mailbox}', [MailboxController::class, 'update'])->name('mailboxes.update');
+        Route::delete('mailboxes/{mailbox}', [MailboxController::class, 'destroy'])->name('mailboxes.destroy');
+        Route::get('integrations', [IntegrationController::class, 'index'])->name('settings.integrations.index');
+        Route::get('integrations/erp', [ErpConnectionController::class, 'show'])->name('settings.erp.show');
+        Route::put('integrations/erp', [ErpConnectionController::class, 'update'])->name('settings.erp.update');
+        Route::post('integrations/erp/test', [ErpConnectionController::class, 'test'])->middleware('throttle:10,1')->name('settings.erp.test');
+        Route::post('integrations/connectors', [ConnectorController::class, 'store'])->middleware('throttle:20,1')->name('connectors.store');
+        Route::put('integrations/connectors/{connector}', [ConnectorController::class, 'update'])->middleware('throttle:20,1')->name('connectors.update');
+        Route::post('integrations/connectors/{connector}/refresh', [ConnectorController::class, 'refresh'])->middleware('throttle:10,1')->name('connectors.refresh');
+        Route::delete('integrations/connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
+        Route::post('integrations/global/{connector}', [CapabilityController::class, 'activate'])->middleware('throttle:10,1')->name('capabilities.global.activate');
+        Route::delete('integrations/global/{connector}', [CapabilityController::class, 'deactivate'])->name('capabilities.global.deactivate');
+
+        // Agentes de IA (docs/CAPACIDADES.md)
+        Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');
+        Route::patch('capabilities/{capability}', [CapabilityController::class, 'update'])->name('capabilities.update');
+        Route::post('capabilities/sync', [CapabilityController::class, 'sync'])->middleware('throttle:10,1')->name('capabilities.sync');
+        Route::resource('skills', SkillController::class)->except(['show']);
+        Route::put('skills/global/{platformSkill}', [SkillController::class, 'toggleGlobal'])->name('skills.global');
+        Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');
+        Route::delete('skills/{skill}/files/{file}', [SkillController::class, 'destroyFile'])->name('skills.files.destroy');
+        Route::get('usage', UsageController::class)->name('settings.usage');
+
+        // A minha conta
+        Route::get('profile', [ProfileController::class, 'show'])->name('settings.profile.show');
+        Route::put('profile', [ProfileController::class, 'update'])->name('settings.profile.update');
+        Route::put('password', [ProfileController::class, 'password'])->middleware('throttle:6,1')->name('settings.password.update');
+        Route::inertia('appearance', 'Settings/Appearance')->name('settings.appearance');
     });
+
+    // The old addresses, kept for bookmarks and links already sent.
+    Route::redirect('mailboxes', '/settings/mailboxes');
+    Route::redirect('capabilities', '/settings/capabilities');
+    Route::redirect('skills', '/settings/skills');
+    Route::redirect('skills/create', '/settings/skills/create');
+    Route::redirect('skills/{skill}/edit', '/settings/skills/{skill}/edit');
+    Route::redirect('settings/erp', '/settings/integrations/erp');
 });

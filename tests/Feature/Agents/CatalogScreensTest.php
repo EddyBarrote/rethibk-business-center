@@ -135,9 +135,9 @@ it('uploads, generates and removes an agent photo, served only inside the tenant
 it('lets admins switch capabilities off and set the risk of their own connectors only', function () {
     Http::fake(['api.example.test/*' => Http::response(['ok' => true])]);
 
-    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'capabilities'))->assertForbidden();
+    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/capabilities'))->assertForbidden();
 
-    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'connectors'), [
+    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'settings/integrations/connectors'), [
         'key' => 'leads', 'name' => 'Registar lead', 'description' => 'Regista um lead no CRM da empresa.', 'kind' => 'http',
         'url' => 'https://api.example.test/leads', 'http_method' => 'POST', 'secret' => 'tok-1', 'is_mutating' => true, 'is_active' => true,
         'input_schema' => '{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}',
@@ -147,45 +147,46 @@ it('lets admins switch capabilities off and set the risk of their own connectors
     expect($own->risk)->toBe(AutonomyLevel::ExecuteAndReport)
         ->and(asTenant($this->tenant, fn () => Connector::query()->sole()->secret))->toBe('tok-1');
 
-    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'capabilities'))->assertOk()->assertInertia(fn (Assert $page) => $page
-        ->component('Capabilities/Index')
+    // The connectors are listed under Definições › Integrações, without their secret.
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'settings/integrations'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('Settings/Integrations')
         ->where('connectors.0.has_secret', true)
         ->missing('connectors.0.secret'));
 
-    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, "capabilities/{$own->id}"), ['risk' => AutonomyLevel::ExecuteWithinLimits->value])->assertSessionHas('success');
-    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, "capabilities/{$local->id}"), ['risk' => AutonomyLevel::Observe->value])->assertForbidden();
-    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, "capabilities/{$local->id}"), ['is_enabled' => false])->assertSessionHas('success');
+    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, "settings/capabilities/{$own->id}"), ['risk' => AutonomyLevel::ExecuteWithinLimits->value])->assertSessionHas('success');
+    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, "settings/capabilities/{$local->id}"), ['risk' => AutonomyLevel::Observe->value])->assertForbidden();
+    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, "settings/capabilities/{$local->id}"), ['is_enabled' => false])->assertSessionHas('success');
 
     expect($own->fresh()->risk)->toBe(AutonomyLevel::ExecuteWithinLimits)
         ->and($local->fresh()->is_enabled)->toBeFalse();
 
-    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'connectors'), [
+    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'settings/integrations/connectors'), [
         'key' => 'mau', 'name' => 'X', 'description' => 'X', 'kind' => 'http', 'url' => 'https://api.example.test/x', 'http_method' => 'GET', 'input_schema' => '[1,2]',
     ])->assertSessionHasErrors('input_schema');
 });
 
 it('lets a company write skills with files and activate global ones', function () {
-    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'skills'))->assertForbidden();
+    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/skills'))->assertForbidden();
 
-    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'skills'), [
+    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'settings/skills'), [
         'key' => 'propostas', 'name' => 'Propostas', 'description' => 'Ao escrever propostas.', 'instructions' => '# Como', 'is_enabled' => true,
     ])->assertRedirect();
     $skill = asTenant($this->tenant, fn () => Skill::query()->sole());
 
-    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, "skills/{$skill->id}/files"), [
+    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, "settings/skills/{$skill->id}/files"), [
         'file' => UploadedFile::fake()->createWithContent('precos.csv', "produto,preco\nA,100"),
     ])->assertSessionHas('success');
     expect(asTenant($this->tenant, fn () => $skill->files()->sole()->content))->toContain('produto,preco');
 
     $global = PlatformSkill::factory()->create(['key' => 'tom', 'name' => 'Tom de voz']);
-    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "skills/global/{$global->id}"), ['activated' => true])->assertSessionHas('success');
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/global/{$global->id}"), ['activated' => true])->assertSessionHas('success');
 
-    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'skills'))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'settings/skills'))->assertInertia(fn (Assert $page) => $page
         ->component('Skills/Index')
         ->has('skills', 1)
         ->where('globalSkills.0.activated', true));
 
-    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "skills/global/{$global->id}"), ['activated' => false]);
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/global/{$global->id}"), ['activated' => false]);
     expect(asTenant($this->tenant, fn () => Skill::query()->where('platform_skill_id', $global->id)->sole()->is_enabled))->toBeFalse();
 });
 

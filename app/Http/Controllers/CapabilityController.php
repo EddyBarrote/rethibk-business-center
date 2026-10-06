@@ -10,7 +10,6 @@ use App\Enums\Scope;
 use App\Erp\Exceptions\ErpException;
 use App\Models\AuditLog;
 use App\Models\Capability;
-use App\Models\Connector;
 use App\Models\PlatformConnector;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,10 +20,10 @@ use Inertia\Response;
 
 /**
  * The tenant's catalogue of capabilities (docs/CAPACIDADES.md): what the
- * platform and the ERP offer, the global connectors the super admin made
- * available, and the company's own connectors. Owners and admins switch
- * capabilities on and off, activate global connectors and set the risk of
- * their own.
+ * platform, the ERP and the connectors offer. Owners and admins switch
+ * capabilities on and off and set the risk of their own connectors' ones.
+ * The connectors themselves, and activating the global ones, live under
+ * Definições › Integrações (IntegrationController); the routes stay here.
  */
 class CapabilityController extends Controller
 {
@@ -33,7 +32,6 @@ class CapabilityController extends Controller
         Gate::authorize('manage-catalog');
 
         $capabilities = Capability::query()->whereNotIn('key', CapabilityRegistry::hidden())->withCount('agents')->orderBy('key')->get();
-        $activeGlobal = $capabilities->where('is_enabled', true)->whereNotNull('platform_connector_id')->pluck('platform_connector_id')->unique();
 
         return Inertia::render('Capabilities/Index', [
             'capabilities' => $capabilities->map(fn (Capability $capability) => [
@@ -53,11 +51,6 @@ class CapabilityController extends Controller
                 'ceiling' => config('autonomy.ceiling.'.$capability->key) !== null,
                 'agents' => $capability->agents_count,
             ])->values(),
-            'connectors' => Connector::query()->orderBy('name')->get()->map(fn (Connector $connector) => $connector->summary()),
-            'globalConnectors' => PlatformConnector::query()->where('is_active', true)->orderBy('name')->get()->map(fn (PlatformConnector $connector) => [
-                ...collect($connector->summary())->except(['url', 'has_secret', 'last_error', 'input_schema'])->all(),
-                'activated' => $activeGlobal->contains($connector->id),
-            ]),
             'levels' => AutonomyLevel::options(),
         ]);
     }

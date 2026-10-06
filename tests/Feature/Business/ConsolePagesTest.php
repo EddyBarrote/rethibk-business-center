@@ -58,7 +58,19 @@ it('renders every console page for the owner', function (string $path, string $c
     ['briefings/{Briefing}', 'Briefings/Show'],
     ['reports', 'Reports/Index'],
     ['reports/{Report}', 'Reports/Show'],
-    ['settings/erp', 'Settings/Erp'],
+    ['settings', 'Settings/Index'],
+    ['settings/brand', 'Settings/Brand'],
+    ['settings/departments', 'Settings/Departments/Index'],
+    ['settings/users', 'Settings/Users/Index'],
+    ['settings/roles', 'Settings/Roles'],
+    ['settings/mailboxes', 'Mailboxes/Index'],
+    ['settings/integrations', 'Settings/Integrations'],
+    ['settings/integrations/erp', 'Settings/Erp'],
+    ['settings/capabilities', 'Capabilities/Index'],
+    ['settings/skills', 'Skills/Index'],
+    ['settings/usage', 'Settings/Usage'],
+    ['settings/profile', 'Settings/Profile'],
+    ['settings/appearance', 'Settings/Appearance'],
 ]);
 
 it('shows people their own mailboxes and the triage email routed to them, and triage email to whoever the matrix allows', function () {

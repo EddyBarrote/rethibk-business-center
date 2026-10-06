@@ -1,15 +1,16 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent } from 'react';
 
 import { Field } from '@/Components/Field';
 import { InputError } from '@/Components/InputError';
 import { PageHeader } from '@/Components/PageHeader';
+import { SettingsBlock } from '@/Components/SettingsBlock';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { NativeSelect } from '@/Components/ui/native-select';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import type { Option, Role } from '@/types';
 
 interface EditableUser {
@@ -30,19 +31,6 @@ interface Props {
     access_roles: { id: number; name: string; base: Role; permissions: string[] }[];
     permissions: { value: string; label: string; description: string; group: string }[];
     departments: { id: number; name: string }[];
-}
-
-/** Settings row: what the group is about on the left, its controls in a bordered block on the right. */
-function SettingsBlock({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
-    return (
-        <section className="grid gap-4 lg:grid-cols-[16rem_1fr] lg:gap-8">
-            <div className="space-y-1">
-                <h2 className="text-sm font-semibold">{title}</h2>
-                {description && <p className="text-sm text-muted-foreground">{description}</p>}
-            </div>
-            <div className="flex min-w-0 flex-col gap-5 rounded-xl border bg-card p-5">{children}</div>
-        </section>
-    );
 }
 
 export default function UserForm({ user, access_roles, permissions, departments }: Props) {
@@ -75,7 +63,7 @@ export default function UserForm({ user, access_roles, permissions, departments 
     };
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Utilizadores', href: '/settings/users' }, { label: editing ? user.name : 'Novo utilizador' }]}>
+        <SettingsLayout crumbs={[{ label: editing ? user.name : 'Novo utilizador' }]}>
             <Head title={editing ? 'Editar utilizador' : 'Novo utilizador'} />
 
             <PageHeader
@@ -236,6 +224,6 @@ export default function UserForm({ user, access_roles, permissions, departments 
                     </Button>
                 </div>
             </form>
-        </AppLayout>
+        </SettingsLayout>
     );
 }

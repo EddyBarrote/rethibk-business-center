@@ -14,7 +14,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -101,18 +101,22 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
-        form.put('/settings/erp', { preserveScroll: true, onSuccess: () => form.setData('token', '') });
+        form.put('/settings/integrations/erp', { preserveScroll: true, onSuccess: () => form.setData('token', '') });
     };
 
     const test = () => {
-        router.post('/settings/erp/test', {}, { preserveScroll: true, onStart: () => setTesting(true), onFinish: () => setTesting(false) });
+        router.post(
+            '/settings/integrations/erp/test',
+            {},
+            { preserveScroll: true, onStart: () => setTesting(true), onFinish: () => setTesting(false) },
+        );
     };
 
     const readTools = connection?.capabilities.filter((tool) => tool.read_only).length ?? 0;
     const writeTools = (connection?.capabilities.length ?? 0) - readTools;
 
     return (
-        <AppLayout>
+        <SettingsLayout crumbs={[{ label: 'Ligação ao ERP' }]}>
             <Head title="Ligação ao ERP" />
 
             <PageHeader
@@ -319,6 +323,6 @@ export default function ErpSettings({ connection, defaults, calls }: Props) {
                     </div>
                 )}
             </SettingsBlock>
-        </AppLayout>
+        </SettingsLayout>
     );
 }

@@ -8,7 +8,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 
 interface Props {
     brand: { name: string; color: string; footer: string | null; has_logo: boolean };
@@ -30,7 +30,7 @@ export default function BrandSettings({ brand, default_color }: Props) {
     };
 
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Marca" />
             <PageHeader
                 title="Marca"
@@ -139,6 +139,6 @@ export default function BrandSettings({ brand, default_color }: Props) {
                     </div>
                 </div>
             </form>
-        </AppLayout>
+        </SettingsLayout>
     );
 }

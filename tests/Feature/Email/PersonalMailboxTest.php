@@ -39,7 +39,7 @@ beforeEach(function () {
 
 function connectMailbox(object $test, User $who, array $data = []): void
 {
-    $test->actingAs($who)->post(tenantUrl($test->tenant, 'mailboxes'), [
+    $test->actingAs($who)->post(tenantUrl($test->tenant, 'settings/mailboxes'), [
         'address' => 'ana@empresa.test',
         'display_name' => 'Ana',
         'imap_host' => 'imap.empresa.test', 'imap_port' => 993, 'imap_username' => 'ana@empresa.test', 'imap_password' => 'segredo-imap', 'imap_encryption' => 'ssl',
@@ -61,9 +61,9 @@ it('lets a person connect their own mailbox, read by the agent of their area, wi
             ->and(DB::table('mailboxes')->where('id', $mailbox->id)->value('imap_password'))->not->toContain('segredo');
     });
 
-    $this->actingAs($this->ana)->get(tenantUrl($this->tenant, 'mailboxes'))->assertOk()
+    $this->actingAs($this->ana)->get(tenantUrl($this->tenant, 'settings/mailboxes'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Mailboxes/Index')->has('mailboxes', 1)->where('mailboxes.0.readers.0.processes_new', true));
-    $this->actingAs($this->rui)->get(tenantUrl($this->tenant, 'mailboxes'))->assertOk()
+    $this->actingAs($this->rui)->get(tenantUrl($this->tenant, 'settings/mailboxes'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('mailboxes', 0));
 });
 
@@ -72,23 +72,23 @@ it('lets only owners change a mailbox, and those who manage every mailbox name t
     $mailbox = asTenant($this->tenant, fn () => Mailbox::query()->where('address', 'ana@empresa.test')->sole());
     $update = ['address' => 'ana@empresa.test', 'display_name' => 'Ana Sitoe', 'readers' => [], 'processor' => null];
 
-    $this->actingAs($this->rui)->put(tenantUrl($this->tenant, "mailboxes/{$mailbox->id}"), $update)->assertForbidden();
-    $this->actingAs($this->ana)->put(tenantUrl($this->tenant, "mailboxes/{$mailbox->id}"), [...$update, 'owners' => [$this->rui->id]])->assertRedirect();
+    $this->actingAs($this->rui)->put(tenantUrl($this->tenant, "settings/mailboxes/{$mailbox->id}"), $update)->assertForbidden();
+    $this->actingAs($this->ana)->put(tenantUrl($this->tenant, "settings/mailboxes/{$mailbox->id}"), [...$update, 'owners' => [$this->rui->id]])->assertRedirect();
 
     // An owner cannot hand the mailbox to someone else; the readers are theirs to choose.
     asTenant($this->tenant, fn () => expect($mailbox->isOwnedBy($this->ana))->toBeTrue()
         ->and($mailbox->isOwnedBy($this->rui))->toBeFalse()
         ->and(MailboxReader::query()->where('mailbox_id', $mailbox->id)->count())->toBe(0));
 
-    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "mailboxes/{$mailbox->id}"), [...$update, 'owners' => [$this->ana->id, $this->rui->id]])->assertRedirect();
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/mailboxes/{$mailbox->id}"), [...$update, 'owners' => [$this->ana->id, $this->rui->id]])->assertRedirect();
     asTenant($this->tenant, fn () => expect($mailbox->isOwnedBy($this->rui))->toBeTrue());
 });
 
 it('refuses a person the matrix does not let connect mailboxes', function () {
     $this->rui->forceFill(['permission_overrides' => [Permission::ConnectOwnMailboxes->value => false]])->save();
 
-    $this->actingAs($this->rui)->get(tenantUrl($this->tenant, 'mailboxes'))->assertForbidden();
-    $this->actingAs($this->rui)->post(tenantUrl($this->tenant, 'mailboxes'), ['address' => 'rui@empresa.test', 'display_name' => 'Rui'])->assertForbidden();
+    $this->actingAs($this->rui)->get(tenantUrl($this->tenant, 'settings/mailboxes'))->assertForbidden();
+    $this->actingAs($this->rui)->post(tenantUrl($this->tenant, 'settings/mailboxes'), ['address' => 'rui@empresa.test', 'display_name' => 'Rui'])->assertForbidden();
 });
 
 it('keeps a personal mailbox private, even from administrators', function () {

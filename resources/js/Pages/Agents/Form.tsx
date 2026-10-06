@@ -44,7 +44,8 @@ function Assistant({ brief, available }: { brief?: string; available: boolean })
                     <div className="space-y-1">
                         <h2 className="text-sm font-semibold">Descreva o colega de que precisa</h2>
                         <p className="text-sm text-muted-foreground">
-                            A IA propõe nome, função, personalidade, instruções, capacidades e skills. Nada fica guardado até rever e carregar em «Criar agente».
+                            A IA propõe nome, função, personalidade, instruções, capacidades e skills. Nada fica guardado até rever e carregar em
+                            «Criar agente».
                         </p>
                     </div>
                 </div>
@@ -58,8 +59,8 @@ function Assistant({ brief, available }: { brief?: string; available: boolean })
                 {form.errors.brief && <p className="text-sm text-destructive">{form.errors.brief}</p>}
                 {!available && (
                     <p className="rounded-lg border border-status-warning/30 bg-status-warning/10 px-3 py-2 text-sm">
-                        O assistente precisa da chave do provedor de IA (por exemplo <span className="font-mono">GEMINI_API_KEY</span> no .env). Até lá, pode
-                        preencher a definição à mão abaixo.
+                        O assistente precisa da chave do provedor de IA (por exemplo <span className="font-mono">GEMINI_API_KEY</span> no .env). Até
+                        lá, pode preencher a definição à mão abaixo.
                     </p>
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -97,7 +98,11 @@ function AvatarPanel({ agent, canGenerate }: { agent: AgentData; canGenerate: bo
         }
 
         upload.transform(() => ({ avatar: file }));
-        upload.post(`/agents/${agent.id}/avatar`, { preserveScroll: true, forceFormData: true, onFinish: () => input.current && (input.current.value = '') });
+        upload.post(`/agents/${agent.id}/avatar`, {
+            preserveScroll: true,
+            forceFormData: true,
+            onFinish: () => input.current && (input.current.value = ''),
+        });
     };
 
     return (
@@ -144,7 +149,11 @@ export default function AgentFormPage({ agent, draft, can_draft = false, can_gen
 
     return (
         <AppLayout
-            breadcrumbs={[{ label: 'Agentes', href: '/agents' }, ...(agent ? [{ label: agent.name, href: `/agents/${agent.id}` }] : []), { label: agent ? 'Editar' : 'Novo agente' }]}
+            breadcrumbs={[
+                { label: 'Agentes', href: '/agents' },
+                ...(agent ? [{ label: agent.name, href: `/agents/${agent.id}` }] : []),
+                { label: agent ? 'Editar' : 'Novo agente' },
+            ]}
         >
             <Head title={title} />
             <PageHeader
@@ -170,8 +179,8 @@ export default function AgentFormPage({ agent, draft, can_draft = false, can_gen
                 options={options}
                 action={agent ? `/agents/${agent.id}` : '/agents'}
                 cancelHref={agent ? `/agents/${agent.id}` : '/agents'}
-                skillsHref="/skills"
-                capabilitiesHref="/capabilities"
+                skillsHref="/settings/skills"
+                capabilitiesHref="/settings/capabilities"
                 extraSections={agent ? [] : [{ id: 'assistente', label: 'Assistente', icon: Sparkles }]}
                 navNote={agent ? undefined : 'A foto fica disponível depois de criar o agente.'}
                 before={!agent && <Assistant brief={draft?.brief} available={can_draft} />}
@@ -179,7 +188,11 @@ export default function AgentFormPage({ agent, draft, can_draft = false, can_gen
                 after={
                     draft &&
                     !agent && (
-                        <FormSection id="proposta" title="Sobre esta proposta" description="Foi escrita pela IA a partir da sua descrição. Reveja tudo antes de criar.">
+                        <FormSection
+                            id="proposta"
+                            title="Sobre esta proposta"
+                            description="Foi escrita pela IA a partir da sua descrição. Reveja tudo antes de criar."
+                        >
                             <p className="text-sm text-muted-foreground">«{draft.brief}»</p>
                         </FormSection>
                     )

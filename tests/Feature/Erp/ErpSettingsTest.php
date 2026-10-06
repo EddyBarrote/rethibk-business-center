@@ -29,19 +29,19 @@ $valid = [
 ];
 
 it('keeps the ERP settings away from members', function () use ($valid) {
-    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/erp'))->assertForbidden();
-    $this->actingAs($this->member)->put(tenantUrl($this->tenant, 'settings/erp'), $valid)->assertForbidden();
-    $this->actingAs($this->member)->post(tenantUrl($this->tenant, 'settings/erp/test'))->assertForbidden();
+    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/integrations/erp'))->assertForbidden();
+    $this->actingAs($this->member)->put(tenantUrl($this->tenant, 'settings/integrations/erp'), $valid)->assertForbidden();
+    $this->actingAs($this->member)->post(tenantUrl($this->tenant, 'settings/integrations/erp/test'))->assertForbidden();
 });
 
 it('stores the connection with an encrypted token that never reaches the page', function () use ($valid) {
-    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/erp'), $valid)->assertSessionHasNoErrors();
+    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/integrations/erp'), $valid)->assertSessionHasNoErrors();
 
     $raw = DB::table('erp_connections')->sole();
     expect($raw->credentials)->not->toContain('segredo-123')
         ->and($raw->status)->toBe('untested');
 
-    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/erp'))
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/integrations/erp'))
         ->assertOk()
         ->assertDontSee('segredo-123')
         ->assertInertia(fn (Assert $page) => $page
@@ -52,8 +52,8 @@ it('stores the connection with an encrypted token that never reaches the page', 
 });
 
 it('keeps the stored token when the field is left blank', function () use ($valid) {
-    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/erp'), $valid);
-    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/erp'), [...$valid, 'name' => 'ERP', 'token' => '']);
+    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/integrations/erp'), $valid);
+    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/integrations/erp'), [...$valid, 'name' => 'ERP', 'token' => '']);
 
     $connection = asTenant($this->tenant, fn () => ErpConnection::query()->sole());
 
@@ -63,12 +63,12 @@ it('keeps the stored token when the field is left blank', function () use ($vali
 
 it('requires an address for the web transport', function () use ($valid) {
     $this->actingAs($this->admin)
-        ->put(tenantUrl($this->tenant, 'settings/erp'), [...$valid, 'base_url' => ''])
+        ->put(tenantUrl($this->tenant, 'settings/integrations/erp'), [...$valid, 'base_url' => ''])
         ->assertSessionHasErrors('base_url');
 });
 
 it('disables a connection so agents stop using it', function () use ($valid) {
-    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/erp'), [...$valid, 'enabled' => false]);
+    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/integrations/erp'), [...$valid, 'enabled' => false]);
 
     expect(asTenant($this->tenant, fn () => [
         ErpConnection::query()->sole()->status,
@@ -77,14 +77,14 @@ it('disables a connection so agents stop using it', function () use ($valid) {
 });
 
 it('tests the connection against the fake ERP', function () {
-    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/erp'), [
+    $this->actingAs($this->admin)->put(tenantUrl($this->tenant, 'settings/integrations/erp'), [
         'name' => 'Servidor falso',
         'transport' => 'local',
         'enabled' => true,
     ])->assertSessionHasNoErrors();
 
     $this->actingAs($this->admin)
-        ->post(tenantUrl($this->tenant, 'settings/erp/test'))
+        ->post(tenantUrl($this->tenant, 'settings/integrations/erp/test'))
         ->assertSessionHas('success', 'Ligação ao ERP a funcionar: 38 ferramentas disponíveis.');
 
     $connection = asTenant($this->tenant, fn () => ErpConnection::query()->sole());
