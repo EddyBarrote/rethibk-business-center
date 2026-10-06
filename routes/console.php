@@ -13,6 +13,7 @@ Schedule::command('agents:heartbeat')->everyFifteenMinutes()->withoutOverlapping
 Schedule::command('agents:consolidate-memory')->dailyAt('21:00')->timezone('Africa/Maputo');
 Schedule::command('mail:fetch')->everyMinute()->withoutOverlapping();
 Schedule::command('mail:prune')->dailyAt('02:30');
+Schedule::command('attachments:prune')->hourly();
 
 // E03 to E08: watchers that hand work to the agent playing each role.
 Schedule::command('agents:scan-tenders')->hourly()->withoutOverlapping();

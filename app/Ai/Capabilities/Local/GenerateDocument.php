@@ -43,7 +43,7 @@ final class GenerateDocument extends LocalCapability
 
     public function description(): string
     {
-        return 'Gera um ficheiro com a marca da organização a partir de markdown: docx (Word), pptx (apresentação: um diapositivo por título ## ou por linha ---, com listas e tabelas curtas), xlsx (Excel: cada tabela markdown vira uma folha com o nome do título acima; números em formato 1 200,50) ou pdf. Devolve a ligação para pré-visualizar e descarregar. Pode também arquivá-lo na base de conhecimento.';
+        return 'Gera um ficheiro com a marca da organização a partir de markdown: docx (Word), pptx (apresentação: um diapositivo por título ## ou por linha ---, com listas e tabelas curtas), xlsx (Excel: cada tabela markdown vira uma folha com o nome do título acima; números em formato 1 200,50) ou pdf. Devolve a ligação para pré-visualizar e descarregar; numa conversa ou tarefa, o ficheiro vai também anexado à tua resposta. Pode também arquivá-lo na base de conhecimento.';
     }
 
     public function isMutating(): bool

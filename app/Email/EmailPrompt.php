@@ -17,7 +17,8 @@ final class EmailPrompt
     public static function for(EmailMessage $message): string
     {
         return "Chegou um email novo à tua caixa ({$message->mailbox->address}). Email #{$message->id}. ".self::thread($message)."\n"
-            .'Faz a triagem: classifica-o com a capacidade de triagem, extrai os campos relevantes, encaminha para quem deve tratar e, se for uma oportunidade ou concurso, regista-a.'
+            .'Faz a triagem: classifica-o com a capacidade de triagem, extrai os campos relevantes, encaminha para quem deve tratar e, se for uma oportunidade ou concurso, regista-a. '
+            .'Usa também os anexos (PDF, imagens, áudio): muitas vezes o pedido, a referência ou o valor estão lá e não no texto.'
             .self::flows()
             .self::body($message);
     }

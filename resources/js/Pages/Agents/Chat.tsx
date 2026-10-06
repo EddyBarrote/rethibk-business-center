@@ -3,20 +3,36 @@ import { Lock, Loader2, MessageSquare, Pencil, Send } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
 import { InputError } from '@/Components/InputError';
 import { Button } from '@/Components/ui/button';
 import { Textarea } from '@/Components/ui/textarea';
+import { useAttachments } from '@/hooks/useAttachments';
 import AppLayout from '@/Layouts/AppLayout';
+import type { AttachmentLimits } from '@/lib/attachments';
 
 /**
  * A conversation with an agent before its first message. Nothing exists yet:
  * the first message creates the conversation (one per person and agent).
  */
-export default function AgentChat({ agent }: { agent: { id: number; name: string; title: string | null; avatar_url: string | null } }) {
-    const form = useForm({ message: '' });
+export default function AgentChat({
+    agent,
+    attachment_limits,
+}: {
+    agent: { id: number; name: string; title: string | null; avatar_url: string | null };
+    attachment_limits: AttachmentLimits;
+}) {
+    const form = useForm({ message: '', attachment_ids: [] as number[] });
+    const files = useAttachments(attachment_limits, { agent_id: agent.id });
+    const drop = useFileDrop(files.add);
+    const canSend = !form.processing && !files.uploading && !files.failed && (form.data.message.trim() !== '' || files.ids.length > 0);
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
+        if (!canSend) {
+            return;
+        }
+        form.transform((data) => ({ ...data, attachment_ids: files.ids }));
         form.post(`/agents/${agent.id}/chat`);
     };
 
@@ -53,12 +69,17 @@ export default function AgentChat({ agent }: { agent: { id: number; name: string
                     </p>
                 </div>
 
-                <form onSubmit={submit} className="flex flex-col gap-2 rounded-xl border bg-card p-3">
+                <form onSubmit={submit} {...drop.dropProps} className="relative flex flex-col gap-2 rounded-xl border bg-card p-3">
+                    <DropOverlay show={drop.dragging} />
+                    <div className="-mx-3 -mt-3">
+                        <AttachmentTray items={files.items} onRemove={files.remove} notice={files.notice} onDismissNotice={files.dismissNotice} />
+                    </div>
                     <Textarea
                         value={form.data.message}
                         onChange={(e) => form.setData('message', e.target.value)}
+                        onPaste={drop.onPaste}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey && form.data.message.trim() !== '') {
+                            if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault();
                                 submit(e);
                             }
@@ -69,10 +90,14 @@ export default function AgentChat({ agent }: { agent: { id: number; name: string
                         className="resize-none border-0 shadow-none focus-visible:ring-0"
                         aria-label={`Mensagem para ${agent.name}`}
                     />
-                    <InputError message={form.errors.message} />
-                    <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-muted-foreground">Enter envia · Shift+Enter muda de linha</span>
-                        <Button type="submit" size="sm" disabled={form.processing || form.data.message.trim() === ''}>
+                    <InputError message={form.errors.message ?? form.errors.attachment_ids} />
+                    <div className="flex flex-wrap items-center gap-2">
+                        <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
+                        {attachment_limits.types.includes('audio') && (
+                            <RecordControl maxSeconds={attachment_limits.audio_max_seconds} onRecorded={(file) => files.add([file], 'recording')} />
+                        )}
+                        <span className="hidden flex-1 text-xs text-muted-foreground sm:block">Enter envia · Shift+Enter muda de linha</span>
+                        <Button type="submit" size="sm" className="ml-auto" disabled={!canSend}>
                             {form.processing ? <Loader2 className="animate-spin" /> : <Send />}
                             Enviar
                         </Button>

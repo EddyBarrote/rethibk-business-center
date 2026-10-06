@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Attachments\StoredFile;
 use App\Concerns\BelongsToTenant;
 use Database\Factories\EmailAttachmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -22,7 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $ocr_status
  */
 #[Fillable(['email_message_id', 'filename', 'mime_type', 'size_bytes', 'disk', 'path', 'extracted_text', 'ocr_status'])]
-class EmailAttachment extends Model
+class EmailAttachment extends Model implements StoredFile
 {
     /** @use HasFactory<EmailAttachmentFactory> */
     use BelongsToTenant, HasFactory;
@@ -33,6 +34,56 @@ class EmailAttachment extends Model
     public function message(): BelongsTo
     {
         return $this->belongsTo(EmailMessage::class, 'email_message_id');
+    }
+
+    public function reference(): string
+    {
+        return "anexo de email #{$this->id}";
+    }
+
+    public function fileName(): string
+    {
+        return $this->filename;
+    }
+
+    public function mimeType(): string
+    {
+        return $this->mime_type ?? 'application/octet-stream';
+    }
+
+    public function sizeBytes(): int
+    {
+        return $this->size_bytes;
+    }
+
+    public function diskName(): string
+    {
+        return $this->disk ?? (string) config('mail_ingest.disk');
+    }
+
+    public function storagePath(): ?string
+    {
+        return $this->ocr_status === 'discarded' ? null : $this->path;
+    }
+
+    public function cachedText(): ?string
+    {
+        return $this->extracted_text;
+    }
+
+    public function textTried(): bool
+    {
+        return $this->ocr_status !== 'pending';
+    }
+
+    public function rememberText(?string $text): void
+    {
+        $this->forceFill(['extracted_text' => $text, 'ocr_status' => $text === null ? 'skipped' : 'done'])->save();
+    }
+
+    public function isExternal(): bool
+    {
+        return true;
     }
 
     protected function casts(): array

@@ -4,6 +4,7 @@ import {
     Building2,
     ChartColumn,
     type LucideIcon,
+    Paperclip,
     Palette,
     PlugZap,
     Puzzle,
@@ -82,6 +83,13 @@ export const settingsGroups: SettingsGroup[] = [
                 icon: AtSign,
                 description: 'As caixas ligadas e os agentes que as lêem.',
                 permissions: ['emails.own_mailboxes', 'emails.manage_mailboxes'],
+            },
+            {
+                label: 'Anexos',
+                href: '/settings/attachments',
+                icon: Paperclip,
+                description: 'Imagens, PDF, documentos e áudio nas conversas: tamanho e tipos.',
+                permissions: ['company.manage'],
             },
             {
                 label: 'Integrações',

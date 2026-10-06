@@ -339,3 +339,23 @@ Fica para depois: gatilhos que não são email (horário, pedido numa conversa),
 a lista é a de `EmailCategory`; a descrição do fluxo ajuda a Triagem a reconhecer o tipo) e a capacidade de orçamentação.
 
 Testes: `tests/Feature/Workflows/` (motor, encaminhamento e verificação, ecrãs e permissões).
+
+## Anexos nas conversas (06.10.2026)
+
+Pedido do Barrote: no chat as pessoas enviam imagens, áudio, PDF e outros documentos, os agentes recebem-nos e também
+enviam ficheiros, e a Triagem usa os anexos dos emails. Construído sem paragens, com as escolhas por omissão abaixo.
+
+| Decisão | Onde |
+|---|---|
+| Na conversa (e em qualquer tarefa): botão de clip, arrastar e largar sobre o compositor, colar (capturas de ecrã entram como `captura-HHhMMhSS.png`) e gravar áudio com o microfone. Cada ficheiro carrega logo, por partes, com a barra de progresso; Enviar fica à espera que acabem. Pode-se enviar só ficheiros, sem texto. | `Components/attachments/Composer.tsx`, `hooks/useAttachments.ts`, `Tasks/Show.tsx`, `Agents/Chat.tsx` |
+| A gravação é WAV mono a 16 kHz, feita no browser: é o formato que todos os modelos que ouvem aceitam e todos os browsers produzem (o webm do Chrome não está na lista oficial do Gemini). Pára sozinha no limite da empresa. | `hooks/useWavRecorder.ts` |
+| Envio por partes (até 4 MB cada, abaixo dos limites do PHP), por isso o tamanho máximo não depende do `upload_max_filesize` do servidor (hoje 2 MB no Mac de desenvolvimento). No fim confirma-se o conteúdo pelos bytes (um `.pdf` tem de ser PDF). Ficheiros carregados e nunca enviados apagam-se ao fim de 24 horas (`attachments:prune`, de hora a hora). | `AttachmentStore`, `AttachmentController` (`/files`), `routes/console.php` |
+| **O agente recebe o próprio ficheiro quando o modelo o lê** (Gemini: imagens, PDF, áudio e vídeo; Anthropic e OpenAI: imagens e PDF). O resto chega como texto: o dos documentos (Word, Excel, PowerPoint, texto), OCR das imagens se houver Tesseract, e a transcrição do áudio (pelo primeiro provedor com chave: Gemini, OpenAI…). O texto extraído fica guardado. Até 18 MB de ficheiros por vez (o Gemini aceita 20 MB por pedido); o que não cabe vai como texto. Verificado com o Gemini real: ouviu a gravação, viu a imagem e leu o PDF. | `ModelInput`, `config/attachments.php` (`native`) |
+| Na conversa, os últimos 4 ficheiros voltam ao modelo como ficheiros nas respostas seguintes; os mais antigos aparecem pelo nome e o agente lê-os com `files.read`. | `TaskThread::history()` |
+| **Os agentes enviam ficheiros:** os documentos que geram numa conversa vão anexados à resposta sozinhos; com `files.attach` anexam um documento gerado antes ou um ficheiro da base de conhecimento a que têm acesso. `files.attach` e `files.read` são dadas a todos os agentes. Respostas faladas ficam para depois. | `AttachFile`, `ReadMessageAttachment`, `TaskThread::recordReply()` |
+| **A Triagem usa os anexos dos emails:** imagens, PDF e áudio vão ao modelo como ficheiros, além do texto extraído que já ia; a instrução pede para os usar (o pedido, a referência ou o valor estão muitas vezes lá). Anexos descartados por tamanho ficam de fora. | `TaskThread::attachmentsFor()`, `AgentRunner`, `EmailPrompt` |
+| Privacidade: os anexos seguem a conversa. Abre-os quem pode ler a conversa (a própria pessoa, e a direcção com "Ler todas as conversas"); antes de enviados, só quem os carregou. Imagens, áudio, vídeo e PDF abrem no browser; o resto descarrega (`nosniff`). Cada envio fica na auditoria (`task.attachments`). | `AttachmentController::show()`, `TaskPolicy` |
+| Limites por empresa em Definições › Comunicação › Anexos (quem administra a empresa): tamanho por ficheiro (20 MB, até 100), ficheiros por mensagem (10, até 20), gravação mais longa (10 min, até 60) e tipos aceites (imagens, PDF, Office, texto e áudio; vídeo desligado). | `AttachmentLimits`, `Settings\AttachmentSettingsController`, `Pages/Settings/Attachments.tsx` |
+| O armazenamento é o disco `local` (`ATTACHMENTS_DISK`); o envio por partes precisa de um disco local. | `config/attachments.php` |
+
+Testes: `tests/Feature/Tasks/AttachmentsTest.php`.

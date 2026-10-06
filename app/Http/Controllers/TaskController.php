@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Attachments\AttachmentLimits;
+use App\Attachments\AttachmentStore;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
 use App\Enums\GoalStatus;
@@ -18,6 +20,7 @@ use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\EmailMessage;
 use App\Models\Goal;
+use App\Models\MessageAttachment;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskMessage;
@@ -170,20 +173,26 @@ class TaskController extends Controller
 
         return Inertia::render('Agents/Chat', [
             'agent' => ['id' => $agent->id, 'name' => $agent->name, 'title' => $agent->title, 'avatar_url' => $agent->avatarUrl()],
+            'attachment_limits' => AttachmentLimits::current()->forScreen(),
         ]);
     }
 
     /**
      * Write to an agent from its page: the message goes into that one conversation.
      */
-    public function chat(Request $request, Agent $agent, TaskThread $threads): RedirectResponse
+    public function chat(Request $request, Agent $agent, TaskThread $threads, AttachmentStore $store): RedirectResponse
     {
         Gate::authorize('run', $agent);
         $user = $this->user($request);
-        $data = $request->validate(['message' => ['required', 'string', 'max:10000']]);
+        $data = $request->validate([
+            'message' => ['required_without:attachment_ids', 'nullable', 'string', 'max:10000'],
+            'attachment_ids' => ['array'],
+            'attachment_ids.*' => ['integer'],
+        ]);
 
+        $files = $store->claim($user, array_map('intval', $data['attachment_ids'] ?? []), null);
         $chat = $threads->conversation($user, $agent);
-        $threads->post($chat, $user, $data['message']);
+        $threads->post($chat, $user, (string) ($data['message'] ?? ''), attachments: $files);
 
         return to_route('tasks.show', $chat);
     }
@@ -207,8 +216,9 @@ class TaskController extends Controller
                 'source' => $this->source($task),
                 'agent' => $task->assigneeAgent ? Present::agent($task->assigneeAgent) : null,
             ],
-            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name'])->get()->map(fn (TaskMessage $m) => [
+            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready()])->get()->map(fn (TaskMessage $m) => [
                 'id' => $m->id,
+                'attachments' => $m->attachments->map(fn (MessageAttachment $a) => Present::attachment($a))->values(),
                 'author_type' => $m->author_type->value,
                 'author' => $m->authorName(),
                 'author_id' => $m->author_user_id ?? $m->author_agent_id,
@@ -235,6 +245,7 @@ class TaskController extends Controller
                     'can_decide' => $user->can('decide', $approval),
                 ]),
             'workflow' => $this->workflow($task, $user),
+            'attachment_limits' => AttachmentLimits::current()->forScreen(),
             'can' => [
                 'reply' => $user->can('reply', $task),
                 'update' => $user->can('update', $task),
@@ -305,14 +316,17 @@ class TaskController extends Controller
         return ['progress' => $progress, 'decision' => $decision];
     }
 
-    public function message(Request $request, Task $task, TaskThread $threads): RedirectResponse
+    public function message(Request $request, Task $task, TaskThread $threads, AttachmentStore $store): RedirectResponse
     {
         Gate::authorize('reply', $task);
 
         $data = $request->validate([
-            'body' => ['required', 'string', 'max:10000'],
+            'body' => ['required_without:attachment_ids', 'nullable', 'string', 'max:10000'],
             'mode' => ['required', Rule::in(['message', 'action'])],
+            'attachment_ids' => ['array'],
+            'attachment_ids.*' => ['integer'],
         ]);
+        $files = $store->claim($this->user($request), array_map('intval', $data['attachment_ids'] ?? []), $task);
 
         if ($data['mode'] === 'action' && $task->assigneeAgent !== null) {
             Gate::authorize('requestWork', $task->assigneeAgent);
@@ -322,7 +336,7 @@ class TaskController extends Controller
             $threads->setStatus($task, TaskStatus::InProgress, $this->user($request), 'Reaberta com uma mensagem nova.');
         }
 
-        $threads->post($task, $this->user($request), $data['body'], TaskMessageKind::from($data['mode']));
+        $threads->post($task, $this->user($request), (string) ($data['body'] ?? ''), TaskMessageKind::from($data['mode']), attachments: $files);
 
         return back();
     }

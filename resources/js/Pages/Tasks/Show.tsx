@@ -3,6 +3,8 @@ import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, Messa
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
+import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
@@ -12,9 +14,11 @@ import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
+import { useAttachments } from '@/hooks/useAttachments';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
 import { approvalTitle } from '@/lib/approvals';
+import type { AttachmentLimits, MessageAttachment } from '@/lib/attachments';
 import { ago, date, dateTime, plainText, usd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
@@ -28,6 +32,7 @@ interface Message {
     author_id: number | null;
     kind: 'message' | 'action' | 'event' | 'report';
     body: string;
+    attachments: MessageAttachment[];
     run_id: number | null;
     created_at: string;
 }
@@ -48,6 +53,7 @@ interface Props extends TaskFormOptions {
     working: RunSummary | null;
     approvals: PendingApproval[];
     workflow: WorkflowInfo | null;
+    attachment_limits: AttachmentLimits;
     can: { reply: boolean; update: boolean; manage_agent: boolean };
 }
 
@@ -82,6 +88,7 @@ export default function TaskShow({
     working,
     approvals,
     workflow,
+    attachment_limits,
     can,
     agents,
     people,
@@ -91,7 +98,9 @@ export default function TaskShow({
     priorities,
 }: Props) {
     const { tenant } = usePage<SharedProps>().props;
-    const form = useForm({ body: '', mode: 'message' as 'message' | 'action' });
+    const form = useForm({ body: '', mode: 'message' as 'message' | 'action', attachment_ids: [] as number[] });
+    const files = useAttachments(attachment_limits, { task_id: task.id });
+    const drop = useFileDrop(files.add, can.reply);
     const bottom = useRef<HTMLDivElement>(null);
     const seen = useRef(messages.length);
     const reload = () => router.reload({ only: reloadProps });
@@ -131,15 +140,19 @@ export default function TaskShow({
 
     const update = (data: Record<string, string | number | null>) => router.patch(`/tasks/${task.id}`, data, { preserveScroll: true });
 
+    const canSend = !form.processing && !files.uploading && !files.failed && (form.data.body.trim() !== '' || files.ids.length > 0);
+
     const send = (event?: FormEvent) => {
         event?.preventDefault();
-        if (form.processing || form.data.body.trim() === '') {
+        if (!canSend) {
             return;
         }
+        form.transform((data) => ({ ...data, attachment_ids: files.ids }));
         form.post(`/tasks/${task.id}/messages`, {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset('body');
+                files.clear();
                 window.setTimeout(() => bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50);
             },
         });
@@ -359,12 +372,19 @@ export default function TaskShow({
                         {workflow?.decision && <WorkflowDecision decision={workflow.decision} />}
 
                         {can.reply ? (
-                            <form onSubmit={send} className="rounded-xl border bg-card shadow-xs focus-within:ring-[3px] focus-within:ring-ring/30">
+                            <form
+                                onSubmit={send}
+                                {...drop.dropProps}
+                                className="relative rounded-xl border bg-card shadow-xs focus-within:ring-[3px] focus-within:ring-ring/30"
+                            >
+                                <DropOverlay show={drop.dragging} />
+                                <AttachmentTray items={files.items} onRemove={files.remove} notice={files.notice} onDismissNotice={files.dismissNotice} />
                                 <Textarea
                                     rows={3}
                                     value={form.data.body}
                                     onChange={(e) => form.setData('body', e.target.value)}
                                     onKeyDown={onKeyDown}
+                                    onPaste={drop.onPaste}
                                     placeholder={
                                         form.data.mode === 'action'
                                             ? `Diga a ${agentName} o que executar agora…`
@@ -375,6 +395,10 @@ export default function TaskShow({
                                     className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
                                 />
                                 <div className="flex flex-wrap items-center gap-2 border-t px-2 py-2">
+                                    <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
+                                    {attachment_limits.types.includes('audio') && (
+                                        <RecordControl maxSeconds={attachment_limits.audio_max_seconds} onRecorded={(file) => files.add([file], 'recording')} />
+                                    )}
                                     <Segmented
                                         value={form.data.mode}
                                         onChange={(mode) => form.setData('mode', mode)}
@@ -395,14 +419,14 @@ export default function TaskShow({
                                     <span className="hidden flex-1 text-xs text-muted-foreground sm:block">
                                         {isClosed ? 'Escrever reabre a tarefa. ' : ''}Enter envia · Shift+Enter nova linha
                                     </span>
-                                    <Button type="submit" size="sm" className="ml-auto" disabled={form.processing || form.data.body.trim() === ''}>
+                                    <Button type="submit" size="sm" className="ml-auto" disabled={!canSend} title={files.uploading ? 'À espera que os ficheiros acabem de carregar' : undefined}>
                                         {form.data.mode === 'action' ? <Zap /> : <Send />}
                                         {form.data.mode === 'action' ? 'Executar' : 'Enviar'}
                                     </Button>
                                 </div>
-                                {(form.errors.body || form.errors.mode) && (
+                                {(form.errors.body || form.errors.mode || form.errors.attachment_ids) && (
                                     <div className="px-3 pb-2">
-                                        <InputError message={form.errors.body ?? form.errors.mode} />
+                                        <InputError message={form.errors.body ?? form.errors.mode ?? form.errors.attachment_ids} />
                                     </div>
                                 )}
                             </form>
@@ -687,9 +711,12 @@ function MessageRow({ message }: { message: Message }) {
                         </span>
                     )}
                 </div>
-                <div className="mt-0.5 [&>div>p:first-child]:mt-0 [&>div>p:last-child]:mb-0">
-                    <Markdown>{message.body}</Markdown>
-                </div>
+                {message.body !== '' && (
+                    <div className="mt-0.5 [&>div>p:first-child]:mt-0 [&>div>p:last-child]:mb-0">
+                        <Markdown>{message.body}</Markdown>
+                    </div>
+                )}
+                <MessageAttachments attachments={message.attachments} className="mt-2" />
             </div>
         </div>
     );

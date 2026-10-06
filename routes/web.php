@@ -5,6 +5,7 @@ use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AgentDefinitionController;
 use App\Http\Controllers\AgentRunController;
 use App\Http\Controllers\ApprovalController;
+use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\OrgController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\AccessRoleController;
+use App\Http\Controllers\Settings\AttachmentSettingsController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\EmailRuleController;
@@ -83,6 +85,11 @@ Route::middleware('auth')->group(function () {
     Route::post('tasks/{task}/messages', [TaskController::class, 'message'])->middleware('throttle:30,1')->name('tasks.message');
     Route::get('agents/{agent}/chat', [TaskController::class, 'conversation'])->name('agents.conversation');
     Route::post('agents/{agent}/chat', [TaskController::class, 'chat'])->middleware('throttle:20,1')->name('agents.chat');
+    // Files in conversations (docs/DECISOES.md, "Anexos nas conversas"): uploaded in parts, sent with the message.
+    Route::post('files', [AttachmentController::class, 'start'])->middleware('throttle:60,1')->name('files.start');
+    Route::post('files/{attachment}/chunk', [AttachmentController::class, 'chunk'])->middleware('throttle:600,1')->name('files.chunk');
+    Route::delete('files/{attachment}', [AttachmentController::class, 'destroy'])->name('files.destroy');
+    Route::get('files/{attachment}', [AttachmentController::class, 'show'])->name('files.show');
     Route::get('goals', [GoalController::class, 'index'])->name('goals.index');
     Route::post('goals', [GoalController::class, 'store'])->name('goals.store');
     Route::put('goals/{goal}', [GoalController::class, 'update'])->name('goals.update');
@@ -165,6 +172,8 @@ Route::middleware('auth')->group(function () {
         Route::get('brand', [BrandController::class, 'show'])->name('settings.brand.show');
         Route::post('brand', [BrandController::class, 'update'])->name('settings.brand.update');
         Route::get('brand/logo', [BrandController::class, 'logo'])->name('settings.brand.logo');
+        Route::get('attachments', [AttachmentSettingsController::class, 'show'])->name('settings.attachments.show');
+        Route::put('attachments', [AttachmentSettingsController::class, 'update'])->name('settings.attachments.update');
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->names('settings.departments');
 
         // Pessoas e acessos

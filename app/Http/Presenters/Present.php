@@ -9,6 +9,7 @@ use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Contract;
 use App\Models\EmailMessage;
+use App\Models\MessageAttachment;
 use App\Models\Task;
 
 /**
@@ -185,6 +186,26 @@ final class Present
             'messages_count' => $task->messages_count ?? null,
             'last_activity_at' => $task->last_activity_at?->toIso8601String(),
             'created_at' => $task->created_at->toIso8601String(),
+        ];
+    }
+
+    /**
+     * A file in a conversation (docs/DECISOES.md, "Anexos nas conversas").
+     *
+     * @return array<string, mixed>
+     */
+    public static function attachment(MessageAttachment $attachment): array
+    {
+        return [
+            'id' => $attachment->id,
+            'name' => $attachment->filename,
+            'kind' => $attachment->kind->value,
+            'mime' => $attachment->mime_type,
+            'size' => $attachment->size_bytes,
+            'extension' => $attachment->extension(),
+            'source' => $attachment->source,
+            'url' => "/files/{$attachment->id}",
+            'transcript' => $attachment->kind->value === 'audio' ? $attachment->extracted_text : null,
         ];
     }
 }

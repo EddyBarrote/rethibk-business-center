@@ -9,6 +9,7 @@ use App\Ai\Budget\BudgetExceeded;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Budget\Pricing;
 use App\Ai\Capabilities\CapabilityContext;
+use App\Attachments\ModelInput;
 use App\Enums\AuditResult;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
@@ -25,6 +26,7 @@ use App\Tasks\TaskThread;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Laravel\Ai\Events\StepCompleted;
+use Laravel\Ai\Files\File;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\StreamStart;
 use Laravel\Ai\Streaming\Events\TextDelta;
@@ -52,6 +54,7 @@ final class AgentRunner
         private readonly BudgetGuard $budget,
         private readonly Pricing $pricing,
         private readonly TaskThread $threads,
+        private readonly ModelInput $attachments,
     ) {}
 
     /**
@@ -107,9 +110,15 @@ final class AgentRunner
             $context = new CapabilityContext($agent, $run);
             $generic = new GenericAgent($agent, $run, $this->composer->for($agent, $run), $this->tools->for($context), $this->threads->history($run));
 
+            // The files of the message (or email) go to the model as files when its
+            // provider reads them, otherwise as text (docs/DECISOES.md, "Anexos nas conversas").
+            $input = $this->attachments->build($agent->provider, $this->threads->attachmentsFor($run), textInPrompt: $run->trigger_type === TriggerType::Email);
+
             $this->runCosts[$run->id] = 0.0;
             // In a task thread the answer streams to the console as it is written.
-            $response = $run->task_id !== null ? $this->streamToThread($generic, $run) : $generic->prompt($run->input);
+            $response = $run->task_id !== null
+                ? $this->streamToThread($generic, $run, $run->input.$input['text'], $input['files'])
+                : $generic->prompt($run->input.$input['text'], $input['files']);
 
             $provider = $response->meta->provider;
             $model = $response->meta->model;
@@ -190,10 +199,12 @@ final class AgentRunner
     /**
      * Stream the model's answer and broadcast it to the task thread a few times
      * a second, with the tool in use in between, so people see it being written.
+     *
+     * @param  list<File>  $files
      */
-    private function streamToThread(GenericAgent $generic, AgentRun $run): StreamedAgentResponse
+    private function streamToThread(GenericAgent $generic, AgentRun $run, string $prompt, array $files): StreamedAgentResponse
     {
-        $stream = $generic->stream($run->input);
+        $stream = $generic->stream($prompt, $files);
         $final = null;
         $stream->then(function (StreamedAgentResponse $response) use (&$final): void {
             $final = $response;

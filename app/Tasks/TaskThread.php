@@ -3,6 +3,9 @@
 namespace App\Tasks;
 
 use App\Ai\Runs\AgentRunner;
+use App\Attachments\AttachmentStore;
+use App\Attachments\ModelInput;
+use App\Attachments\StoredFile;
 use App\Enums\ActorType;
 use App\Enums\ApprovalStatus;
 use App\Enums\RunStatus;
@@ -17,12 +20,15 @@ use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\EmailMessage;
+use App\Models\GeneratedDocument;
+use App\Models\MessageAttachment;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
 use App\Support\Notifier;
 use App\Workflows\WorkflowEngine;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Ai\Messages\AssistantMessage;
@@ -86,8 +92,9 @@ final class TaskThread
      * Create a task or a chat, with its opening message, and put its agent to work.
      *
      * @param  array<string, mixed>  $attributes
+     * @param  iterable<MessageAttachment>  $attachments
      */
-    public function open(array $attributes, User|Agent $author, ?string $message = null, bool $start = true): Task
+    public function open(array $attributes, User|Agent $author, ?string $message = null, bool $start = true, iterable $attachments = []): Task
     {
         $task = DB::transaction(fn () => Task::query()->create([
             ...$attributes,
@@ -99,8 +106,8 @@ final class TaskThread
 
         $agentOpensWithPerson = $author instanceof Agent && $task->user_id !== null && $task->assignee_agent_id === $author->id;
 
-        if (filled($message)) {
-            $this->post($task, $author, (string) $message, TaskMessageKind::Message, $start, notify: ! $agentOpensWithPerson);
+        if (filled($message) || collect($attachments)->isNotEmpty()) {
+            $this->post($task, $author, (string) $message, TaskMessageKind::Message, $start, notify: ! $agentOpensWithPerson, attachments: $attachments);
         } elseif ($start && $task->kind === TaskKind::Task) {
             $this->wake($task, $author instanceof User ? $author : null, $task, $author instanceof Agent ? TriggerType::Agent : TriggerType::Manual);
         }
@@ -118,9 +125,12 @@ final class TaskThread
 
     /**
      * Add a message to the thread. A message from anyone but the assigned agent
-     * wakes that agent; a message from the agent reaches the person.
+     * wakes that agent; a message from the agent reaches the person. Files go
+     * with it (docs/DECISOES.md, "Anexos nas conversas").
+     *
+     * @param  iterable<MessageAttachment>  $attachments
      */
-    public function post(Task $task, User|Agent $author, string $body, TaskMessageKind $kind = TaskMessageKind::Message, bool $wake = true, bool $notify = true): TaskMessage
+    public function post(Task $task, User|Agent $author, string $body, TaskMessageKind $kind = TaskMessageKind::Message, bool $wake = true, bool $notify = true, iterable $attachments = []): TaskMessage
     {
         $message = $task->messages()->create([
             'author_type' => $author instanceof User ? ActorType::User : ActorType::Agent,
@@ -129,6 +139,13 @@ final class TaskThread
             'kind' => $kind,
             'body' => $body,
         ]);
+
+        $attachments = collect($attachments);
+
+        if ($attachments->isNotEmpty()) {
+            app(AttachmentStore::class)->attachToMessage($attachments, $message);
+            AuditLog::record($author, 'task.attachments', ['task_id' => $task->id, 'message_id' => $message->id, 'files' => $attachments->map(fn (MessageAttachment $a) => ['id' => $a->id, 'name' => $a->filename, 'kind' => $a->kind->value, 'bytes' => $a->size_bytes])->values()->all()], subject: $task);
+        }
 
         $fromAssignee = $author instanceof Agent && $author->id === $task->assignee_agent_id;
 
@@ -144,7 +161,7 @@ final class TaskThread
 
         if ($fromAssignee) {
             if ($notify) {
-                $this->notifyUser($task, "{$author->name} respondeu", Str::limit($body, 300));
+                $this->notifyUser($task, "{$author->name} respondeu", Str::limit($body !== '' ? $body : 'Enviou ficheiros.', 300));
             }
         } elseif ($wake) {
             $this->wake($task, $author instanceof User ? $author : null, $message, $author instanceof Agent ? TriggerType::Agent : TriggerType::Manual);
@@ -276,22 +293,25 @@ final class TaskThread
         }
 
         $text = trim((string) ($run->output['text'] ?? ''));
+        $files = $this->agentFiles($run);
 
         if ($run->status === RunStatus::Failed) {
-            $this->note($task, 'A execução falhou: '.Str::limit((string) $run->error, 300), $run);
-        } elseif ($text !== '') {
-            $task->messages()->create([
+            $note = $this->note($task, 'A execução falhou: '.Str::limit((string) $run->error, 300), $run);
+            app(AttachmentStore::class)->attachToMessage($files, $note);
+        } elseif ($text !== '' || $files->isNotEmpty()) {
+            $reply = $task->messages()->create([
                 'author_type' => ActorType::Agent,
                 'author_agent_id' => $run->agent_id,
                 'kind' => TaskMessageKind::Message,
                 'body' => $text,
                 'agent_run_id' => $run->id,
             ]);
+            app(AttachmentStore::class)->attachToMessage($files, $reply);
             $task->forceFill(['last_activity_at' => now()])->save();
 
             // The person who asked from the console is watching; others get a notification.
             if ($run->trigger_type !== TriggerType::Manual) {
-                $this->notifyUser($task, "{$run->agent->name} respondeu", Str::limit($text, 300));
+                $this->notifyUser($task, "{$run->agent->name} respondeu", Str::limit($text !== '' ? $text : 'Enviou ficheiros.', 300));
             }
         }
 
@@ -324,19 +344,78 @@ final class TaskThread
 
         $before = $run->trigger_source_type === (new TaskMessage)->getMorphClass() ? (int) $run->trigger_source_id : PHP_INT_MAX;
 
-        return TaskMessage::query()
+        $messages = TaskMessage::query()
             ->where('task_id', $run->task_id)
             ->where('id', '<', $before)
-            ->with(['authorUser:id,name', 'authorAgent:id,name'])
+            ->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready()])
             ->orderByDesc('id')
             ->limit(40)
             ->get()
             ->reverse()
-            ->map(fn (TaskMessage $message) => $message->author_type === ActorType::Agent && $message->author_agent_id === $run->agent_id
-                ? new AssistantMessage($message->body)
-                : new UserMessage($this->speaker($message).$message->body))
-            ->values()
-            ->all();
+            ->values();
+
+        // The latest files of the conversation go again as files; older ones are named.
+        $recent = $messages->flatMap(fn (TaskMessage $message) => $message->author_type === ActorType::User ? $message->attachments : [])
+            ->sortByDesc('id')->take((int) config('attachments.history_files', 4))->pluck('id')->all();
+        $input = app(ModelInput::class);
+        $provider = $run->agent->provider ?? null;
+
+        return $messages->map(function (TaskMessage $message) use ($run, $recent, $input, $provider) {
+            if ($message->author_type === ActorType::Agent && $message->author_agent_id === $run->agent_id) {
+                $sent = $message->attachments->map(fn (MessageAttachment $a) => "{$a->reference()}: {$a->filename}")->implode('; ');
+
+                return new AssistantMessage($message->body.($sent !== '' ? "\n\n[Enviaste: {$sent}]" : ''));
+            }
+
+            $files = [];
+            $named = [];
+
+            foreach ($message->attachments as $attachment) {
+                if (in_array($attachment->id, $recent, true) && $input->readsNatively($provider, $attachment->mime_type)) {
+                    $files[] = $attachment;
+                } else {
+                    $named[] = "{$attachment->reference()}: {$attachment->filename} ({$attachment->kind->label()})";
+                }
+            }
+
+            $built = $input->build($provider, $files, budgetBytes: (int) config('attachments.inline_max_mb', 18) * 1024 * 1024 / 2);
+            $list = $named !== [] ? "\n\n[Anexos: ".implode('; ', $named).'. Lê-os com files.read se precisares.]' : '';
+
+            return new UserMessage($this->speaker($message).$message->body.$built['text'].$list, $built['files']);
+        })->all();
+    }
+
+    /**
+     * The files of the message that woke this run (a person's message in the
+     * thread, or the email being triaged), for the model.
+     *
+     * @return list<StoredFile>
+     */
+    public function attachmentsFor(AgentRun $run): array
+    {
+        return match ($run->trigger_source_type) {
+            (new TaskMessage)->getMorphClass() => MessageAttachment::query()->ready()->where('task_message_id', $run->trigger_source_id)->orderBy('id')->get()->all(),
+            (new EmailMessage)->getMorphClass() => EmailMessage::query()->find($run->trigger_source_id)?->attachments()->orderBy('id')->get()->all() ?? [],
+            default => [],
+        };
+    }
+
+    /**
+     * What the agent sends with its reply: the files it attached with
+     * files.attach and the documents it generated in this run.
+     *
+     * @return Collection<int, MessageAttachment>
+     */
+    private function agentFiles(AgentRun $run): Collection
+    {
+        $store = app(AttachmentStore::class);
+        $attached = MessageAttachment::query()->where('agent_run_id', $run->id)->pluck('filename')->all();
+
+        GeneratedDocument::query()->where('agent_run_id', $run->id)->orderBy('id')->get()
+            ->reject(fn (GeneratedDocument $document) => in_array($document->filename, $attached, true))
+            ->each(fn (GeneratedDocument $document) => $store->fromAgent($run, $document->filename, $document->disk, $document->path, 'generated'));
+
+        return MessageAttachment::query()->where('agent_run_id', $run->id)->whereNull('task_message_id')->orderBy('id')->get();
     }
 
     /**
@@ -354,7 +433,7 @@ final class TaskThread
             return $this->speaker($source)."Acção directa: {$source->body}\n\nExecuta agora com as tuas ferramentas e reporta o resultado em poucas linhas.";
         }
 
-        return $this->speaker($source).$source->body;
+        return $this->speaker($source).($source->body !== '' ? $source->body : '(enviou só anexos)');
     }
 
     /**
