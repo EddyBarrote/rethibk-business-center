@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import type { FormEvent } from 'react';
+import { type FormEvent, useState } from 'react';
 
 import { Field } from '@/Components/Field';
 import { InputError } from '@/Components/InputError';
@@ -10,6 +10,7 @@ import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { NativeSelect } from '@/Components/ui/native-select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import type { Option, Role } from '@/types';
 
@@ -33,6 +34,28 @@ interface Props {
     departments: { id: number; name: string }[];
 }
 
+type Tab = 'profile' | 'access' | 'exceptions';
+
+const tabs: { value: Tab; label: string }[] = [
+    { value: 'profile', label: 'Perfil' },
+    { value: 'access', label: 'Acesso' },
+    { value: 'exceptions', label: 'Excepções' },
+];
+
+/** The tab a field lives in, so a failed save can open the right one. */
+function tabOf(field: string): Tab {
+    if (field.startsWith('permission_overrides')) {
+        return 'exceptions';
+    }
+
+    return ['access_role_id', 'role', 'department_id', 'is_active'].includes(field) ? 'access' : 'profile';
+}
+
+/*
+ * A person's details in three tabs, so the long list of exceptions does not
+ * push everything else down. The save button stays at the bottom of the
+ * screen; a failed save opens the first tab with an error and marks the rest.
+ */
 export default function UserForm({ user, access_roles, permissions, departments }: Props) {
     const editing = user !== undefined;
     const form = useForm({
@@ -46,6 +69,16 @@ export default function UserForm({ user, access_roles, permissions, departments 
         password: '',
     });
 
+    const [tab, setTab] = useState<Tab>('profile');
+    const tabsWithErrors = new Set(Object.keys(form.errors).map(tabOf));
+
+    const onError = (errors: Record<string, string>) => {
+        const first = tabs.find((t) => Object.keys(errors).some((field) => tabOf(field) === t.value));
+        if (first) {
+            setTab(first.value);
+        }
+    };
+
     const submit = (event: FormEvent) => {
         event.preventDefault();
         form.transform((data) => ({
@@ -56,9 +89,9 @@ export default function UserForm({ user, access_roles, permissions, departments 
         }));
 
         if (editing) {
-            form.put(`/settings/users/${user.id}`);
+            form.put(`/settings/users/${user.id}`, { onError });
         } else {
-            form.post('/settings/users');
+            form.post('/settings/users', { onError });
         }
     };
 
@@ -71,151 +104,180 @@ export default function UserForm({ user, access_roles, permissions, departments 
                 description={editing ? 'Dados, papel e departamento.' : 'A pessoa entra com este email e a palavra-passe definida aqui.'}
             />
 
-            <form onSubmit={submit} className="flex flex-col gap-8">
-                <SettingsBlock title="Perfil" description="Como a pessoa aparece na plataforma e o email com que entra.">
-                    <Field id="name" label="Nome" error={form.errors.name}>
-                        <Input
-                            id="name"
-                            value={form.data.name}
-                            onChange={(e) => form.setData('name', e.target.value)}
-                            aria-invalid={!!form.errors.name}
-                        />
-                    </Field>
-                    <Field
-                        id="job_title"
-                        label="Cargo"
-                        error={form.errors.job_title}
-                        hint="Opcional. Aparece no organigrama, por exemplo CEO ou Contabilista."
-                    >
-                        <Input id="job_title" value={form.data.job_title} onChange={(e) => form.setData('job_title', e.target.value)} />
-                    </Field>
-                    <Field id="email" label="Email" error={form.errors.email}>
-                        <Input
-                            id="email"
-                            type="email"
-                            value={form.data.email}
-                            onChange={(e) => form.setData('email', e.target.value.toLowerCase())}
-                            aria-invalid={!!form.errors.email}
-                        />
-                    </Field>
-                </SettingsBlock>
+            <form onSubmit={submit} className="flex flex-col">
+                <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="gap-6">
+                    <TabsList>
+                        {tabs.map((t) => (
+                            <TabsTrigger key={t.value} value={t.value}>
+                                {t.label}
+                                {tabsWithErrors.has(t.value) && (
+                                    <span className="size-1.5 rounded-full bg-destructive" aria-label="Com erros" role="img" />
+                                )}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
 
-                <SettingsBlock title="Acesso" description="O papel define o que a pessoa pode ver e aprovar; o departamento, que agentes acompanha.">
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <Field
-                            id="access_role_id"
-                            label="Papel"
-                            error={form.errors.access_role_id ?? (form.errors as Record<string, string | undefined>).role}
+                    <TabsContent value="profile" className="flex flex-col gap-8">
+                        <SettingsBlock title="Perfil" description="Como a pessoa aparece na plataforma e o email com que entra.">
+                            <Field id="name" label="Nome" error={form.errors.name}>
+                                <Input
+                                    id="name"
+                                    value={form.data.name}
+                                    onChange={(e) => form.setData('name', e.target.value)}
+                                    aria-invalid={!!form.errors.name}
+                                />
+                            </Field>
+                            <Field
+                                id="job_title"
+                                label="Cargo"
+                                error={form.errors.job_title}
+                                hint="Opcional. Aparece no organigrama, por exemplo CEO ou Contabilista."
+                            >
+                                <Input id="job_title" value={form.data.job_title} onChange={(e) => form.setData('job_title', e.target.value)} />
+                            </Field>
+                            <Field id="email" label="Email" error={form.errors.email}>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={form.data.email}
+                                    onChange={(e) => form.setData('email', e.target.value.toLowerCase())}
+                                    aria-invalid={!!form.errors.email}
+                                />
+                            </Field>
+                        </SettingsBlock>
+
+                        <SettingsBlock
+                            title="Palavra-passe"
+                            description={
+                                editing
+                                    ? 'Só preencha se quiser definir uma nova palavra-passe.'
+                                    : 'A palavra-passe com que a pessoa entra pela primeira vez.'
+                            }
                         >
-                            <NativeSelect
-                                id="access_role_id"
-                                value={form.data.access_role_id}
-                                onChange={(e) => form.setData('access_role_id', e.target.value)}
-                            >
-                                {access_roles.map((role) => (
-                                    <option key={role.id} value={role.id}>
-                                        {role.name}
-                                    </option>
-                                ))}
-                            </NativeSelect>
-                        </Field>
-                        <Field id="department_id" label="Departamento" error={form.errors.department_id}>
-                            <NativeSelect
-                                id="department_id"
-                                value={form.data.department_id}
-                                onChange={(e) => form.setData('department_id', e.target.value)}
-                            >
-                                <option value="">Sem departamento</option>
-                                {departments.map((department) => (
-                                    <option key={department.id} value={department.id}>
-                                        {department.name}
-                                    </option>
-                                ))}
-                            </NativeSelect>
-                        </Field>
-                    </div>
-                    <div className="grid gap-1">
-                        <div className="flex items-start gap-3">
-                            <Checkbox
-                                id="is_active"
-                                className="mt-0.5"
-                                checked={form.data.is_active}
-                                onCheckedChange={(checked) => form.setData('is_active', checked === true)}
-                            />
-                            <div className="grid gap-0.5">
-                                <Label htmlFor="is_active">Conta activa</Label>
-                                <p className="text-xs text-muted-foreground">Uma conta inactiva deixa de poder entrar, mas mantém o histórico.</p>
-                            </div>
-                        </div>
-                        <InputError message={form.errors.is_active} />
-                    </div>
-                </SettingsBlock>
+                            <Field id="password" label={editing ? 'Nova palavra-passe' : 'Palavra-passe'} error={form.errors.password}>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    autoComplete="new-password"
+                                    value={form.data.password}
+                                    onChange={(e) => form.setData('password', e.target.value)}
+                                    placeholder={editing ? 'Deixe em branco para manter a actual' : undefined}
+                                    aria-invalid={!!form.errors.password}
+                                />
+                            </Field>
+                        </SettingsBlock>
+                    </TabsContent>
 
-                <SettingsBlock
-                    title="Excepções"
-                    description="Por omissão a pessoa tem o que o papel tem. Aqui pode dar-lhe ou tirar-lhe uma permissão só a ela."
-                >
-                    <div className="flex flex-col">
-                        {permissions.map((permission, index) => {
-                            const groupStarts = index === 0 || permissions[index - 1].group !== permission.group;
-                            const fromRole =
-                                access_roles.find((role) => String(role.id) === form.data.access_role_id)?.permissions.includes(permission.value) ??
-                                false;
-                            const override = form.data.permission_overrides[permission.value];
-                            return (
-                                <div key={permission.value}>
-                                    {groupStarts && <p className="pt-4 pb-1 text-xs font-semibold text-muted-foreground">{permission.group}</p>}
-                                    <div className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center">
-                                        <div className="min-w-0 flex-1">
-                                            <div className="text-sm font-medium">{permission.label}</div>
-                                            <div className="text-xs text-muted-foreground">{permission.description}</div>
-                                        </div>
-                                        <NativeSelect
-                                            aria-label={permission.label}
-                                            className="sm:w-48"
-                                            value={override === undefined ? 'role' : override ? 'allow' : 'deny'}
-                                            onChange={(e) => {
-                                                const { [permission.value]: _, ...rest } = form.data.permission_overrides;
-                                                form.setData(
-                                                    'permission_overrides',
-                                                    e.target.value === 'role' ? rest : { ...rest, [permission.value]: e.target.value === 'allow' },
-                                                );
-                                            }}
-                                        >
-                                            <option value="role">Do papel ({fromRole ? 'sim' : 'não'})</option>
-                                            <option value="allow">Permitir</option>
-                                            <option value="deny">Negar</option>
-                                        </NativeSelect>
+                    <TabsContent value="access" className="flex flex-col gap-8">
+                        <SettingsBlock
+                            title="Acesso"
+                            description="O papel define o que a pessoa pode ver e aprovar; o departamento, que agentes acompanha."
+                        >
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <Field
+                                    id="access_role_id"
+                                    label="Papel"
+                                    error={form.errors.access_role_id ?? (form.errors as Record<string, string | undefined>).role}
+                                >
+                                    <NativeSelect
+                                        id="access_role_id"
+                                        value={form.data.access_role_id}
+                                        onChange={(e) => form.setData('access_role_id', e.target.value)}
+                                    >
+                                        {access_roles.map((role) => (
+                                            <option key={role.id} value={role.id}>
+                                                {role.name}
+                                            </option>
+                                        ))}
+                                    </NativeSelect>
+                                </Field>
+                                <Field id="department_id" label="Departamento" error={form.errors.department_id}>
+                                    <NativeSelect
+                                        id="department_id"
+                                        value={form.data.department_id}
+                                        onChange={(e) => form.setData('department_id', e.target.value)}
+                                    >
+                                        <option value="">Sem departamento</option>
+                                        {departments.map((department) => (
+                                            <option key={department.id} value={department.id}>
+                                                {department.name}
+                                            </option>
+                                        ))}
+                                    </NativeSelect>
+                                </Field>
+                            </div>
+                            <div className="grid gap-1">
+                                <div className="flex items-start gap-3">
+                                    <Checkbox
+                                        id="is_active"
+                                        className="mt-0.5"
+                                        checked={form.data.is_active}
+                                        onCheckedChange={(checked) => form.setData('is_active', checked === true)}
+                                    />
+                                    <div className="grid gap-0.5">
+                                        <Label htmlFor="is_active">Conta activa</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Uma conta inactiva deixa de poder entrar, mas mantém o histórico.
+                                        </p>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    <InputError message={(form.errors as Record<string, string | undefined>).permission_overrides} />
-                </SettingsBlock>
+                                <InputError message={form.errors.is_active} />
+                            </div>
+                        </SettingsBlock>
+                    </TabsContent>
 
-                <SettingsBlock
-                    title="Palavra-passe"
-                    description={
-                        editing
-                            ? 'Só preencha se quiser definir uma nova palavra-passe.'
-                            : 'A palavra-passe com que a pessoa entra pela primeira vez.'
-                    }
-                >
-                    <Field id="password" label={editing ? 'Nova palavra-passe' : 'Palavra-passe'} error={form.errors.password}>
-                        <Input
-                            id="password"
-                            type="password"
-                            autoComplete="new-password"
-                            value={form.data.password}
-                            onChange={(e) => form.setData('password', e.target.value)}
-                            placeholder={editing ? 'Deixe em branco para manter a actual' : undefined}
-                            aria-invalid={!!form.errors.password}
-                        />
-                    </Field>
-                </SettingsBlock>
+                    <TabsContent value="exceptions" className="flex flex-col gap-8">
+                        <SettingsBlock
+                            title="Excepções"
+                            description="Por omissão a pessoa tem o que o papel tem. Aqui pode dar-lhe ou tirar-lhe uma permissão só a ela."
+                        >
+                            <div className="flex flex-col">
+                                {permissions.map((permission, index) => {
+                                    const groupStarts = index === 0 || permissions[index - 1].group !== permission.group;
+                                    const fromRole =
+                                        access_roles
+                                            .find((role) => String(role.id) === form.data.access_role_id)
+                                            ?.permissions.includes(permission.value) ?? false;
+                                    const override = form.data.permission_overrides[permission.value];
+                                    return (
+                                        <div key={permission.value}>
+                                            {groupStarts && (
+                                                <p className="pt-4 pb-1 text-xs font-semibold text-muted-foreground">{permission.group}</p>
+                                            )}
+                                            <div className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="text-sm font-medium">{permission.label}</div>
+                                                    <div className="text-xs text-muted-foreground">{permission.description}</div>
+                                                </div>
+                                                <NativeSelect
+                                                    aria-label={permission.label}
+                                                    className="sm:w-48"
+                                                    value={override === undefined ? 'role' : override ? 'allow' : 'deny'}
+                                                    onChange={(e) => {
+                                                        const { [permission.value]: _, ...rest } = form.data.permission_overrides;
+                                                        form.setData(
+                                                            'permission_overrides',
+                                                            e.target.value === 'role'
+                                                                ? rest
+                                                                : { ...rest, [permission.value]: e.target.value === 'allow' },
+                                                        );
+                                                    }}
+                                                >
+                                                    <option value="role">Do papel ({fromRole ? 'sim' : 'não'})</option>
+                                                    <option value="allow">Permitir</option>
+                                                    <option value="deny">Negar</option>
+                                                </NativeSelect>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <InputError message={(form.errors as Record<string, string | undefined>).permission_overrides} />
+                        </SettingsBlock>
+                    </TabsContent>
+                </Tabs>
 
-                <div className="flex items-center justify-between gap-2 border-t pt-5">
+                <div className="sticky bottom-0 z-10 -mx-1 mt-8 flex items-center justify-between gap-3 border-t bg-background/85 px-1 py-3 backdrop-blur">
                     <Button variant="ghost" asChild>
                         <Link href="/settings/users">Cancelar</Link>
                     </Button>
