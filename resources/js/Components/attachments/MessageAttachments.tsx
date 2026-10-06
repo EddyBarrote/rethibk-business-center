@@ -1,4 +1,7 @@
 import { Download, FileAudio, Mic } from 'lucide-react';
+import { useState } from 'react';
+
+import { FilePreview } from '@/Components/attachments/FilePreview';
 
 import { ExtensionTag, FileIcon } from '@/Components/FileIcon';
 import { fileSize, type MessageAttachment } from '@/lib/attachments';
@@ -10,6 +13,8 @@ import { cn } from '@/lib/utils';
  * a file to open or download.
  */
 export function MessageAttachments({ attachments, className }: { attachments: MessageAttachment[]; className?: string }) {
+    const [open, setOpen] = useState<MessageAttachment | null>(null);
+
     if (attachments.length === 0) {
         return null;
     }
@@ -80,7 +85,12 @@ export function MessageAttachments({ attachments, className }: { attachments: Me
                     {files.map((file) => (
                         <div key={file.id} className="flex max-w-72 items-center gap-2 rounded-lg border bg-background py-1.5 pr-1.5 pl-1.5 text-xs">
                             <FileIcon extension={file.extension} className="size-8" />
-                            <a href={file.url} target="_blank" rel="noreferrer" className="flex min-w-0 flex-col hover:underline" title={file.name}>
+                            <button
+                                type="button"
+                                onClick={() => setOpen(file)}
+                                className="flex min-w-0 flex-col text-left hover:underline"
+                                title={`Abrir ${file.name}`}
+                            >
                                 <span className="truncate font-medium">{file.name}</span>
                                 <span className="flex items-center gap-1.5 text-muted-foreground">
                                     {file.extension && <ExtensionTag extension={file.extension} />}
@@ -88,7 +98,7 @@ export function MessageAttachments({ attachments, className }: { attachments: Me
                                     {file.source === 'generated' && ' · gerado pelo agente'}
                                     {file.source === 'knowledge' && ' · da base de conhecimento'}
                                 </span>
-                            </a>
+                            </button>
                             <a
                                 href={`${file.url}?download=1`}
                                 className="ml-auto inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -101,6 +111,8 @@ export function MessageAttachments({ attachments, className }: { attachments: Me
                     ))}
                 </div>
             )}
+
+            <FilePreview file={open} onClose={() => setOpen(null)} />
         </div>
     );
 }

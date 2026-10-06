@@ -67,7 +67,7 @@ final class AttachFile extends LocalCapability
                 return CapabilityResult::error('Documento não encontrado.');
             }
 
-            $attachment = $this->store->fromAgent($context->run, $document->filename, $document->disk, $document->path, 'generated');
+            $attachment = $this->store->fromAgent($context->run, $document->filename, $document->disk, $document->path, 'generated', $document->source);
         } else {
             $item = $this->access->items($context->agent)->find($data['knowledge_item_id']);
 

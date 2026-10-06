@@ -90,6 +90,7 @@ Route::middleware('auth')->group(function () {
     Route::post('files/{attachment}/chunk', [AttachmentController::class, 'chunk'])->middleware('throttle:600,1')->name('files.chunk');
     Route::delete('files/{attachment}', [AttachmentController::class, 'destroy'])->name('files.destroy');
     Route::get('files/{attachment}', [AttachmentController::class, 'show'])->name('files.show');
+    Route::get('files/{attachment}/preview', [AttachmentController::class, 'preview'])->middleware('throttle:60,1')->name('files.preview');
     Route::get('goals', [GoalController::class, 'index'])->name('goals.index');
     Route::post('goals', [GoalController::class, 'store'])->name('goals.store');
     Route::put('goals/{goal}', [GoalController::class, 'update'])->name('goals.update');

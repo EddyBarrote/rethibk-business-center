@@ -191,6 +191,12 @@ it('sends the documents an agent generates, and files of the knowledge base, wit
         expect($read->ok)->toBeTrue();
     });
 
+    // The conversation previews it with the Markdown the agent wrote, for who may read the conversation.
+    $file = asTenant($this->tenant, fn () => MessageAttachment::query()->where('source', 'generated')->sole());
+    $this->actingAs($this->boss)->getJson(tenantUrl($this->tenant, "files/{$file->id}/preview"))
+        ->assertOk()->assertJson(['format' => 'markdown', 'text' => "# Relatório\n\nTexto."]);
+    $this->actingAs($this->other)->getJson(tenantUrl($this->tenant, "files/{$file->id}/preview"))->assertForbidden();
+
     $this->actingAs($this->boss)->get(tenantUrl($this->tenant, 'tasks/'.asTenant($this->tenant, fn () => Task::query()->value('id'))))
         ->assertInertia(fn (Assert $page) => $page->component('Tasks/Show')
             ->where('messages.1.attachments.0.name', 'relatorio.pdf')

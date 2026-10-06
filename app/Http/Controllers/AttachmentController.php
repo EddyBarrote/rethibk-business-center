@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Attachments\AttachmentStore;
+use App\Attachments\ModelInput;
 use App\Models\Agent;
 use App\Models\MessageAttachment;
 use App\Models\Task;
@@ -75,18 +76,29 @@ class AttachmentController extends Controller
     }
 
     /**
+     * The content of a document for the preview in the conversation: the
+     * Markdown of a document an agent generated, the extracted text of others
+     * (Word, Excel, PowerPoint, text). Same access as the file itself.
+     */
+    public function preview(Request $request, MessageAttachment $attachment, ModelInput $input): JsonResponse
+    {
+        $this->authorizeOpen($request, $attachment);
+
+        $text = in_array($attachment->kind->value, ['document', 'text', 'pdf'], true) ? $input->text($attachment) : null;
+
+        return response()->json([
+            'format' => $attachment->source === 'generated' && $text !== null ? 'markdown' : ($attachment->extension() === 'xlsx' ? 'sheet' : 'text'),
+            'text' => $text === null ? null : mb_substr($text, 0, 200_000),
+        ]);
+    }
+
+    /**
      * Opened in the browser when it is safe to (images, audio, video, PDF);
      * downloaded otherwise.
      */
     public function show(Request $request, MessageAttachment $attachment): StreamedResponse
     {
-        $user = $this->user($request);
-
-        if ($attachment->task_id !== null && $attachment->task_message_id !== null) {
-            Gate::authorize('view', $attachment->task);
-        } else {
-            abort_unless($attachment->uploaded_by_user_id === $user->id && $attachment->isReady(), 404);
-        }
+        $this->authorizeOpen($request, $attachment);
 
         $disk = Storage::disk($attachment->disk);
         abort_unless($disk->exists($attachment->path), 404);
@@ -103,5 +115,14 @@ class AttachmentController extends Controller
         return $inline
             ? $disk->response($attachment->path, $attachment->filename, $headers, 'inline')
             : $disk->download($attachment->path, $attachment->filename, $headers);
+    }
+
+    private function authorizeOpen(Request $request, MessageAttachment $attachment): void
+    {
+        if ($attachment->task_id !== null && $attachment->task_message_id !== null) {
+            Gate::authorize('view', $attachment->task);
+        } else {
+            abort_unless($attachment->uploaded_by_user_id === $this->user($request)->id && $attachment->isReady(), 404);
+        }
     }
 }

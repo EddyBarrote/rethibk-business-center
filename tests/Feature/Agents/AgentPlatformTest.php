@@ -118,7 +118,7 @@ it('gives an agent only the capabilities of its own tenant, plus the knowledge b
 
         $names = collect(app(ToolResolver::class)->for(new CapabilityContext($agent, $run)))->map->name()->sort()->values()->all();
 
-        expect($names)->toBe(['comms_send_email', 'escalate_urgent', 'files_attach', 'files_read', 'knowledge_browse', 'knowledge_read', 'memory_search', 'tasks_ask_human', 'tasks_create', 'tasks_list', 'tasks_update_status', 'workflow_complete_step']);
+        expect($names)->toBe(['comms_send_email', 'documents_generate', 'escalate_urgent', 'files_attach', 'files_read', 'knowledge_browse', 'knowledge_read', 'memory_search', 'tasks_ask_human', 'tasks_create', 'tasks_list', 'tasks_update_status', 'workflow_complete_step']);
     });
 });
 

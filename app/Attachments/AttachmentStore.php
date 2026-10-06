@@ -151,7 +151,7 @@ final class AttachmentStore
      * A file an agent sends in its reply: copied in, it waits on the run
      * until the reply is written.
      */
-    public function fromAgent(AgentRun $run, string $filename, string $sourceDisk, string $sourcePath, string $source): ?MessageAttachment
+    public function fromAgent(AgentRun $run, string $filename, string $sourceDisk, string $sourcePath, string $source, ?string $text = null): ?MessageAttachment
     {
         $from = Storage::disk($sourceDisk);
 
@@ -184,6 +184,9 @@ final class AttachmentStore
             'status' => MessageAttachment::READY,
             'disk' => $disk,
             'path' => $path,
+            // A generated document keeps its Markdown, which the conversation shows as its preview.
+            'extracted_text' => $text,
+            'text_status' => $text === null ? 'pending' : 'done',
         ]);
     }
 

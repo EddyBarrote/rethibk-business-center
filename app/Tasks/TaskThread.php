@@ -413,7 +413,7 @@ final class TaskThread
 
         GeneratedDocument::query()->where('agent_run_id', $run->id)->orderBy('id')->get()
             ->reject(fn (GeneratedDocument $document) => in_array($document->filename, $attached, true))
-            ->each(fn (GeneratedDocument $document) => $store->fromAgent($run, $document->filename, $document->disk, $document->path, 'generated'));
+            ->each(fn (GeneratedDocument $document) => $store->fromAgent($run, $document->filename, $document->disk, $document->path, 'generated', $document->source));
 
         return MessageAttachment::query()->where('agent_run_id', $run->id)->whereNull('task_message_id')->orderBy('id')->get();
     }

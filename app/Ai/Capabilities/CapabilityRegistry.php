@@ -131,7 +131,7 @@ final class CapabilityRegistry
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read'];
+    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];
