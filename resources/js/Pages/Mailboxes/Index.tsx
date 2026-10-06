@@ -32,6 +32,7 @@ interface MailboxRow {
     has_imap_password: boolean;
     has_smtp_password: boolean;
     last_error: string | null;
+    error_message: string | null;
     last_inbound_at: string | null;
     owners: { id: number; name: string }[];
     readers: { id: number; name: string; processes_new: boolean }[];
@@ -95,7 +96,11 @@ export default function Mailboxes({ mailboxes, agents, people, default_reader_id
                                         ? 'Nenhum agente a lê'
                                         : `Lida por ${mailbox.readers.map((r) => (r.processes_new ? `${r.name} (vê o email novo)` : r.name)).join(', ')}`}
                                 </p>
-                                {mailbox.last_error && <p className="text-xs text-destructive">{mailbox.last_error}</p>}
+                                {mailbox.error_message && (
+                                    <p className="text-xs text-destructive" title={mailbox.last_error ?? undefined}>
+                                        {mailbox.error_message}
+                                    </p>
+                                )}
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
                                 <Button variant="ghost" size="icon" className="size-7" onClick={() => setEditing(mailbox)} aria-label="Editar caixa">

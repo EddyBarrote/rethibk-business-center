@@ -72,15 +72,9 @@ function SectionMenu({ groups, section }: { groups: SettingsGroup[]; section?: S
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuItem asChild>
-                    <Link href="/settings">
-                        <LayoutGrid />
-                        Todas as definições
-                    </Link>
-                </DropdownMenuItem>
-                {groups.map((group) => (
+                {groups.map((group, index) => (
                     <DropdownMenuGroup key={group.label}>
-                        <DropdownMenuSeparator />
+                        {index > 0 && <DropdownMenuSeparator />}
                         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{group.label}</DropdownMenuLabel>
                         {group.items.map((item) => (
                             <DropdownMenuItem key={item.href} asChild className={cn(item.href === section?.href && 'bg-accent font-medium')}>

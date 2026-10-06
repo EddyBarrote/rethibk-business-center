@@ -1,23 +1,39 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ChevronRight } from 'lucide-react';
+import { useEffect } from 'react';
 
 import { ListPanel, Section } from '@/Components/Blocks';
 import AppLayout from '@/Layouts/AppLayout';
 import { SettingsHeading } from '@/Layouts/SettingsLayout';
 import { visibleSettings } from '@/lib/settings';
+import { cn } from '@/lib/utils';
 import type { SharedProps } from '@/types';
 
-/** Definições: the sections this person may open, grouped. On a phone this list is how people move between them. */
+/** From a tablet up, the settings sidebar (or the section menu) is the way around; the phone has no room for it. */
+const WITH_SECTION_MENU = '(min-width: 640px)';
+
+/**
+ * Definições: on a phone, the sections this person may open, grouped, and
+ * the way to move between them. From a tablet up it opens straight on the
+ * first section they may see, with the grouped menu beside it.
+ */
 export default function SettingsIndex() {
     const { auth } = usePage<SharedProps>().props;
     const groups = visibleSettings(auth.user?.permissions);
+    const first = groups[0]?.items[0]?.href;
+
+    useEffect(() => {
+        if (first && window.matchMedia(WITH_SECTION_MENU).matches) {
+            router.visit(first, { replace: true });
+        }
+    }, [first]);
 
     return (
         <AppLayout breadcrumbs={[{ label: 'Definições' }]}>
             <Head title="Definições" />
-            <SettingsHeading />
+            <SettingsHeading className={first ? 'sm:hidden' : undefined} />
 
-            <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-x-10">
+            <div className={cn('grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-x-10', first && 'sm:hidden')}>
                 {groups.map((group) => (
                     <Section key={group.label} title={group.label}>
                         <ListPanel>

@@ -126,6 +126,39 @@ class Mailbox extends Model
         return $reader?->agent;
     }
 
+    /**
+     * What people see: an active mailbox whose last connection failed shows
+     * as "Com erro". The stored status stays active, so the next fetch still
+     * tries and clears the error once the connection works again.
+     */
+    public function shownStatus(): MailboxStatus
+    {
+        return $this->status === MailboxStatus::Active && filled($this->last_error) ? MailboxStatus::Error : $this->status;
+    }
+
+    /**
+     * The last connection error in plain Portuguese; the server's own text
+     * stays in last_error for whoever needs the detail.
+     */
+    public function errorMessage(): ?string
+    {
+        if (blank($this->last_error)) {
+            return null;
+        }
+
+        $error = (string) $this->last_error;
+        $side = str_starts_with($error, 'IMAP:') ? 'receber' : 'enviar';
+        $reason = match (true) {
+            (bool) preg_match('/AUTHENTICATIONFAILED|authenticat|credentials|login failed|password|\b535\b|\b534\b/i', $error) => 'o servidor recusou o utilizador ou a palavra-passe. Confirme os dados de acesso e guarde de novo.',
+            (bool) preg_match('/certificate|ssl|tls|handshake/i', $error) => 'a ligação segura falhou. Confirme o tipo de segurança (SSL ou TLS) e a porta.',
+            (bool) preg_match('/getaddrinfo|resolve|name or service|no such host/i', $error) => 'não foi possível encontrar o servidor. Confirme o endereço do servidor.',
+            (bool) preg_match('/refused|timed out|timeout|unreachable|connection could not be established|failed to connect/i', $error) => 'não foi possível ligar ao servidor. Confirme o servidor e a porta.',
+            default => 'a última ligação ao servidor falhou.',
+        };
+
+        return "Ao {$side} email, {$reason}";
+    }
+
     public function canSend(): bool
     {
         return $this->status === MailboxStatus::Active && filled($this->smtp_host) && filled($this->smtp_port);

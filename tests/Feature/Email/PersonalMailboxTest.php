@@ -4,6 +4,7 @@ use App\Ai\Capabilities\CapabilityRegistry;
 use App\Email\EmailPrompt;
 use App\Email\MailboxMailer;
 use App\Enums\EmailStatus;
+use App\Enums\MailboxStatus;
 use App\Enums\Permission;
 use App\Models\Agent;
 use App\Models\Department;
@@ -65,6 +66,24 @@ it('lets a person connect their own mailbox, read by the agent of their area, wi
         ->assertInertia(fn (Assert $page) => $page->component('Mailboxes/Index')->has('mailboxes', 1)->where('mailboxes.0.readers.0.processes_new', true));
     $this->actingAs($this->rui)->get(tenantUrl($this->tenant, 'settings/mailboxes'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('mailboxes', 0));
+});
+
+it('shows a mailbox whose connection failed as an error, in plain Portuguese, and keeps it active', function () {
+    connectMailbox($this, $this->ana);
+    $mailbox = asTenant($this->tenant, function () {
+        $mailbox = Mailbox::query()->where('address', 'ana@empresa.test')->sole();
+        $mailbox->forceFill(['last_error' => 'IMAP: NO [AUTHENTICATIONFAILED] Authentication failed.'])->save();
+
+        return $mailbox;
+    });
+
+    $this->actingAs($this->ana)->get(tenantUrl($this->tenant, 'settings/mailboxes'))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mailboxes.0.status', 'error')
+            ->where('mailboxes.0.status_label', 'Com erro')
+            ->where('mailboxes.0.error_message', 'Ao receber email, o servidor recusou o utilizador ou a palavra-passe. Confirme os dados de acesso e guarde de novo.'));
+
+    expect($mailbox->fresh()->status)->toBe(MailboxStatus::Active);
 });
 
 it('lets only owners change a mailbox, and those who manage every mailbox name the owners', function () {

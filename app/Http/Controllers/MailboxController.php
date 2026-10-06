@@ -44,11 +44,12 @@ class MailboxController extends Controller
         return Inertia::render('Mailboxes/Index', [
             'mailboxes' => $mailboxes->map(fn (Mailbox $m) => [
                 ...$m->only(['id', 'address', 'display_name', 'imap_host', 'imap_port', 'imap_username', 'imap_encryption', 'imap_folder', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_encryption']),
-                'status' => $m->status->value,
-                'status_label' => $m->status->label(),
+                'status' => $m->shownStatus()->value,
+                'status_label' => $m->shownStatus()->label(),
                 'has_imap_password' => filled($m->imap_password),
                 'has_smtp_password' => filled($m->smtp_password),
                 'last_error' => $m->last_error,
+                'error_message' => $m->errorMessage(),
                 'last_inbound_at' => $m->last_inbound_at?->toIso8601String(),
                 'owners' => $m->owners->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])->values(),
                 'readers' => ($readers[$m->id] ?? collect())->map(fn (MailboxReader $r) => ['id' => $r->agent_id, 'name' => $r->agent->name, 'processes_new' => $r->processes_new])->values(),
