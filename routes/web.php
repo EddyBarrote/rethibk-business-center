@@ -27,6 +27,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\AccessRoleController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
+use App\Http\Controllers\Settings\EmailRuleController;
 use App\Http\Controllers\Settings\ErpConnectionController;
 use App\Http\Controllers\Settings\IntegrationController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -35,6 +36,7 @@ use App\Http\Controllers\Settings\UsageController;
 use App\Http\Controllers\Settings\UserController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\WorkflowController;
 use Illuminate\Support\Facades\Route;
 
 // Every web route runs on a tenant host; IdentifyTenant is prepended to the web group.
@@ -89,6 +91,17 @@ Route::middleware('auth')->group(function () {
     Route::put('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
     Route::get('org', [OrgController::class, 'index'])->name('org.index');
     Route::put('org', [OrgController::class, 'update'])->name('org.update');
+    // Fluxos de trabalho (docs/DECISOES.md): the map, and the editor (canvas and list).
+    Route::get('workflows', [WorkflowController::class, 'index'])->name('workflows.index');
+    Route::get('workflows/new', [WorkflowController::class, 'create'])->name('workflows.create');
+    Route::post('workflows', [WorkflowController::class, 'store'])->name('workflows.store');
+    Route::post('workflows/check', [WorkflowController::class, 'check'])->middleware('throttle:120,1')->name('workflows.check');
+    Route::post('workflows/draft', [WorkflowController::class, 'draft'])->middleware('throttle:10,1')->name('workflows.draft');
+    Route::get('workflows/{workflow}/edit', [WorkflowController::class, 'edit'])->name('workflows.edit');
+    Route::put('workflows/{workflow}', [WorkflowController::class, 'update'])->name('workflows.update');
+    Route::put('workflows/{workflow}/status', [WorkflowController::class, 'status'])->name('workflows.status');
+    Route::delete('workflows/{workflow}', [WorkflowController::class, 'destroy'])->name('workflows.destroy');
+    Route::post('workflow-steps/{step}/decide', [WorkflowController::class, 'decide'])->middleware('throttle:30,1')->name('workflow-steps.decide');
     Route::get('runs', [AgentRunController::class, 'index'])->name('runs.index');
     Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
 
@@ -186,6 +199,8 @@ Route::middleware('auth')->group(function () {
         Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');
         Route::delete('skills/{skill}/files/{file}', [SkillController::class, 'destroyFile'])->name('skills.files.destroy');
         Route::get('usage', UsageController::class)->name('settings.usage');
+        Route::get('email-rules', [EmailRuleController::class, 'index'])->name('settings.email-rules.index');
+        Route::put('email-rules/{category}', [EmailRuleController::class, 'update'])->name('settings.email-rules.update');
 
         // A minha conta
         Route::get('profile', [ProfileController::class, 'show'])->name('settings.profile.show');

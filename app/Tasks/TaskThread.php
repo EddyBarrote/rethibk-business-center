@@ -21,6 +21,7 @@ use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
 use App\Support\Notifier;
+use App\Workflows\WorkflowEngine;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -213,6 +214,10 @@ final class TaskThread
             $this->notifyUser($task, ($by->name ?? 'Um agente').' está à sua espera', $note ?? $task->title, urgent: true);
         }
 
+        if ($status->isClosed()) {
+            app(WorkflowEngine::class)->taskClosed($task);
+        }
+
         TaskUpdated::live($task);
 
         return $task;
@@ -296,6 +301,9 @@ final class TaskThread
                 ? 'Uma acção ficou à espera de aprovação.'
                 : 'À espera de aprovação: '.$pending->map(fn (string $summary) => Str::limit($summary, 160))->join('; ').'.', $run);
         }
+
+        // A flow's step the agent left unfinished goes back to it, or to a person (docs/DECISOES.md, "Fluxos de trabalho").
+        app(WorkflowEngine::class)->runEnded($run);
 
         TaskUpdated::live($task);
 
@@ -405,7 +413,8 @@ final class TaskThread
     {
         $parent = $task->parent;
 
-        if ($parent === null) {
+        // A flow's sub-task: the flow, not the parent's agent, picks up what comes next.
+        if ($parent === null || app(WorkflowEngine::class)->ownsTask($task)) {
             return;
         }
 

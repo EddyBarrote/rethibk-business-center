@@ -310,3 +310,32 @@ aprovada antes de programar (`definicoes-proposta-*.png` na pasta partilhada).
 
 Testes: `SettingsPagesTest` (novo), `ConsolePagesTest` com todas as páginas de Definições, `PermissionCatalogTest`,
 `CatalogScreensTest`, `ErpSettingsTest` e `PersonalMailboxTest` nas moradas novas.
+
+## Fluxos de trabalho (06.10.2026)
+
+Pedido do Barrote: a triagem passa cada tipo de email ao agente certo, que começa a tarefa sozinho, executa o que as
+suas capacidades, integrações, skills e nível de confiança permitem e escala o resto; e um mapa visual destes fluxos,
+em canvas (com condições, ciclos e esperas) e em lista. Proposta aprovada antes de programar
+(`fluxos-mapa-proposta.png`, `fluxos-novo-fluxo-proposta.png`, `fluxos-canvas-proposta.png` na pasta partilhada), com as
+recomendações em todas as escolhas.
+
+| Decisão | Onde |
+|---|---|
+| Novo tipo «Pedido de cotação de cliente» (`client_rfq`): um cliente pede-nos preço. Vai ao Gestor de Clientes; «Cotação de fornecedor» continua a ser a resposta de um fornecedor a um pedido nosso. | `EmailCategory`, `ClassifyEmail` (descrição da categoria), modelo da Triagem |
+| Quem trata cada tipo: o agente do fluxo activo; senão a regra de Definições › Regras de email; senão o de sempre (`handlerRole()`). Uma regra sem agente deixa o email com a Triagem e a pessoa notificada. Cada regra pode ter uma pessoa de recurso. | `EmailRouter`, `EmailRoute`, `Settings\EmailRuleController` (quem tem "Gerir agentes") |
+| Um fluxo é um grafo de blocos: gatilho, passo do agente, passar a outro agente, condição (sim/não), ciclo «para cada», «repetir até», esperar, aprovação, tarefa a uma pessoa e fim. O canvas e a lista editam o mesmo grafo. Sem ligações para trás: repetir é sempre um bloco de ciclo, com máximo (até 20). | `Workflow`, `WorkflowGraph` (`problems()`), `Pages/Workflows/Edit.tsx`, `lib/workflows.ts` |
+| **A plataforma segue o fluxo, bloco a bloco** (não o agente sozinho). O agente do fluxo trabalha na tarefa que a triagem abriu: a plataforma escreve o passo na conversa e acorda-o; ele termina-o com `workflow.complete_step` (resumo, resposta da condição ou itens do ciclo) e, se o passo seguinte também é dele, continua na mesma execução. Outro agente e as pessoas trabalham em sub-tarefas; o fluxo segue quando fecham. | `WorkflowEngine`, `CompleteWorkflowStep` (dada a todos os agentes), ganchos em `TaskThread::recordReply/setStatus` e `ApprovalService::settleRun` |
+| Executa ou escala: as regras de sempre (tecto absoluto → pessoa; leitura → passa; escrita → nível ≥ risco, senão revalida o Chief of Staff, que aprova o que cabe no nível dele). Quando a aprovação é decidida, o agente retoma o passo. | `AutonomyGate`, `ApprovalService` (inalterados) |
+| Um passo que ninguém consegue (capacidade inexistente, agente sem ela, skill em falta) vai logo à pessoa de recurso, sem gastar a vez do agente; um agente que termina duas vezes sem concluir o passo também. A pessoa faz o passo (ou responde Sim/Não) e o fluxo continua dali. | `WorkflowEngine::block()`, `REMINDERS` |
+| Antes de correr, cada bloco é verificado contra o que o agente tem: «Executa sozinho», «Revalida o Chief of Staff», «Decide uma pessoa» ou «Falta capacidade», com o porquê e o que fazer. A mesma conta no mapa, no editor (ao vivo) e no motor. | `WorkflowReadiness`, `POST /workflows/check` |
+| **Proposta com preço sobe sempre a uma pessoa**, mesmo a um cliente conhecido: um email para fora que fala de proposta/orçamento/cotação e de um valor cai no tecto absoluto. | `SendEmail::ceilingReason()`, `isPriceProposal()` |
+| Quem desenha fluxos: os administradores e quem dá acesso aos agentes do seu departamento (as mesmas pessoas de "Dar acesso a agentes"). Todos vêem o mapa. | `WorkflowPolicy` |
+| Um fluxo activo por tipo de email: activar um pausa o outro. Um fluxo com problemas não activa. Os emails a meio seguem o desenho com que começaram (a execução guarda o grafo). Um fluxo que já tratou emails pausa-se, não se apaga. | `WorkflowController::activate()`, `workflow_runs.graph` |
+| "Propor passos": o assistente desenha os blocos a partir de uma descrição, só com capacidades e agentes que existem; a pessoa revê no canvas antes de guardar. | `WorkflowDrafter`, `WorkflowDrafting` |
+| Ecrãs: Trabalho › Fluxos de trabalho (mapa por tipo de email, por agente e lacunas); editor com canvas (React Flow, MIT; blocos arrastáveis, ciclos como caixas, «Organizar» com dagre, MIT) e lista; a tarefa mostra o fluxo passo a passo e, numa sub-tarefa de aprovação, os botões Aprovar/Rejeitar ou Sim/Não. | `Pages/Workflows/*`, `Components/workflows/*`, `Tasks/Show.tsx` |
+| Exemplo instalado com os agentes (`agents:install-templates`): «Responder a pedido de cotação», activo, com o Gestor de Clientes e o Procurement. O passo «Calcular o orçamento» aparece como lacuna: não há capacidade de orçamentação no ERP (`erp.quotes.create`); até haver, vai à pessoa de recurso. | `WorkflowTemplates` |
+
+Fica para depois: gatilhos que não são email (horário, pedido numa conversa), tipos de email criados pelas pessoas (hoje
+a lista é a de `EmailCategory`; a descrição do fluxo ajuda a Triagem a reconhecer o tipo) e a capacidade de orçamentação.
+
+Testes: `tests/Feature/Workflows/` (motor, encaminhamento e verificação, ecrãs e permissões).

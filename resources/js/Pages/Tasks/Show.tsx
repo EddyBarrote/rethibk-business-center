@@ -8,7 +8,7 @@ import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
-import { StatusDot } from '@/Components/Status';
+import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
@@ -47,11 +47,23 @@ interface Props extends TaskFormOptions {
     runs: RunSummary[];
     working: RunSummary | null;
     approvals: PendingApproval[];
+    workflow: WorkflowInfo | null;
     can: { reply: boolean; update: boolean; manage_agent: boolean };
 }
 
+/** The flow this task follows, or the decision of a flow's step it asks of a person (docs/DECISOES.md, "Fluxos de trabalho"). */
+interface WorkflowInfo {
+    progress: {
+        workflow: { id: number; name: string };
+        status: string;
+        status_label: string;
+        steps: { id: number; label: string; kind: string; status: string; status_label: string; item: string | null; answer: string | null; task: { id: number; ref: string } | null }[];
+    } | null;
+    decision: { step_id: number; workflow: string; question: string; options: { value: string; label: string }[]; can_decide: boolean } | null;
+}
+
 const NONE = 'none';
-const reloadProps = ['task', 'messages', 'children', 'runs', 'working', 'approvals'];
+const reloadProps = ['task', 'messages', 'children', 'runs', 'working', 'approvals', 'workflow'];
 
 interface PendingApproval {
     id: number;
@@ -69,6 +81,7 @@ export default function TaskShow({
     runs,
     working,
     approvals,
+    workflow,
     can,
     agents,
     people,
@@ -343,6 +356,8 @@ export default function TaskShow({
                             <ApprovalCard key={approval.id} approval={approval} />
                         ))}
 
+                        {workflow?.decision && <WorkflowDecision decision={workflow.decision} />}
+
                         {can.reply ? (
                             <form onSubmit={send} className="rounded-xl border bg-card shadow-xs focus-within:ring-[3px] focus-within:ring-ring/30">
                                 <Textarea
@@ -401,6 +416,7 @@ export default function TaskShow({
                 </div>
 
                 <div className="flex flex-col gap-8 self-start">
+                    {workflow?.progress && <WorkflowProgress progress={workflow.progress} />}
                     {task.is_conversation ? (
                         <Properties title="Conversa">
                             <Property label="Agente">
@@ -775,5 +791,77 @@ function ReportLine({ message }: { message: Message }) {
                 <Markdown>{message.body}</Markdown>
             </div>
         </details>
+    );
+}
+
+const stepTone = (status: string): Tone =>
+    (({ active: 'running', waiting_approval: 'warning', waiting: 'warning', done: 'success', blocked: 'danger', cancelled: 'idle' }) as Record<string, Tone>)[status] ?? 'idle';
+
+const answerLabel: Record<string, string> = { yes: 'sim', no: 'não', approved: 'aprovado', rejected: 'rejeitado' };
+
+function WorkflowProgress({ progress }: { progress: NonNullable<WorkflowInfo['progress']> }) {
+    return (
+        <Properties title="Fluxo">
+            <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+                <Link href={`/workflows?w=${progress.workflow.id}`} className="truncate font-medium hover:underline">
+                    {progress.workflow.name}
+                </Link>
+                <StatusBadge tone={stepTone(progress.status === 'completed' ? 'done' : progress.status === 'running' ? 'active' : progress.status)}>{progress.status_label}</StatusBadge>
+            </div>
+            <ol className="flex flex-col gap-1.5">
+                {progress.steps.map((step) => (
+                    <li key={step.id} className="flex items-start gap-2 text-xs">
+                        <StatusDot tone={stepTone(step.status)} className="mt-1" />
+                        <div className="min-w-0 flex-1">
+                            <span className="text-foreground">{step.label}</span>
+                            {step.item && <span className="text-muted-foreground"> · {step.item}</span>}
+                            {step.answer && <span className="text-muted-foreground"> → {answerLabel[step.answer] ?? step.answer}</span>}
+                            {step.task && (
+                                <Link href={`/tasks/${step.task.id}`} className="ml-1 font-mono text-muted-foreground hover:underline">
+                                    {step.task.ref}
+                                </Link>
+                            )}
+                        </div>
+                    </li>
+                ))}
+            </ol>
+        </Properties>
+    );
+}
+
+function WorkflowDecision({ decision }: { decision: NonNullable<WorkflowInfo['decision']> }) {
+    const [note, setNote] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    return (
+        <div className="flex flex-col gap-3 rounded-xl border border-status-warning/40 bg-status-warning/8 p-4">
+            <div className="space-y-1 text-sm">
+                <p className="font-medium">{decision.question}</p>
+                <p className="text-xs text-muted-foreground">Passo do fluxo «{decision.workflow}». O fluxo segue com a sua resposta.</p>
+            </div>
+            {decision.can_decide ? (
+                <>
+                    <Textarea rows={2} value={note} placeholder="Nota (opcional)" onChange={(event) => setNote(event.target.value)} />
+                    <div className="flex flex-wrap gap-2">
+                        {decision.options.map((option, index) => (
+                            <Button
+                                key={option.value}
+                                size="sm"
+                                variant={index === 0 ? 'default' : 'outline'}
+                                disabled={busy}
+                                onClick={() => {
+                                    setBusy(true);
+                                    router.post(`/workflow-steps/${decision.step_id}/decide`, { decision: option.value, note: note || null }, { preserveScroll: true, onFinish: () => setBusy(false) });
+                                }}
+                            >
+                                {option.label}
+                            </Button>
+                        ))}
+                    </div>
+                </>
+            ) : (
+                <p className="text-xs text-muted-foreground">Só a pessoa responsável por esta tarefa decide.</p>
+            )}
+        </div>
     );
 }

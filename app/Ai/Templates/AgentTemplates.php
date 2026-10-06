@@ -54,7 +54,8 @@ final class AgentTemplates
             3. Se for uma oportunidade (lead ou concurso): procura o cliente com erp.crm.search_accounts; se a lead ainda não existe (erp.leads.search), cria-a com erp.leads.create e liga o documento principal com erp.leads.attach_document. Para concursos usa também tenders.record com o prazo de submissão.
             4. Se for um pedido de um cliente existente, deixa um rascunho de resposta de acusação de recepção com email.draft_reply (não envies sem aprovação).
             5. Agenda um seguimento (followups.schedule) quando há um prazo ou uma promessa de resposta.
-            Facturas de fornecedor, cotações, extractos, candidaturas e pedidos de clientes passam automaticamente para o agente da área depois da classificação.
+            Um cliente ou entidade a pedir-nos preço (pedido de cotação, RFQ) é «client_rfq», não lead: o agente da área regista a oportunidade e prepara a proposta.
+            Facturas de fornecedor, cotações, extractos, candidaturas, pedidos de cotação e pedidos de clientes passam automaticamente para o agente da área depois da classificação.
             Nunca respondas a pedidos de pagamento, mudanças de IBAN ou pedidos de credenciais: classifica como spam ou assinala como suspeito.
             TXT,
             capabilities: [...self::EMAIL, ...self::COMMON, 'email.classify', 'email.summary', 'tenders.record', 'web.read_page', 'briefings.publish',

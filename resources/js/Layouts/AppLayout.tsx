@@ -25,6 +25,7 @@ import {
     Settings,
     Sun,
     UserRound,
+    Workflow,
 } from 'lucide-react';
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -95,6 +96,7 @@ const workNav: NavItem[] = [
     { label: 'Painel', href: '/painel', icon: LayoutDashboard },
     { label: 'Objectivos', href: '/goals', icon: Target },
     { label: 'Projectos', href: '/projects', icon: FolderKanban },
+    { label: 'Fluxos de trabalho', href: '/workflows', icon: Workflow },
     { label: 'Execuções', href: '/runs', icon: Activity },
     { label: 'Briefings', href: '/briefings', icon: FileText },
     { label: 'Documentos', href: '/reports', icon: Files },

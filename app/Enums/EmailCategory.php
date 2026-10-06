@@ -9,6 +9,7 @@ enum EmailCategory: string
 {
     case Lead = 'lead';
     case Tender = 'tender';
+    case ClientRfq = 'client_rfq';
     case ClientRequest = 'client_request';
     case SupplierInvoice = 'supplier_invoice';
     case SupplierQuote = 'supplier_quote';
@@ -24,6 +25,7 @@ enum EmailCategory: string
         return match ($this) {
             self::Lead => 'Oportunidade comercial',
             self::Tender => 'Concurso',
+            self::ClientRfq => 'Pedido de cotação de cliente',
             self::ClientRequest => 'Pedido de cliente',
             self::SupplierInvoice => 'Factura de fornecedor',
             self::SupplierQuote => 'Cotação de fornecedor',
@@ -45,7 +47,7 @@ enum EmailCategory: string
             self::SupplierInvoice, self::BankStatement => 'finance',
             self::SupplierQuote => 'procurement',
             self::JobApplication => 'hr',
-            self::ClientRequest => 'client_manager',
+            self::ClientRequest, self::ClientRfq => 'client_manager',
             default => null,
         };
     }

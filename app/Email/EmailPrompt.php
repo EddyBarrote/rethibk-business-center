@@ -2,8 +2,10 @@
 
 namespace App\Email;
 
+use App\Enums\WorkflowStatus;
 use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
+use App\Models\Workflow;
 use Illuminate\Support\Str;
 
 /**
@@ -16,6 +18,7 @@ final class EmailPrompt
     {
         return "Chegou um email novo à tua caixa ({$message->mailbox->address}). Email #{$message->id}. ".self::thread($message)."\n"
             .'Faz a triagem: classifica-o com a capacidade de triagem, extrai os campos relevantes, encaminha para quem deve tratar e, se for uma oportunidade ou concurso, regista-a.'
+            .self::flows()
             .self::body($message);
     }
 
@@ -35,6 +38,21 @@ final class EmailPrompt
             .'Se pedir resposta, prepara um rascunho com email.draft_reply para o dono rever e enviar. '
             .'Nunca envies emails desta caixa nem em nome do dono.'
             .self::body($message);
+    }
+
+    /**
+     * How the people who drew the active flows describe their kind of email
+     * (docs/DECISOES.md, "Fluxos de trabalho"), so triage recognises them.
+     */
+    private static function flows(): string
+    {
+        $flows = Workflow::query()->where('status', WorkflowStatus::Active)->whereNotNull('description')->whereNotNull('email_category')->get();
+
+        if ($flows->isEmpty()) {
+            return '';
+        }
+
+        return "\nTipos com fluxo próprio:\n".$flows->map(fn (Workflow $flow) => "- {$flow->email_category?->value} ({$flow->email_category?->label()}): ".Str::limit((string) $flow->description, 300))->implode("\n");
     }
 
     private static function thread(EmailMessage $message): string

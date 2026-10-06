@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 const colours: Record<string, string> = {
     lead: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
     tender: 'bg-violet-500/12 text-violet-700 dark:text-violet-300',
+    client_rfq: 'bg-indigo-500/12 text-indigo-700 dark:text-indigo-300',
     client_request: 'bg-sky-500/12 text-sky-700 dark:text-sky-300',
     supplier_invoice: 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
     supplier_quote: 'bg-orange-500/12 text-orange-700 dark:text-orange-300',

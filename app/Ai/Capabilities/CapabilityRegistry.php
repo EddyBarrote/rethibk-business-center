@@ -7,6 +7,7 @@ use App\Ai\Capabilities\Local\BudgetOverride;
 use App\Ai\Capabilities\Local\ClassifyEmail;
 use App\Ai\Capabilities\Local\ClientSheet;
 use App\Ai\Capabilities\Local\CompareQuotes;
+use App\Ai\Capabilities\Local\CompleteWorkflowStep;
 use App\Ai\Capabilities\Local\ConfirmBankMatch;
 use App\Ai\Capabilities\Local\CreateTask;
 use App\Ai\Capabilities\Local\DetectIssues;
@@ -98,6 +99,7 @@ final class CapabilityRegistry
         CreateTask::class,
         AskHuman::class,
         UpdateTaskStatus::class,
+        CompleteWorkflowStep::class,
         ListTasks::class,
         // Chief of Staff (realinhamento L10, L11) and urgent escalation.
         ReviewApproval::class,
@@ -124,7 +126,7 @@ final class CapabilityRegistry
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list', 'escalate.urgent'];
+    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];

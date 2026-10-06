@@ -22,8 +22,11 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
+use App\Models\WorkflowRun;
+use App\Models\WorkflowStep;
 use App\Tasks\TaskThread;
 use App\Tenancy\TenantRule;
+use App\Workflows\WorkflowGraph;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -231,6 +234,7 @@ class TaskController extends Controller
                     'ceiling_reason' => $approval->ceiling_reason,
                     'can_decide' => $user->can('decide', $approval),
                 ]),
+            'workflow' => $this->workflow($task, $user),
             'can' => [
                 'reply' => $user->can('reply', $task),
                 'update' => $user->can('update', $task),
@@ -238,6 +242,67 @@ class TaskController extends Controller
             ],
             ...$this->formOptions($user),
         ]);
+    }
+
+    /**
+     * The flow this task follows, block by block, or the decision of a flow's
+     * step this task asks of a person (docs/DECISOES.md, "Fluxos de trabalho").
+     *
+     * @return array<string, mixed>|null
+     */
+    private function workflow(Task $task, User $user): ?array
+    {
+        $run = WorkflowRun::query()->with('workflow:id,name')->where('task_id', $task->id)->latest('id')->first();
+        $step = WorkflowStep::query()->with('run.workflow:id,name')->where('task_id', $task->id)->latest('id')->first();
+
+        if ($run === null && $step === null) {
+            return null;
+        }
+
+        $progress = null;
+
+        if ($run !== null) {
+            $graph = new WorkflowGraph($run->graph);
+            $progress = [
+                'workflow' => ['id' => $run->workflow_id, 'name' => $run->workflow->name ?? 'Fluxo'],
+                'status' => $run->status->value,
+                'status_label' => $run->status->label(),
+                'steps' => $run->steps()->with('task:id,number,tenant_id,title')->orderBy('id')->get()->map(fn (WorkflowStep $row) => [
+                    'id' => $row->id,
+                    'label' => match ($row->kind) {
+                        'list' => 'Listar: '.$graph->label($row->node_id),
+                        'until' => 'Continuar? '.$graph->label($row->node_id),
+                        'fallback' => 'Com uma pessoa: '.$graph->label($row->node_id),
+                        default => $graph->label($row->node_id),
+                    },
+                    'kind' => $row->kind,
+                    'status' => $row->status->value,
+                    'status_label' => $row->status->label(),
+                    'item' => $row->item,
+                    'answer' => $row->answer,
+                    'task' => $row->task ? ['id' => $row->task->id, 'ref' => $row->task->identifier()] : null,
+                ])->values(),
+            ];
+        }
+
+        $decision = null;
+
+        if ($step !== null && $step->status->isOpen() && $task->assignee_user_id !== null) {
+            $kind = $step->kind === 'fallback' ? ($step->output['blocked_kind'] ?? 'agent') : $step->kind;
+            $decision = [
+                'step_id' => $step->id,
+                'workflow' => $step->run->workflow->name ?? 'Fluxo',
+                'question' => (new WorkflowGraph($step->run->graph))->label($step->node_id),
+                'options' => match (true) {
+                    $step->kind === WorkflowGraph::APPROVAL => [['value' => 'approved', 'label' => 'Aprovar'], ['value' => 'rejected', 'label' => 'Rejeitar']],
+                    in_array($kind, [WorkflowGraph::CONDITION, 'until'], true) => [['value' => 'yes', 'label' => 'Sim'], ['value' => 'no', 'label' => 'Não']],
+                    default => [['value' => 'done', 'label' => 'Feito, continuar o fluxo']],
+                },
+                'can_decide' => $task->assignee_user_id === $user->id || $user->hasPermission(Permission::DecideAllApprovals),
+            ];
+        }
+
+        return ['progress' => $progress, 'decision' => $decision];
     }
 
     public function message(Request $request, Task $task, TaskThread $threads): RedirectResponse

@@ -24,6 +24,7 @@ use App\Models\AuditLog;
 use App\Models\Capability;
 use App\Models\User;
 use App\Tasks\TaskThread;
+use App\Workflows\WorkflowEngine;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
@@ -325,11 +326,11 @@ final class ApprovalService
      */
     private function settleRun(Approval $approval): void
     {
-        DB::transaction(function () use ($approval) {
+        $settled = DB::transaction(function () use ($approval) {
             $run = $approval->run()->lockForUpdate()->first();
 
             if ($run === null || $run->status !== RunStatus::AwaitingApproval) {
-                return;
+                return null;
             }
 
             $unsettled = $run->approvals()
@@ -337,11 +338,20 @@ final class ApprovalService
                     ->orWhere(fn ($q) => $q->where('status', ApprovalStatus::Approved)->where('execution_status', ExecutionStatus::NotExecuted)->whereNull('executed_at')))
                 ->exists();
 
-            if (! $unsettled) {
-                $run->forceFill(['status' => RunStatus::Completed, 'finished_at' => now()])->save();
-                AgentRunFinished::live($run);
+            if ($unsettled) {
+                return null;
             }
+
+            $run->forceFill(['status' => RunStatus::Completed, 'finished_at' => now()])->save();
+            AgentRunFinished::live($run);
+
+            return $run;
         });
+
+        // A flow's step waiting on these approvals goes back to its agent (docs/DECISOES.md, "Fluxos de trabalho").
+        if ($settled !== null) {
+            app(WorkflowEngine::class)->runSettled($settled);
+        }
     }
 
     /**

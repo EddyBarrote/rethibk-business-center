@@ -7,6 +7,7 @@ import {
     Palette,
     PlugZap,
     Puzzle,
+    Route,
     ShieldCheck,
     SunMoon,
     UserRound,
@@ -107,6 +108,13 @@ export const settingsGroups: SettingsGroup[] = [
                 icon: BookOpen,
                 description: 'Instruções da organização para cada tipo de trabalho.',
                 permissions: ['catalog.manage'],
+            },
+            {
+                label: 'Regras de email',
+                href: '/settings/email-rules',
+                icon: Route,
+                description: 'A que agente vai cada tipo de email depois da triagem.',
+                permissions: ['agents.manage'],
             },
             {
                 label: 'Consumo de IA',

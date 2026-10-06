@@ -5,7 +5,6 @@ namespace App\Ai\Capabilities\Local;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
-use App\Ai\Runs\AgentDirectory;
 use App\Enums\EmailCategory;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
@@ -17,6 +16,8 @@ use App\Models\Task;
 use App\Models\User;
 use App\Support\Notifier;
 use App\Tasks\TaskThread;
+use App\Workflows\EmailRouter;
+use App\Workflows\WorkflowEngine;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -34,8 +35,9 @@ final class ClassifyEmail extends LocalCapability
 {
     public function __construct(
         private readonly Notifier $notifier,
-        private readonly AgentDirectory $agents,
         private readonly TaskThread $threads,
+        private readonly EmailRouter $router,
+        private readonly WorkflowEngine $engine,
     ) {}
 
     public function key(): string
@@ -57,7 +59,7 @@ final class ClassifyEmail extends LocalCapability
     {
         return [
             'email_id' => $schema->integer()->required(),
-            'category' => $schema->string()->enum(array_column(EmailCategory::cases(), 'value'))->required(),
+            'category' => $schema->string()->enum(array_column(EmailCategory::cases(), 'value'))->description('client_rfq: um cliente pede-nos preço (pedido de cotação); supplier_quote: um fornecedor responde a um pedido nosso.')->required(),
             'confidence' => $schema->number()->min(0)->max(1)->required(),
             'priority' => $schema->string()->enum(['low', 'normal', 'high', 'urgent'])->required(),
             'summary' => $schema->string()->description('Uma ou duas frases, em português.')->required(),
@@ -168,19 +170,19 @@ final class ClassifyEmail extends LocalCapability
     }
 
     /**
-     * Supplier invoices go to the finance agent, quotes to procurement, CVs
-     * to HR and client requests to the client manager, when those agents
-     * exist and are active. Once per email, as a task assigned to that agent
-     * (docs/DECISOES.md, realinhamento L13). The task is with the person the
-     * email was routed to, or else the person the agent answers to, so it
-     * lands in their tasks.
+     * The kind of email goes to the agent that handles it (EmailRouter: the
+     * active flow, the rule in Definições, or the default for the category),
+     * once per email, as a task assigned to that agent (docs/DECISOES.md,
+     * realinhamento L13). The task is with the person the email was routed to,
+     * or else the rule's fallback person, or the person the agent answers to,
+     * so it lands in their tasks. With a flow, the platform walks it from there
+     * ("Fluxos de trabalho"); without one, the agent starts on its own.
      *
      * @param  array<string, mixed>  $data
      */
     private function handOff(EmailMessage $message, EmailCategory $category, array $data, ?User $recipient, ?Carbon $deadline, CapabilityContext $context): ?Task
     {
-        $role = $category->handlerRole();
-        $agent = $role !== null ? $this->agents->forRole($role) : null;
+        ['agent' => $agent, 'workflow' => $workflow, 'fallback' => $fallback] = $this->router->route($category);
 
         if ($agent === null || $agent->id === $context->agent->id || $message->hasFlag('handed_off')) {
             return null;
@@ -190,7 +192,7 @@ final class ClassifyEmail extends LocalCapability
 
         $from = trim(($message->from_name ? "{$message->from_name} " : '')."<{$message->from_address}>");
 
-        return $this->threads->open([
+        $task = $this->threads->open([
             'kind' => TaskKind::Task,
             'title' => Str::limit("{$category->label()}: ".($message->subject ?: '(sem assunto)'), 200, '…'),
             // People read this description; how the agent opens the email is added to its brief (TaskThread::input).
@@ -199,11 +201,17 @@ final class ClassifyEmail extends LocalCapability
             'status' => TaskStatus::Todo,
             'priority' => TaskPriority::from($data['priority']),
             'assignee_agent_id' => $agent->id,
-            'user_id' => $recipient->id ?? $agent->reports_to_user_id,
+            'user_id' => $recipient->id ?? $fallback->id ?? $agent->reports_to_user_id,
             'due_at' => $deadline,
             'source_type' => $message->getMorphClass(),
             'source_id' => $message->id,
-        ], $context->agent);
+        ], $context->agent, start: $workflow === null);
+
+        if ($workflow !== null) {
+            $this->engine->start($workflow, $task, $message);
+        }
+
+        return $task;
     }
 
     private function date(?string $value): ?Carbon

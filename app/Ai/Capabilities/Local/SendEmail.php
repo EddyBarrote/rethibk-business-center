@@ -89,9 +89,40 @@ final class SendEmail extends LocalCapability
             ->filter()
             ->unique();
 
-        $new = $recipients->reject(fn (string $address) => $this->isInternal($address, $context) || $this->wasContacted($address));
+        $external = $recipients->reject(fn (string $address) => $this->isInternal($address, $context));
+        $new = $external->reject(fn (string $address) => $this->wasContacted($address));
 
-        return $new->isEmpty() ? null : 'Comunicação externa a entidade nova: '.$new->implode(', ');
+        if ($new->isNotEmpty()) {
+            return 'Comunicação externa a entidade nova: '.$new->implode(', ');
+        }
+
+        // A commercial proposal with a price always goes to a person, even to a
+        // known client (docs/DECISOES.md, "Fluxos de trabalho", decisão 3).
+        if ($external->isNotEmpty() && self::isPriceProposal((string) ($arguments['subject'] ?? '').' '.(string) ($arguments['body'] ?? ''))) {
+            return 'Proposta comercial com preço para fora da organização';
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a text reads like a proposal or quotation with a price.
+     */
+    public static function isPriceProposal(string $text): bool
+    {
+        $proposal = self::mentionsProposal($text);
+        $text = Str::lower(Str::ascii($text));
+        $price = preg_match('/(\d[\d .,]*\s*(mzn|mt|meticais|usd|\$|eur|€))|((mzn|usd|eur|€|\$)\s*\d)|\b(preco|valor total|total|price)\b/', $text) === 1;
+
+        return $proposal && $price;
+    }
+
+    /**
+     * Whether a text talks about a proposal, a budget or a quotation.
+     */
+    public static function mentionsProposal(string $text): bool
+    {
+        return preg_match('/\b(proposta|orcamento|cotacao|quotation|quote|proposal)\b/', Str::lower(Str::ascii($text))) === 1;
     }
 
     public function summarise(array $arguments): string
