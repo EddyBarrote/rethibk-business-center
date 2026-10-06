@@ -361,3 +361,32 @@ enviam ficheiros, e a Triagem usa os anexos dos emails. Construído sem paragens
 | Os ficheiros da conversa abrem ali mesmo, numa janela: o PDF dentro da página; Word, PowerPoint e texto com o conteúdo (o Markdown que o agente escreveu, num documento gerado; o texto extraído, nos outros); Excel como tabela. Com Descarregar. Mesmo acesso que o ficheiro. Não se usa a página de Documentos porque as regras de quem vê são outras (a conversa manda). | `Components/attachments/FilePreview.tsx`, `GET /files/{id}/preview` |
 
 Testes: `tests/Feature/Tasks/AttachmentsTest.php`.
+
+## Email: um cliente de email na plataforma (06.10.2026)
+
+Pedido do Barrote: o menu tinha "Emails" (a caixa triada) e "Caixas de email" (ligar caixas), o que não era coerente.
+O objectivo é haver email de triagem, mas cada pessoa deve ter a sua caixa como num provedor de email a sério, sem
+sair da plataforma: ler, escrever, guardar rascunho, enviar, anexar ficheiros. Construído sem paragens, com as
+escolhas por omissão abaixo.
+
+| Decisão | Onde |
+|---|---|
+| Uma só entrada **Email** no menu (`/inbox`, os links antigos `/inbox/{id}` continuam a abrir o email). Três colunas: caixas e pastas, lista, leitura ou escrita. No telemóvel, uma coluna de cada vez. Ligar uma caixa continua em Definições › Comunicação › Caixas de email, com atalho no fundo das pastas e no ecrã vazio. | `Pages/Email/Index.tsx`, `InboxController` |
+| As pastas são as do servidor IMAP (LIST), com os papéis Entrada, Rascunhos, Enviados, Arquivo, Spam e Lixo lidos dos atributos SPECIAL-USE e, na falta deles, dos nomes habituais em inglês e português. As pastas da pessoa aparecem também, com as sub-pastas indentadas. O «All Mail» do Gmail fica de fora (repetiria tudo). Uma caixa sem IMAP tem as pastas padrão locais. | `MailboxSync`, `EmailFolder` |
+| **Sincronização:** a cada minuto (`mail:fetch`) cada caixa lê as mensagens novas de todas as pastas (50 por pasta e passagem; na primeira vez as 50 mais recentes, e «Carregar mais antigos do servidor» busca as anteriores). Lê também o que outro cliente fez: lido, estrela, movido (a mensagem segue para a nova pasta) e apagado (sai das pastas, mas a linha fica para as tarefas que apontam para ela). Ao abrir uma pasta, o botão Actualizar e, de dois em dois minutos, a pasta aberta lê-se outra vez. | `MailboxSync::run()`, `FetchMailbox` |
+| **Só a Entrada (a pasta `imap_folder`) vai aos agentes**, como antes; o que está em Enviados, Arquivo ou nas pastas da pessoa só é arquivado. Os emails já lidos pelos agentes antes disto passam para a Entrada com o seu UID. | `InboundEmailIngestor::ingest($process)`, `MailboxSync::adoptInbox()` |
+| Cada acção faz-se primeiro no servidor e só depois aqui: marcar lido/não lido, estrela, arquivar (cria a pasta Archive se não houver), mover, apagar (vai para o Lixo; do Lixo ou do Spam apaga de vez, com confirmação). Assim o Outlook e o telemóvel vêem o mesmo. | `MailClient` |
+| **Escrever:** novo, responder, responder a todos, reencaminhar (com os anexos do original), Cc e Bcc. Texto simples, com o email citado por baixo (`>`) e escondido atrás de «•••» na leitura. A resposta sai sempre da caixa do email original e fica na mesma conversa (In-Reply-To e References). | `Components/email/EmailComposer.tsx`, `lib/email.ts` |
+| **Rascunhos no servidor:** o rascunho guarda-se a pedido e sozinho a cada 30 segundos, e vai para a pasta Rascunhos do servidor (com o mesmo Message-ID, substituindo a versão anterior). Ao enviar sai dos Rascunhos e uma cópia vai para Enviados (excepto Gmail e Microsoft 365, que a guardam sozinhos). | `MailClient::saveDraft()`, `pushDraft()`, `send()` |
+| **Os rascunhos dos agentes** (`email.draft_reply`) caem nos Rascunhos do dono da caixa, também no servidor, para a pessoa rever e enviar. Os agentes continuam sem enviar em nome de pessoas. | `DraftEmailReply`, `PushDraftToServer` |
+| **Anexos:** os mesmos da conversa (clip, arrastar e largar, colar, carregamento por partes e limites de Definições › Anexos); ao guardar, o email fica com a sua própria cópia. Os anexos recebidos abrem na mesma janela de pré-visualização (PDF na página, Word, Excel e texto com o conteúdo). | `useAttachments` (`mailbox_id`), `AttachmentController::start()`, `GET /attachments/{id}/preview` |
+| **HTML seguro:** o email aparece como o remetente o escreveu, numa moldura sem scripts nem formulários, e **as imagens externas ficam escondidas** até a pessoa carregar em «Mostrar imagens» (senão o remetente sabe que o email foi aberto). | `Components/email/EmailBody.tsx` |
+| Pesquisa no assunto, remetente, destinatários, texto e resumo do agente, em todas as pastas da caixa; filtro «Não lidos»; 50 por página. Pesquisa só no que já foi sincronizado. | `InboxController::listing()` |
+| **Triagem:** a caixa da Triagem (e a de cada agente) aparece como mais uma caixa, só para quem tem «Ver emails de triagem», com os filtros por categoria. Quem não tem, mas recebeu emails encaminhados pela triagem, vê-os em «Encaminhados para mim» e pode responder-lhes. Em cada email lido por um agente, um painel mostra o resumo, a categoria (com correcção), a tarefa, o prazo, os dados extraídos e «Triar de novo». | `TriagePanel.tsx` |
+| Privacidade mantida: ninguém abre, sincroniza, organiza ou escreve da caixa de outra pessoa, nem administradores. Escrever da caixa da triagem é para quem a lê; mover e apagar são para quem a gere. | `Mailbox::canBeWrittenFromBy()`, `InboxController` |
+
+Fica para depois: editor com formatação (negrito, listas), pesquisa no servidor em mensagens ainda não sincronizadas,
+IDLE para os emails chegarem sem esperar o minuto, e cópia em Enviados do que os agentes enviam da sua própria caixa.
+
+Testes: `tests/Feature/Email/EmailClientTest.php` (com um servidor IMAP em memória, `tests/Support/FakeImap.php`), e
+verificado de ponta a ponta no browser contra um servidor IMAP/SMTP local.

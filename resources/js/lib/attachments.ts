@@ -54,7 +54,7 @@ async function failure(response: Response): Promise<Error> {
  */
 export async function uploadAttachment(
     file: File,
-    target: { task_id?: number; agent_id?: number },
+    target: { task_id?: number; agent_id?: number; mailbox_id?: number },
     chunkBytes: number,
     onProgress: (progress: number) => void,
     signal: AbortSignal,

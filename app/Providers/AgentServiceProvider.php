@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use App\Ai\Runs\AgentRunner;
-use App\Email\ImapMailboxFetcher;
-use App\Email\MailboxFetcher;
+use App\Email\Imap\ImapGateway;
+use App\Email\Imap\WebklexImapGateway;
 use App\Enums\EmailStatus;
 use App\Enums\RunStatus;
 use App\Events\AgentRunFinished;
@@ -22,7 +22,7 @@ class AgentServiceProvider extends ServiceProvider
     {
         // Holds the cost of the run in progress for the per-run cap.
         $this->app->singleton(AgentRunner::class);
-        $this->app->bind(MailboxFetcher::class, ImapMailboxFetcher::class);
+        $this->app->bind(ImapGateway::class, WebklexImapGateway::class);
     }
 
     public function boot(): void

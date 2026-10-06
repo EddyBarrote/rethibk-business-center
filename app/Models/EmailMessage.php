@@ -54,13 +54,21 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $sent_at
  * @property Carbon|null $read_at
  * @property string|null $dedup_hash
+ * @property int|null $email_folder_id
+ * @property int|null $imap_uid
+ * @property bool $is_flagged
+ * @property Carbon|null $removed_at
+ * @property int|null $written_by_user_id
+ * @property list<string>|null $bcc
  * @property Carbon $created_at
+ * @property Carbon|null $updated_at
  */
 #[Fillable([
     'mailbox_id', 'direction', 'provider_message_id', 'message_id_header', 'in_reply_to', 'references', 'thread_id',
     'from_address', 'from_name', 'to', 'cc', 'bcc', 'reply_to', 'subject', 'text_body', 'html_body', 'raw_path',
     'classification', 'classification_confidence', 'priority', 'summary', 'extracted', 'flags', 'erp_lead_id',
     'routed_to_user_id', 'department_id', 'deadline_at', 'status', 'agent_run_id', 'received_at', 'sent_at', 'read_at', 'dedup_hash',
+    'email_folder_id', 'imap_uid', 'is_flagged', 'removed_at', 'written_by_user_id',
 ])]
 #[Hidden(['html_body'])]
 class EmailMessage extends Model
@@ -121,6 +129,22 @@ class EmailMessage extends Model
     public function hasFlag(string $flag): bool
     {
         return in_array($flag, $this->flags ?? [], true);
+    }
+
+    /**
+     * @return BelongsTo<EmailFolder, $this>
+     */
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(EmailFolder::class, 'email_folder_id');
+    }
+
+    /**
+     * When the date shown is: received, sent, or last saved for a draft.
+     */
+    public function shownAt(): ?Carbon
+    {
+        return $this->received_at ?? $this->sent_at ?? $this->updated_at ?? $this->created_at;
     }
 
     /**
@@ -186,6 +210,9 @@ class EmailMessage extends Model
             'received_at' => 'datetime',
             'sent_at' => 'datetime',
             'read_at' => 'datetime',
+            'removed_at' => 'datetime',
+            'is_flagged' => 'boolean',
+            'imap_uid' => 'integer',
         ];
     }
 }

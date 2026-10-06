@@ -5,6 +5,7 @@ namespace App\Email;
 use App\Enums\EmailStatus;
 use App\Jobs\ProcessInboundEmail;
 use App\Models\EmailAttachment;
+use App\Models\EmailFolder;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
 use finfo;
@@ -28,15 +29,27 @@ final class InboundEmailIngestor
     public function __construct(private readonly ThreadResolver $threads) {}
 
     /**
+     * From a folder other than the one the agents watch (docs/DECISOES.md,
+     * "Email: um cliente de email na plataforma"), the message is only filed:
+     * $process is false, and a message already known (moved by another
+     * client) just moves to its new folder and UID.
+     *
+     * @param  list<string>|null  $serverFlags  the IMAP flags, when read from a folder
      * @return EmailMessage|null null when the message was already ingested
      */
-    public function ingest(Mailbox $mailbox, string $raw, ?string $providerId = null): ?EmailMessage
+    public function ingest(Mailbox $mailbox, string $raw, ?string $providerId = null, ?EmailFolder $folder = null, ?int $uid = null, bool $process = true, ?array $serverFlags = null): ?EmailMessage
     {
         $parsed = Message::from($raw, false);
         $messageId = $this->messageId($parsed, $raw);
         $hash = hash('sha256', $messageId.'|'.$mailbox->id);
 
-        if (EmailMessage::query()->where('mailbox_id', $mailbox->id)->where('dedup_hash', $hash)->exists()) {
+        $known = EmailMessage::query()->where('mailbox_id', $mailbox->id)->where('dedup_hash', $hash)->first();
+
+        if ($known !== null) {
+            if ($folder !== null) {
+                $known->forceFill(['email_folder_id' => $folder->id, 'imap_uid' => $uid, 'removed_at' => null])->save();
+            }
+
             return null;
         }
 
@@ -54,14 +67,26 @@ final class InboundEmailIngestor
         $references = array_values(array_filter(preg_split('/\s+/', (string) $parsed->getHeaderValue('References')) ?: []));
         $inReplyTo = $this->bracketed($parsed->getHeaderValue('In-Reply-To'));
         $fromAddress = $from instanceof AddressHeader ? Str::lower((string) $from->getEmail()) : null;
+        $flags = $serverFlags ?? [];
+        // What the person wrote: their Sent and Drafts folders, or a message from the mailbox's own address.
+        $draft = in_array('\\Draft', $flags, true) || $folder?->role === EmailFolder::DRAFTS;
+        $outbound = $draft || $folder?->role === EmailFolder::SENT || ($folder !== null && $fromAddress === Str::lower($mailbox->address));
+        $status = match (true) {
+            $draft => EmailStatus::Draft,
+            $outbound => EmailStatus::Sent,
+            $process => EmailStatus::Received,
+            default => EmailStatus::Processed,
+        };
 
         try {
-            $message = DB::transaction(function () use ($mailbox, $parsed, $providerId, $messageId, $hash, $base, $from, $fromAddress, $to, $cc, $subject, $references, $inReplyTo, $disk, $tooBig) {
+            $message = DB::transaction(function () use ($mailbox, $parsed, $providerId, $messageId, $hash, $base, $from, $fromAddress, $to, $cc, $subject, $references, $inReplyTo, $disk, $tooBig, $folder, $uid, $flags, $outbound, $status) {
                 $thread = $this->threads->resolve($mailbox, $inReplyTo, array_map(fn ($r) => (string) $this->bracketed($r), $references), $subject, array_values(array_filter([$fromAddress, ...$to, ...$cc])));
 
                 $message = EmailMessage::query()->create([
                     'mailbox_id' => $mailbox->id,
-                    'direction' => 'inbound',
+                    'email_folder_id' => $folder?->id,
+                    'imap_uid' => $uid,
+                    'direction' => $outbound ? 'outbound' : 'inbound',
                     'provider_message_id' => $providerId,
                     'message_id_header' => $messageId,
                     'in_reply_to' => $inReplyTo,
@@ -76,8 +101,11 @@ final class InboundEmailIngestor
                     'text_body' => $tooBig ? null : $this->limit($parsed->getTextContent()),
                     'html_body' => $tooBig ? null : $this->limit($parsed->getHtmlContent()),
                     'raw_path' => "{$base}.eml",
-                    'status' => EmailStatus::Received,
+                    'status' => $status,
                     'received_at' => $this->date($parsed),
+                    'sent_at' => $outbound && $status === EmailStatus::Sent ? $this->date($parsed) : null,
+                    'read_at' => in_array('\\Seen', $flags, true) ? now() : null,
+                    'is_flagged' => in_array('\\Flagged', $flags, true),
                     'dedup_hash' => $hash,
                     'flags' => $tooBig ? ['oversized'] : null,
                 ]);
@@ -94,6 +122,10 @@ final class InboundEmailIngestor
         } catch (UniqueConstraintViolationException) {
             // Another worker took it first.
             return null;
+        }
+
+        if (! $process) {
+            return $message;
         }
 
         $mailbox->forceFill(['last_inbound_at' => now()])->save();

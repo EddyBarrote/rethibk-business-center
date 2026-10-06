@@ -86,7 +86,7 @@ interface NavItem {
 const topNav: NavItem[] = [
     { label: 'A minha caixa', href: '/', icon: Inbox },
     { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
-    { label: 'Emails', href: '/inbox', icon: Mail },
+    { label: 'Email', href: '/inbox', icon: Mail, permissions: ['emails.own_mailboxes', 'emails.triage', 'emails.manage_mailboxes'] },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
     { label: 'Notificações', href: '/notifications', icon: Bell, badge: 'notifications' },
 ];

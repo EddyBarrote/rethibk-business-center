@@ -2,8 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Email\InboundEmailIngestor;
-use App\Email\MailboxFetcher;
+use App\Email\MailboxSync;
 use App\Enums\MailboxStatus;
 use App\Models\Mailbox;
 use App\Tenancy\TenantAwareJob;
@@ -12,15 +11,16 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Polls one mailbox over IMAP (docs/DECISOES.md) and ingests what is new.
+ * Polls one mailbox over IMAP (docs/DECISOES.md): every folder in step with
+ * the server, and the new email of the watched folder to the agents.
  */
 class FetchMailbox extends TenantAwareJob implements ShouldBeUnique
 {
     public int $tries = 1;
 
-    public int $timeout = 120;
+    public int $timeout = 300;
 
-    public int $uniqueFor = 120;
+    public int $uniqueFor = 300;
 
     public function __construct(int $tenantId, public int $mailboxId)
     {
@@ -33,7 +33,7 @@ class FetchMailbox extends TenantAwareJob implements ShouldBeUnique
         return (string) $this->mailboxId;
     }
 
-    public function handle(MailboxFetcher $fetcher, InboundEmailIngestor $ingestor): void
+    public function handle(MailboxSync $sync): void
     {
         $mailbox = Mailbox::query()->find($this->mailboxId);
 
@@ -42,11 +42,7 @@ class FetchMailbox extends TenantAwareJob implements ShouldBeUnique
         }
 
         try {
-            foreach ($fetcher->fetch($mailbox, $mailbox->imap_last_uid, (int) config('mail_ingest.batch_size')) as $item) {
-                $ingestor->ingest($mailbox, $item['raw'], 'imap:'.$item['uid']);
-                // Advance after each message, so a failure never re-reads what was done.
-                $mailbox->forceFill(['imap_last_uid' => max((int) $mailbox->imap_last_uid, $item['uid'])])->save();
-            }
+            $sync->run($mailbox);
 
             if ($mailbox->last_error !== null) {
                 $mailbox->forceFill(['last_error' => null])->save();

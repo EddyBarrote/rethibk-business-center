@@ -1,7 +1,7 @@
 <?php
 
+use App\Email\Imap\ImapGateway;
 use App\Email\InboundEmailIngestor;
-use App\Email\MailboxFetcher;
 use App\Enums\EmailStatus;
 use App\Jobs\FetchMailbox;
 use App\Jobs\ProcessInboundEmail;
@@ -11,6 +11,7 @@ use App\Models\Mailbox;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\FakeImap;
 
 // E03: inbound email (section 9.2): stored raw, deduplicated, threaded,
 // attachments kept within limits, then handed to triage.
@@ -92,34 +93,23 @@ it('extracts attachment text and flags prompt injection before triage', function
 it('polls IMAP and only reads what is new', function () {
     Queue::fake([ProcessInboundEmail::class]);
 
-    $fetcher = new class implements MailboxFetcher
-    {
-        public array $calls = [];
-
-        public function fetch(Mailbox $mailbox, ?int $afterUid, int $limit): iterable
-        {
-            $this->calls[] = $afterUid;
-            $all = [7 => mailFixture('lead'), 8 => mailFixture('lead-reply')];
-
-            foreach ($all as $uid => $raw) {
-                if ($afterUid === null || $uid > $afterUid) {
-                    yield ['uid' => $uid, 'raw' => $raw];
-                }
-            }
-        }
-    };
-    app()->instance(MailboxFetcher::class, $fetcher);
+    $imap = new FakeImap;
+    $imap->deliver('INBOX', mailFixture('lead'));
+    app()->instance(ImapGateway::class, $imap);
 
     asTenant($this->tenant, fn () => $this->mailbox->update(['imap_host' => 'imap.example.test']));
 
     FetchMailbox::dispatchSync($this->tenant->id, $this->mailbox->id);
+    $imap->deliver('INBOX', mailFixture('lead-reply'));
     FetchMailbox::dispatchSync($this->tenant->id, $this->mailbox->id);
 
-    asTenant($this->tenant, function () use ($fetcher) {
+    asTenant($this->tenant, function () {
         expect(EmailMessage::query()->count())->toBe(2)
-            ->and($this->mailbox->fresh()->imap_last_uid)->toBe(8)
-            ->and($fetcher->calls)->toBe([null, 8]);
+            ->and($this->mailbox->fresh()->imap_last_uid)->toBe(2)
+            ->and(EmailMessage::query()->pluck('imap_uid')->sort()->values()->all())->toBe([1, 2]);
     });
+
+    Queue::assertPushed(ProcessInboundEmail::class, 2);
 });
 
 it('ingests a file from the command line and prunes raw mail past retention', function () {

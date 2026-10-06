@@ -21,7 +21,7 @@ export interface PendingAttachment {
  * limits, uploaded at once in parts, removed (and deleted on the server) on
  * request. The message sends their ids.
  */
-export function useAttachments(limits: AttachmentLimits, target: { task_id?: number; agent_id?: number }) {
+export function useAttachments(limits: AttachmentLimits, target: { task_id?: number; agent_id?: number; mailbox_id?: number }) {
     const [items, setItems] = useState<PendingAttachment[]>([]);
     const [notice, setNotice] = useState<string | null>(null);
     const itemsRef = useRef(items);
@@ -85,7 +85,7 @@ export function useAttachments(limits: AttachmentLimits, target: { task_id?: num
                     });
             });
         },
-        [limits, target.task_id, target.agent_id], // eslint-disable-line react-hooks/exhaustive-deps
+        [limits, target.task_id, target.agent_id, target.mailbox_id], // eslint-disable-line react-hooks/exhaustive-deps
     );
 
     const remove = useCallback((key: string) => {

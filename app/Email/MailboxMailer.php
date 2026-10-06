@@ -4,6 +4,7 @@ namespace App\Email;
 
 use App\Enums\EmailStatus;
 use App\Mail\AgentMessage;
+use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
 use App\Models\User;
@@ -22,13 +23,21 @@ use Throwable;
 final class MailboxMailer
 {
     /**
+     * The raw message as sent, when the mailer kept it (not under Mail::fake).
+     */
+    public ?string $lastRaw = null;
+
+    /**
      * @param  list<string>  $to
      * @param  list<string>  $cc
+     * @param  list<string>  $bcc
      *
      * @throws RuntimeException when the mailbox cannot send or SMTP fails
      */
-    public function send(Mailbox $mailbox, array $to, array $cc, string $subject, string $body, ?EmailMessage $original = null, ?int $runId = null, ?EmailMessage $draft = null, ?User $sender = null): EmailMessage
+    public function send(Mailbox $mailbox, array $to, array $cc, string $subject, string $body, ?EmailMessage $original = null, ?int $runId = null, ?EmailMessage $draft = null, ?User $sender = null, array $bcc = []): EmailMessage
     {
+        $this->lastRaw = null;
+
         if ($mailbox->isPersonal() && ($sender === null || ! $mailbox->isOwnedBy($sender))) {
             throw new RuntimeException('só os donos desta caixa enviam a partir dela.');
         }
@@ -37,19 +46,28 @@ final class MailboxMailer
             throw new RuntimeException('a caixa de correio não está activa ou não tem SMTP configurado.');
         }
 
-        $references = $original ? trim(($original->references ?? '').' '.$original->message_id_header) : null;
+        $references = $original ? trim(($original->references ?? '').' '.$original->message_id_header) : ($draft?->references ?: null);
+        $inReplyTo = $original->message_id_header ?? $draft?->in_reply_to;
+        // A draft keeps the Message-ID it had on the server, so the copy in Enviados is the same message.
+        $messageId = $draft?->message_id_header ?: '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
+        $files = $draft === null ? [] : $draft->attachments()->whereNotNull('path')->get()
+            ->map(fn (EmailAttachment $a) => ['disk' => $a->diskName(), 'path' => (string) $a->path, 'name' => $a->filename, 'mime' => $a->mime_type])->values()->all();
 
         try {
-            Mail::mailer($this->configure($mailbox))->send(new AgentMessage(
+            $sent = Mail::mailer($this->configure($mailbox))->send(new AgentMessage(
                 $mailbox->address,
                 $mailbox->display_name,
                 $to,
                 $cc,
                 $subject,
                 $body,
-                $original?->message_id_header,
+                $inReplyTo,
                 $references ?: null,
+                $bcc,
+                $files,
+                $messageId,
             ));
+            $this->lastRaw = $sent?->toString();
         } catch (Throwable $e) {
             $mailbox->forceFill(['last_error' => Str::limit($e->getMessage(), 500)])->save();
 
@@ -63,18 +81,28 @@ final class MailboxMailer
             'mailbox_id' => $mailbox->id,
             'direction' => 'outbound',
             'thread_id' => $original->thread_id ?? $draft?->thread_id,
-            'in_reply_to' => $original?->message_id_header,
+            'message_id_header' => $messageId,
+            // The same key as ingestion, so the copy read back from Enviados is this row.
+            'dedup_hash' => hash('sha256', $messageId.'|'.$mailbox->id),
+            'in_reply_to' => $inReplyTo,
             'references' => $references ?: null,
             'from_address' => $mailbox->address,
             'from_name' => $mailbox->display_name,
             'to' => $to,
             'cc' => $cc,
+            'bcc' => $bcc,
             'subject' => $subject,
             'text_body' => $body,
             'status' => EmailStatus::Sent,
             'agent_run_id' => $draft->agent_run_id ?? $runId,
             'sent_at' => now(),
+            'read_at' => now(),
+            'written_by_user_id' => $draft->written_by_user_id ?? $sender?->id,
         ])->save();
+
+        if ($message->thread_id === null) {
+            $message->forceFill(['thread_id' => app(ThreadResolver::class)->resolve($mailbox, null, [], $subject, [...$to, ...$cc])->id])->save();
+        }
 
         return $message;
     }

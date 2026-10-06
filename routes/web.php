@@ -145,13 +145,24 @@ Route::middleware('auth')->group(function () {
     Route::delete('documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
     Route::post('reports/{report}/export', [DocumentController::class, 'fromReport'])->middleware('throttle:20,1')->name('reports.export');
 
+    // Email: the email client of each person's mailboxes, triage included for who may read it.
     Route::get('inbox', [InboxController::class, 'index'])->name('inbox.index');
+    Route::post('inbox/sync', [InboxController::class, 'sync'])->middleware('throttle:30,1')->name('inbox.sync');
+    Route::post('inbox/folders/{folder}/older', [InboxController::class, 'older'])->middleware('throttle:20,1')->name('inbox.older');
+    Route::post('inbox/drafts', [InboxController::class, 'saveDraft'])->middleware('throttle:120,1')->name('inbox.drafts.store');
+    Route::put('inbox/drafts/{message}', [InboxController::class, 'saveDraft'])->middleware('throttle:120,1')->name('inbox.drafts.update');
+    Route::post('inbox/send', [InboxController::class, 'send'])->middleware('throttle:30,1')->name('inbox.compose.send');
     Route::get('inbox/{message}', [InboxController::class, 'show'])->name('inbox.show');
     Route::post('inbox/{message}/send', [InboxController::class, 'send'])->middleware('throttle:30,1')->name('inbox.send');
-    Route::delete('inbox/{message}', [InboxController::class, 'discard'])->name('inbox.discard');
+    Route::post('inbox/{message}/read', [InboxController::class, 'read'])->name('inbox.read');
+    Route::post('inbox/{message}/flag', [InboxController::class, 'flag'])->name('inbox.flag');
+    Route::post('inbox/{message}/move', [InboxController::class, 'move'])->name('inbox.move');
+    Route::post('inbox/{message}/archive', [InboxController::class, 'archive'])->name('inbox.archive');
+    Route::delete('inbox/{message}', [InboxController::class, 'destroy'])->name('inbox.destroy');
     Route::put('inbox/{message}/category', [InboxController::class, 'reclassify'])->name('inbox.reclassify');
     Route::post('inbox/{message}/retriage', [InboxController::class, 'retriage'])->middleware('throttle:20,1')->name('inbox.retriage');
     Route::get('attachments/{attachment}', [InboxController::class, 'attachment'])->name('attachments.download');
+    Route::get('attachments/{attachment}/preview', [InboxController::class, 'attachmentPreview'])->middleware('throttle:60,1')->name('attachments.preview');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('notifications/{notification}', [NotificationController::class, 'open'])->name('notifications.open');

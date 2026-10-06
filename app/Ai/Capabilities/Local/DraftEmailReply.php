@@ -7,6 +7,7 @@ use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Enums\AutonomyLevel;
 use App\Enums\EmailStatus;
+use App\Jobs\PushDraftToServer;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -14,8 +15,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 /**
- * A reply left as a draft in the conversation for a person to review and
- * send from the inbox. Nothing leaves the company.
+ * A reply left as a draft for a person to review and send from Email (in
+ * their Rascunhos, also on the server). Nothing leaves the company.
  */
 final class DraftEmailReply extends LocalCapability
 {
@@ -66,6 +67,7 @@ final class DraftEmailReply extends LocalCapability
         $mailbox = $original->mailbox->isPersonal()
             ? $original->mailbox
             : (Mailbox::query()->where('agent_id', $context->agent->id)->first() ?? $original->mailbox);
+        $messageId = '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
         $subject = $data['subject'] ?? (Str::startsWith(Str::lower((string) $original->subject), 're:') ? $original->subject : 'Re: '.$original->subject);
 
         $draft = EmailMessage::query()->create([
@@ -81,7 +83,15 @@ final class DraftEmailReply extends LocalCapability
             'text_body' => $data['body'],
             'status' => EmailStatus::Draft,
             'agent_run_id' => $context->run->id,
+            'message_id_header' => $messageId,
+            'dedup_hash' => hash('sha256', $messageId.'|'.$mailbox->id),
+            'read_at' => now(),
         ]);
+
+        // Into the owner's Rascunhos on the server too, for review in any email client.
+        if (filled($mailbox->imap_host)) {
+            PushDraftToServer::dispatch($draft->tenant_id, $draft->id);
+        }
 
         return CapabilityResult::data(['draft_id' => $draft->id, 'to' => $draft->to, 'subject' => $subject, 'review_at' => "/inbox/{$original->id}"]);
     }

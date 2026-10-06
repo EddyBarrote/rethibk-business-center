@@ -82,7 +82,7 @@ it('classifies the email, creates the lead in the ERP linked to it and notifies 
     $this->actingAs(asTenant($this->tenant, fn () => $this->sales), 'web')
         ->get(tenantUrl($this->tenant, 'inbox/'.asTenant($this->tenant, fn () => inboundId())))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Inbox/Show')->where('message.category', 'lead')->where('conversation.0.erp_lead_id', fn ($id) => str_starts_with((string) $id, 'LEAD-')));
+        ->assertInertia(fn ($page) => $page->component('Email/Index')->where('open.messages.0.category', 'lead')->where('open.messages.0.erp_lead_id', fn ($id) => str_starts_with((string) $id, 'LEAD-')));
 });
 
 it('fences the email as data, flags the injection, and holds any send to a new outside address', function () {

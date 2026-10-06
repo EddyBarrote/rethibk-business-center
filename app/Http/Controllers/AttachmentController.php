@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Attachments\AttachmentStore;
 use App\Attachments\ModelInput;
 use App\Models\Agent;
+use App\Models\EmailMessage;
+use App\Models\Mailbox;
 use App\Models\MessageAttachment;
 use App\Models\Task;
 use App\Tenancy\TenantRule;
@@ -32,6 +34,8 @@ class AttachmentController extends Controller
             'source' => ['nullable', 'in:upload,recording'],
             'task_id' => ['nullable', 'integer', TenantRule::exists('tasks', 'id')],
             'agent_id' => ['nullable', 'integer', TenantRule::exists('agents', 'id')],
+            // An email being written in the email client.
+            'mailbox_id' => ['nullable', 'integer', TenantRule::exists('mailboxes', 'id')],
         ]);
 
         $task = isset($data['task_id']) ? Task::query()->findOrFail($data['task_id']) : null;
@@ -40,6 +44,10 @@ class AttachmentController extends Controller
             Gate::authorize('reply', $task);
         } elseif (isset($data['agent_id'])) {
             Gate::authorize('run', Agent::query()->findOrFail($data['agent_id']));
+        } elseif (isset($data['mailbox_id'])) {
+            $mailbox = Mailbox::query()->findOrFail($data['mailbox_id']);
+            // Who writes from it: its owners, triage readers, or the person a triage email was routed to.
+            abort_unless($mailbox->canBeWrittenFromBy($user) || (! $mailbox->isPersonal() && EmailMessage::query()->where('mailbox_id', $mailbox->id)->where('routed_to_user_id', $user->id)->exists()), 403);
         } else {
             abort(422, 'Falta a conversa ou o agente.');
         }

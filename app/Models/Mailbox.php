@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\BelongsToTenant;
 use App\Enums\MailboxStatus;
+use App\Enums\Permission;
 use Database\Factories\MailboxFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -34,6 +36,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $imap_encryption
  * @property string $imap_folder
  * @property int|null $imap_last_uid
+ * @property bool $save_sent_copy
+ * @property Carbon|null $folders_synced_at
  * @property string|null $smtp_host
  * @property int|null $smtp_port
  * @property string|null $smtp_username
@@ -46,7 +50,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'agent_id', 'kind', 'address', 'display_name', 'inbound_provider', 'imap_host', 'imap_port', 'imap_username', 'imap_password',
-    'imap_encryption', 'imap_folder', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'status',
+    'imap_encryption', 'imap_folder', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'status', 'save_sent_copy',
 ])]
 #[Hidden(['inbound_secret', 'imap_password', 'smtp_password'])]
 class Mailbox extends Model
@@ -165,6 +169,23 @@ class Mailbox extends Model
     }
 
     /**
+     * @return HasMany<EmailFolder, $this>
+     */
+    public function folders(): HasMany
+    {
+        return $this->hasMany(EmailFolder::class);
+    }
+
+    /**
+     * Who may write from it in the email client: the owners of a person's
+     * mailbox; for an agent's mailbox (the triage), whoever reads triage email.
+     */
+    public function canBeWrittenFromBy(User $user): bool
+    {
+        return $this->isPersonal() ? $this->isOwnedBy($user) : $user->hasPermission(Permission::ReadTriageEmails);
+    }
+
+    /**
      * @return BelongsTo<Agent, $this>
      */
     public function agent(): BelongsTo
@@ -182,6 +203,8 @@ class Mailbox extends Model
             'smtp_password' => 'encrypted',
             'imap_port' => 'integer',
             'imap_last_uid' => 'integer',
+            'save_sent_copy' => 'boolean',
+            'folders_synced_at' => 'datetime',
             'smtp_port' => 'integer',
             'last_inbound_at' => 'datetime',
             'last_outbound_at' => 'datetime',

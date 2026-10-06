@@ -51,8 +51,8 @@ it('renders every console page for the owner', function (string $path, string $c
     ['runs', 'Runs/Index'],
     ['approvals', 'Approvals/Index'],
     ['knowledge', 'Knowledge/Index'],
-    ['inbox', 'Inbox/Index'],
-    ['inbox/{EmailMessage}', 'Inbox/Show'],
+    ['inbox', 'Email/Index'],
+    ['inbox/{EmailMessage}', 'Email/Index'],
     ['notifications', 'Notifications/Index'],
     ['briefings', 'Briefings/Index'],
     ['briefings/{Briefing}', 'Briefings/Show'],
@@ -87,8 +87,12 @@ it('shows people their own mailboxes and the triage email routed to them, and tr
         ];
     });
 
+    // Their own mailbox opens first; the triage mailbox is not theirs to browse, only what was routed to them.
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, 'inbox'))->assertOk()
-        ->assertInertia(fn ($page) => $page->where('messages.data', fn ($rows) => collect($rows)->pluck('subject')->sort()->values()->all() === ['Da minha caixa', 'Encaminhado para mim']));
+        ->assertInertia(fn ($page) => $page->has('mailboxes', 1)->where('routed', true)
+            ->where('messages.data', fn ($rows) => collect($rows)->pluck('subject')->all() === ['Da minha caixa']));
+    $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, 'inbox?mailbox=routed'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('messages.data', fn ($rows) => collect($rows)->pluck('subject')->all() === ['Encaminhado para mim']));
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$mine->id}"))->assertOk();
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$routed->id}"))->assertOk();
     $this->actingAs($member, 'web')->get(tenantUrl($this->tenant, "inbox/{$triage->id}"))->assertForbidden();
