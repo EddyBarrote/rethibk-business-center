@@ -7,6 +7,9 @@ use App\Ai\Skills\AgentSkills;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
 use App\Enums\KnowledgeType;
+use App\Erp\ErpDialect;
+use App\Erp\ErpGateway;
+use App\Erp\Perfex\PerfexToolMap;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\KnowledgeItem;
@@ -31,6 +34,7 @@ final class InstructionComposer
             $agent->department !== null ? "Trabalhas com o departamento {$agent->department->name}." : null,
             $agent->personality ? "## Personalidade\n".$agent->personality : null,
             $agent->instructions ? "## Instruções\n".$agent->instructions : null,
+            $this->erpGlossary($agent),
             $this->skills($agent),
             $this->team($agent),
             $run?->task !== null ? $this->task($run) : null,
@@ -52,6 +56,40 @@ final class InstructionComposer
         ];
 
         return implode("\n\n", array_filter($sections));
+    }
+
+    /**
+     * Instructions name the contract's ERP tools; on a Perfex ERP the agent
+     * has the Perfex tools instead. Says which is which, for the tools the
+     * instructions mention.
+     */
+    private function erpGlossary(Agent $agent): ?string
+    {
+        if (! preg_match_all('/\berp\.[a-z_]+\.[a-z_]+\b/', (string) $agent->instructions, $matches)
+            || app(ErpGateway::class)->dialect() !== ErpDialect::Perfex) {
+            return null;
+        }
+
+        $mine = $agent->capabilities()->where('is_available', true)->pluck('key')->all();
+        $lines = [];
+
+        foreach (array_unique($matches[0]) as $contract) {
+            $natives = PerfexToolMap::capabilitiesFor($contract);
+
+            if (! array_key_exists(substr($contract, 4), PerfexToolMap::EQUIVALENTS)) {
+                continue;
+            }
+
+            $usable = array_values(array_intersect($natives, $mine));
+            $lines[] = "- {$contract}: ".match (true) {
+                $usable !== [] => 'usa '.implode(', ', $usable),
+                $natives !== [] => 'no ERP é '.implode(', ', $natives).', que não tens: pede a quem te gere ou deixa a tarefa a uma pessoa',
+                default => 'ainda não existe no ERP; diz que não o podes fazer',
+            }.'.';
+        }
+
+        return $lines === [] ? null
+            : "## Ferramentas do ERP\nO ERP desta organização usa outros nomes para as ferramentas das tuas instruções. Os identificadores são números e os estados vêm por código (vê a descrição de cada ferramenta).\n".implode("\n", $lines);
     }
 
     /**

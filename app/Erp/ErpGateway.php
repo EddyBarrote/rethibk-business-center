@@ -5,6 +5,7 @@ namespace App\Erp;
 use App\Enums\AuditResult;
 use App\Enums\ErpConnectionStatus;
 use App\Erp\Exceptions\ErpException;
+use App\Erp\Perfex\PerfexAdapter;
 use App\Models\AuditLog;
 use App\Models\ErpConnection;
 use App\Tenancy\TenantManager;
@@ -43,11 +44,29 @@ final class ErpGateway
      */
     public function tools(?Model $actor = null): array
     {
-        return $this->audited('erp.tools_list', [], $actor, function (Client $client): array {
+        $tools = $this->audited('erp.tools_list', [], $actor, function (Client $client): array {
             $tools = $client->tools()->map(fn (Tool $tool) => ErpTool::fromMcp($tool))->values()->all();
 
             return [$tools, AuditResult::Ok, ['count' => count($tools)]];
         });
+
+        // Keep the connection's tool list fresh: the dialect is read from it.
+        ErpConnection::query()->currentTenant()->first()?->forceFill([
+            'capabilities' => array_map(fn (ErpTool $tool) => $tool->summary(), $tools),
+        ])->save();
+
+        return $tools;
+    }
+
+    /**
+     * The tool vocabulary of the tenant's ERP, from the tools it last listed.
+     * Without a list (or a connection) it is the contract, as the fake ERP speaks.
+     */
+    public function dialect(): ErpDialect
+    {
+        $tools = (array) (ErpConnection::query()->currentTenant()->first()->capabilities ?? []);
+
+        return ErpDialect::fromToolNames(array_values(array_filter(array_column($tools, 'name'), 'is_string')));
     }
 
     /**
@@ -56,6 +75,13 @@ final class ErpGateway
      */
     public function call(string $tool, array $arguments = [], ?Model $actor = null, array $context = []): ErpCallResult
     {
+        // The platform's own code asks in contract terms; a Perfex ERP answers
+        // through its own reads, each audited below.
+        if (PerfexAdapter::supports($tool) && $this->dialect() === ErpDialect::Perfex) {
+            return (new PerfexAdapter(fn (string $native, array $nativeArguments) => $this->call($native, $nativeArguments, $actor, $context)))
+                ->call($tool, $arguments);
+        }
+
         $started = hrtime(true);
 
         return $this->audited('erp.tool_call', [...array_filter($context, fn ($value) => $value !== null), 'tool' => $tool, 'arguments' => $arguments], $actor, function (Client $client) use ($tool, $arguments, $started): array {

@@ -444,3 +444,28 @@ skill vive só na plataforma (não numa conta Claude).
 
 Testes: `tests/Feature/Knowledge/DocumentGenerationTest.php` (cor secundária, fonte, `fill`) e
 `tests/Feature/Agents/SkillsAndConnectorsTest.php` (todos os agentes, marca ao carregar).
+
+## ERP real: o Rethink ERP (Perfex) em vez do falso (07.10.2026)
+
+Pedido do Barrote: ligar o servidor MCP do Rethink ERP, já em produção (`https://rethink.rethinkerp.online/api/mcp`,
+`perfex-mcp-server` 1.2.0, protocolo `2025-06-18`, token Bearer). O servidor expõe **144 ferramentas com os nomes do
+Perfex** (`list_customers`, `create_estimate`, …), não os do contrato (`crm.search_accounts`, …). O token actua como o
+utilizador do ERP «Edy Barrote» (administrador): tudo o que um agente escrever no ERP fica em nome dele.
+
+| Decisão | Onde |
+|---|---|
+| A plataforma reconhece o **dialecto** do ERP pelas ferramentas que ele lista (`list_customers` sem `crm.get_account` = Perfex) e guarda essa lista na ligação a cada sincronização. O servidor falso continua a falar o contrato. | `ErpDialect`, `ErpGateway::dialect()` |
+| As ferramentas do Perfex entram no catálogo com os nomes delas (`erp.list_customers`). Uma tabela diz que ferramentas do Perfex fazem o trabalho de cada ferramenta do contrato, e o que ainda falta. | `Erp\Perfex\PerfexToolMap` |
+| Na sincronização, cada agente que tinha uma **leitura** do contrato recebe as leituras equivalentes do Perfex. As **escritas não se atribuem sozinhas**: mexem no ERP real e um administrador dá-as a cada agente em Agentes › Capacidades. | `CapabilityCatalog::grantPerfexReads()` |
+| Uma escrita do Perfex nova no catálogo fica com risco **N4**: espera sempre por uma pessoa (nenhum agente está em N4), até um administrador decidir outra coisa. As escritas do contrato (só rascunhos) continuam em N3. | `CapabilityCatalog::defaultErpRisk()` |
+| O tecto absoluto passa a cobrir as acções equivalentes do Perfex: pagamentos, mudar o estado de uma factura (emitir ou anular), facturar a partir de orçamento, notas de crédito, contratos, aprovações de requisições, cotações e encomendas, e confirmar encomendas. | `config/autonomy.php` |
+| As instruções dos agentes falam do contrato; num ERP Perfex o prompt junta «Ferramentas do ERP», a dizer que ferramenta usar em vez de cada uma, qual existe mas o agente não tem, e qual não existe. | `InstructionComposer::erpGlossary()` |
+| O código da própria plataforma (ficha de cliente, margens, resumo do mês, reconciliação bancária) continua a pedir em termos do contrato; num ERP Perfex a resposta é montada a partir de leituras do Perfex, cada uma auditada. O Perfex não tem orçamento de projecto: usa-se o custo do projecto (`project_cost`). Leads procuram-se pelo nome da empresa, porque no Perfex não estão ligadas a um cliente. | `Erp\Perfex\PerfexAdapter` |
+| A ligação da MicoMoc passa a ser a do ERP real; a de demonstração fica desligada (não apagada) para se poder voltar atrás. O token fica só cifrado na base de dados. | Definições › Comunicação › Integrações |
+
+O que o Perfex ainda não tem: RH (assiduidade, férias, folha de salários, vagas, candidaturas, integração), e o
+`list_rfqs` do servidor falha com um erro de SQL (`Unknown column 'tblrfq.total'`), que além disso mostra SQL ao
+cliente. As escritas do Perfex não aceitam `idempotency_key`, por isso uma aprovação executada duas vezes escreveria
+duas vezes: a plataforma executa cada aprovação uma só vez.
+
+Testes: `tests/Feature/Erp/PerfexErpTest.php`.

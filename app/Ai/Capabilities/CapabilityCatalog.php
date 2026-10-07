@@ -8,8 +8,11 @@ use App\Enums\AutonomyLevel;
 use App\Enums\CapabilitySource;
 use App\Enums\ConnectorKind;
 use App\Enums\Scope;
+use App\Erp\ErpDialect;
 use App\Erp\ErpGateway;
 use App\Erp\ErpTool;
+use App\Erp\Perfex\PerfexToolMap;
+use App\Models\Agent;
 use App\Models\Capability;
 use App\Models\Connector;
 use App\Models\PlatformConnector;
@@ -60,6 +63,7 @@ final class CapabilityCatalog
     public function syncErp(): int
     {
         $tools = $this->erp->tools();
+        $dialect = $this->erp->dialect();
         $seen = [];
 
         foreach ($tools as $tool) {
@@ -81,7 +85,7 @@ final class CapabilityCatalog
             ]);
 
             if ($isNew) {
-                $capability->risk = self::defaultErpRisk($tool);
+                $capability->risk = self::defaultErpRisk($tool, $dialect);
             }
 
             $capability->save();
@@ -89,7 +93,36 @@ final class CapabilityCatalog
 
         Capability::query()->where('source', CapabilitySource::Mcp)->whereNotIn('key', $seen)->update(['is_available' => false]);
 
+        if ($dialect === ErpDialect::Perfex) {
+            $this->grantPerfexReads();
+        }
+
         return count($tools);
+    }
+
+    /**
+     * An agent set up with contract tools ("erp.crm.search_accounts") gets the
+     * Perfex reads that do the same job ("erp.list_customers"). Perfex writes
+     * change the live ERP, so an admin gives those to agents explicitly.
+     */
+    private function grantPerfexReads(): void
+    {
+        $reads = Capability::query()->where('source', CapabilitySource::Mcp)->where('is_available', true)->where('is_mutating', false)->pluck('id', 'key');
+
+        Agent::query()->with('capabilities')->get()->each(function (Agent $agent) use ($reads): void {
+            $wanted = $agent->capabilities
+                ->filter(fn (Capability $capability) => $capability->source === CapabilitySource::Mcp && ! $capability->is_available)
+                ->flatMap(fn (Capability $capability) => PerfexToolMap::capabilitiesFor($capability->key))
+                ->map(fn (string $key) => $reads[$key] ?? null)
+                ->filter()
+                ->unique()
+                ->diff($agent->capabilities->pluck('id'))
+                ->values();
+
+            if ($wanted->isNotEmpty()) {
+                $agent->capabilities()->syncWithoutDetaching(array_fill_keys($wanted->all(), ['enabled' => true]));
+            }
+        });
     }
 
     /**
@@ -173,8 +206,17 @@ final class CapabilityCatalog
         return 'erp.'.$tool;
     }
 
-    private static function defaultErpRisk(ErpTool $tool): AutonomyLevel
+    /**
+     * The contract's writes only create drafts, so agents may make them within
+     * limits. A Perfex write changes the live ERP: it waits for a person
+     * unless an admin decides otherwise (docs/DECISOES.md, ERP real).
+     */
+    private static function defaultErpRisk(ErpTool $tool, ErpDialect $dialect): AutonomyLevel
     {
-        return $tool->readOnly ? AutonomyLevel::Observe : AutonomyLevel::ExecuteWithinLimits;
+        return match (true) {
+            $tool->readOnly => AutonomyLevel::Observe,
+            $dialect === ErpDialect::Perfex => AutonomyLevel::ExecuteAndReport,
+            default => AutonomyLevel::ExecuteWithinLimits,
+        };
     }
 }

@@ -32,6 +32,22 @@ return [
         'erp.hr.terminate' => 'Contratação, cessação ou alteração contratual',
         'erp.hr.update_contract' => 'Contratação, cessação ou alteração contratual',
 
+        // The same actions in the live Perfex-based ERP (docs/DECISOES.md, ERP real).
+        'erp.create_payment' => 'Saída de dinheiro ou instrução de pagamento',
+        'erp.update_payment' => 'Saída de dinheiro ou instrução de pagamento',
+        'erp.update_invoice_status' => 'Emissão de factura a cliente',
+        'erp.create_invoice_from_estimate' => 'Emissão de factura a cliente',
+        'erp.create_credit_note' => 'Crédito a cliente',
+        'erp.create_credit_note_from_invoice' => 'Crédito a cliente',
+        'erp.create_invoice_credit' => 'Crédito a cliente',
+        'erp.update_credit_note_status' => 'Crédito a cliente',
+        'erp.create_contract' => 'Assinatura ou aceitação de contrato',
+        'erp.update_contract' => 'Assinatura ou aceitação de contrato',
+        'erp.update_purchase_request_approval' => 'Aprovação no ERP, reservada a pessoas',
+        'erp.update_purchase_quotation_approval' => 'Aprovação no ERP, reservada a pessoas',
+        'erp.update_purchase_order_approval' => 'Aprovação no ERP, reservada a pessoas',
+        'erp.update_purchase_order_status' => 'Confirmação de encomenda a fornecedor',
+
         // Changing agent or user permissions.
         'platform.permissions.update' => 'Alteração de permissões de agentes ou utilizadores',
     ],
