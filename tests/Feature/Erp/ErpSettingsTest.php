@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\AuditResult;
 use App\Enums\ErpConnectionStatus;
 use App\Enums\ErpTransport;
 use App\Models\AuditLog;
@@ -30,6 +31,7 @@ $valid = [
 
 it('keeps the ERP settings away from members', function () use ($valid) {
     $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/integrations/erp'))->assertForbidden();
+    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/integrations/erp/activity'))->assertForbidden();
     $this->actingAs($this->member)->put(tenantUrl($this->tenant, 'settings/integrations/erp'), $valid)->assertForbidden();
     $this->actingAs($this->member)->post(tenantUrl($this->tenant, 'settings/integrations/erp/test'))->assertForbidden();
 });
@@ -48,7 +50,13 @@ it('stores the connection with an encrypted token that never reaches the page', 
             ->component('Settings/Erp')
             ->where('connection.has_token', true)
             ->where('connection.base_url', 'https://erp.example.test/mcp')
-            ->where('calls.0.action', 'erp.connection_updated'));
+            ->where('activity.today', 1));
+
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/integrations/erp/activity'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Settings/ErpActivity')
+            ->where('calls.data.0.action', 'erp.connection_updated'));
 });
 
 it('keeps the stored token when the field is left blank', function () use ($valid) {
@@ -92,4 +100,27 @@ it('tests the connection against the fake ERP', function () {
     expect($connection->transport)->toBe(ErpTransport::Local)
         ->and($connection->status)->toBe(ErpConnectionStatus::Ok)
         ->and(asTenant($this->tenant, fn () => AuditLog::query()->where('action', 'erp.connection_test')->sole()->actor_id))->toBe($this->admin->id);
+});
+
+it('filters the ERP activity by result', function () {
+    asTenant($this->tenant, function () {
+        AuditLog::record(null, 'erp.tool_call', ['tool' => 'list_customers'], AuditResult::Ok);
+        AuditLog::record(null, 'erp.tool_call', ['tool' => 'list_rfqs', 'error' => 'Unknown column'], AuditResult::Error);
+    });
+
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/integrations/erp/activity?result=error'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.result', 'error')
+            ->has('calls.data', 1)
+            ->where('calls.data.0.tool', 'list_rfqs'));
+});
+
+it('shows the connection agents use, not a disabled one kept for going back', function () {
+    asTenant($this->tenant, function () {
+        ErpConnection::factory()->local()->create(['status' => ErpConnectionStatus::Disabled, 'name' => 'Demonstração']);
+        ErpConnection::factory()->create(['name' => 'Rethink ERP', 'status' => ErpConnectionStatus::Ok]);
+    });
+
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/integrations/erp'))
+        ->assertInertia(fn (Assert $page) => $page->where('connection.name', 'Rethink ERP')->where('connection.enabled', true));
 });

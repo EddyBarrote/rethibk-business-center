@@ -19,7 +19,7 @@ use Inertia\Response;
 
 /**
  * One ERP connection per tenant (section 5.8): configure it, test it, and see
- * the latest audited calls.
+ * the audited calls on their own page.
  */
 class ErpConnectionController extends Controller
 {
@@ -27,28 +27,7 @@ class ErpConnectionController extends Controller
     {
         Gate::authorize('viewAny', ErpConnection::class);
 
-        $connection = ErpConnection::query()->oldest('id')->first();
-
-        // Calls name the tool as Capacidades does; the key stays in a tooltip.
-        $names = Capability::query()->where('key', 'like', 'erp.%')->pluck('name', 'key');
-
-        $calls = AuditLog::query()
-            ->where('action', 'like', 'erp.%')
-            ->latest('id')
-            ->limit(20)
-            ->get()
-            ->map(fn (AuditLog $log) => [
-                'id' => $log->id,
-                // An approval request is audited under the capability key ("erp.expenses.classify").
-                'action' => $names->has($log->action) ? 'erp.approval_requested' : $log->action,
-                'tool' => $log->payload['tool'] ?? ($names->has($log->action) ? substr($log->action, 4) : null),
-                'tool_name' => $names->get($names->has($log->action) ? $log->action : 'erp.'.($log->payload['tool'] ?? '')),
-                'actor_type' => $log->actor_type->value,
-                'result' => $log->result->value,
-                'duration_ms' => $log->payload['duration_ms'] ?? null,
-                'error' => $log->payload['error'] ?? null,
-                'created_at' => $log->created_at->toIso8601String(),
-            ]);
+        $connection = $this->connection();
 
         return Inertia::render('Settings/Erp', [
             'connection' => $connection === null ? null : [
@@ -64,14 +43,62 @@ class ErpConnectionController extends Controller
                 'capabilities' => $connection->capabilities ?? [],
             ],
             'defaults' => ['transport' => config('erp.transport')],
-            'calls' => $calls,
+            'activity' => [
+                'today' => AuditLog::query()->where('action', 'like', 'erp.%')->where('created_at', '>=', today())->count(),
+                'errors_today' => AuditLog::query()->where('action', 'like', 'erp.%')->where('created_at', '>=', today())->where('result', AuditResult::Error)->count(),
+            ],
         ]);
+    }
+
+    /**
+     * Every audited operation on the ERP, newest first.
+     */
+    public function activity(Request $request): Response
+    {
+        Gate::authorize('viewAny', ErpConnection::class);
+
+        $result = AuditResult::tryFrom((string) $request->query('result'));
+
+        // Calls name the tool as Capacidades does; the key stays in a tooltip.
+        $names = Capability::query()->where('key', 'like', 'erp.%')->pluck('name', 'key');
+
+        $calls = AuditLog::query()
+            ->where('action', 'like', 'erp.%')
+            ->when($result !== null, fn ($query) => $query->where('result', $result))
+            ->latest('id')
+            ->paginate(30)
+            ->withQueryString()
+            ->through(fn (AuditLog $log) => [
+                'id' => $log->id,
+                // An approval request is audited under the capability key ("erp.expenses.classify").
+                'action' => $names->has($log->action) ? 'erp.approval_requested' : $log->action,
+                'tool' => $log->payload['tool'] ?? ($names->has($log->action) ? substr($log->action, 4) : null),
+                'tool_name' => $names->get($names->has($log->action) ? $log->action : 'erp.'.($log->payload['tool'] ?? '')),
+                'actor_type' => $log->actor_type->value,
+                'result' => $log->result->value,
+                'duration_ms' => $log->payload['duration_ms'] ?? null,
+                'error' => $log->payload['error'] ?? null,
+                'created_at' => $log->created_at->toIso8601String(),
+            ]);
+
+        return Inertia::render('Settings/ErpActivity', [
+            'calls' => $calls,
+            'filters' => ['result' => $result?->value],
+        ]);
+    }
+
+    /**
+     * The connection agents use; a tenant with only a disabled one sees that.
+     */
+    private function connection(): ?ErpConnection
+    {
+        return ErpConnection::query()->currentTenant()->first() ?? ErpConnection::query()->oldest('id')->first();
     }
 
     public function update(ErpConnectionRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $connection = ErpConnection::query()->oldest('id')->first() ?? new ErpConnection;
+        $connection = $this->connection() ?? new ErpConnection;
         $local = $data['transport'] === ErpTransport::Local->value;
         $endpointChanged = $connection->exists && ($connection->transport->value !== $data['transport'] || $connection->base_url !== ($local ? null : $data['base_url']));
 
@@ -110,7 +137,7 @@ class ErpConnectionController extends Controller
     {
         Gate::authorize('viewAny', ErpConnection::class);
 
-        $connection = ErpConnection::query()->oldest('id')->firstOrFail();
+        $connection = $this->connection() ?? abort(404);
 
         Gate::authorize('update', $connection);
 

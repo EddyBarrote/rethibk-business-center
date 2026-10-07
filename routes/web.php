@@ -202,6 +202,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('mailboxes/{mailbox}', [MailboxController::class, 'destroy'])->name('mailboxes.destroy');
         Route::get('integrations', [IntegrationController::class, 'index'])->name('settings.integrations.index');
         Route::get('integrations/erp', [ErpConnectionController::class, 'show'])->name('settings.erp.show');
+        Route::get('integrations/erp/activity', [ErpConnectionController::class, 'activity'])->name('settings.erp.activity');
         Route::put('integrations/erp', [ErpConnectionController::class, 'update'])->name('settings.erp.update');
         Route::post('integrations/erp/test', [ErpConnectionController::class, 'test'])->middleware('throttle:10,1')->name('settings.erp.test');
         Route::post('integrations/connectors', [ConnectorController::class, 'store'])->middleware('throttle:20,1')->name('connectors.store');
