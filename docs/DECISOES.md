@@ -411,3 +411,17 @@ O que o Percurso mostra é o funcionamento de sempre: um agente só passa trabal
 desenhada.
 
 Testes: `tests/Feature/Tasks/TaskJourneyTest.php`.
+
+## Email: escolher a caixa num menu (07.10.2026)
+
+Pedido do Barrote: "O admin deve escolher o email através de um dropdown, não pode ficar assim como está
+desorganizado." Com várias caixas (a pessoal e as de triagem de cada agente), a barra lateral do Email listava-as
+todas umas por baixo das outras, cada uma com as suas pastas.
+
+| Decisão | Onde |
+|---|---|
+| No topo da barra lateral, um **menu com as caixas**: o nome e o endereço da caixa aberta e, ao abrir, as caixas da pessoa ("A minha caixa"), as de triagem (pelo nome do agente) e "Encaminhados para mim", cada uma com os não lidos da Entrada. Por baixo ficam só as pastas (e, na triagem, as categorias) da caixa escolhida. Quem tem uma só caixa vê o nome dela, sem menu. | `Pages/Email/Index.tsx` (`MailboxPicker`) |
+| No telemóvel, dois selectores lado a lado: caixa e pasta. | `Pages/Email/Index.tsx` |
+| O Email **abre na última caixa escolhida** pela pessoa (`users.last_mailbox_id`); sem escolha, ou se a caixa deixou de estar acessível, abre a primeira, como antes. | `InboxController::client()` |
+
+Testes: `tests/Feature/Email/EmailClientTest.php` (abre a última caixa escolhida).

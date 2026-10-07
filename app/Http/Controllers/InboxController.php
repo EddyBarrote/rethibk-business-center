@@ -287,13 +287,23 @@ class InboxController extends Controller
             }
         });
 
+        // Raw: a user built in memory (not read back) has no such attribute yet.
+        $last = $user->getRawOriginal('last_mailbox_id');
+        $last = $last === null ? null : (int) $last;
+
         $selectedMailbox = match (true) {
             ($filters['mailbox'] ?? null) === 'routed' => 'routed',
             $open !== null && $mailboxes->contains('id', $open->mailbox_id) => $open->mailbox_id,
             $open !== null => 'routed',
             isset($filters['mailbox']) && $mailboxes->contains('id', (int) $filters['mailbox']) => (int) $filters['mailbox'],
+            // Otherwise the one the person had open last time.
+            $last !== null && $mailboxes->contains('id', $last) => $last,
             default => $mailboxes->first()->id ?? ($routed ? 'routed' : null),
         };
+
+        if (is_int($selectedMailbox) && $last !== $selectedMailbox) {
+            $user->forceFill(['last_mailbox_id' => $selectedMailbox])->saveQuietly();
+        }
         $mailboxFolders = is_int($selectedMailbox) ? $folders[$selectedMailbox] : collect();
         $folder = match (true) {
             ! is_int($selectedMailbox) => null,
@@ -317,6 +327,8 @@ class InboxController extends Controller
                 'can_write' => $m->canBeWrittenFromBy($user) && $m->canSend(),
                 'status' => $m->shownStatus()->value,
                 'error' => $errors[$m->id] ?? $m->errorMessage(),
+                // Unread in the Entrada, shown next to the mailbox in the menu.
+                'unread' => (int) $folders[$m->id]->firstWhere('role', EmailFolder::INBOX)?->unread,
                 'folders' => $folders[$m->id]->map(fn (EmailFolder $f) => [
                     'id' => $f->id, 'name' => $f->label(), 'role' => $f->role, 'unread' => $f->unread, 'total' => $f->total, 'has_older' => $f->has_older,
                     'depth' => $f->delimiter !== null && $f->delimiter !== '' ? substr_count(Str::after($f->path, 'INBOX'.$f->delimiter), $f->delimiter) : 0,

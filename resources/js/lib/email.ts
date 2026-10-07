@@ -24,6 +24,7 @@ export interface EmailMailbox {
     can_write: boolean;
     status: string;
     error: string | null;
+    unread: number;
     folders: EmailFolder[];
 }
 

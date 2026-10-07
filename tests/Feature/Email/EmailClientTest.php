@@ -238,3 +238,20 @@ it('keeps polling every folder from the scheduled job and records a server error
 
     expect(asTenant($this->tenant, fn () => $this->mailbox->fresh()->errorMessage()))->toContain('recusou o utilizador');
 });
+
+it('opens the mailbox the person chose last time, with each mailbox\'s unread count for the menu', function () {
+    $this->imap->deliver('INBOX', rawEmail('a@fora', 'Por ler'));
+    syncAna($this);
+    $triage = asTenant($this->tenant, fn () => Mailbox::factory()->create(['address' => 'geral@empresa.test']));
+    $this->ana->forceFill(['permission_overrides' => [Permission::ReadTriageEmails->value => true]])->save();
+
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, 'inbox'))
+        ->assertInertia(fn ($page) => $page->where('current.mailbox', $this->mailbox->id)
+            ->where('mailboxes', fn ($boxes) => collect($boxes)->firstWhere('id', $this->mailbox->id)['unread'] === 1));
+
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox?mailbox={$triage->id}"))->assertOk();
+    expect($this->ana->fresh()->last_mailbox_id)->toBe($triage->id);
+
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, 'inbox'))
+        ->assertInertia(fn ($page) => $page->where('current.mailbox', $triage->id)->where('current.triage', true));
+});

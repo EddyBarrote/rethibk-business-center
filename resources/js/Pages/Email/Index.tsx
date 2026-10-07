@@ -4,8 +4,10 @@ import {
     AlertOctagon,
     Archive,
     ArrowLeft,
+    Check,
     ChevronLeft,
     ChevronRight,
+    ChevronsUpDown,
     FileText,
     Folder,
     FolderInput,
@@ -43,6 +45,7 @@ import { Button } from '@/Components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
@@ -147,6 +150,108 @@ function FolderButton({ folder, active, onClick }: { folder: EmailFolder; active
     );
 }
 
+/** How a mailbox is called in the menu: the person's name or the agent's. */
+const mailboxLabel = (mailbox: EmailMailbox) => (mailbox.personal ? mailbox.name || mailbox.address : mailbox.name.replace(/^Triagem · /, ''));
+
+const ROUTED_LABEL = 'Encaminhados para mim';
+
+function MailboxIcon({ mailbox, className }: { mailbox: EmailMailbox | null; className?: string }) {
+    const Icon = mailbox === null ? Forward : mailbox.personal ? UserRound : Inbox;
+
+    return <Icon className={cn('size-4 shrink-0 text-muted-foreground', className)} />;
+}
+
+/**
+ * Which mailbox the sidebar shows: one menu with each mailbox and its unread
+ * count. With a single mailbox it is just its name.
+ */
+function MailboxPicker({ mailboxes, routed, current }: { mailboxes: EmailMailbox[]; routed: boolean; current: Props['current'] }) {
+    const selected = mailboxes.find((m) => m.id === current.mailbox) ?? null;
+    const personal = mailboxes.filter((m) => m.personal);
+    const triage = mailboxes.filter((m) => !m.personal);
+    const choices = mailboxes.length + (routed ? 1 : 0);
+    const choose = (mailbox: number | 'routed') => router.get('/inbox', { mailbox }, visitOptions);
+
+    const face = (
+        <>
+            <MailboxIcon mailbox={selected} />
+            <span className="flex min-w-0 flex-1 flex-col text-left leading-tight">
+                <span className="truncate text-sm font-medium">{selected ? mailboxLabel(selected) : ROUTED_LABEL}</span>
+                {selected && <span className="truncate text-[11px] text-muted-foreground">{selected.personal ? selected.address : 'Triagem'}</span>}
+            </span>
+            {selected?.error && <span className="size-1.5 shrink-0 rounded-full bg-status-danger" title={selected.error} />}
+        </>
+    );
+
+    if (choices <= 1) {
+        return (
+            <div className="flex items-center gap-2 px-2 py-1.5" title={selected?.address}>
+                {face}
+            </div>
+        );
+    }
+
+    const item = (mailbox: EmailMailbox) => (
+        <DropdownMenuItem
+            key={mailbox.id}
+            onSelect={() => choose(mailbox.id)}
+            className={cn('gap-2', current.mailbox === mailbox.id && 'bg-accent/60')}
+        >
+            <MailboxIcon mailbox={mailbox} />
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                <span className={cn('truncate', current.mailbox === mailbox.id && 'font-medium')}>{mailboxLabel(mailbox)}</span>
+                <span className="truncate text-[11px] text-muted-foreground">{mailbox.address}</span>
+            </span>
+            {mailbox.error && <span className="size-1.5 shrink-0 rounded-full bg-status-danger" title={mailbox.error} />}
+            {mailbox.unread > 0 && <span className="font-mono text-[11px] text-foreground/80">{mailbox.unread}</span>}
+            {current.mailbox === mailbox.id && <Check className="size-3.5 shrink-0" />}
+        </DropdownMenuItem>
+    );
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    aria-label="Escolher a caixa de email"
+                    className="flex w-full items-center gap-2 rounded-lg border bg-background px-2 py-1.5 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60"
+                >
+                    {face}
+                    {selected && selected.unread > 0 && <span className="font-mono text-[11px] text-foreground/80">{selected.unread}</span>}
+                    <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-72 max-w-[calc(100vw-2rem)]">
+                {personal.length > 0 && (
+                    <DropdownMenuGroup>
+                        <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+                            {personal.length > 1 ? 'As minhas caixas' : 'A minha caixa'}
+                        </DropdownMenuLabel>
+                        {personal.map(item)}
+                    </DropdownMenuGroup>
+                )}
+                {personal.length > 0 && triage.length > 0 && <DropdownMenuSeparator />}
+                {triage.length > 0 && (
+                    <DropdownMenuGroup>
+                        <DropdownMenuLabel className="text-[11px] text-muted-foreground">Triagem</DropdownMenuLabel>
+                        {triage.map(item)}
+                    </DropdownMenuGroup>
+                )}
+                {routed && (
+                    <>
+                        {mailboxes.length > 0 && <DropdownMenuSeparator />}
+                        <DropdownMenuItem onSelect={() => choose('routed')} className="gap-2">
+                            <MailboxIcon mailbox={null} />
+                            <span className={cn('flex-1', current.mailbox === 'routed' && 'font-medium')}>{ROUTED_LABEL}</span>
+                            {current.mailbox === 'routed' && <Check className="size-3.5 shrink-0" />}
+                        </DropdownMenuItem>
+                    </>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
 function MailboxNav({
     mailboxes,
     routed,
@@ -165,45 +270,54 @@ function MailboxNav({
     canCompose: boolean;
 }) {
     const go = (params: RequestPayload) => router.get('/inbox', params, visitOptions);
+    const mailbox = mailboxes.find((m) => m.id === current.mailbox);
 
     return (
         <nav aria-label="Caixas e pastas" className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-3">
-            <Button onClick={onCompose} disabled={!canCompose} className="w-full justify-start" title={canCompose ? undefined : 'Nenhuma das suas caixas pode enviar'}>
+            <MailboxPicker mailboxes={mailboxes} routed={routed} current={current} />
+
+            <Button
+                onClick={onCompose}
+                disabled={!canCompose}
+                className="w-full justify-start"
+                title={canCompose ? undefined : 'Nenhuma das suas caixas pode enviar'}
+            >
                 <PenLine />
                 Escrever
             </Button>
 
-            {mailboxes.map((mailbox) => (
-                <div key={mailbox.id} className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5 px-2 pt-1 pb-1">
-                        {mailbox.personal ? <UserRound className="size-3 text-muted-foreground" /> : <Inbox className="size-3 text-muted-foreground" />}
-                        <p className="min-w-0 flex-1 truncate text-[11px] font-medium tracking-wide text-muted-foreground uppercase" title={mailbox.address}>
-                            {mailbox.personal ? mailbox.address : mailbox.name}
-                        </p>
-                        {mailbox.error && <span className="size-1.5 shrink-0 rounded-full bg-status-danger" title={mailbox.error} />}
-                    </div>
-                    {(current.mailbox === mailbox.id || mailboxes.length <= 2 ? mailbox.folders : mailbox.folders.filter((f) => f.role === 'inbox')).map((folder) => (
+            {mailbox && (
+                <div className="flex flex-col gap-0.5">
+                    {mailbox.folders.map((folder) => (
                         <FolderButton
                             key={folder.id}
                             folder={folder}
-                            active={current.mailbox === mailbox.id && current.folder === folder.id && current.q === '' && !current.category}
+                            active={current.folder === folder.id && current.q === '' && !current.category}
                             onClick={() => go({ mailbox: mailbox.id, folder: folder.id })}
                         />
                     ))}
                     {mailbox.folders.length === 0 && <p className="px-2 text-xs text-muted-foreground">{mailbox.error ?? 'Sem pastas ainda.'}</p>}
-                    {current.mailbox === mailbox.id && !mailbox.personal && categories.length > 0 && (
-                        <div className="mt-1 flex flex-col gap-0.5 border-l pl-2 ml-3">
-                            <p className="px-2 pt-1 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">Triagem</p>
+                    {!mailbox.personal && categories.some((c) => c.count > 0) && (
+                        <div className="mt-2 flex flex-col gap-0.5">
+                            <p className="px-2 pt-1 pb-0.5 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">Triagem</p>
                             {categories
                                 .filter((c) => c.count > 0)
                                 .map((c) => (
                                     <button
                                         key={c.value}
                                         type="button"
-                                        onClick={() => go({ mailbox: mailbox.id, folder: current.folder, category: current.category === c.value ? undefined : c.value })}
+                                        onClick={() =>
+                                            go({
+                                                mailbox: mailbox.id,
+                                                folder: current.folder,
+                                                category: current.category === c.value ? undefined : c.value,
+                                            })
+                                        }
                                         className={cn(
                                             'flex h-7 items-center gap-2 rounded-md px-2 text-xs',
-                                            current.category === c.value ? 'bg-accent font-medium' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                                            current.category === c.value
+                                                ? 'bg-accent font-medium'
+                                                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                                         )}
                                     >
                                         <span className="min-w-0 flex-1 truncate text-left">{c.label}</span>
@@ -213,18 +327,13 @@ function MailboxNav({
                         </div>
                     )}
                 </div>
-            ))}
-
-            {routed && (
-                <FolderButton
-                    folder={{ id: -1, name: 'Encaminhados para mim', role: null, unread: 0, total: 0, has_older: false, depth: 0 }}
-                    active={current.mailbox === 'routed'}
-                    onClick={() => go({ mailbox: 'routed' })}
-                />
             )}
 
             {canConnect && (
-                <Link href="/settings/mailboxes" className="mt-auto flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-muted-foreground hover:bg-accent/60 hover:text-foreground">
+                <Link
+                    href="/settings/mailboxes"
+                    className="mt-auto flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                >
                     <Settings className="size-3.5" />
                     Ligar ou configurar caixas
                 </Link>
@@ -252,7 +361,9 @@ function MessageRow({ message, active, showFolder, onOpen }: { message: EmailSum
                     {message.unread && <span className="size-2 shrink-0 rounded-full bg-primary" aria-label="Não lido" />}
                     <span className={cn('min-w-0 flex-1 truncate text-sm', message.unread ? 'font-semibold' : 'text-foreground/90')}>{who}</span>
                     {message.flagged && <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Com estrela" />}
-                    {(message.attachments_count ?? 0) > 0 && <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-label="Com anexos" />}
+                    {(message.attachments_count ?? 0) > 0 && (
+                        <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-label="Com anexos" />
+                    )}
                     <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={dateTime(message.date)}>
                         {ago(message.date)}
                     </span>
@@ -260,7 +371,9 @@ function MessageRow({ message, active, showFolder, onOpen }: { message: EmailSum
                 <span className="flex items-center gap-1.5">
                     <PriorityDot priority={message.priority} />
                     {message.injection && <ShieldAlert className="size-3.5 shrink-0 text-status-danger" aria-label="Possível manipulação" />}
-                    <span className={cn('min-w-0 flex-1 truncate text-sm', message.unread ? 'font-medium' : 'text-foreground/85')}>{message.subject}</span>
+                    <span className={cn('min-w-0 flex-1 truncate text-sm', message.unread ? 'font-medium' : 'text-foreground/85')}>
+                        {message.subject}
+                    </span>
                     {message.status === 'draft' && <StatusBadge tone="warning">Rascunho</StatusBadge>}
                     {message.category && <CategoryBadge category={message.category} label={message.category_label} />}
                 </span>
@@ -380,7 +493,8 @@ function ReadingPane({
     const [expanded, setExpanded] = useState<Set<number>>(() => new Set([target?.id, latest?.id].filter(Boolean) as number[]));
     const action = (path: string, data: RequestPayload = {}) => router.post(`/inbox/${target.id}/${path}`, data, visitOptions);
     // Filing it away closes it, like any email client.
-    const fileAway = (path: string, data: RequestPayload = {}) => router.post(`/inbox/${target.id}/${path}`, data, { ...visitOptions, onSuccess: onBack });
+    const fileAway = (path: string, data: RequestPayload = {}) =>
+        router.post(`/inbox/${target.id}/${path}`, data, { ...visitOptions, onSuccess: onBack });
     const remove = () => router.delete(`/inbox/${target.id}`, { ...visitOptions, onSuccess: onBack });
 
     useEffect(() => setExpanded(new Set([target?.id, latest?.id].filter(Boolean) as number[])), [open.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -412,14 +526,35 @@ function ReadingPane({
                 <span className="flex-1" />
                 {open.can_file && (
                     <>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => action('flag', { flagged: !target.flagged })} aria-label={target.flagged ? 'Tirar estrela' : 'Pôr estrela'} title={target.flagged ? 'Tirar estrela' : 'Pôr estrela'}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => action('flag', { flagged: !target.flagged })}
+                            aria-label={target.flagged ? 'Tirar estrela' : 'Pôr estrela'}
+                            title={target.flagged ? 'Tirar estrela' : 'Pôr estrela'}
+                        >
                             <Star className={cn(target.flagged && 'fill-amber-400 text-amber-400')} />
                         </Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => fileAway('read', { read: false })} aria-label="Marcar como não lido" title="Marcar como não lido">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => fileAway('read', { read: false })}
+                            aria-label="Marcar como não lido"
+                            title="Marcar como não lido"
+                        >
                             <Mail />
                         </Button>
                         {target.folder_role !== 'archive' && (
-                            <Button variant="ghost" size="icon" className="size-8" onClick={() => fileAway('archive')} aria-label="Arquivar" title="Arquivar">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8"
+                                onClick={() => fileAway('archive')}
+                                aria-label="Arquivar"
+                                title="Arquivar"
+                            >
                                 <Archive />
                             </Button>
                         )}
@@ -460,7 +595,14 @@ function ReadingPane({
                                 }
                             />
                         ) : (
-                            <Button variant="ghost" size="icon" className="size-8" onClick={remove} aria-label="Mover para o Lixo" title="Mover para o Lixo">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8"
+                                onClick={remove}
+                                aria-label="Mover para o Lixo"
+                                title="Mover para o Lixo"
+                            >
                                 <Trash2 />
                             </Button>
                         )}
@@ -534,7 +676,13 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
     const folder = mailbox?.folders.find((f) => f.id === current.folder);
     const writable = mailboxes.filter((m) => m.can_write);
     const base = useMemo(
-        () => ({ mailbox: current.mailbox ?? undefined, folder: current.folder ?? undefined, q: current.q || undefined, category: current.category ?? undefined, unread: current.unread ? 1 : undefined }),
+        () => ({
+            mailbox: current.mailbox ?? undefined,
+            folder: current.folder ?? undefined,
+            q: current.q || undefined,
+            category: current.category ?? undefined,
+            unread: current.unread ? 1 : undefined,
+        }),
         [current],
     );
 
@@ -547,18 +695,22 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
 
         if (summary.status === 'draft') {
             // A draft opens straight in the composer.
-            router.get('/inbox', { ...base, message: summary.id }, {
-                ...visitOptions,
-                ...done,
-                only: ['open', 'mailboxes', 'messages'],
-                onSuccess: (visit) => {
-                    const conversation = visit.props.open as OpenConversation | null;
-                    const draft = conversation?.messages.find((m) => m.id === summary.id);
-                    if (conversation && draft) {
-                        setComposing(fromDraft(draft, conversation.mailbox_id, null));
-                    }
+            router.get(
+                '/inbox',
+                { ...base, message: summary.id },
+                {
+                    ...visitOptions,
+                    ...done,
+                    only: ['open', 'mailboxes', 'messages'],
+                    onSuccess: (visit) => {
+                        const conversation = visit.props.open as OpenConversation | null;
+                        const draft = conversation?.messages.find((m) => m.id === summary.id);
+                        if (conversation && draft) {
+                            setComposing(fromDraft(draft, conversation.mailbox_id, null));
+                        }
+                    },
                 },
-            });
+            );
 
             return;
         }
@@ -578,7 +730,11 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
         }
 
         setSyncing(true);
-        router.post('/inbox/sync', { mailbox_id: current.mailbox, folder_id: current.folder }, { ...visitOptions, onFinish: () => setSyncing(false) });
+        router.post(
+            '/inbox/sync',
+            { mailbox_id: current.mailbox, folder_id: current.folder },
+            { ...visitOptions, onFinish: () => setSyncing(false) },
+        );
     };
 
     // Every two minutes the open folder is read again from the server.
@@ -589,7 +745,11 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
 
         const timer = window.setInterval(() => {
             if (!composing && document.visibilityState === 'visible') {
-                router.post('/inbox/sync', { mailbox_id: current.mailbox, folder_id: current.folder }, { ...visitOptions, only: ['mailboxes', 'messages'] });
+                router.post(
+                    '/inbox/sync',
+                    { mailbox_id: current.mailbox, folder_id: current.folder },
+                    { ...visitOptions, only: ['mailboxes', 'messages'] },
+                );
             }
         }, 120_000);
 
@@ -623,7 +783,13 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
     }
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Email' }, ...(mailbox ? [{ label: mailbox.personal ? mailbox.address : mailbox.name }] : []), ...(folder ? [{ label: folder.name }] : [])]}>
+        <AppLayout
+            breadcrumbs={[
+                { label: 'Email' },
+                ...(mailbox ? [{ label: mailbox.personal ? mailbox.address : mailbox.name }] : []),
+                ...(folder ? [{ label: folder.name }] : []),
+            ]}
+        >
             <Head title={folder ? `${folder.name} · Email` : 'Email'} />
 
             <div className="-mx-4 -my-6 grid h-[calc(100svh-3.5rem)] min-h-[32rem] grid-cols-1 overflow-hidden border-t sm:-mx-6 md:grid-cols-[13rem_minmax(0,1fr)] lg:-mx-8 xl:grid-cols-[14rem_minmax(20rem,26rem)_minmax(0,1fr)]">
@@ -644,27 +810,37 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
                 <section className={cn('flex min-h-0 flex-col border-r', showingRight && 'hidden xl:flex')} aria-label="Mensagens">
                     <div className="flex flex-col gap-2 border-b p-3">
                         <div className="flex items-center gap-2 md:hidden">
-                            <NativeSelect
-                                aria-label="Pasta"
-                                className="h-9 min-w-0 flex-1"
-                                value={`${current.mailbox ?? ''}:${current.folder ?? ''}`}
-                                onChange={(e) => {
-                                    const [m, f] = e.target.value.split(':');
-                                    router.get('/inbox', { mailbox: m, folder: f || undefined }, visitOptions);
-                                }}
-                            >
-                                {mailboxes.map((m) => (
-                                    <optgroup key={m.id} label={m.personal ? m.address : m.name}>
-                                        {m.folders.map((f) => (
-                                            <option key={f.id} value={`${m.id}:${f.id}`}>
-                                                {f.name}
-                                                {f.unread > 0 ? ` (${f.unread})` : ''}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                ))}
-                                {routed && <option value="routed:">Encaminhados para mim</option>}
-                            </NativeSelect>
+                            {mailboxes.length + (routed ? 1 : 0) > 1 && (
+                                <NativeSelect
+                                    aria-label="Caixa"
+                                    className="h-9 min-w-0 flex-1"
+                                    value={String(current.mailbox ?? '')}
+                                    onChange={(e) => router.get('/inbox', { mailbox: e.target.value }, visitOptions)}
+                                >
+                                    {mailboxes.map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.personal ? m.address : m.name}
+                                            {m.unread > 0 ? ` (${m.unread})` : ''}
+                                        </option>
+                                    ))}
+                                    {routed && <option value="routed">{ROUTED_LABEL}</option>}
+                                </NativeSelect>
+                            )}
+                            {mailbox && mailbox.folders.length > 0 && (
+                                <NativeSelect
+                                    aria-label="Pasta"
+                                    className="h-9 min-w-0 flex-1"
+                                    value={String(current.folder ?? '')}
+                                    onChange={(e) => router.get('/inbox', { mailbox: mailbox.id, folder: e.target.value }, visitOptions)}
+                                >
+                                    {mailbox.folders.map((f) => (
+                                        <option key={f.id} value={f.id}>
+                                            {f.name}
+                                            {f.unread > 0 ? ` (${f.unread})` : ''}
+                                        </option>
+                                    ))}
+                                </NativeSelect>
+                            )}
                             <Button size="icon" className="size-9" onClick={startCompose} disabled={writable.length === 0} aria-label="Escrever">
                                 <PenLine />
                             </Button>
@@ -682,17 +858,30 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
                         </form>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <span className="min-w-0 flex-1 truncate">
-                                {current.q ? `Resultados para «${current.q}»` : (folder?.name ?? (current.mailbox === 'routed' ? 'Encaminhados para mim' : ''))}
+                                {current.q
+                                    ? `Resultados para «${current.q}»`
+                                    : (folder?.name ?? (current.mailbox === 'routed' ? 'Encaminhados para mim' : ''))}
                                 {messages.total > 0 && ` · ${messages.from}–${messages.to} de ${messages.total}`}
                             </span>
                             <button
                                 type="button"
                                 onClick={() => router.get('/inbox', { ...base, unread: current.unread ? undefined : 1 }, visitOptions)}
-                                className={cn('rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground', current.unread && 'bg-accent font-medium text-foreground')}
+                                className={cn(
+                                    'rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground',
+                                    current.unread && 'bg-accent font-medium text-foreground',
+                                )}
                             >
                                 Não lidos
                             </button>
-                            <Button variant="ghost" size="icon" className="size-7" onClick={refresh} disabled={syncing} aria-label="Actualizar" title="Ir buscar emails novos">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                onClick={refresh}
+                                disabled={syncing}
+                                aria-label="Actualizar"
+                                title="Ir buscar emails novos"
+                            >
                                 {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                             </Button>
                             <Button
@@ -737,13 +926,24 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
                         ) : (
                             <ul>
                                 {messages.data.map((m) => (
-                                    <MessageRow key={m.id} message={m} active={(opening ?? open?.id) === m.id} showFolder={current.q !== ''} onOpen={() => openMessage(m)} />
+                                    <MessageRow
+                                        key={m.id}
+                                        message={m}
+                                        active={(opening ?? open?.id) === m.id}
+                                        showFolder={current.q !== ''}
+                                        onOpen={() => openMessage(m)}
+                                    />
                                 ))}
                             </ul>
                         )}
                         {folder?.has_older && !messages.next && !current.q && (
                             <div className="p-3">
-                                <Button variant="outline" size="sm" className="w-full" onClick={() => router.post(`/inbox/folders/${folder.id}/older`, {}, visitOptions)}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full"
+                                    onClick={() => router.post(`/inbox/folders/${folder.id}/older`, {}, visitOptions)}
+                                >
                                     Carregar mais antigos do servidor
                                 </Button>
                             </div>
@@ -752,7 +952,10 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
                 </section>
 
                 {/* Reading or writing */}
-                <section className={cn('min-h-0 min-w-0', !showingRight && 'hidden xl:block', showingRight && 'md:col-start-2 xl:col-start-3')} aria-label="Leitura">
+                <section
+                    className={cn('min-h-0 min-w-0', !showingRight && 'hidden xl:block', showingRight && 'md:col-start-2 xl:col-start-3')}
+                    aria-label="Leitura"
+                >
                     {opening !== null && !composing && open?.id !== opening ? (
                         <div className="flex h-full items-center justify-center text-muted-foreground">
                             <Loader2 className="size-5 animate-spin" aria-label="A abrir o email" />
