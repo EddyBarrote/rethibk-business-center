@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Erp;
 
 use App\Console\Concerns\InteractsWithTenant;
+use App\Erp\ErpDialect;
 use App\Erp\ErpGateway;
 use App\Erp\Exceptions\ErpException;
 use App\Models\AuditLog;
@@ -24,6 +25,13 @@ class SmokeTestErp extends Command
     public function handle(ErpGateway $gateway): int
     {
         return $this->asTenant(function () use ($gateway): int {
+            // The smoke test writes a lead: never against the live ERP.
+            if ($gateway->dialect() !== ErpDialect::Contract) {
+                $this->components->error('Este tenant está ligado ao ERP real. O erp:smoke escreve no ERP e só corre contra o servidor falso; usa erp:tools ou erp:call com leituras.');
+
+                return self::FAILURE;
+            }
+
             $firstAuditId = (int) AuditLog::query()->max('id');
 
             try {

@@ -159,3 +159,11 @@ it('leaves the prompt alone on the contract ERP', function () {
 
     expect($prompt)->not->toContain('## Ferramentas do ERP');
 });
+
+it('refuses the smoke test, which writes, against the live ERP', function () {
+    $tenant = Tenant::factory()->create(['slug' => 'perfex-live']);
+
+    asTenant($tenant, fn () => ErpConnection::factory()->create(['capabilities' => [['name' => 'list_customers', 'title' => null, 'description' => null, 'read_only' => true]]]));
+
+    $this->artisan('erp:smoke', ['tenant' => 'perfex-live'])->expectsOutputToContain('ligado ao ERP real')->assertFailed();
+});
