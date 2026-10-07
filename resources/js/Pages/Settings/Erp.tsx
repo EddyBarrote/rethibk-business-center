@@ -264,7 +264,7 @@ export default function ErpSettings({ connection, defaults, activity }: Props) {
                 <TabsContent value="config">
                     <SettingsBlock
                         title="Configuração"
-                        description="Enquanto o servidor do ERP não estiver pronto, use o servidor de demonstração, com dados fictícios."
+                        description="Endereço e token do servidor MCP do ERP. O servidor de demonstração, com dados fictícios, serve para testes."
                     >
                         <form onSubmit={submit} className="flex flex-col gap-5 rounded-xl border bg-card p-5">
                             <div className="grid gap-5 sm:grid-cols-2">
