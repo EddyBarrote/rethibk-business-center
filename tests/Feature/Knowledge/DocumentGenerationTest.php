@@ -182,6 +182,34 @@ it('saves the brand that documents use', function () {
     $this->actingAs(asTenant($this->tenant, fn () => $this->manager), 'web')->post(tenantUrl($this->tenant, 'settings/brand'), ['color' => '#000000'])->assertForbidden();
 });
 
+it('uses the brand\'s second colour and font, and hands the brand to skills', function () {
+    $owner = asTenant($this->tenant, fn () => $this->owner);
+
+    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, 'settings/brand'), [
+        'color' => '#0052cc', 'accent_color' => '#f59e0b', 'font' => 'Georgia',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, 'settings/brand'), ['color' => '#0052cc', 'font' => 'Comic Sans MS'])
+        ->assertSessionHasErrors('font');
+
+    asTenant($this->tenant->fresh(), function () {
+        $brand = Brand::current();
+        expect($brand->accent)->toBe('#F59E0B')->and($brand->font)->toBe('Georgia')->and($brand->pdfFont())->toBe('DejaVu Serif')
+            ->and($brand->fill('Cor {{marca.cor}}, fonte {{ marca.fonte }}, {{marca.desconhecida}}'))->toBe('Cor #0052CC, fonte Georgia, {{marca.desconhecida}}')
+            ->and($brand->fill('{{marca}}'))->toContain('- Cor secundária: #F59E0B')->toContain('- Logótipo: nenhum carregado');
+
+        $doc = generated(['format' => 'docx', 'title' => 'Com fonte', 'content' => "## Secção\n\n### Detalhe\n\nTexto."]);
+        $zip = new ZipArchive;
+        $zip->open(Storage::disk('local')->path($doc->path));
+        expect((string) $zip->getFromName('word/styles.xml'))->toContain('Georgia')->toContain('F59E0B');
+
+        $deck = generated(['format' => 'pptx', 'title' => 'Deck', 'content' => "## Um\n\n- ponto"]);
+        $zip = new ZipArchive;
+        $zip->open(Storage::disk('local')->path($deck->path));
+        $slides = collect(range(0, $zip->numFiles - 1))->map(fn ($i) => (string) $zip->getNameIndex($i))->filter(fn ($n) => str_starts_with($n, 'ppt/slides/slide'))->map(fn ($n) => (string) $zip->getFromName($n))->implode('');
+        expect($slides)->toContain('Georgia')->toContain('F59E0B');
+    });
+});
+
 it('reads Markdown blocks and spreadsheet numbers', function () {
     $blocks = MarkdownBlocks::parse(MONTH_CLOSE);
 

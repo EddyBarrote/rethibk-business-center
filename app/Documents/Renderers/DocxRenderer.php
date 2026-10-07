@@ -22,13 +22,13 @@ final class DocxRenderer implements Renderer
         $spec = $spec->withoutRepeatedTitle();
         $word = new PhpWord;
         $word->getSettings()->setThemeFontLang(new Language('pt-PT'));
-        $word->setDefaultFontName('Calibri');
+        $word->setDefaultFontName($brand->font);
         $word->setDefaultFontSize(10);
         $word->getDocInfo()->setTitle($spec->title)->setCreator($brand->name)->setCompany($brand->name);
 
         $word->addTitleStyle(1, ['size' => 16, 'bold' => true, 'color' => $brand->hex()], ['spaceBefore' => 240, 'spaceAfter' => 80]);
         $word->addTitleStyle(2, ['size' => 13, 'bold' => true, 'color' => $brand->hex()], ['spaceBefore' => 200, 'spaceAfter' => 60]);
-        $word->addTitleStyle(3, ['size' => 11, 'bold' => true], ['spaceBefore' => 160, 'spaceAfter' => 40]);
+        $word->addTitleStyle(3, ['size' => 11, 'bold' => true, 'color' => ltrim($brand->accentColor(), '#')], ['spaceBefore' => 160, 'spaceAfter' => 40]);
         $word->addParagraphStyle('Normal', ['spaceAfter' => 100, 'lineHeight' => 1.15]);
 
         $margins = ['marginTop' => 1300, 'marginBottom' => 1100, 'marginLeft' => 1150, 'marginRight' => 1150];

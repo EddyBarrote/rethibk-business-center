@@ -77,6 +77,23 @@ it('lists an agent\'s skills in its prompt and lets it load one, own or global',
     });
 });
 
+it('gives a skill to every agent without assigning it, and fills in the brand when it loads', function () {
+    $this->tenant->update(['settings' => ['brand' => ['color' => '#123456', 'font' => 'Arial']]]);
+
+    asTenant($this->tenant->fresh(), function () {
+        app(CapabilityCatalog::class)->syncLocal();
+        $agent = Agent::factory()->create();
+        Skill::factory()->create(['key' => 'marca', 'name' => 'Documentos com a marca', 'instructions' => "Cor: {{marca.cor}}\n{{marca}}", 'all_agents' => true]);
+        Skill::factory()->create(['key' => 'so-alguns', 'name' => 'Só alguns']);
+        $other = Tenant::factory()->create();
+        asTenant($other, fn () => Skill::factory()->create(['key' => 'de-outra', 'all_agents' => true]));
+
+        expect(app(InstructionComposer::class)->for($agent))->toContain('Documentos com a marca (marca)')->not->toContain('so-alguns')->not->toContain('de-outra')
+            ->and(toolNames($agent))->toContain('skills_load')
+            ->and(runCapability($agent, 'skills.load', ['skill' => 'marca'])->content)->toContain('Cor: #123456')->toContain('- Fonte: Arial');
+    });
+});
+
 it('turns a tenant HTTP connector into a capability whose answers are untrusted data', function () {
     Http::fake(['api.example.test/*' => Http::response(['currency' => 'USD', 'rate' => 63.9])]);
 

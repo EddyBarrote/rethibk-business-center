@@ -17,7 +17,7 @@ final class PdfRenderer implements Renderer
         $spec = $spec->withoutRepeatedTitle();
         $options = new Options;
         // Remote resources are never fetched: the logo is inlined as data.
-        $options->set(['isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Sans', 'isPhpEnabled' => false, 'chroot' => storage_path('app')]);
+        $options->set(['isRemoteEnabled' => false, 'defaultFont' => $brand->pdfFont(), 'isPhpEnabled' => false, 'chroot' => storage_path('app')]);
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml(view('documents.pdf', [

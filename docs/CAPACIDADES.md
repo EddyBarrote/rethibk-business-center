@@ -44,6 +44,10 @@ Membros e chefias não vêem estes ecrãs (`Gate::define('manage-catalog')`).
 2. Se o agente tem pelo menos uma skill, o `ToolResolver` dá-lhe `skills.load` e `skills.read_file`.
 3. O agente chama `skills.load` com a chave e recebe as instruções e a lista de ficheiros; lê um ficheiro com `skills.read_file` (12 000 caracteres por página).
 
+Uma skill da empresa com **Todos os agentes** (`skills.all_agents`) chega a todos os agentes sem atribuição, como a capacidade «Gerar documento».
+
+Ao carregar, `skills.load` troca `{{marca.nome}}`, `{{marca.cor}}`, `{{marca.cor_secundaria}}`, `{{marca.fonte}}`, `{{marca.logotipo}}` e `{{marca.rodape}}` pelos valores de hoje em Definições › Marca (`App\Documents\Brand::fill()`), e `{{marca}}` pela lista de todos. Exemplo: `docs/exemplos/skill-documentos-marca.md`.
+
 Ficheiros aceites: md, txt, csv, json, xml, html, pdf, docx, xlsx (até 10 MB). O texto é extraído no upload com `TextExtractor`; um ficheiro sem texto legível fica guardado mas o agente não o consegue ler (o ecrã avisa).
 
 ## Conectores

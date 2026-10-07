@@ -425,3 +425,22 @@ todas umas por baixo das outras, cada uma com as suas pastas.
 | O Email **abre na última caixa escolhida** pela pessoa (`users.last_mailbox_id`); sem escolha, ou se a caixa deixou de estar acessível, abre a primeira, como antes. | `InboxController::client()` |
 
 Testes: `tests/Feature/Email/EmailClientTest.php` (abre a última caixa escolhida).
+
+## Documentos com a marca (07.10.2026)
+
+Pedido do Barrote: uma skill para os documentos que os agentes geram saírem com a marca da MicoMoc. Escolha dele: a
+skill vive só na plataforma (não numa conta Claude).
+
+| Decisão | Onde |
+|---|---|
+| A marca fica num só sítio, **Definições › Empresa › Marca**; a skill não tem cores nem fontes escritas. Ao carregar, `skills.load` troca `{{marca.*}}` pelos valores de hoje, por isso mudar a Marca muda logo o que os agentes sabem e o que os ficheiros mostram. | `Brand::fill()`, `LoadSkill` |
+| A Marca ganha **cor secundária** (subtítulos `###`, marcadores das apresentações, barra da capa e citações no PDF; vazia usa a principal) e **fonte** (lista fechada: Calibri, Aptos, Arial, Helvetica, Segoe UI, Verdana, Montserrat, Open Sans, Roboto, Poppins, Georgia, Cambria, Garamond, Times New Roman). Word, PowerPoint e Excel levam o nome da fonte (aparece se estiver instalada em quem abre); o PDF só tem a DejaVu embutida e usa a da mesma família, com ou sem serifa. | `Brand`, `Renderers/*`, `Settings/Brand.tsx` |
+| Uma skill da empresa pode ser de **Todos os agentes** (`skills.all_agents`), sem atribuição um a um, como «Gerar documento». | `AgentSkills::for()`, `SkillEditor.tsx` |
+| Skill **«Documentos com a marca»** (`documentos-marca`), de todos os agentes, criada na MicoMoc a partir de `docs/exemplos/skill-documentos-marca.md`: quando usar, a marca, que formato e modelo escolher, estrutura, escrita (pt-MZ, meticais, datas por extenso, «[a confirmar]» em vez de inventar) e o que nunca fazer. | `skills` da MicoMoc |
+| Corrigido: guardar a Marca sem nunca ter tido logótipo dava erro 500. | `BrandController::update()` |
+
+Em falta: o logótipo, as cores e a fonte reais da MicoMoc (pedidos ao Barrote). Até lá a Marca está com a cor por
+omissão #1E3A5F, sem logótipo, fonte Calibri.
+
+Testes: `tests/Feature/Knowledge/DocumentGenerationTest.php` (cor secundária, fonte, `fill`) e
+`tests/Feature/Agents/SkillsAndConnectorsTest.php` (todos os agentes, marca ao carregar).

@@ -8,7 +8,8 @@ use Illuminate\Support\Collection;
 
 /**
  * The skills an agent can use right now (docs/CAPACIDADES.md): assigned to
- * it, switched on in the tenant and, if global, still offered.
+ * it or given to every agent, switched on in the tenant and, if global,
+ * still offered.
  */
 final class AgentSkills
 {
@@ -17,10 +18,11 @@ final class AgentSkills
      */
     public function for(Agent $agent): Collection
     {
-        return $agent->skills()
-            ->with(['platformSkill.files', 'files'])
-            ->where('is_enabled', true)
-            ->get()
+        $assigned = $agent->skills()->with(['platformSkill.files', 'files'])->where('is_enabled', true)->get();
+        $everyone = Skill::query()->with(['platformSkill.files', 'files'])->where('tenant_id', $agent->tenant_id)->where('is_enabled', true)->where('all_agents', true)->get();
+
+        return $assigned->concat($everyone)
+            ->unique('id')
             ->filter(fn (Skill $skill) => $skill->isUsable())
             ->sortBy(fn (Skill $skill) => $skill->displayName())
             ->values();

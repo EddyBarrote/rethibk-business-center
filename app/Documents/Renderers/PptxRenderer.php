@@ -37,10 +37,11 @@ final class PptxRenderer implements Renderer
 
     private const ROWS_PER_SLIDE = 9;
 
-    private const FONT = 'Calibri';
+    private string $font = Brand::DEFAULT_FONT;
 
     public function render(DocumentSpec $spec, Brand $brand, string $path): void
     {
+        $this->font = $brand->font;
         $deck = new PhpPresentation;
         $deck->getLayout()->setDocumentLayout(DocumentLayout::LAYOUT_SCREEN_16X9);
         $deck->getDocumentProperties()->setTitle($spec->title)->setCreator($brand->name)->setCompany($brand->name);
@@ -184,7 +185,7 @@ final class PptxRenderer implements Renderer
                 $paragraph->setSpacingAfter(8);
 
                 if ($block['type'] === 'list') {
-                    $paragraph->getBulletStyle()->setBulletType(Bullet::TYPE_BULLET)->setBulletChar('•')->setBulletColor(new Color('FF'.$brand->hex()));
+                    $paragraph->getBulletStyle()->setBulletType(Bullet::TYPE_BULLET)->setBulletChar('•')->setBulletColor(new Color('FF'.ltrim($brand->accentColor(), '#')));
                     $paragraph->getAlignment()->setMarginLeft(22)->setIndent(-22);
 
                     if ($block['ordered']) {
@@ -193,7 +194,7 @@ final class PptxRenderer implements Renderer
                 }
 
                 $run = $paragraph->createTextRun($item);
-                $run->getFont()->setName(self::FONT)->setSize($block['type'] === 'heading' ? 18 : 17)->setBold($block['type'] === 'heading')->setColor(new Color('FF374151'));
+                $run->getFont()->setName($this->font)->setSize($block['type'] === 'heading' ? 18 : 17)->setBold($block['type'] === 'heading')->setColor(new Color('FF374151'));
             }
 
             $y += 40 * max(1, count($items));
@@ -232,7 +233,7 @@ final class PptxRenderer implements Renderer
             foreach (array_pad($cells, $columns, '') as $value) {
                 $cell = $row->nextCell();
                 $cell->getBorders()->getBottom()->setColor(new Color('FFD0D7DE'));
-                $cell->createTextRun($value)->getFont()->setName(self::FONT)->setSize(12)->setBold($r === 0)->setColor(new Color($r === 0 ? 'FFFFFFFF' : 'FF1F2937'));
+                $cell->createTextRun($value)->getFont()->setName($this->font)->setSize(12)->setBold($r === 0)->setColor(new Color($r === 0 ? 'FFFFFFFF' : 'FF1F2937'));
             }
         }
 
@@ -246,6 +247,6 @@ final class PptxRenderer implements Renderer
 
     private function run(RichText $shape, string $text, int $size, string $color, bool $bold = false): void
     {
-        $shape->createTextRun($text)->getFont()->setName(self::FONT)->setSize($size)->setBold($bold)->setColor(new Color('FF'.$color));
+        $shape->createTextRun($text)->getFont()->setName($this->font)->setSize($size)->setBold($bold)->setColor(new Color('FF'.$color));
     }
 }

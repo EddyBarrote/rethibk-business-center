@@ -34,6 +34,7 @@ class SkillController extends Controller
                 'name' => $skill->displayName(),
                 'description' => $skill->displayDescription(),
                 'is_enabled' => $skill->is_enabled,
+                'all_agents' => $skill->all_agents,
                 'agents' => $skill->agents_count,
                 'files' => $skill->files_count,
                 'updated_at' => $skill->updated_at?->toIso8601String(),
@@ -76,7 +77,7 @@ class SkillController extends Controller
 
         return Inertia::render('Skills/Form', [
             'skill' => [
-                ...$skill->only(['id', 'key', 'name', 'description', 'instructions', 'is_enabled']),
+                ...$skill->only(['id', 'key', 'name', 'description', 'instructions', 'is_enabled', 'all_agents']),
                 'agents' => $skill->agents()->orderBy('name')->get(['agents.id', 'agents.name'])->map(fn ($agent) => ['id' => $agent->id, 'name' => $agent->name]),
             ],
             'files' => $skill->files->map(fn (SkillFile $file) => [
@@ -175,6 +176,7 @@ class SkillController extends Controller
             'description' => ['required', 'string', 'max:1000'],
             'instructions' => ['required', 'string', 'max:60000'],
             'is_enabled' => ['boolean'],
+            'all_agents' => ['boolean'],
         ]);
     }
 }

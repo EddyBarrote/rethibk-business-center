@@ -8,16 +8,20 @@ import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 
 interface Props {
-    brand: { name: string; color: string; footer: string | null; has_logo: boolean };
+    brand: { name: string; color: string; accent_color: string | null; font: string; footer: string | null; has_logo: boolean };
     default_color: string;
+    fonts: string[];
 }
 
-export default function BrandSettings({ brand, default_color }: Props) {
-    const form = useForm<{ color: string; footer: string; logo: File | null; remove_logo: boolean }>({
+export default function BrandSettings({ brand, default_color, fonts }: Props) {
+    const form = useForm<{ color: string; accent_color: string; font: string; footer: string; logo: File | null; remove_logo: boolean }>({
         color: brand.color,
+        accent_color: brand.accent_color ?? '',
+        font: brand.font,
         footer: brand.footer ?? '',
         logo: null,
         remove_logo: false,
@@ -34,7 +38,7 @@ export default function BrandSettings({ brand, default_color }: Props) {
             <Head title="Marca" />
             <PageHeader
                 title="Marca"
-                description="Cor, logótipo e rodapé dos documentos, apresentações, folhas de cálculo e PDFs que os agentes geram."
+                description="Cores, fonte, logótipo e rodapé dos documentos, apresentações, folhas de cálculo e PDFs que os agentes geram."
             />
 
             <form onSubmit={submit} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -59,6 +63,52 @@ export default function BrandSettings({ brand, default_color }: Props) {
                                 onChange={(e) => form.setData('color', e.target.value)}
                             />
                         </div>
+                    </Field>
+                    <Field
+                        id="accent_color"
+                        label="Cor secundária"
+                        error={form.errors.accent_color}
+                        hint="Opcional. Subtítulos, marcadores das listas e barra da capa. Vazio usa a principal."
+                    >
+                        <div className="flex gap-2">
+                            <Input
+                                id="accent_color"
+                                type="color"
+                                className="h-9 w-14 p-1"
+                                value={form.data.accent_color || form.data.color}
+                                onChange={(e) => form.setData('accent_color', e.target.value)}
+                            />
+                            <Input
+                                className="w-32 font-mono uppercase"
+                                value={form.data.accent_color}
+                                placeholder="Nenhuma"
+                                onChange={(e) => form.setData('accent_color', e.target.value)}
+                            />
+                            {form.data.accent_color && (
+                                <Button type="button" variant="ghost" onClick={() => form.setData('accent_color', '')}>
+                                    Limpar
+                                </Button>
+                            )}
+                        </div>
+                    </Field>
+                    <Field
+                        id="font"
+                        label="Fonte"
+                        error={form.errors.font}
+                        hint="Word, PowerPoint e Excel usam-na se estiver instalada em quem abre. O PDF usa uma letra equivalente (com ou sem serifa)."
+                    >
+                        <Select value={form.data.font} onValueChange={(value) => form.setData('font', value)}>
+                            <SelectTrigger id="font" className="w-full sm:w-64">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {fonts.map((font) => (
+                                    <SelectItem key={font} value={font}>
+                                        <span style={{ fontFamily: font }}>{font}</span>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </Field>
                     <Field id="logo" label="Logótipo" error={form.errors.logo}>
                         <FileInput
@@ -109,7 +159,7 @@ export default function BrandSettings({ brand, default_color }: Props) {
 
                 <div className="flex flex-col gap-2 self-start">
                     <span className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Pré-visualização</span>
-                    <div className="aspect-[1/1.414] rounded-xl border bg-white p-6 text-[#1f2328] shadow-sm">
+                    <div className="aspect-[1/1.414] rounded-xl border bg-white p-6 text-[#1f2328] shadow-sm" style={{ fontFamily: form.data.font }}>
                         <div className="flex items-center justify-between border-b-2 pb-1.5" style={{ borderColor: form.data.color }}>
                             <span className="text-[9px] font-bold tracking-wider uppercase" style={{ color: form.data.color }}>
                                 {brand.name}
@@ -120,6 +170,9 @@ export default function BrandSettings({ brand, default_color }: Props) {
                             Relatório mensal
                         </p>
                         <p className="text-[9px] text-gray-500">4 de outubro de 2026</p>
+                        <p className="mt-3 text-[10px] font-bold" style={{ color: form.data.accent_color || form.data.color }}>
+                            Resumo
+                        </p>
                         <div className="mt-4 space-y-1.5">
                             <div className="h-1.5 w-full rounded bg-gray-200" />
                             <div className="h-1.5 w-11/12 rounded bg-gray-200" />

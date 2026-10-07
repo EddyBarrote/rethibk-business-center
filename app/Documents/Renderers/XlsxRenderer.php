@@ -22,6 +22,7 @@ final class XlsxRenderer implements Renderer
     public function render(DocumentSpec $spec, Brand $brand, string $path): void
     {
         $book = new Spreadsheet;
+        $book->getDefaultStyle()->getFont()->setName($brand->font);
         $book->getProperties()->setTitle($spec->title)->setCreator($brand->name)->setCompany($brand->name);
         $book->removeSheetByIndex(0);
 

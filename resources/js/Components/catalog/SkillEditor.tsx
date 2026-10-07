@@ -23,6 +23,7 @@ export interface SkillData {
     instructions: string;
     is_enabled?: boolean;
     is_active?: boolean;
+    all_agents?: boolean;
     agents?: { id: number; name: string; avatar_url?: string | null }[];
 }
 
@@ -69,6 +70,7 @@ export function SkillEditor({
         description: skill?.description ?? '',
         instructions: skill?.instructions ?? starter,
         [switchField]: skill ? (skill[switchField] ?? true) : true,
+        ...(switchField === 'is_enabled' ? { all_agents: skill?.all_agents ?? false } : {}),
     } as { key: string; name: string; description: string; instructions: string } & Record<string, boolean | string>);
     const upload = useForm<{ file: File | null }>({ file: null });
     const fileInput = useRef<HTMLInputElement>(null);
@@ -143,6 +145,15 @@ export function SkillEditor({
                             <Switch checked={Boolean(form.data[switchField])} onCheckedChange={(on) => form.setData(switchField, on)} />
                             <span className="text-sm">{switchField === 'is_active' ? 'Oferecida às organizações' : 'Activa'}</span>
                         </label>
+                        {switchField === 'is_enabled' && (
+                            <label className="flex items-center gap-3">
+                                <Switch checked={Boolean(form.data.all_agents)} onCheckedChange={(on) => form.setData('all_agents', on)} />
+                                <span className="text-sm">
+                                    Todos os agentes
+                                    <span className="block text-xs text-muted-foreground">Sem a atribuir um a um, como a capacidade «Gerar documento».</span>
+                                </span>
+                            </label>
+                        )}
                     </div>
                 </FormSection>
 
@@ -230,7 +241,12 @@ export function SkillEditor({
                     {upload.errors.file && <p className="mt-2 text-sm text-destructive">{upload.errors.file}</p>}
                 </div>
 
-                {skill?.agents && (
+                {skill?.all_agents ? (
+                    <div className="rounded-xl border bg-card p-4">
+                        <h2 className="mb-1 text-sm font-semibold">Agentes com esta skill</h2>
+                        <p className="text-sm text-muted-foreground">Todos os agentes da organização.</p>
+                    </div>
+                ) : skill?.agents && (
                     <div className="rounded-xl border bg-card p-4">
                         <h2 className="mb-3 text-sm font-semibold">Agentes com esta skill</h2>
                         {skill.agents.length === 0 ? (

@@ -29,9 +29,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $description
  * @property string|null $instructions
  * @property bool $is_enabled
+ * @property bool $all_agents
  * @property int|null $created_by_user_id
  */
-#[Fillable(['platform_skill_id', 'key', 'name', 'description', 'instructions', 'is_enabled'])]
+#[Fillable(['platform_skill_id', 'key', 'name', 'description', 'instructions', 'is_enabled', 'all_agents'])]
 class Skill extends Model
 {
     /** @use HasFactory<SkillFactory> */
@@ -109,6 +110,6 @@ class Skill extends Model
 
     protected function casts(): array
     {
-        return ['is_enabled' => 'boolean'];
+        return ['is_enabled' => 'boolean', 'all_agents' => 'boolean'];
     }
 }

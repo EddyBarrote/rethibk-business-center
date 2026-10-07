@@ -10,12 +10,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * The look of generated documents: colour, logo and footer line
+ * The look of generated documents: colours, font, logo and footer line
  * (tenants.settings.brand). Owners and admins only.
  */
 class BrandController extends Controller
@@ -29,10 +30,13 @@ class BrandController extends Controller
             'brand' => [
                 'name' => $brand->name,
                 'color' => $brand->color,
+                'accent_color' => $brand->accent,
+                'font' => $brand->font,
                 'footer' => $brand->footer,
                 'has_logo' => $brand->logoPath !== null,
             ],
             'default_color' => Brand::DEFAULT_COLOR,
+            'fonts' => array_keys(Brand::FONTS),
         ]);
     }
 
@@ -42,6 +46,8 @@ class BrandController extends Controller
         abort_unless($user->canManageTenant(), 403);
         $data = $request->validate([
             'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'accent_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'font' => ['nullable', Rule::in(array_keys(Brand::FONTS))],
             'footer' => ['nullable', 'string', 'max:160'],
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
             'remove_logo' => ['boolean'],
@@ -64,10 +70,12 @@ class BrandController extends Controller
         }
 
         $brand['color'] = strtoupper($data['color']);
+        $brand['accent_color'] = filled($data['accent_color'] ?? null) ? strtoupper($data['accent_color']) : null;
+        $brand['font'] = $data['font'] ?? Brand::DEFAULT_FONT;
         $brand['footer'] = $data['footer'] ?? null;
         $settings['brand'] = $brand;
         $tenant->update(['settings' => $settings]);
-        AuditLog::record($user, 'settings.brand_updated', ['color' => $brand['color'], 'logo' => $brand['logo_path'] !== null]);
+        AuditLog::record($user, 'settings.brand_updated', ['color' => $brand['color'], 'accent_color' => $brand['accent_color'], 'font' => $brand['font'], 'logo' => ($brand['logo_path'] ?? null) !== null]);
 
         return back()->with('success', 'Marca guardada.');
     }

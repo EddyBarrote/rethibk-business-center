@@ -17,6 +17,7 @@ interface SkillRow {
     description: string;
     is_enabled: boolean;
     agents: number;
+    all_agents?: boolean;
     files: number;
     updated_at: string | null;
 }
@@ -84,7 +85,7 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                                     subtitle={skill.description}
                                     meta={
                                         <>
-                                            <span className="tabular-nums">{skill.agents} agente(s)</span>
+                                            <span className="tabular-nums">{skill.all_agents ? 'Todos os agentes' : `${skill.agents} agente(s)`}</span>
                                             <span className="tabular-nums">{skill.files} ficheiro(s)</span>
                                             <span title={skill.updated_at ?? undefined}>{ago(skill.updated_at)}</span>
                                         </>

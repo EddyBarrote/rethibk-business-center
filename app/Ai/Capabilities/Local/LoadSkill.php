@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Ai\Skills\AgentSkills;
+use App\Documents\Brand;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Number;
 
@@ -51,7 +52,7 @@ final class LoadSkill extends LocalCapability
             ->implode("\n");
 
         return CapabilityResult::text(
-            "# Skill: {$skill->displayName()} ({$skill->key})\n\n".$skill->body()
+            "# Skill: {$skill->displayName()} ({$skill->key})\n\n".Brand::current()->fill($skill->body())
             .($files !== '' ? "\n\n## Ficheiros desta skill\nLê-os com skills.read_file quando precisares:\n{$files}" : ''),
         );
     }
