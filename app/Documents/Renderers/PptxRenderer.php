@@ -132,7 +132,11 @@ final class PptxRenderer implements Renderer
         $slide->setBackground((new BackgroundColor)->setColor(new Color('FF'.$brand->hex())));
 
         if ($brand->logoPath !== null) {
-            $slide->createDrawingShape()->setPath($brand->logoPath)->setHeight(48)->setOffsetX(self::MARGIN)->setOffsetY(self::MARGIN);
+            // Logos are drawn for paper: a white card keeps a dark one readable on the brand colour.
+            $card = $slide->createRichTextShape()->setOffsetX(self::MARGIN - 12)->setOffsetY(self::MARGIN - 10)->setHeight(68);
+            $card->getFill()->setFillType(Fill::FILL_SOLID)->setStartColor(new Color('FFFFFFFF'));
+            $logo = $slide->createDrawingShape()->setPath($brand->logoPath)->setHeight(48)->setOffsetX(self::MARGIN)->setOffsetY(self::MARGIN);
+            $card->setWidth(min($logo->getWidth(), self::WIDTH - 2 * self::MARGIN) + 24);
         }
 
         $org = $this->text($slide, self::MARGIN, 190, self::WIDTH - 2 * self::MARGIN, 30);

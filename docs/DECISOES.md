@@ -439,8 +439,8 @@ skill vive só na plataforma (não numa conta Claude).
 | Skill **«Documentos com a marca»** (`documentos-marca`), de todos os agentes, criada na MicoMoc a partir de `docs/exemplos/skill-documentos-marca.md`: quando usar, a marca, que formato e modelo escolher, estrutura, escrita (pt-MZ, meticais, datas por extenso, «[a confirmar]» em vez de inventar) e o que nunca fazer. | `skills` da MicoMoc |
 | Corrigido: guardar a Marca sem nunca ter tido logótipo dava erro 500. | `BrandController::update()` |
 
-Em falta: o logótipo, as cores e a fonte reais da MicoMoc (pedidos ao Barrote). Até lá a Marca está com a cor por
-omissão #1E3A5F, sem logótipo, fonte Calibri.
+| A marca da MicoMoc vem de micomoc.com (indicação do Barrote): logótipo `img/logoa.png` (1023×570, fundo transparente); **cor principal #333334** (o cinzento do texto do logótipo, legível nos títulos), **secundária #D89E28** (o dourado da engrenagem); **fonte Segoe UI** (a do site). O dourado não serve de cor principal: em títulos sobre branco tem contraste baixo. | Marca da MicoMoc |
+| Na capa das apresentações o logótipo vai num cartão branco, porque os logótipos (como o da MicoMoc, com texto escuro) desaparecem sobre a cor principal. | `PptxRenderer::cover()` |
 
 Testes: `tests/Feature/Knowledge/DocumentGenerationTest.php` (cor secundária, fonte, `fill`) e
 `tests/Feature/Agents/SkillsAndConnectorsTest.php` (todos os agentes, marca ao carregar).
