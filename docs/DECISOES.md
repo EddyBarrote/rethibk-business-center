@@ -390,3 +390,24 @@ IDLE para os emails chegarem sem esperar o minuto, e cópia em Enviados do que o
 
 Testes: `tests/Feature/Email/EmailClientTest.php` (com um servidor IMAP em memória, `tests/Support/FakeImap.php`), e
 verificado de ponta a ponta no browser contra um servidor IMAP/SMTP local.
+
+## Percurso de um caso (07.10.2026)
+
+Pergunta do Barrote: a Triagem passa um email ao Procurement, o Procurement decide passá-lo a outro agente (o Comercial);
+como funciona e como se acompanha visualmente. Proposta aprovada antes de programar (`percurso-proposta.png` na pasta
+partilhada).
+
+| Decisão | Onde |
+|---|---|
+| Separador **Percurso** na tarefa (ao lado de Conversa; `?ver=percurso` no endereço), em qualquer tarefa que faça parte de um caso: com tarefa-mãe, sub-tarefas, email de origem ou aprovações. Mostra o caso inteiro desde a raiz, seja qual for a tarefa aberta, com a tarefa aberta destacada. | `Pages/Tasks/Show.tsx`, `Components/tasks/Journey.tsx` |
+| Sem dados novos: o percurso lê-se do que já existe. Cada passagem é uma sub-tarefa; o email de origem, os passos de fluxo, as aprovações e as execuções completam o resto. Carrega só quando o separador abre (prop opcional do Inertia) e actualiza ao vivo como a conversa. | `App\Tasks\TaskJourney`, `TaskController::show()` |
+| Cada passagem diz **como foi decidida**: «Tipo de email» (triagem), «Fluxo «nome»», «Decisão do agente» (com o texto do agente entre aspas), «Pedido de uma pessoa», «Tecto absoluto» ou «Aprovação». | `TaskJourney::taskHops()`, `approvalHop()` |
+| **Agora com**: a pessoa que tem de aprovar ou responder, senão o agente da tarefa aberta mais recente (as outras esperam por ela). Com Aprovar e Rejeitar ali mesmo quando é uma aprovação. | `TaskJourney::holder()` |
+| O tempo de cada um é o tempo **até passar o trabalho** (sub-tarefa ou aprovação), fechar a tarefa, ou até agora («e a contar»). O total divide-se em agentes a trabalhar (duração das execuções), à espera de pessoas (aprovações e tarefas de pessoas) e passagens e filas (o resto). | `TaskJourney::for()` |
+| Uma tarefa do caso que a pessoa não pode abrir aparece sem o motivo e sem link. | `TaskJourney::for()` (`canView`) |
+
+O que o Percurso mostra é o funcionamento de sempre: um agente só passa trabalho a quem está abaixo dele ou à sua chefia
+(`OrgChart::canDelegate`), por isso Procurement → Gestor de Clientes passa pelo Chief of Staff; num fluxo, a passagem é a
+desenhada.
+
+Testes: `tests/Feature/Tasks/TaskJourneyTest.php`.

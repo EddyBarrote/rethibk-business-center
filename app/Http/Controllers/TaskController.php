@@ -27,6 +27,7 @@ use App\Models\TaskMessage;
 use App\Models\User;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowStep;
+use App\Tasks\TaskJourney;
 use App\Tasks\TaskThread;
 use App\Tenancy\TenantRule;
 use App\Workflows\WorkflowGraph;
@@ -245,6 +246,9 @@ class TaskController extends Controller
                     'can_decide' => $user->can('decide', $approval),
                 ]),
             'workflow' => $this->workflow($task, $user),
+            // The path of the case across agents and people, loaded when the "Percurso" tab opens.
+            'has_journey' => $task->kind !== TaskKind::Chat && TaskJourney::worthShowing($task),
+            'journey' => Inertia::optional(fn () => app(TaskJourney::class)->for($task, fn (Task $node) => $user->can('view', $node))),
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
             'can' => [
                 'reply' => $user->can('reply', $task),

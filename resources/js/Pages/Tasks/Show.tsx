@@ -1,5 +1,19 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, ArrowUpRight, CircleHelp, CornerLeftUp, FileText, Lock, MessageSquare, Pencil, Send, UserRound, Wrench, Zap } from 'lucide-react';
+import {
+    Activity,
+    ArrowUpRight,
+    CircleHelp,
+    CornerLeftUp,
+    FileText,
+    Lock,
+    MessageSquare,
+    Pencil,
+    Route,
+    Send,
+    UserRound,
+    Wrench,
+    Zap,
+} from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -10,6 +24,7 @@ import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
+import { type Journey, JourneyView } from '@/Components/tasks/Journey';
 import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
@@ -53,6 +68,8 @@ interface Props extends TaskFormOptions {
     working: RunSummary | null;
     approvals: PendingApproval[];
     workflow: WorkflowInfo | null;
+    has_journey: boolean;
+    journey?: Journey;
     attachment_limits: AttachmentLimits;
     can: { reply: boolean; update: boolean; manage_agent: boolean };
 }
@@ -63,13 +80,22 @@ interface WorkflowInfo {
         workflow: { id: number; name: string };
         status: string;
         status_label: string;
-        steps: { id: number; label: string; kind: string; status: string; status_label: string; item: string | null; answer: string | null; task: { id: number; ref: string } | null }[];
+        steps: {
+            id: number;
+            label: string;
+            kind: string;
+            status: string;
+            status_label: string;
+            item: string | null;
+            answer: string | null;
+            task: { id: number; ref: string } | null;
+        }[];
     } | null;
     decision: { step_id: number; workflow: string; question: string; options: { value: string; label: string }[]; can_decide: boolean } | null;
 }
 
 const NONE = 'none';
-const reloadProps = ['task', 'messages', 'children', 'runs', 'working', 'approvals', 'workflow'];
+const reloadProps = ['task', 'messages', 'children', 'runs', 'working', 'approvals', 'workflow', 'has_journey'];
 
 interface PendingApproval {
     id: number;
@@ -88,6 +114,8 @@ export default function TaskShow({
     working,
     approvals,
     workflow,
+    has_journey,
+    journey,
     attachment_limits,
     can,
     agents,
@@ -103,7 +131,31 @@ export default function TaskShow({
     const drop = useFileDrop(files.add, can.reply);
     const bottom = useRef<HTMLDivElement>(null);
     const seen = useRef(messages.length);
-    const reload = () => router.reload({ only: reloadProps });
+    // "Conversa" or "Percurso" (the path of the case across agents and people); kept in the address.
+    const [view, setView] = useState<'conversation' | 'journey'>(() =>
+        has_journey && new URLSearchParams(window.location.search).get('ver') === 'percurso' ? 'journey' : 'conversation',
+    );
+    const live = view === 'journey' ? [...reloadProps, 'journey'] : reloadProps;
+    const reload = () => router.reload({ only: live });
+    const openView = (next: 'conversation' | 'journey') => {
+        setView(next);
+        const url = new URL(window.location.href);
+        if (next === 'journey') {
+            url.searchParams.set('ver', 'percurso');
+        } else {
+            url.searchParams.delete('ver');
+        }
+        window.history.replaceState(window.history.state, '', url);
+        if (next === 'journey') {
+            router.reload({ only: ['journey'] });
+        }
+    };
+
+    useEffect(() => {
+        if (view === 'journey' && !journey) {
+            router.reload({ only: ['journey'] });
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // The answer as the agent writes it (TaskReplyStreaming), until the final message lands.
     const [stream, setStream] = useState<{ run_id: number; text: string; tool: string | null } | null>(null);
 
@@ -111,7 +163,7 @@ export default function TaskShow({
         tenant ? `tenant.${tenant.id}.task.${task.id}` : null,
         ['TaskUpdated', 'TaskReplyStreaming'],
         (event, payload) => (event === 'TaskReplyStreaming' ? setStream(payload) : reload()),
-        { only: reloadProps, poll: working !== null, intervalMs: 3000 },
+        { only: live, poll: working !== null, intervalMs: 3000 },
     );
 
     // Once the run's message is in the thread (or nothing is running), the draft goes away.
@@ -258,185 +310,240 @@ export default function TaskShow({
                         </header>
                     )}
 
-                    {children.length > 0 && (
-                        <Section title="Sub-tarefas delegadas">
-                            <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                                    <span className="font-medium tabular-nums">
-                                        {childrenDone}/{children.length} feitas
-                                    </span>
-                                    <span className="text-xs text-muted-foreground tabular-nums">{childrenActive} em curso</span>
-                                </div>
-                                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                                    <div
-                                        className="h-full rounded-full bg-status-success transition-all"
-                                        style={{ width: `${(childrenDone / children.length) * 100}%` }}
-                                    />
-                                </div>
-                            </div>
-                            <ListPanel>
-                                {children.map((child) => (
-                                    <TaskRow key={child.id} task={child} compact />
-                                ))}
-                            </ListPanel>
-                        </Section>
+                    {has_journey && (
+                        <Segmented
+                            value={view}
+                            onChange={openView}
+                            options={[
+                                {
+                                    value: 'conversation',
+                                    label: (
+                                        <>
+                                            <MessageSquare />
+                                            Conversa
+                                        </>
+                                    ),
+                                },
+                                {
+                                    value: 'journey',
+                                    label: (
+                                        <>
+                                            <Route />
+                                            Percurso
+                                        </>
+                                    ),
+                                    title: 'Quem teve o caso, cada passagem e o tempo de cada uma',
+                                },
+                            ]}
+                            className="w-fit"
+                        />
                     )}
 
-                    <Section title={task.kind === 'chat' ? 'Conversa' : 'Conversa e actividade'}>
-                        <div className="flex flex-col gap-1">
-                            {messages.length === 0 && !working && (
-                                <EmptyState
-                                    icon={MessageSquare}
-                                    title="Ainda sem mensagens"
-                                    description={`Escreva abaixo para dar contexto ou instruções a ${agentName}.`}
-                                />
-                            )}
-
-                            {messages.map((message) =>
-                                message.kind === 'event' ? (
-                                    <EventLine key={message.id} message={message} />
-                                ) : message.kind === 'report' ? (
-                                    <ReportLine key={message.id} message={message} />
-                                ) : (
-                                    <MessageRow key={message.id} message={message} />
-                                ),
-                            )}
-
-                            {(working || stream) && (
-                                <div className="flex gap-3 rounded-xl bg-accent/40 px-3 py-3">
-                                    <span className="relative h-fit">
-                                        <AgentAvatar name={working?.agent.name ?? agentName} />
-                                        <StatusDot tone="running" className="absolute -right-0.5 -bottom-0.5" />
-                                    </span>
-                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                                            <span className="font-medium">{working?.agent.name ?? agentName}</span>
-                                            {stream?.tool ? (
-                                                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                                    <Wrench className="size-3" />a usar <span className="font-mono">{stream.tool}</span>
-                                                </span>
-                                            ) : (
-                                                !stream?.text && <span className="animate-pulse text-muted-foreground">A pensar…</span>
-                                            )}
-                                            {working && (
-                                                <Link
-                                                    href={`/runs/${working.id}`}
-                                                    className="font-mono text-xs text-muted-foreground hover:text-foreground"
-                                                >
-                                                    ver execução #{working.id}
-                                                </Link>
-                                            )}
+                    {view === 'journey' ? (
+                        journey ? (
+                            <JourneyView journey={journey} taskId={task.id} />
+                        ) : (
+                            <div className="h-64 animate-pulse rounded-xl border bg-card" />
+                        )
+                    ) : (
+                        <>
+                            {children.length > 0 && (
+                                <Section title="Sub-tarefas delegadas">
+                                    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                            <span className="font-medium tabular-nums">
+                                                {childrenDone}/{children.length} feitas
+                                            </span>
+                                            <span className="text-xs text-muted-foreground tabular-nums">{childrenActive} em curso</span>
                                         </div>
-                                        {stream?.text && (
-                                            <div className="text-sm [&>*:last-child]:after:ml-0.5 [&>*:last-child]:after:inline-block [&>*:last-child]:after:h-4 [&>*:last-child]:after:w-1.5 [&>*:last-child]:after:animate-pulse [&>*:last-child]:after:bg-primary [&>*:last-child]:after:align-middle [&>*:last-child]:after:content-['']">
-                                                <Markdown>{stream.text}</Markdown>
-                                            </div>
-                                        )}
+                                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                            <div
+                                                className="h-full rounded-full bg-status-success transition-all"
+                                                style={{ width: `${(childrenDone / children.length) * 100}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
+                                    <ListPanel>
+                                        {children.map((child) => (
+                                            <TaskRow key={child.id} task={child} compact />
+                                        ))}
+                                    </ListPanel>
+                                </Section>
                             )}
-                            <div ref={bottom} />
-                        </div>
-                    </Section>
 
-                    <div className="sticky bottom-0 z-10 -mx-1 -mt-4 flex flex-col gap-2 bg-background px-1 pt-3 pb-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
-                        {task.status === 'waiting_human' ? (
-                            <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-[color-mix(in_oklch,var(--status-warning)_10%,var(--card))] px-4 py-3">
-                                <CircleHelp className="mt-0.5 size-4 shrink-0 text-status-warning" />
-                                <div className="min-w-0 space-y-1 text-sm">
-                                    <p className="font-medium">{agentName} está à tua espera</p>
-                                    {pendingQuestion && <p className="line-clamp-2 text-muted-foreground">{plainText(pendingQuestion.body)}</p>}
-                                    <p className="text-xs text-muted-foreground">Responda abaixo para a tarefa continuar.</p>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {task.status === 'in_review' && task.kind === 'task' && can.update && (
-                            <div className="flex flex-col gap-3 rounded-xl border border-status-success/40 bg-[color-mix(in_oklch,var(--status-success)_10%,var(--card))] px-4 py-3 sm:flex-row sm:items-center">
-                                <div className="min-w-0 flex-1 space-y-1 text-sm">
-                                    <p className="font-medium">Pronta para rever</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Aceite para a fechar, ou escreva abaixo o que falta e ela volta para quem a fez.
-                                    </p>
-                                </div>
-                                <Button size="sm" onClick={() => update({ status: 'done' })}>
-                                    Aceitar
-                                </Button>
-                            </div>
-                        )}
-
-                        {approvals.map((approval) => (
-                            <ApprovalCard key={approval.id} approval={approval} />
-                        ))}
-
-                        {workflow?.decision && <WorkflowDecision decision={workflow.decision} />}
-
-                        {can.reply ? (
-                            <form
-                                onSubmit={send}
-                                {...drop.dropProps}
-                                className="relative rounded-xl border bg-card shadow-xs focus-within:ring-[3px] focus-within:ring-ring/30"
-                            >
-                                <DropOverlay show={drop.dragging} />
-                                <AttachmentTray items={files.items} onRemove={files.remove} notice={files.notice} onDismissNotice={files.dismissNotice} />
-                                <Textarea
-                                    rows={3}
-                                    value={form.data.body}
-                                    onChange={(e) => form.setData('body', e.target.value)}
-                                    onKeyDown={onKeyDown}
-                                    onPaste={drop.onPaste}
-                                    placeholder={
-                                        form.data.mode === 'action'
-                                            ? `Diga a ${agentName} o que executar agora…`
-                                            : task.status === 'waiting_human'
-                                              ? 'Escreva a sua resposta…'
-                                              : `Escreva a ${agentName}…`
-                                    }
-                                    className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
-                                />
-                                <div className="flex flex-wrap items-center gap-2 border-t px-2 py-2">
-                                    <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
-                                    {attachment_limits.types.includes('audio') && (
-                                        <RecordControl maxSeconds={attachment_limits.audio_max_seconds} onRecorded={(file) => files.add([file], 'recording')} />
+                            <Section title={task.kind === 'chat' ? 'Conversa' : 'Conversa e actividade'}>
+                                <div className="flex flex-col gap-1">
+                                    {messages.length === 0 && !working && (
+                                        <EmptyState
+                                            icon={MessageSquare}
+                                            title="Ainda sem mensagens"
+                                            description={`Escreva abaixo para dar contexto ou instruções a ${agentName}.`}
+                                        />
                                     )}
-                                    <Segmented
-                                        value={form.data.mode}
-                                        onChange={(mode) => form.setData('mode', mode)}
-                                        options={[
-                                            { value: 'message', label: 'Conversar', title: 'O agente responde e continua o trabalho' },
-                                            {
-                                                value: 'action',
-                                                label: (
-                                                    <>
-                                                        <Zap />
-                                                        Executar
-                                                    </>
-                                                ),
-                                                title: 'Acção directa: o agente executa já e reporta',
-                                            },
-                                        ]}
-                                    />
-                                    <span className="hidden flex-1 text-xs text-muted-foreground sm:block">
-                                        {isClosed ? 'Escrever reabre a tarefa. ' : ''}Enter envia · Shift+Enter nova linha
-                                    </span>
-                                    <Button type="submit" size="sm" className="ml-auto" disabled={!canSend} title={files.uploading ? 'À espera que os ficheiros acabem de carregar' : undefined}>
-                                        {form.data.mode === 'action' ? <Zap /> : <Send />}
-                                        {form.data.mode === 'action' ? 'Executar' : 'Enviar'}
-                                    </Button>
+
+                                    {messages.map((message) =>
+                                        message.kind === 'event' ? (
+                                            <EventLine key={message.id} message={message} />
+                                        ) : message.kind === 'report' ? (
+                                            <ReportLine key={message.id} message={message} />
+                                        ) : (
+                                            <MessageRow key={message.id} message={message} />
+                                        ),
+                                    )}
+
+                                    {(working || stream) && (
+                                        <div className="flex gap-3 rounded-xl bg-accent/40 px-3 py-3">
+                                            <span className="relative h-fit">
+                                                <AgentAvatar name={working?.agent.name ?? agentName} />
+                                                <StatusDot tone="running" className="absolute -right-0.5 -bottom-0.5" />
+                                            </span>
+                                            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                                                    <span className="font-medium">{working?.agent.name ?? agentName}</span>
+                                                    {stream?.tool ? (
+                                                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                                            <Wrench className="size-3" />a usar <span className="font-mono">{stream.tool}</span>
+                                                        </span>
+                                                    ) : (
+                                                        !stream?.text && <span className="animate-pulse text-muted-foreground">A pensar…</span>
+                                                    )}
+                                                    {working && (
+                                                        <Link
+                                                            href={`/runs/${working.id}`}
+                                                            className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                                                        >
+                                                            ver execução #{working.id}
+                                                        </Link>
+                                                    )}
+                                                </div>
+                                                {stream?.text && (
+                                                    <div className="text-sm [&>*:last-child]:after:ml-0.5 [&>*:last-child]:after:inline-block [&>*:last-child]:after:h-4 [&>*:last-child]:after:w-1.5 [&>*:last-child]:after:animate-pulse [&>*:last-child]:after:bg-primary [&>*:last-child]:after:align-middle [&>*:last-child]:after:content-['']">
+                                                        <Markdown>{stream.text}</Markdown>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div ref={bottom} />
                                 </div>
-                                {(form.errors.body || form.errors.mode || form.errors.attachment_ids) && (
-                                    <div className="px-3 pb-2">
-                                        <InputError message={form.errors.body ?? form.errors.mode ?? form.errors.attachment_ids} />
+                            </Section>
+
+                            <div className="sticky bottom-0 z-10 -mx-1 -mt-4 flex flex-col gap-2 bg-background px-1 pt-3 pb-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
+                                {task.status === 'waiting_human' ? (
+                                    <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-[color-mix(in_oklch,var(--status-warning)_10%,var(--card))] px-4 py-3">
+                                        <CircleHelp className="mt-0.5 size-4 shrink-0 text-status-warning" />
+                                        <div className="min-w-0 space-y-1 text-sm">
+                                            <p className="font-medium">{agentName} está à tua espera</p>
+                                            {pendingQuestion && (
+                                                <p className="line-clamp-2 text-muted-foreground">{plainText(pendingQuestion.body)}</p>
+                                            )}
+                                            <p className="text-xs text-muted-foreground">Responda abaixo para a tarefa continuar.</p>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {task.status === 'in_review' && task.kind === 'task' && can.update && (
+                                    <div className="flex flex-col gap-3 rounded-xl border border-status-success/40 bg-[color-mix(in_oklch,var(--status-success)_10%,var(--card))] px-4 py-3 sm:flex-row sm:items-center">
+                                        <div className="min-w-0 flex-1 space-y-1 text-sm">
+                                            <p className="font-medium">Pronta para rever</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Aceite para a fechar, ou escreva abaixo o que falta e ela volta para quem a fez.
+                                            </p>
+                                        </div>
+                                        <Button size="sm" onClick={() => update({ status: 'done' })}>
+                                            Aceitar
+                                        </Button>
                                     </div>
                                 )}
-                            </form>
-                        ) : (
-                            <div className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
-                                <Lock className="size-4 shrink-0" />
-                                Só quem participa nesta tarefa ou responde pelo agente pode escrever aqui.
+
+                                {approvals.map((approval) => (
+                                    <ApprovalCard key={approval.id} approval={approval} />
+                                ))}
+
+                                {workflow?.decision && <WorkflowDecision decision={workflow.decision} />}
+
+                                {can.reply ? (
+                                    <form
+                                        onSubmit={send}
+                                        {...drop.dropProps}
+                                        className="relative rounded-xl border bg-card shadow-xs focus-within:ring-[3px] focus-within:ring-ring/30"
+                                    >
+                                        <DropOverlay show={drop.dragging} />
+                                        <AttachmentTray
+                                            items={files.items}
+                                            onRemove={files.remove}
+                                            notice={files.notice}
+                                            onDismissNotice={files.dismissNotice}
+                                        />
+                                        <Textarea
+                                            rows={3}
+                                            value={form.data.body}
+                                            onChange={(e) => form.setData('body', e.target.value)}
+                                            onKeyDown={onKeyDown}
+                                            onPaste={drop.onPaste}
+                                            placeholder={
+                                                form.data.mode === 'action'
+                                                    ? `Diga a ${agentName} o que executar agora…`
+                                                    : task.status === 'waiting_human'
+                                                      ? 'Escreva a sua resposta…'
+                                                      : `Escreva a ${agentName}…`
+                                            }
+                                            className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+                                        />
+                                        <div className="flex flex-wrap items-center gap-2 border-t px-2 py-2">
+                                            <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
+                                            {attachment_limits.types.includes('audio') && (
+                                                <RecordControl
+                                                    maxSeconds={attachment_limits.audio_max_seconds}
+                                                    onRecorded={(file) => files.add([file], 'recording')}
+                                                />
+                                            )}
+                                            <Segmented
+                                                value={form.data.mode}
+                                                onChange={(mode) => form.setData('mode', mode)}
+                                                options={[
+                                                    { value: 'message', label: 'Conversar', title: 'O agente responde e continua o trabalho' },
+                                                    {
+                                                        value: 'action',
+                                                        label: (
+                                                            <>
+                                                                <Zap />
+                                                                Executar
+                                                            </>
+                                                        ),
+                                                        title: 'Acção directa: o agente executa já e reporta',
+                                                    },
+                                                ]}
+                                            />
+                                            <span className="hidden flex-1 text-xs text-muted-foreground sm:block">
+                                                {isClosed ? 'Escrever reabre a tarefa. ' : ''}Enter envia · Shift+Enter nova linha
+                                            </span>
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                className="ml-auto"
+                                                disabled={!canSend}
+                                                title={files.uploading ? 'À espera que os ficheiros acabem de carregar' : undefined}
+                                            >
+                                                {form.data.mode === 'action' ? <Zap /> : <Send />}
+                                                {form.data.mode === 'action' ? 'Executar' : 'Enviar'}
+                                            </Button>
+                                        </div>
+                                        {(form.errors.body || form.errors.mode || form.errors.attachment_ids) && (
+                                            <div className="px-3 pb-2">
+                                                <InputError message={form.errors.body ?? form.errors.mode ?? form.errors.attachment_ids} />
+                                            </div>
+                                        )}
+                                    </form>
+                                ) : (
+                                    <div className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                                        <Lock className="size-4 shrink-0" />
+                                        Só quem participa nesta tarefa ou responde pelo agente pode escrever aqui.
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="flex flex-col gap-8 self-start">
@@ -822,7 +929,12 @@ function ReportLine({ message }: { message: Message }) {
 }
 
 const stepTone = (status: string): Tone =>
-    (({ active: 'running', waiting_approval: 'warning', waiting: 'warning', done: 'success', blocked: 'danger', cancelled: 'idle' }) as Record<string, Tone>)[status] ?? 'idle';
+    (
+        ({ active: 'running', waiting_approval: 'warning', waiting: 'warning', done: 'success', blocked: 'danger', cancelled: 'idle' }) as Record<
+            string,
+            Tone
+        >
+    )[status] ?? 'idle';
 
 const answerLabel: Record<string, string> = { yes: 'sim', no: 'não', approved: 'aprovado', rejected: 'rejeitado' };
 
@@ -833,7 +945,9 @@ function WorkflowProgress({ progress }: { progress: NonNullable<WorkflowInfo['pr
                 <Link href={`/workflows?w=${progress.workflow.id}`} className="truncate font-medium hover:underline">
                     {progress.workflow.name}
                 </Link>
-                <StatusBadge tone={stepTone(progress.status === 'completed' ? 'done' : progress.status === 'running' ? 'active' : progress.status)}>{progress.status_label}</StatusBadge>
+                <StatusBadge tone={stepTone(progress.status === 'completed' ? 'done' : progress.status === 'running' ? 'active' : progress.status)}>
+                    {progress.status_label}
+                </StatusBadge>
             </div>
             <ol className="flex flex-col gap-1.5">
                 {progress.steps.map((step) => (
@@ -878,7 +992,11 @@ function WorkflowDecision({ decision }: { decision: NonNullable<WorkflowInfo['de
                                 disabled={busy}
                                 onClick={() => {
                                     setBusy(true);
-                                    router.post(`/workflow-steps/${decision.step_id}/decide`, { decision: option.value, note: note || null }, { preserveScroll: true, onFinish: () => setBusy(false) });
+                                    router.post(
+                                        `/workflow-steps/${decision.step_id}/decide`,
+                                        { decision: option.value, note: note || null },
+                                        { preserveScroll: true, onFinish: () => setBusy(false) },
+                                    );
                                 }}
                             >
                                 {option.label}
