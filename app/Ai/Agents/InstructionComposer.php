@@ -89,7 +89,7 @@ final class InstructionComposer
         }
 
         return $lines === [] ? null
-            : "## Ferramentas do ERP\nO ERP desta organização usa outros nomes para as ferramentas das tuas instruções. Os identificadores são números e os estados vêm por código (vê a descrição de cada ferramenta).\n".implode("\n", $lines);
+            : "## Ferramentas do ERP\nO ERP desta organização usa outros nomes para as ferramentas das tuas instruções. Os identificadores são números e os estados vêm por código (vê a descrição de cada ferramenta). Quando pedirem o PDF de uma factura, orçamento, proposta, recibo ou encomenda, usa a ferramenta download_*_pdf do ERP: o ficheiro vai anexado à resposta. Nunca geres tu um documento que imite um documento do ERP.\n".implode("\n", $lines);
     }
 
     /**

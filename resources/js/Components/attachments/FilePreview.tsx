@@ -28,6 +28,7 @@ export function FilePreview({ file, onClose }: { file: MessageAttachment | null;
                                 {fileSize(file.size)}
                                 {file.source === 'generated' && ' · gerado pelo agente'}
                                 {file.source === 'knowledge' && ' · da base de conhecimento'}
+                                {file.source === 'erp' && ' · do ERP'}
                                 {file.kind !== 'pdf' && ' · pré-visualização do conteúdo; o ficheiro tem a marca e o layout originais'}
                             </DialogDescription>
                         </DialogHeader>

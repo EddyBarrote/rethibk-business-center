@@ -22,7 +22,7 @@ final class PerfexToolMap
         'erp.search' => ['list_customers', 'list_leads', 'list_vendors', 'list_projects', 'list_invoices'],
 
         'crm.search_accounts' => ['list_customers'],
-        'crm.get_account' => ['get_customer', 'list_contacts'],
+        'crm.get_account' => ['get_customer', 'list_contacts', 'download_customer_statement_pdf'],
         'crm.create_contact' => ['create_contact'],
         'crm.update_account' => ['update_customer', 'update_contact'],
 
@@ -39,24 +39,24 @@ final class PerfexToolMap
 
         'invoices.create_draft' => ['create_invoice', 'list_items', 'list_taxes'],
         'invoices.issue' => ['update_invoice_status'],
-        'invoices.list_receivables' => ['list_invoices'],
-        'invoices.get' => ['get_invoice'],
+        'invoices.list_receivables' => ['list_invoices', 'list_payments', 'download_invoice_pdf', 'download_customer_statement_pdf', 'export_list_to_excel'],
+        'invoices.get' => ['get_invoice', 'download_invoice_pdf', 'download_payment_receipt_pdf'],
 
         // Quoting to clients: the RFQ flow had no ERP tool until now.
-        'quotes.create' => ['create_estimate', 'create_proposal', 'list_items', 'list_taxes'],
+        'quotes.create' => ['create_estimate', 'create_proposal', 'list_items', 'list_taxes', 'list_estimates', 'list_proposals', 'download_estimate_pdf', 'download_proposal_pdf'],
         'quotes.client_rfq' => ['list_rfqs', 'get_rfq', 'create_rfq', 'create_purchase_request_from_rfq'],
 
-        'procurement.create_rfq' => ['create_purchase_request', 'list_purchase_items', 'list_purchase_units'],
+        'procurement.create_rfq' => ['create_purchase_request', 'list_purchase_items', 'list_purchase_units', 'list_purchase_requests', 'download_purchase_request_pdf'],
         'procurement.list_suppliers' => ['list_vendors', 'get_vendor'],
-        'procurement.compare_quotes' => ['list_purchase_quotations', 'get_purchase_quotation'],
+        'procurement.compare_quotes' => ['list_purchase_quotations', 'get_purchase_quotation', 'download_purchase_quotation_pdf'],
         'procurement.record_quote' => ['create_purchase_quotation'],
         'procurement.create_po_draft' => ['create_purchase_order'],
-        'procurement.list_orders' => ['list_purchase_orders', 'get_purchase_order'],
+        'procurement.list_orders' => ['list_purchase_orders', 'get_purchase_order', 'download_purchase_order_pdf', 'export_list_to_excel'],
         'procurement.receive' => ['update_purchase_order_delivery'],
 
         'expenses.create' => ['create_expense', 'list_expense_categories'],
         'expenses.classify' => ['update_expense', 'list_expense_categories'],
-        'expenses.list_by_project' => ['list_expenses'],
+        'expenses.list_by_project' => ['list_expenses', 'get_expense', 'export_list_to_excel'],
 
         'hr.list_employees' => ['list_staff', 'list_departments'],
         'hr.attendance_summary' => [],

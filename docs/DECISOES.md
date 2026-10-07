@@ -469,3 +469,16 @@ cliente. As escritas do Perfex não aceitam `idempotency_key`, por isso uma apro
 duas vezes: a plataforma executa cada aprovação uma só vez.
 
 Testes: `tests/Feature/Erp/PerfexErpTest.php`.
+
+### Ficheiros do ERP (07.10.2026)
+
+Pedido do Barrote na tarefa 2: pediu o PDF de uma factura e o agente gerou um PDF seu, a imitar a factura, porque não
+tinha as ferramentas de PDF do ERP.
+
+| Decisão | Onde |
+|---|---|
+| Os agentes que lêem facturas, orçamentos, compras ou despesas recebem também os PDFs e a exportação para Excel do ERP (`download_*_pdf`, `export_list_to_excel`, leituras). | `PerfexToolMap` |
+| Quando uma ferramenta do ERP devolve um `download_url`, a plataforma descarrega o ficheiro uma vez e anexa-o à resposta do agente (origem «do ERP»); a ligação pública não chega ao modelo nem à pessoa. Só se descarregam ligações do mesmo servidor da ligação ao ERP, sem seguir redirecções, até 20 MB, e cada descarga fica na auditoria (`erp.file_fetch`). | `Erp\ErpFiles`, `CapabilityExecutor` |
+| O prompt diz ao agente para usar o PDF do ERP e nunca gerar um documento que imite um documento do ERP. | `InstructionComposer::erpGlossary()` |
+
+Testes: `tests/Feature/Erp/PerfexErpTest.php`.

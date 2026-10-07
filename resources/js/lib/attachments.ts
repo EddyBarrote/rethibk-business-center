@@ -14,7 +14,7 @@ export interface MessageAttachment {
     mime: string;
     size: number;
     extension: string;
-    source: 'upload' | 'recording' | 'generated' | 'knowledge';
+    source: 'upload' | 'recording' | 'generated' | 'knowledge' | 'erp';
     url: string;
     transcript: string | null;
 }

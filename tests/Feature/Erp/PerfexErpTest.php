@@ -3,14 +3,18 @@
 use App\Ai\Agents\InstructionComposer;
 use App\Erp\ErpCallResult;
 use App\Erp\ErpDialect;
+use App\Erp\ErpFiles;
 use App\Erp\ErpGateway;
 use App\Erp\Perfex\PerfexAdapter;
 use App\Erp\Perfex\PerfexToolMap;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Capability;
 use App\Models\ErpConnection;
+use App\Models\Task;
 use App\Models\Tenant;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 
 // The live Rethink ERP is Perfex-based: its tools have Perfex names. These
 // tests answer the Perfex reads from canned data, as the server shapes them.
@@ -166,4 +170,30 @@ it('refuses the smoke test, which writes, against the live ERP', function () {
     asTenant($tenant, fn () => ErpConnection::factory()->create(['capabilities' => [['name' => 'list_customers', 'title' => null, 'description' => null, 'read_only' => true]]]));
 
     $this->artisan('erp:smoke', ['tenant' => 'perfex-live'])->expectsOutputToContain('ligado ao ERP real')->assertFailed();
+});
+
+it('attaches a file the ERP made to the reply, fetched only from the ERP host', function () {
+    Http::fake([
+        'erp.example.test/api/mcp/files/*' => Http::response('%PDF-1.4 factura', 200, ['Content-Type' => 'application/pdf']),
+        '*' => Http::response('nope', 500),
+    ]);
+    $tenant = Tenant::factory()->create();
+
+    [$attachment, $foreign] = asTenant($tenant, function () {
+        ErpConnection::factory()->create(['base_url' => 'https://erp.example.test/api/mcp']);
+        $run = AgentRun::factory()->create(['task_id' => Task::factory()->create()->id]);
+        $files = app(ErpFiles::class);
+
+        return [
+            $files->attach(['file_name' => 'INV-2026067.pdf', 'download_url' => 'https://erp.example.test/api/mcp/files/f_1'], $run),
+            $files->attach(['file_name' => 'x.pdf', 'download_url' => 'https://elsewhere.example/files/f_1'], $run),
+        ];
+    });
+
+    expect($attachment)->not->toBeNull()
+        ->and($attachment->filename)->toBe('INV-2026067.pdf')
+        ->and($attachment->source)->toBe('erp')
+        ->and($attachment->mime_type)->toBe('application/pdf')
+        ->and($foreign)->toBeNull();
+    Http::assertSentCount(1);
 });

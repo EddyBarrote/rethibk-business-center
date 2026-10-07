@@ -5,6 +5,7 @@ namespace App\Ai\Capabilities;
 use App\Connectors\ConnectorException;
 use App\Connectors\ConnectorGateway;
 use App\Enums\CapabilitySource;
+use App\Erp\ErpFiles;
 use App\Erp\ErpGateway;
 use App\Erp\Exceptions\ErpException;
 use App\Models\Capability;
@@ -83,6 +84,14 @@ final class CapabilityExecutor
         }
 
         $this->linker->afterErpWrite($capability, $result->data, $context);
+
+        // A file the ERP made (an invoice PDF, an Excel export) goes with the reply.
+        if (($attachment = app(ErpFiles::class)->attach($result->data, $context->run)) !== null) {
+            $data = [...array_diff_key($result->data ?? [], ['download_url' => true, 'expires_at' => true]), 'attached' => $attachment->filename,
+                'note' => 'O ficheiro do ERP vai anexado à tua resposta; não dês ligações de descarga.'];
+
+            return CapabilityResult::data($data);
+        }
 
         return $result->data !== null ? CapabilityResult::data($result->data) : CapabilityResult::text($result->text);
     }
