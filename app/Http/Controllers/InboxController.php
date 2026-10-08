@@ -350,6 +350,8 @@ class InboxController extends Controller
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
             'can_connect' => $user->hasPermission(Permission::ConnectOwnMailboxes) || $user->hasPermission(Permission::ManageMailboxes),
             'draft_saved' => $request->session()->get('draft_saved'),
+            // External images load on their own unless the person asked to be asked (raw, as above).
+            'images_ask' => (bool) $user->getRawOriginal('email_images_ask'),
         ]);
     }
 
@@ -466,6 +468,8 @@ class InboxController extends Controller
                 'reply_to' => $m->reply_to,
                 'body' => $m->plainText(),
                 'html' => $m->status === EmailStatus::Draft ? null : $m->html_body,
+                // Spam never loads its images on its own.
+                'junk' => $m->folder?->role === EmailFolder::JUNK,
                 'message_id' => $m->message_id_header,
                 'extracted' => $m->extracted,
                 'department' => $m->department?->name,

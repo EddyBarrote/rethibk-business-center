@@ -56,6 +56,16 @@ it('shows the ERP in Integrações only to those who administer the company', fu
         ->assertInertia(fn (Assert $page) => $page->where('can_erp', false)->where('can_connectors', true)->where('erp', null));
 });
 
+it('lets each person choose to be asked before emails load their images', function () {
+    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/profile'))
+        ->assertInertia(fn (Assert $page) => $page->where('email_images_ask', false));
+
+    $this->actingAs($this->member)->put(tenantUrl($this->tenant, 'settings/profile/email-images'), ['ask' => true])->assertSessionHas('success');
+    expect($this->member->fresh()->email_images_ask)->toBeTrue();
+
+    $this->actingAs($this->member)->put(tenantUrl($this->tenant, 'settings/profile/email-images'), ['ask' => 'talvez'])->assertSessionHasErrors('ask');
+});
+
 it('lets each person change their own name and, with the current one, their password', function () {
     $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/profile'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Settings/Profile')->where('profile.email', $this->member->email)->missing('profile.password'));

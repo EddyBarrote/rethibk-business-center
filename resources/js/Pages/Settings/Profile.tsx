@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 
 import { Property } from '@/Components/Blocks';
@@ -7,6 +7,8 @@ import { PageHeader } from '@/Components/PageHeader';
 import { SettingsBlock } from '@/Components/SettingsBlock';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
+import { Switch } from '@/Components/ui/switch';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 
 interface Props {
@@ -17,10 +19,11 @@ interface Props {
         role: string;
         department: string | null;
     };
+    email_images_ask: boolean;
 }
 
-/** A minha conta › Perfil: the person's own name and password. */
-export default function Profile({ profile }: Props) {
+/** A minha conta › Perfil: the person's own name and password, and how emails show their images. */
+export default function Profile({ profile, email_images_ask }: Props) {
     const details = useForm({ name: profile.name });
     const password = useForm({ current_password: '', password: '', password_confirmation: '' });
 
@@ -112,6 +115,23 @@ export default function Profile({ profile }: Props) {
                     </div>
                 </SettingsBlock>
             </form>
+
+            <SettingsBlock title="Email" description="Como os emails aparecem no ecrã Email.">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                        <Label htmlFor="email_images_ask">Perguntar antes de mostrar imagens</Label>
+                        <p className="text-sm text-muted-foreground">
+                            Por defeito as imagens dos emails carregam sozinhas, excepto no Spam. Ligue para as esconder até carregar em «Mostrar
+                            imagens»: assim o remetente não sabe que abriu o email.
+                        </p>
+                    </div>
+                    <Switch
+                        id="email_images_ask"
+                        checked={email_images_ask}
+                        onCheckedChange={(ask) => router.put('/settings/profile/email-images', { ask }, { preserveScroll: true })}
+                    />
+                </div>
+            </SettingsBlock>
         </SettingsLayout>
     );
 }

@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Role $role
  * @property int|null $access_role_id
  * @property int|null $last_mailbox_id
+ * @property bool $email_images_ask
  * @property array<string, bool>|null $permission_overrides
  * @property bool $is_active
  * @property Carbon|null $last_seen_at
@@ -143,6 +144,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'permission_overrides' => 'array',
             'last_mailbox_id' => 'integer',
+            'email_images_ask' => 'boolean',
         ];
     }
 }

@@ -1,5 +1,5 @@
 import type { RequestPayload } from '@inertiajs/core';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertOctagon,
     Archive,
@@ -89,6 +89,7 @@ interface Props {
     open: OpenConversation | null;
     attachment_limits: AttachmentLimits;
     can_connect: boolean;
+    images_ask: boolean;
 }
 
 const folderIcons: Record<string, typeof Inbox> = {
@@ -397,6 +398,7 @@ function ThreadItem({
     onToggle: () => void;
     onEditDraft: () => void;
 }) {
+    const { images_ask } = usePage<{ images_ask: boolean }>().props;
     const outbound = message.direction === 'outbound';
     const draft = message.status === 'draft';
     const name = outbound ? (message.from_name ?? message.mailbox ?? '') : (message.from_name ?? message.from_address ?? '?');
@@ -448,7 +450,7 @@ function ThreadItem({
             </button>
             {expanded && (
                 <div className="flex flex-col gap-4 px-4 pb-4">
-                    <EmailBody html={message.html} text={message.body} />
+                    <EmailBody html={message.html} text={message.body} images={!message.junk && !images_ask} />
                     {message.attachments.length > 0 && (
                         <>
                             <MessageAttachments attachments={asViewerFiles(message.attachments)} />

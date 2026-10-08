@@ -380,7 +380,7 @@ escolhas por omissão abaixo.
 | **Rascunhos no servidor:** o rascunho guarda-se a pedido e sozinho a cada 30 segundos, e vai para a pasta Rascunhos do servidor (com o mesmo Message-ID, substituindo a versão anterior). Ao enviar sai dos Rascunhos e uma cópia vai para Enviados (excepto Gmail e Microsoft 365, que a guardam sozinhos). | `MailClient::saveDraft()`, `pushDraft()`, `send()` |
 | **Os rascunhos dos agentes** (`email.draft_reply`) caem nos Rascunhos do dono da caixa, também no servidor, para a pessoa rever e enviar. Os agentes continuam sem enviar em nome de pessoas. | `DraftEmailReply`, `PushDraftToServer` |
 | **Anexos:** os mesmos da conversa (clip, arrastar e largar, colar, carregamento por partes e limites de Definições › Anexos); ao guardar, o email fica com a sua própria cópia. Os anexos recebidos abrem na mesma janela de pré-visualização (PDF na página, Word, Excel e texto com o conteúdo). | `useAttachments` (`mailbox_id`), `AttachmentController::start()`, `GET /attachments/{id}/preview` |
-| **HTML seguro:** o email aparece como o remetente o escreveu, numa moldura sem scripts nem formulários, e **as imagens externas ficam escondidas** até a pessoa carregar em «Mostrar imagens» (senão o remetente sabe que o email foi aberto). | `Components/email/EmailBody.tsx` |
+| **HTML seguro:** o email aparece como o remetente o escreveu, numa moldura sem scripts nem formulários, e as imagens externas carregam sozinhas, excepto no Spam (ver [«Email: imagens carregam sozinhas»](#email-imagens-carregam-sozinhas-08102026)). | `Components/email/EmailBody.tsx` |
 | Pesquisa no assunto, remetente, destinatários, texto e resumo do agente, em todas as pastas da caixa; filtro «Não lidos»; 50 por página. Pesquisa só no que já foi sincronizado. | `InboxController::listing()` |
 | **Triagem:** a caixa da Triagem (e a de cada agente) aparece como mais uma caixa, só para quem tem «Ver emails de triagem», com os filtros por categoria. Quem não tem, mas recebeu emails encaminhados pela triagem, vê-os em «Encaminhados para mim» e pode responder-lhes. Em cada email lido por um agente, um painel mostra o resumo, a categoria (com correcção), a tarefa, o prazo, os dados extraídos e «Triar de novo». | `TriagePanel.tsx` |
 | Privacidade mantida: ninguém abre, sincroniza, organiza ou escreve da caixa de outra pessoa, nem administradores. Escrever da caixa da triagem é para quem a lê; mover e apagar são para quem a gere. | `Mailbox::canBeWrittenFromBy()`, `InboxController` |
@@ -482,3 +482,16 @@ tinha as ferramentas de PDF do ERP.
 | O prompt diz ao agente para usar o PDF do ERP e nunca gerar um documento que imite um documento do ERP. | `InstructionComposer::erpGlossary()` |
 
 Testes: `tests/Feature/Erp/PerfexErpTest.php`.
+
+## Email: imagens carregam sozinhas (08.10.2026)
+
+Pedido do Barrote, ao usar a caixa geral@rethink.co.mz: as imagens dos emails devem carregar sozinhas, sem ter de
+carregar em «Mostrar imagens».
+
+| Decisão | Onde |
+|---|---|
+| **As imagens externas carregam sozinhas** em todas as pastas. O email continua na moldura sem scripts nem formulários; só as imagens (`http:`/`https:`) passam a carregar. | `Components/email/EmailBody.tsx` |
+| **No Spam continuam escondidas** até a pessoa carregar em «Mostrar imagens»: é lá que estão os emails que usam as imagens para saber quem os abriu. | `InboxController::conversation()` (`junk`) |
+| **Cada pessoa pode voltar a ser perguntada:** Definições › Perfil › Email › «Perguntar antes de mostrar imagens». Desligado por defeito. | `users.email_images_ask`, `ProfileController::emailImages()` |
+
+Testes: `tests/Feature/Email/EmailClientTest.php` e `tests/Feature/Settings/SettingsPagesTest.php`.

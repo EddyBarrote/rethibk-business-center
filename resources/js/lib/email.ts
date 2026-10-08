@@ -72,6 +72,7 @@ export interface ThreadMessage extends EmailSummary {
     reply_to: string | null;
     body: string;
     html: string | null;
+    junk: boolean;
     message_id: string | null;
     extracted: Record<string, unknown> | null;
     department: string | null;

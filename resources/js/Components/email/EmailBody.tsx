@@ -5,8 +5,9 @@ import { Button } from '@/Components/ui/button';
 
 /*
  * The body of an email. HTML is shown as the sender wrote it, in a sandboxed
- * frame where no script runs and nothing is loaded from outside until the
- * person asks for the images (they can tell the sender the email was opened).
+ * frame where no script runs. External images load on their own, except in
+ * Spam or for whoever chose in Perfil to be asked first (images can tell the
+ * sender the email was opened).
  */
 
 const quoted = /^(>|On .+wrote:$|Em .+escreveu:$|-{2,} ?(Original Message|Mensagem original) ?-{2,})/m;
@@ -21,10 +22,10 @@ function frameDocument(html: string, images: boolean) {
     </style></head><body>${html}</body></html>`;
 }
 
-function HtmlBody({ html }: { html: string }) {
+function HtmlBody({ html, autoImages }: { html: string; autoImages: boolean }) {
     const frame = useRef<HTMLIFrameElement>(null);
     const [height, setHeight] = useState(120);
-    const [images, setImages] = useState(false);
+    const [images, setImages] = useState(autoImages);
     const remote = useMemo(() => /<img[^>]+src=["']?https?:/i.test(html) || /url\(\s*["']?https?:/i.test(html), [html]);
     const doc = useMemo(() => frameDocument(html, images), [html, images]);
 
@@ -89,6 +90,6 @@ function TextBody({ text }: { text: string }) {
     );
 }
 
-export function EmailBody({ html, text }: { html: string | null; text: string }) {
-    return html && html.trim() !== '' ? <HtmlBody html={html} /> : <TextBody text={text} />;
+export function EmailBody({ html, text, images = true }: { html: string | null; text: string; images?: boolean }) {
+    return html && html.trim() !== '' ? <HtmlBody html={html} autoImages={images} /> : <TextBody text={text} />;
 }

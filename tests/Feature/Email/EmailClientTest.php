@@ -255,3 +255,23 @@ it('opens the mailbox the person chose last time, with each mailbox\'s unread co
     $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, 'inbox'))
         ->assertInertia(fn ($page) => $page->where('current.mailbox', $triage->id)->where('current.triage', true));
 });
+
+it('loads email images on their own, except in Spam or for whoever asked to be asked', function () {
+    $this->imap->addFolder('Junk', ['\\Junk']);
+    $this->imap->deliver('INBOX', rawEmail('boa@fora', 'Boa'));
+    $this->imap->deliver('Junk', rawEmail('spam@fora', 'Spam'));
+    syncAna($this);
+    [$inbox, $junk] = asTenant($this->tenant, fn () => [
+        EmailMessage::query()->where('subject', 'Boa')->sole(),
+        EmailMessage::query()->where('subject', 'Spam')->sole(),
+    ]);
+
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$inbox->id}"))
+        ->assertInertia(fn ($page) => $page->where('images_ask', false)->where('open.messages.0.junk', false));
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$junk->id}"))
+        ->assertInertia(fn ($page) => $page->where('open.messages.0.junk', true));
+
+    $this->ana->forceFill(['email_images_ask' => true])->save();
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$inbox->id}"))
+        ->assertInertia(fn ($page) => $page->where('images_ask', true));
+});

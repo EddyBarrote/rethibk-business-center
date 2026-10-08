@@ -227,6 +227,7 @@ Route::middleware('auth')->group(function () {
         // A minha conta
         Route::get('profile', [ProfileController::class, 'show'])->name('settings.profile.show');
         Route::put('profile', [ProfileController::class, 'update'])->name('settings.profile.update');
+        Route::put('profile/email-images', [ProfileController::class, 'emailImages'])->name('settings.profile.email-images');
         Route::put('password', [ProfileController::class, 'password'])->middleware('throttle:6,1')->name('settings.password.update');
         Route::inertia('appearance', 'Settings/Appearance')->name('settings.appearance');
     });
