@@ -5,7 +5,8 @@ import { Button } from '@/Components/ui/button';
 
 /*
  * The body of an email. HTML is shown as the sender wrote it, in a sandboxed
- * frame where no script runs. External images load on their own, except in
+ * frame where no script runs. The images it embeds come from its own files
+ * (the server points cid: at them). External images load on their own, except in
  * Spam or for whoever chose in Perfil to be asked first (images can tell the
  * sender the email was opened).
  */
@@ -13,7 +14,7 @@ import { Button } from '@/Components/ui/button';
 const quoted = /^(>|On .+wrote:$|Em .+escreveu:$|-{2,} ?(Original Message|Mensagem original) ?-{2,})/m;
 
 function frameDocument(html: string, images: boolean) {
-    const csp = `default-src 'none'; style-src 'unsafe-inline' data:; font-src data:; img-src data: cid:${images ? ' https: http:' : ''}; media-src 'none'`;
+    const csp = `default-src 'none'; style-src 'unsafe-inline' data:; font-src data:; img-src ${window.location.origin}/attachments/ data:${images ? ' https: http:' : ''}; media-src 'none'`;
 
     return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><base target="_blank"><style>
         html,body{margin:0;padding:0;background:#fff;color:#1f2328;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow-wrap:anywhere}

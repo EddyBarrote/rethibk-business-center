@@ -275,3 +275,20 @@ it('loads email images on their own, except in Spam or for whoever asked to be a
     $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$inbox->id}"))
         ->assertInertia(fn ($page) => $page->where('images_ask', true));
 });
+
+it('shows the images an email embeds from its own files, not as attachments', function () {
+    $png = base64_encode(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+    $raw = "Message-ID: <logo@fora>\r\nFrom: Cliente <cliente@fora.test>\r\nTo: ana@empresa.test\r\nSubject: Com logotipo\r\nDate: Tue, 06 Oct 2026 10:00:00 +0200\r\n"
+        ."MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary=\"b1\"\r\n\r\n"
+        ."--b1\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p><img src=\"cid:logo123@fora\"> Olá</p>\r\n"
+        ."--b1\r\nContent-Type: image/png; name=\"logo.png\"\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <logo123@fora>\r\nContent-Disposition: inline; filename=\"logo.png\"\r\n\r\n{$png}\r\n--b1--\r\n";
+    $this->imap->deliver('INBOX', $raw);
+    syncAna($this);
+    $message = asTenant($this->tenant, fn () => EmailMessage::query()->where('subject', 'Com logotipo')->sole());
+    $file = asTenant($this->tenant, fn () => $message->attachments()->sole());
+
+    expect($file->content_id)->toBe('logo123@fora');
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$message->id}"))
+        ->assertInertia(fn ($page) => $page->where('open.messages.0.html', fn ($html) => str_contains($html, "src=\"/attachments/{$file->id}\""))
+            ->where('open.messages.0.attachments', fn ($files) => count($files) === 0));
+});

@@ -141,6 +141,8 @@ final class InboundEmailIngestor
 
         foreach ($parsed->getAllAttachmentParts() as $index => $part) {
             $filename = Str::limit(basename((string) ($part->getFilename() ?: "anexo-{$index}")), 200, '');
+            // How the HTML points at an image it embeds (cid:).
+            $contentId = Str::limit(trim((string) $part->getContentId(), '<> '), 250, '') ?: null;
             $binary = (string) $part->getBinaryContentStream()?->getContents();
             $size = strlen($binary);
 
@@ -149,6 +151,7 @@ final class InboundEmailIngestor
                     'email_message_id' => $message->id,
                     'filename' => $filename,
                     'mime_type' => $part->getContentType(),
+                    'content_id' => $contentId,
                     'size_bytes' => $size,
                     'ocr_status' => 'discarded',
                 ]);
@@ -168,6 +171,7 @@ final class InboundEmailIngestor
                 'email_message_id' => $message->id,
                 'filename' => $filename,
                 'mime_type' => $realMime,
+                'content_id' => $contentId,
                 'size_bytes' => $size,
                 'disk' => $disk,
                 'path' => $path,

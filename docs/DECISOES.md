@@ -492,6 +492,7 @@ carregar em «Mostrar imagens».
 |---|---|
 | **As imagens externas carregam sozinhas** em todas as pastas. O email continua na moldura sem scripts nem formulários; só as imagens (`http:`/`https:`) passam a carregar. | `Components/email/EmailBody.tsx` |
 | **No Spam continuam escondidas** até a pessoa carregar em «Mostrar imagens»: é lá que estão os emails que usam as imagens para saber quem os abriu. | `InboxController::conversation()` (`junk`) |
+| **As imagens que o email traz dentro de si** (`cid:`, como os logotipos) aparecem no corpo, servidas a partir do próprio anexo, e deixam de aparecer repetidas na lista de anexos. Os emails já lidos ganharam o Content-ID a partir do `.eml` guardado. | `email_attachments.content_id`, `InboxController::withEmbeddedImages()` |
 | **Cada pessoa pode voltar a ser perguntada:** Definições › Perfil › Email › «Perguntar antes de mostrar imagens». Desligado por defeito. | `users.email_images_ask`, `ProfileController::emailImages()` |
 
 Testes: `tests/Feature/Email/EmailClientTest.php` e `tests/Feature/Settings/SettingsPagesTest.php`.

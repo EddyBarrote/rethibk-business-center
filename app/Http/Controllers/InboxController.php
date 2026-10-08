@@ -467,7 +467,7 @@ class InboxController extends Controller
                 'bcc' => $m->status === EmailStatus::Draft ? ($m->bcc ?? []) : [],
                 'reply_to' => $m->reply_to,
                 'body' => $m->plainText(),
-                'html' => $m->status === EmailStatus::Draft ? null : $m->html_body,
+                'html' => $m->status === EmailStatus::Draft ? null : $this->withEmbeddedImages($m),
                 // Spam never loads its images on its own.
                 'junk' => $m->folder?->role === EmailFolder::JUNK,
                 'message_id' => $m->message_id_header,
@@ -476,7 +476,8 @@ class InboxController extends Controller
                 'erp_lead_id' => $m->erp_lead_id,
                 'agent_run_id' => $m->agent_run_id,
                 'written_by_agent' => $m->status === EmailStatus::Draft && $m->agent_run_id !== null && $m->written_by_user_id === null,
-                'attachments' => $m->attachments->map(fn (EmailAttachment $a) => $this->file($a))->values(),
+                // The images shown in the body are not listed again as files.
+                'attachments' => $m->attachments->reject(fn (EmailAttachment $a) => $this->embedded($m, $a))->map(fn (EmailAttachment $a) => $this->file($a))->values(),
             ])->values(),
             'tasks' => Task::query()->where('source_type', $message->getMorphClass())->where('source_id', $message->id)->get()
                 ->map(fn (Task $t) => ['id' => $t->id, 'ref' => $t->identifier(), 'title' => $t->title]),
@@ -584,6 +585,30 @@ class InboxController extends Controller
         }
 
         return $success !== null ? back()->with('success', $success) : back();
+    }
+
+    /**
+     * A file the HTML shows in its body (an image it embeds with cid:).
+     */
+    private function embedded(EmailMessage $m, EmailAttachment $a): bool
+    {
+        return $a->content_id !== null && $a->path !== null && str_contains((string) $m->html_body, 'cid:'.$a->content_id);
+    }
+
+    /**
+     * The HTML with the images it embeds (cid:) pointing at their stored file.
+     */
+    private function withEmbeddedImages(EmailMessage $m): ?string
+    {
+        $html = $m->html_body;
+
+        if ($html === null || ! str_contains($html, 'cid:')) {
+            return $html;
+        }
+
+        $files = $m->attachments->filter(fn (EmailAttachment $a) => $this->embedded($m, $a));
+
+        return $files->isEmpty() ? $html : strtr($html, $files->mapWithKeys(fn (EmailAttachment $a) => ['cid:'.$a->content_id => "/attachments/{$a->id}"])->all());
     }
 
     /**
