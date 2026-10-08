@@ -496,3 +496,23 @@ carregar em «Mostrar imagens».
 | **Cada pessoa pode voltar a ser perguntada:** Definições › Perfil › Email › «Perguntar antes de mostrar imagens». Desligado por defeito. | `users.email_images_ask`, `ProfileController::emailImages()` |
 
 Testes: `tests/Feature/Email/EmailClientTest.php` e `tests/Feature/Settings/SettingsPagesTest.php`.
+
+## Página de conversa (08.10.2026)
+
+Pedido do Barrote, em `/tasks/2`: o painel do lado direito com o aspecto do painel lateral do Claude desktop, um
+separador de execuções onde abre o que hoje é «ver execução», mensagens em lados opostos, a hora de cada uma e as
+ferramentas que o agente chamou por baixo da resposta.
+
+| Decisão | Onde |
+|---|---|
+| **A página ocupa o ecrã todo:** o chat tem o seu próprio scroll e a caixa de escrita fica sempre visível em baixo. As tarefas usam a mesma página. | `AppLayout` (`bleed`), `Pages/Tasks/Show.tsx` |
+| **Painel lateral com separadores** (Detalhes, Execuções, Ficheiros), abre e fecha no botão do topo e a escolha fica guardada no navegador. Abaixo de 1280 px desliza por cima do chat. | `Components/tasks/SidePanel.tsx` |
+| **«Ver execução» abre no painel**, sem sair da conversa; o endereço ganha `?execucao=` para se poder partilhar, e «Página inteira» leva a `/runs/{id}`. Só abre execuções desta tarefa. | `TaskController::panelRun()` |
+| **Pessoas à direita, agentes à esquerda**, cada mensagem com a hora (a data completa no tooltip) e um separador por dia (Hoje, Ontem, data). Mensagens seguidas do mesmo autor em menos de 5 minutos não repetem nome nem avatar. | `Components/tasks/Chat.tsx` |
+| **As ferramentas de cada resposta ficam numa linha dobrada** por baixo do balão (quantas, quais, se alguma falhou ou espera aprovação). Aberta, mostra cada chamada com o estado e a duração; carregar numa abre a execução no painel, já nesse passo. | `TaskController::toolCalls()`, `ToolCalls` |
+| **A linha temporal de uma execução é um componente só**, usado na página da execução e no painel. | `Components/runs/RunTimeline.tsx` |
+| O aviso «As conversas podem ser consultadas pela direcção» passa para baixo da caixa de escrita, onde se lê antes de escrever (decisão 26 do realinhamento). | `Pages/Tasks/Show.tsx` |
+
+Fica de fora, para não chocar com «Memória e conversa única por agente»: como a página do agente abre esta conversa.
+
+Testes: `tests/Feature/Tasks/TaskThreadTest.php` («lists the tools of each turn…»).

@@ -311,7 +311,16 @@ function UserMenu() {
     );
 }
 
-export default function AppLayout({ children, breadcrumbs }: { children: ReactNode; breadcrumbs?: Crumb[] }) {
+export default function AppLayout({
+    children,
+    breadcrumbs,
+    bleed = false,
+}: {
+    children: ReactNode;
+    breadcrumbs?: Crumb[];
+    /** The page fills the space under the top bar edge to edge and scrolls its own parts (a conversation with its side panel). */
+    bleed?: boolean;
+}) {
     const page = usePage<SharedProps>();
     const { auth, tenant, flash } = page.props;
     const url = page.url.split('?')[0];
@@ -443,7 +452,11 @@ export default function AppLayout({ children, breadcrumbs }: { children: ReactNo
                     </header>
 
                     {/* One width for every page, so content always starts at the same place. */}
-                    <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+                    {bleed ? (
+                        <main className="flex h-[calc(100svh-3rem)] min-h-0 w-full overflow-hidden">{children}</main>
+                    ) : (
+                        <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+                    )}
                 </SidebarInset>
                 <Toaster position="bottom-right" />
             </SidebarProvider>

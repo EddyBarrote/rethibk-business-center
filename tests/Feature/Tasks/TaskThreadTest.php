@@ -4,7 +4,9 @@ use App\Ai\Agents\GenericAgent;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Runs\AgentRunner;
+use App\Ai\Runs\RunRecorder;
 use App\Enums\ActorType;
+use App\Enums\StepType;
 use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
 use App\Enums\TriggerType;
@@ -275,4 +277,31 @@ it('streams the answer to the thread while the agent writes it', function () {
             && $event->broadcastOn()[0]->name === "private-tenant.{$this->a->id}.task.{$chat->id}");
         expect($chat->messages()->where('author_type', ActorType::Agent)->sole()->body)->toBe('As contas estão em dia e não há facturas em atraso.');
     });
+});
+
+it('lists the tools of each turn and opens one of its runs in the side panel', function () {
+    [$task, $run, $other] = asTenant($this->a, function () {
+        $task = app(TaskThread::class)->open(['kind' => TaskKind::Task, 'title' => 'Com ferramentas', 'assignee_agent_id' => $this->chief->id, 'user_id' => $this->boss->id], $this->boss, null, start: false);
+        $run = AgentRun::factory()->create(['agent_id' => $this->chief->id, 'task_id' => $task->id]);
+        $recorder = app(RunRecorder::class);
+        $recorder->step($run, StepType::ToolCall, ['arguments' => []], 'erp.search');
+        $recorder->step($run, StepType::ToolResult, ['ok' => true, 'content' => '[]'], 'erp.search', 120);
+        $recorder->step($run, StepType::ToolCall, ['arguments' => ['to' => 'x@y.z']], 'email.send');
+        $recorder->step($run, StepType::Approval, ['status' => 'pending'], 'email.send');
+
+        return [$task, $run, AgentRun::factory()->create(['agent_id' => $this->chief->id])];
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$task->id}?execucao={$run->id}"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Tasks/Show')
+            ->where("tool_calls.{$run->id}.0.key", 'erp.search')
+            ->where("tool_calls.{$run->id}.0.status", 'ok')
+            ->where("tool_calls.{$run->id}.0.duration_ms", 120)
+            ->where("tool_calls.{$run->id}.1.status", 'approval')
+            ->where('panel_run.run.id', $run->id)
+            ->has('panel_run.steps', 4));
+
+    // A run of another task never opens here.
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$task->id}?execucao={$other->id}"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('panel_run', null));
 });

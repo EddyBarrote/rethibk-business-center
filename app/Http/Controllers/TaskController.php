@@ -10,6 +10,7 @@ use App\Enums\GoalStatus;
 use App\Enums\Permission;
 use App\Enums\ProjectStatus;
 use App\Enums\RunStatus;
+use App\Enums\StepType;
 use App\Enums\TaskKind;
 use App\Enums\TaskMessageKind;
 use App\Enums\TaskPriority;
@@ -17,7 +18,9 @@ use App\Enums\TaskStatus;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\AgentRunStep;
 use App\Models\Approval;
+use App\Models\Capability;
 use App\Models\EmailMessage;
 use App\Models\Goal;
 use App\Models\MessageAttachment;
@@ -229,8 +232,13 @@ class TaskController extends Controller
                 'created_at' => $m->created_at->toIso8601String(),
             ]),
             'children' => $task->children()->with(Present::TASK_RELATIONS)->orderBy('id')->get()->map(fn (Task $child) => Present::task($child)),
-            'runs' => $task->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(10)->get()->map(fn (AgentRun $run) => Present::run($run)),
+            'runs' => $task->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(50)->get()->map(fn (AgentRun $run) => Present::run($run)),
             'working' => $active ? Present::run($active->load('agent:id,name')) : null,
+            // The tools each turn called, shown under the agent's answer (docs/DECISOES.md, "Página de conversa").
+            'tool_calls' => $this->toolCalls($task),
+            // The run open in the side panel (?execucao=), so "Ver execução" never leaves the conversation.
+            'panel_run' => fn () => $this->panelRun($request, $task, $user),
+            'tool_names' => fn () => Capability::query()->pluck('name', 'key'),
             'approvals' => Approval::query()
                 ->whereIn('agent_run_id', $task->runs()->select('id'))
                 ->where('status', ApprovalStatus::Pending)
@@ -467,5 +475,85 @@ class TaskController extends Controller
             $source instanceof EmailMessage => ['label' => "Email: {$source->subject}", 'href' => "/inbox/{$source->id}"],
             default => null,
         };
+    }
+
+    /**
+     * The tools each run of this task called, in order, paired with how they
+     * ended: a call is "running" until its result, "approval" while a person
+     * has to decide, then "ok", "error" or "rejected".
+     *
+     * @return array<int, list<array{step_id: int, key: string, name: string, status: string, duration_ms: int|null}>>
+     */
+    private function toolCalls(Task $task): array
+    {
+        $runIds = $task->runs()->latest('id')->limit(50)->pluck('id');
+
+        if ($runIds->isEmpty()) {
+            return [];
+        }
+
+        $names = Capability::query()->pluck('name', 'key');
+        $steps = AgentRunStep::query()
+            ->whereIn('agent_run_id', $runIds)
+            ->whereIn('type', [StepType::ToolCall, StepType::ToolResult, StepType::Error, StepType::Approval])
+            ->whereNotNull('tool_name')
+            ->orderBy('agent_run_id')
+            ->orderBy('seq')
+            ->get(['id', 'agent_run_id', 'seq', 'type', 'tool_name', 'payload', 'duration_ms']);
+
+        $calls = [];
+        $open = [];
+
+        foreach ($steps as $step) {
+            $run = $step->agent_run_id;
+            $key = (string) $step->tool_name;
+
+            if ($step->type === StepType::ToolCall) {
+                $calls[$run][] = ['step_id' => $step->id, 'key' => $key, 'name' => $names[$key] ?? $key, 'status' => 'running', 'duration_ms' => null];
+                $open[$run][$key] = array_key_last($calls[$run]);
+
+                continue;
+            }
+
+            $index = $open[$run][$key] ?? null;
+
+            if ($index === null) {
+                continue;
+            }
+
+            if ($step->type === StepType::Approval) {
+                $calls[$run][$index]['status'] = ($step->payload['status'] ?? null) === 'rejected' ? 'rejected' : 'approval';
+
+                continue;
+            }
+
+            $calls[$run][$index]['status'] = $step->type === StepType::ToolResult ? 'ok' : 'error';
+            $calls[$run][$index]['duration_ms'] = $step->duration_ms;
+            unset($open[$run][$key]);
+        }
+
+        return $calls;
+    }
+
+    /**
+     * One run of this task, with its timeline, for the side panel.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function panelRun(Request $request, Task $task, User $user): ?array
+    {
+        $id = $request->integer('execucao');
+        $run = $id > 0 ? $task->runs()->with(['agent', 'requestedBy'])->find($id) : null;
+
+        if ($run === null || ! $user->can('view', $run->agent)) {
+            return null;
+        }
+
+        return [
+            'run' => Present::run($run),
+            'steps' => $run->steps()->orderBy('seq')->get()->map(fn (AgentRunStep $step) => $step->toBroadcast()),
+            'approvals' => $run->approvals()->with(Present::APPROVAL_RELATIONS)->get()
+                ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
+        ];
     }
 }

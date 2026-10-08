@@ -1,0 +1,344 @@
+import { Link, router, usePage } from '@inertiajs/react';
+import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, ChevronDown, Info, type LucideIcon, Paperclip, X } from 'lucide-react';
+import { type ReactNode, useEffect, useState } from 'react';
+
+import { AgentAvatar } from '@/Components/AgentAvatar';
+import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
+import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
+import { Markdown } from '@/Components/Markdown';
+import { RunStatusBadge } from '@/Components/RunStatusBadge';
+import { RunRequest, RunTimeline, type Step } from '@/Components/runs/RunTimeline';
+import { useLive } from '@/hooks/useLive';
+import { dateTime, duration, number, runTitle, time, usd, usdPrecise } from '@/lib/format';
+import { cn } from '@/lib/utils';
+import type { ApprovalSummary, RunSummary, SharedProps } from '@/types';
+
+import type { ChatMessage, OpenRun } from './Chat';
+
+/*
+ * The right-hand panel of a conversation, in the manner of the Claude desktop
+ * side panel: a strip of tabs on top, one thing at a time below. "Execuções"
+ * lists this conversation's runs and opens one in place, so following what an
+ * agent did never leaves the chat (docs/DECISOES.md, "Página de conversa").
+ */
+
+export type PanelTab = 'details' | 'runs' | 'files';
+
+export interface PanelRun {
+    run: RunSummary;
+    steps: Step[];
+    approvals: ApprovalSummary[];
+}
+
+const tabs: { value: PanelTab; label: string; icon: LucideIcon }[] = [
+    { value: 'details', label: 'Detalhes', icon: Info },
+    { value: 'runs', label: 'Execuções', icon: Activity },
+    { value: 'files', label: 'Ficheiros', icon: Paperclip },
+];
+
+export function SidePanel({
+    tab,
+    onTab,
+    onClose,
+    runs,
+    runId,
+    stepId,
+    panelRun,
+    toolNames,
+    messages,
+    onOpenRun,
+    onCloseRun,
+    details,
+    className,
+}: {
+    tab: PanelTab;
+    onTab: (tab: PanelTab) => void;
+    onClose: () => void;
+    runs: RunSummary[];
+    runId: number | null;
+    stepId: number | null;
+    panelRun: PanelRun | null;
+    toolNames: Record<string, string>;
+    messages: ChatMessage[];
+    onOpenRun: OpenRun;
+    onCloseRun: () => void;
+    details: ReactNode;
+    className?: string;
+}) {
+    const files = messages.filter((message) => message.attachments.length > 0);
+    const counts: Partial<Record<PanelTab, number>> = { runs: runs.length, files: files.reduce((n, m) => n + m.attachments.length, 0) };
+
+    return (
+        <div className={cn('flex h-full min-h-0 flex-col bg-sidebar/40', className)}>
+            <div className="flex h-11 shrink-0 items-center gap-1 border-b px-2">
+                <div role="tablist" aria-label="Painel" className="flex min-w-0 flex-1 items-center gap-0.5">
+                    {tabs.map(({ value, label, icon: Icon }) => (
+                        <button
+                            key={value}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === value}
+                            onClick={() => onTab(value)}
+                            className={cn(
+                                'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors',
+                                tab === value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                            )}
+                        >
+                            <Icon className="size-3.5" />
+                            {label}
+                            {!!counts[value] && <span className="text-[10px] text-muted-foreground tabular-nums">{counts[value]}</span>}
+                        </button>
+                    ))}
+                </div>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Fechar painel"
+                    title="Fechar painel"
+                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                >
+                    <X className="size-4" />
+                </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+                {tab === 'details' && <div className="flex flex-col gap-6 p-4">{details}</div>}
+                {tab === 'runs' &&
+                    (runId !== null ? (
+                        <RunView runId={runId} stepId={stepId} panelRun={panelRun} toolNames={toolNames} onBack={onCloseRun} />
+                    ) : (
+                        <RunList runs={runs} toolNames={toolNames} onOpenRun={onOpenRun} />
+                    ))}
+                {tab === 'files' && <FilesList messages={files} />}
+            </div>
+        </div>
+    );
+}
+
+function RunList({ runs, toolNames, onOpenRun }: { runs: RunSummary[]; toolNames: Record<string, string>; onOpenRun: OpenRun }) {
+    if (runs.length === 0) {
+        return (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
+                <Activity className="size-5" />O agente ainda não trabalhou nesta conversa.
+            </div>
+        );
+    }
+
+    const spent = runs.reduce((sum, run) => sum + run.cost_usd, 0);
+
+    return (
+        <div className="flex flex-col">
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 text-xs text-muted-foreground">
+                <span>
+                    {runs.length} {runs.length === 1 ? 'execução' : 'execuções'}
+                </span>
+                <span className="tabular-nums" title="Soma das execuções mostradas">
+                    {usd(spent)}
+                </span>
+            </div>
+            <ul className="flex flex-col gap-1 px-2 pb-3">
+                {runs.map((run) => (
+                    <li key={run.id}>
+                        <button
+                            type="button"
+                            onClick={() => onOpenRun(run.id)}
+                            className="flex w-full flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-accent/60"
+                        >
+                            <span className="flex w-full items-center gap-2">
+                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">#{run.id}</span>
+                                <span className="min-w-0 flex-1 truncate text-sm">{run.title ?? runTitle(run.input, toolNames)}</span>
+                            </span>
+                            <span className="flex w-full items-center gap-2 text-[11px] text-muted-foreground">
+                                <RunStatusBadge status={run.status} label={run.status_label} />
+                                <span className="flex-1" />
+                                {run.duration_ms !== null && <span className="tabular-nums">{duration(run.duration_ms)}</span>}
+                                <span className="tabular-nums" title={dateTime(run.created_at)}>
+                                    {new Date(run.created_at).toDateString() === new Date().toDateString() ? time(run.created_at) : dateTime(run.created_at)}
+                                </span>
+                                <span className="w-12 text-right tabular-nums">{usd(run.cost_usd)}</span>
+                            </span>
+                        </button>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+function RunView({
+    runId,
+    stepId,
+    panelRun,
+    toolNames,
+    onBack,
+}: {
+    runId: number;
+    stepId: number | null;
+    panelRun: PanelRun | null;
+    toolNames: Record<string, string>;
+    onBack: () => void;
+}) {
+    const { tenant } = usePage<SharedProps>().props;
+    const loaded = panelRun?.run.id === runId ? panelRun : null;
+    const run = loaded?.run;
+    const finished = run ? ['completed', 'failed', 'cancelled'].includes(run.status) : true;
+    const [liveSteps, setLiveSteps] = useState<Step[]>([]);
+
+    useEffect(() => setLiveSteps([]), [runId]);
+
+    useLive<{ step?: Step }>(
+        tenant && loaded ? `tenant.${tenant.id}.run.${runId}` : null,
+        ['AgentRunStepAdded', 'AgentRunStarted', 'AgentRunFinished', 'ApprovalDecided'],
+        (event, payload) => {
+            if (event === 'AgentRunStepAdded' && payload.step) {
+                setLiveSteps((current) => [...current, payload.step as Step]);
+            } else {
+                router.reload({ only: ['panel_run'], onSuccess: () => setLiveSteps([]) });
+            }
+        },
+        { only: ['panel_run'], poll: !!loaded && !finished },
+    );
+
+    const known = new Set(loaded?.steps.map((step) => step.id) ?? []);
+    const steps = [...(loaded?.steps ?? []), ...liveSteps.filter((step) => !known.has(step.id))].sort((a, b) => a.seq - b.seq);
+
+    return (
+        <div className="flex flex-col">
+            <div className="sticky top-0 z-10 flex items-center gap-1 border-b bg-background/95 px-2 py-1.5 backdrop-blur">
+                <button
+                    type="button"
+                    onClick={onBack}
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                >
+                    <ArrowLeft className="size-3.5" />
+                    Execuções
+                </button>
+                <span className="flex-1" />
+                <Link
+                    href={`/runs/${runId}`}
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                    title="Abrir a execução na sua página"
+                >
+                    Página inteira
+                    <ArrowUpRight className="size-3.5" />
+                </Link>
+            </div>
+
+            {!run ? (
+                <div className="flex flex-col gap-3 p-4">
+                    <div className="h-10 animate-pulse rounded-lg bg-muted" />
+                    <div className="h-24 animate-pulse rounded-lg bg-muted" />
+                    <div className="h-40 animate-pulse rounded-lg bg-muted" />
+                </div>
+            ) : (
+                <div className="flex flex-col gap-5 p-4">
+                    <div className="flex items-start gap-3">
+                        <AgentAvatar name={run.agent.name} className="size-8 rounded-lg text-[10px]" />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold">
+                                Execução <span className="font-mono">#{run.id}</span>
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                                {run.agent.name} · {run.trigger_label} · {dateTime(run.created_at)}
+                            </p>
+                        </div>
+                        <RunStatusBadge status={run.status} label={run.status_label} />
+                    </div>
+
+                    <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border bg-border text-xs">
+                        <Metric label="Duração" value={run.duration_ms !== null ? duration(run.duration_ms) : '—'} />
+                        <Metric label="Custo" value={usdPrecise(run.cost_usd)} />
+                        <Metric label="Tokens" value={`${number(run.input_tokens)} / ${number(run.output_tokens)}`} title="Entrada / saída" />
+                    </dl>
+
+                    <details className="group rounded-lg border">
+                        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+                            Pedido
+                            <ChevronDown className="ml-auto size-3.5 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="border-t text-sm [&>div]:rounded-none [&>div]:border-0">
+                            <RunRequest input={run.input} />
+                        </div>
+                    </details>
+
+                    <section className="flex flex-col gap-3">
+                        <h3 className="flex items-center justify-between text-xs font-medium tracking-widest text-muted-foreground uppercase">
+                            Linha temporal
+                            <span className="tracking-normal normal-case tabular-nums">{steps.length} passos</span>
+                        </h3>
+                        <RunTimeline steps={steps} finished={finished} output={run.output} toolNames={toolNames} focusStepId={stepId} />
+                    </section>
+
+                    {run.error && (
+                        <div className="flex gap-2 rounded-lg border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-sm text-status-danger">
+                            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                            <span className="min-w-0 break-words whitespace-pre-wrap">{run.error}</span>
+                        </div>
+                    )}
+
+                    {run.output && (
+                        <details className="group rounded-lg border">
+                            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+                                Resposta final
+                                <ChevronDown className="ml-auto size-3.5 transition-transform group-open:rotate-180" />
+                            </summary>
+                            <div className="border-t px-3 py-2 text-sm">
+                                <Markdown>{run.output}</Markdown>
+                            </div>
+                        </details>
+                    )}
+
+                    {loaded.approvals.length > 0 && (
+                        <section className="flex flex-col gap-3">
+                            <h3 className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Aprovações</h3>
+                            <ApprovalList>
+                                {loaded.approvals.map((approval) => (
+                                    <ApprovalCard key={approval.id} approval={approval} />
+                                ))}
+                            </ApprovalList>
+                        </section>
+                    )}
+
+                    {run.model && (
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                            {run.provider} · {run.model}
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function Metric({ label, value, title }: { label: string; value: string; title?: string }) {
+    return (
+        <div className="flex flex-col gap-0.5 bg-card px-3 py-2" title={title}>
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium tabular-nums">{value}</dd>
+        </div>
+    );
+}
+
+function FilesList({ messages }: { messages: ChatMessage[] }) {
+    if (messages.length === 0) {
+        return (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
+                <Paperclip className="size-5" />
+                Ainda não há ficheiros nesta conversa.
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-5 p-4">
+            {[...messages].reverse().map((message) => (
+                <div key={message.id} className="flex flex-col gap-2">
+                    <p className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground/80">{message.author}</span> · {dateTime(message.created_at)}
+                    </p>
+                    <MessageAttachments attachments={message.attachments} />
+                </div>
+            ))}
+        </div>
+    );
+}
