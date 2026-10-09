@@ -10,6 +10,8 @@ use App\Enums\AgentStatus;
 use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
+use App\Enums\TaskKind;
+use App\Enums\TaskStatus;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
@@ -106,18 +108,22 @@ class AgentController extends Controller
             'runs' => $agent->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
             // What the agent is doing right now, at the top of its page (docs/DECISOES.md, "Agente: o que está a fazer").
             'now' => fn () => $this->now($agent, $user),
-            'memories' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->with(['aboutUser:id,name', 'task:id,number,title,tenant_id', 'task.tenant:id,slug'])->latest('id')->limit(300)->get()->map(fn (AgentMemory $memory) => [
+            'memories' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->with(['user:id,name', 'aboutUser:id,name', 'task:id,number,title,tenant_id', 'task.tenant:id,slug'])->latest('id')->limit(300)->get()->map(fn (AgentMemory $memory) => [
                 'id' => $memory->id,
                 'content' => $memory->content,
                 'kind' => $memory->kind,
+                'person' => $memory->user ? ['id' => $memory->user->id, 'name' => $memory->user->name] : null,
                 'about' => $memory->aboutUser?->name,
                 'task' => $memory->task ? ['id' => $memory->task->id, 'ref' => $memory->task->identifier()] : null,
                 'knowledge_item_id' => $memory->knowledge_item_id,
                 'created_at' => $memory->created_at->toIso8601String(),
             ]) : null,
+            // The tasks between this person and the agent, inside the agent's page (09.10.2026).
+            'tasks' => fn () => $this->tasks($agent, $user),
             'users' => $user->can('manageAccess', $agent) ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [],
             'can' => [
                 'run' => $user->can('run', $agent),
+                'request_work' => $user->can('requestWork', $agent),
                 'manage' => $user->can('manage', $agent),
                 'manage_access' => $user->can('manageAccess', $agent),
                 'view_memory' => $user->can('viewMemory', $agent),
@@ -253,6 +259,28 @@ class AgentController extends Controller
             'active' => $active->map($present)->values()->all(),
             'last' => $last ? $present($last) : null,
         ];
+    }
+
+    /**
+     * The person's tasks with the agent: assigned to it or delegated by it,
+     * and asked by, assigned to or opened for this person. Open ones first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function tasks(Agent $agent, User $user): array
+    {
+        return Task::query()
+            ->where('kind', TaskKind::Task)
+            ->where(fn ($q) => $q->where('assignee_agent_id', $agent->id)->orWhere('created_by_agent_id', $agent->id))
+            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('created_by_user_id', $user->id)->orWhere('assignee_user_id', $user->id))
+            ->with(Present::TASK_RELATIONS)
+            ->orderByRaw('case when status in (?, ?) then 1 else 0 end', [TaskStatus::Done->value, TaskStatus::Cancelled->value])
+            ->latest('last_activity_at')
+            ->latest('id')
+            ->limit(100)
+            ->get()
+            ->map(fn (Task $task) => Present::task($task))
+            ->all();
     }
 
     /**

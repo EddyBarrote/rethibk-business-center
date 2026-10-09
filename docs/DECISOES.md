@@ -533,3 +533,17 @@ A barra lateral dizia que um agente estava a trabalhar, mas a página dele só m
 Contido de propósito, para juntar sem choque com «Memória e conversa única por agente» (separador Tarefas e conversa única): não mexe nos separadores nem no botão «Conversar».
 
 Testes: `tests/Feature/Agents/AgentConsoleTest.php` («shows on the agent page what it is doing now…»).
+
+## Memória por pessoa e tarefas dentro do agente (09.10.2026)
+
+O Barrote: cada agente tem a sua memória em cada pessoa, há uma só conversa com cada agente, e as tarefas vivem na vista do agente. Respostas dele às perguntas, uma a uma:
+
+| Decisão | Onde |
+|---|---|
+| **Cada pessoa tem a sua memória com cada agente** (`agent_memories.user_id`). Um facto pertence à pessoa da conversa ou tarefa de onde veio; o que vem de trabalho sem pessoa (rotinas, email) fica do agente e serve todas as conversas. A memória que já existia passou para a pessoa da tarefa de onde veio. | migração `2026_10_09_090001`, `MemoryConsolidator` |
+| **Partilha pela base de conhecimento:** os factos de trabalho continuam a ir para o artigo «Memória de {agente}», e é por aí (`memory.search`) que o que uma pessoa ensinou serve as outras. Os pessoais nunca saem da memória da pessoa. Substitui a decisão 16. | `MemoryConsolidator::forPrompt()`, `publish()` |
+| **Só os administradores** (permissão «Corrigir a memória de qualquer agente») vêem, corrigem e apagam a memória; a chefia do agente e a própria pessoa não. O separador Memória filtra por pessoa. Substitui a decisão 18. | `AgentPolicy::viewMemory()`, `MemoryList` |
+| **«Executar» na página do agente vai para a conversa única**: «Enviar» manda uma mensagem e «Executar» uma acção directa (só com «Pedir trabalho»), ambas na conversa da pessoa com o agente, que abre a seguir. Deixa de haver execuções soltas a partir da página. | `TaskController::chat()` (`mode`), `Pages/Agents/Show.tsx` |
+| **Separador «Tarefas» na página do agente**, com as tarefas da pessoa com esse agente: atribuídas a ele ou delegadas por ele, pedidas pela pessoa, para ela ou atribuídas a ela. Abertas primeiro; cada uma abre o seu fio. A lista geral de Tarefas mantém-se. | `AgentController::tasks()` |
+
+Testes: `tests/Feature/Agents/AgentMemoryTest.php`, `tests/Feature/Agents/AgentPageTest.php`.
