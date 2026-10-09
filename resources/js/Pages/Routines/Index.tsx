@@ -20,6 +20,7 @@ import { ListPanel, MetricCard, Properties, Property, Section } from '@/Componen
 import { ConfirmDialog, FormDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
+import { Markdown } from '@/Components/Markdown';
 import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
@@ -29,7 +30,7 @@ import { NativeSelect } from '@/Components/ui/native-select';
 import { Switch } from '@/Components/ui/switch';
 import { Textarea } from '@/Components/ui/textarea';
 import SettingsLayout from '@/Layouts/SettingsLayout';
-import { ago, dateTime, duration, plural, usd, usdPrecise } from '@/lib/format';
+import { ago, dateTime, duration, plainText, plural, usd, usdPrecise } from '@/lib/format';
 import { defaultPick, describe, frequencies, type Frequency, fromCron, type SchedulePick, toCron, weekdays } from '@/lib/schedule';
 import { cn } from '@/lib/utils';
 
@@ -719,9 +720,15 @@ function RoutineDetail({
                                     {last.duration_ms !== null && <span>· {duration(last.duration_ms)}</span>}
                                     {last.cost !== null && <span>· {usdPrecise(last.cost)}</span>}
                                 </div>
-                                <p className="line-clamp-[12] text-sm whitespace-pre-wrap">
-                                    {routine.last_error ?? (routine.last_output || last.summary)}
-                                </p>
+                                {routine.last_error ? (
+                                    <p className="text-sm whitespace-pre-wrap text-status-danger">{routine.last_error}</p>
+                                ) : routine.last_output ? (
+                                    <div className="max-h-96 overflow-y-auto text-sm">
+                                        <Markdown>{routine.last_output}</Markdown>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">{last.summary}</p>
+                                )}
                             </div>
                         ) : (
                             <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
@@ -743,7 +750,7 @@ function RoutineDetail({
                                     >
                                         <StatusDot tone={row.tone} />
                                         <div className="min-w-0 flex-1">
-                                            <div className="truncate">{row.summary}</div>
+                                            <div className="truncate">{plainText(row.summary)}</div>
                                             <div className="text-xs text-muted-foreground">
                                                 {row.status_label}
                                                 {row.at ? ` · ${dateTime(row.at)}` : ''}
