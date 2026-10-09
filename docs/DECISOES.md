@@ -581,7 +581,7 @@ simples; as aprovações não ficavam lá (só um aviso ao vivo), não havia sin
 | **Agrupadas por dia** (Hoje, Ontem, «Quarta-feira, 7 de outubro»), **paginadas** com 20, 50 ou 100 por página (20 por defeito; `?por_pagina=`). | `Pages/Notifications/Index.tsx` |
 | **Pesquisa** no título, no texto e em quem enviou, palavra a palavra (todas têm de aparecer), sem distinguir maiúsculas; pesquisa enquanto se escreve e junta-se aos filtros e às contagens por tipo (`?q=`). Guarda-se um texto pesquisável em `notifications.search`, porque o JSON de `data` escapa os acentos; as antigas foram preenchidas na migração. | `SearchableDatabaseChannel`, `2026_10_09_100001_notifications_search` |
 | **Marcar em bloco:** seleccionar e «Marcar como lidas» / «Marcar como por ler»; «Marcar todas como lidas» respeita o tipo aberto. Uma a uma no ícone à direita. Não há apagar: a notificação é o registo do que foi dito. | `read()`, `unread()` |
-| **Abrir leva ao assunto:** tarefas e conversas abrem na página da conversa; quando a notificação vem de uma execução, a execução abre no painel lateral (`/tasks/{id}?execucao={run}`), também nas antigas que apontavam para `/runs/{id}`. Aprovações abrem em Aprovações. | `NotificationController::destination()` |
+| **Abrir leva ao assunto:** tarefas e conversas abrem na página da conversa; quando a notificação vem de uma execução, a execução abre no painel lateral (`/tasks/{id}?execucao={run}`), também nas antigas que apontavam para `/runs/{id}`. Aprovações abrem em Aprovações, com o detalhe aberto ao lado. | `NotificationController::destination()` |
 | **Sino no topo, à direita:** conta as por ler e abre as últimas 8, com «Marcar todas como lidas», «Ver todas as notificações» e o atalho para as preferências. O item da barra lateral fica. | `Components/notifications/NotificationBell.tsx` |
 | **Ao vivo pelo Reverb:** cada notificação nova actualiza o sino e o centro; sem socket, o centro recarrega a cada 15 s. | `UserNotified`, `useLive` |
 | **Preferências por pessoa** em Definições › A minha conta › Notificações: por tipo, «No centro», «Alerta no ecrã» e «Por email». Por defeito tudo vai para o centro; alerta no ecrã para Aprovações, À sua espera, Tarefas e Conversas; email só para Aprovações. **As aprovações não saem do centro** (só uma pessoa as decide). O alerta só existe para o que fica no centro. | `NotificationPreferences`, `NotificationPreferencesController`, `users.notification_preferences` |
@@ -593,6 +593,27 @@ do nível passam pelas aprovações, que já chegam ao centro). Quando existirem
 
 Testes: `tests/Feature/Notifications/NotificationsHubTest.php`.
 
+## Página de aprovações (09.10.2026)
+
+Pedido do Barrote: levar `/approvals` ao nível do centro de notificações. Antes eram quatro separadores por estado e uma
+lista; o detalhe abria num diálogo e não dizia de que conversa vinha a acção.
+
+| Decisão | Onde |
+|---|---|
+| **Abre no que espera por si** («À sua espera»: pendentes que esta pessoa pode decidir e que já não estão com o Chief of Staff). As outras vistas: Com o Chief of Staff, Todas as pendentes, Aprovadas, Rejeitadas, Expiradas (só aparece se houver) e Todas, cada uma com a contagem. Os endereços antigos (`?status=pending`) continuam a funcionar. | `ApprovalController::query()` |
+| **Quem vê o quê:** a direcção vê tudo; as outras pessoas vêem as dos agentes por quem respondem e as que a matriz as deixa decidir (orçamento, níveis de confiança). A regra de `ApprovalPolicy::decide()` existe também numa consulta (`Approval::decidableBy()`), com um teste que garante que dão o mesmo. | `Approval::decidableBy()` |
+| **Números no topo:** à sua espera (e quantas no tecto absoluto), a mais antiga, com o Chief of Staff, e decididas em 7 dias (aprovadas, rejeitadas e a mediana do tempo até uma pessoa decidir, nos últimos 30 dias). | `ApprovalController::stats()` |
+| **Filtro por área** (Comunicação, Finanças, Comercial, Compras, Pessoas, Projectos, Contratos, Agentes e orçamento, Outras), lida do tipo da acção; **filtro por agente**; **pesquisa** no que a acção diz, nos argumentos, no agente e nas notas, palavra a palavra. Tudo no endereço (`?vista=&area=&agente=&q=`). | `App\Enums\ApprovalArea` |
+| **Agrupadas por dia**, como as notificações, paginadas com 25, 50 ou 100 (`?por_pagina=`). | `Pages/Approvals/Index.tsx` |
+| **Detalhe no painel lateral** (como na página de conversa), com o endereço `?aprovacao=` para partilhar: a acção, porque decide uma pessoa, a revisão do Chief of Staff, o que vai ser feito, **de onde vem** (a conversa, aberta com a execução ao lado, e a execução) e o **percurso** (pedido, revisão, decisão, execução). Aprovar e Rejeitar em baixo; depois de decidir passa à seguinte que espera, sem fechar. J e K andam pela lista. | `Components/approvals/ApprovalPanel.tsx`, `ApprovalController::open()` |
+| **Decidir em bloco:** seleccionar e Aprovar ou Rejeitar. Aprovar em bloco continua a deixar de fora o tecto absoluto (decide-se uma a uma); **Rejeitar em bloco** pede um motivo, que vai para todas, e inclui o tecto absoluto, porque dizer que não é seguro. | `ApprovalController::rejectMany()` |
+| **A notificação de uma aprovação abre-a no painel** (`/approvals?aprovacao=`), também as antigas que apontavam só para `/approvals`. | `ApprovalService::notifyDeciders()`, `NotificationController::destination()` |
+| Ao vivo pelo Reverb, como antes; sem socket, recarrega a cada 15 s. | `useLive` |
+
+Mantém-se: o Chief of Staff revalida o que está acima do nível; pagamentos, contratos, contratações, comunicação a
+entidades novas e emissão de facturas vão sempre a uma pessoa.
+
+Testes: `tests/Feature/Agents/ApprovalsPageTest.php`.
 ## Página de tarefas (09.10.2026)
 
 Pedido do Barrote: a lista `/tasks` ao nível do centro de notificações. Antes eram cinco separadores, um filtro por

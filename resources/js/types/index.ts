@@ -75,6 +75,7 @@ export interface RunSummary {
 export interface ApprovalSummary {
     id: number;
     run_id: number;
+    task_id?: number | null;
     agent: { id: number; name: string };
     action_type: string;
     action_summary: string;
@@ -93,6 +94,7 @@ export interface ApprovalSummary {
     review_note: string | null;
     execution_status: 'not_executed' | 'executed' | 'failed';
     execution_result: { ok?: boolean; content?: string; data?: unknown } | null;
+    executed_at?: string | null;
     created_at: string;
     can_decide: boolean;
 }

@@ -117,6 +117,38 @@ class Approval extends Model
     }
 
     /**
+     * Approvals the person may decide, the rule of ApprovalPolicy::decide() in
+     * one query: budget and trust levels by permission, the rest by agent.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function decidableBy(Builder $query, User $user): void
+    {
+        $special = ['budget.override', 'agents.set_trust_level'];
+
+        $query->where(function (Builder $q) use ($user, $special) {
+            $q->where(function (Builder $rest) use ($user, $special) {
+                $rest->whereNotIn('action_type', $special);
+
+                if (! $user->hasPermission(Permission::DecideAllApprovals)) {
+                    $rest->whereHas('agent', fn (Builder $agents) => $agents
+                        ->where('reports_to_user_id', $user->id)
+                        ->orWhereHas('assignees', fn (Builder $assignees) => $assignees->whereKey($user->id)));
+                }
+            });
+
+            if ($user->hasPermission(Permission::ManageCosts)) {
+                $q->orWhere('action_type', 'budget.override');
+            }
+
+            if ($user->hasPermission(Permission::ConfirmTrustLevels)) {
+                $q->orWhere('action_type', 'agents.set_trust_level');
+            }
+        });
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function assignedTo(): BelongsTo

@@ -129,6 +129,7 @@ final class Present
         return [
             'id' => $approval->id,
             'run_id' => $approval->agent_run_id,
+            'task_id' => $approval->relationLoaded('run') ? $approval->run?->task_id : null,
             'agent' => ['id' => $approval->agent_id, 'name' => $approval->agent->name],
             'action_type' => $approval->action_type,
             'action_summary' => $approval->action_summary,
@@ -147,6 +148,7 @@ final class Present
             'decision_note' => $approval->decision_note,
             'execution_status' => $approval->execution_status->value,
             'execution_result' => $approval->execution_result,
+            'executed_at' => $approval->executed_at?->toIso8601String(),
             'created_at' => $approval->created_at->toIso8601String(),
             'can_decide' => $canDecide && $approval->status->value === 'pending',
         ];
@@ -156,7 +158,7 @@ final class Present
     public const TASK_RELATIONS = ['assigneeAgent:id,name', 'assigneeUser:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'];
 
     /** Relations Present::approval() reads. */
-    public const APPROVAL_RELATIONS = ['agent', 'assignedTo:id,name', 'decidedBy:id,name', 'decidedByAgent:id,name', 'reviewAgent:id,name'];
+    public const APPROVAL_RELATIONS = ['agent', 'run:id,task_id', 'assignedTo:id,name', 'decidedBy:id,name', 'decidedByAgent:id,name', 'reviewAgent:id,name'];
 
     /**
      * A task or conversation as a row (Tarefas, A minha caixa).
