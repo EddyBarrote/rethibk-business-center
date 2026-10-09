@@ -93,7 +93,7 @@ it('lets an agent give work to people of its area and to the person it answers t
     $task = asTenant($this->tenant, fn () => Task::query()->where('assignee_user_id', $this->clerk->id)->sole());
 
     $this->actingAs($this->clerk)->get(tenantUrl($this->tenant, 'tasks?view=mine'))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('tasks', []));
+        ->assertInertia(fn (Assert $page) => $page->where('tasks.data', []));
     $this->actingAs($this->clerk)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('task.assignee_user.name', 'Escriturária'));
 });

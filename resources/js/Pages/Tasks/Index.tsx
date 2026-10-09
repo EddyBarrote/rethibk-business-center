@@ -1,24 +1,61 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, ListTodo, MessageSquare, MessagesSquare, Plus, Search } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+    Archive,
+    ArrowDown,
+    ArrowUp,
+    CalendarClock,
+    CalendarX2,
+    CheckCheck,
+    ChevronRight,
+    CircleAlert,
+    CircleDashed,
+    Flag,
+    FolderKanban,
+    Hand,
+    Inbox,
+    Layers,
+    ListTodo,
+    type LucideIcon,
+    MessageSquare,
+    MessagesSquare,
+    Plus,
+    Search,
+    SearchX,
+    SlidersHorizontal,
+    UserRound,
+    X,
+} from 'lucide-react';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
+import { Pagination } from '@/Components/Pagination';
 import { StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
+import { Checkbox } from '@/Components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
+import { NativeSelect } from '@/Components/ui/native-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime } from '@/lib/format';
+import { ago, dateTime, deadline, number, plural } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { Option, SharedProps } from '@/types';
+import type { Option, Paginated, SharedProps } from '@/types';
 
 /* ---------- Shared task vocabulary (also used by Tasks/Show) ---------- */
 
@@ -43,6 +80,7 @@ export interface TaskSummary {
     goal: { id: number; title: string } | null;
     project: { id: number; name: string } | null;
     messages_count: number | null;
+    due_at?: string | null;
     last_activity_at: string | null;
     created_at: string;
     working?: boolean;
@@ -197,84 +235,222 @@ export function GoalChip({ goal }: { goal: { id: number; title: string } }) {
 /* ---------- Page ---------- */
 
 type View = 'mine' | 'waiting' | 'all' | 'chats' | 'closed';
+type Group = 'estado' | 'prioridade' | 'responsavel' | 'nenhum';
+type Sort = 'actividade' | 'prioridade' | 'prazo' | 'criacao';
 
 interface Filters {
     view: View;
-    agent: number | null;
+    estado: TaskStatus | null;
+    prioridade: TaskPriority | null;
+    responsavel: string | null;
+    prazo: 'atrasadas' | 'semana' | 'sem-prazo' | null;
     goal: number | null;
     project: number | null;
     q: string;
+    ordenar: Sort;
+    agrupar: Group;
+    por_pagina: number;
 }
 
 interface Props extends TaskFormOptions {
-    tasks: TaskSummary[];
+    tasks: Paginated<TaskSummary>;
     filters: Filters;
-    counts: { mine: number; waiting: number };
+    per_page_options: number[];
+    counts: Record<View, number>;
+    status_counts: Record<TaskStatus, number>;
+    waiting_total: number;
+    overdue_total: number;
 }
 
 const NONE = 'none';
+const live = ['tasks', 'counts', 'status_counts', 'waiting_total', 'overdue_total'];
+
+const views: { key: View; label: string; icon: LucideIcon; hint: string }[] = [
+    { key: 'mine', label: 'Minhas', icon: Inbox, hint: 'Abertas consigo: suas, pedidas por si ou com uma aprovação sua' },
+    { key: 'waiting', label: 'À sua espera', icon: Hand, hint: 'Um agente espera pela sua resposta' },
+    { key: 'all', label: 'Todas abertas', icon: Layers, hint: 'Todo o trabalho aberto que pode ver' },
+    { key: 'closed', label: 'Fechadas', icon: Archive, hint: 'Feitas ou canceladas' },
+    { key: 'chats', label: 'Conversas', icon: MessagesSquare, hint: 'As conversas com os agentes' },
+];
+
+const dueLabels: Record<NonNullable<Filters['prazo']>, string> = {
+    atrasadas: 'Prazo ultrapassado',
+    semana: 'Prazo nos próximos 7 dias',
+    'sem-prazo': 'Sem prazo',
+};
+const groupLabels: Record<Group, string> = { estado: 'Estado', prioridade: 'Prioridade', responsavel: 'Responsável', nenhum: 'Sem grupos' };
+const sortLabels: Record<Sort, string> = {
+    actividade: 'Actividade recente',
+    prioridade: 'Prioridade',
+    prazo: 'Prazo mais próximo',
+    criacao: 'Mais recentes',
+};
+const priorityOrder: TaskPriority[] = ['urgent', 'high', 'normal', 'low'];
 
 const emptyCopy: Record<View, { title: string; description: string }> = {
-    mine: { title: 'Nada contigo', description: 'Crie uma tarefa ou comece uma conversa com um agente para ela aparecer aqui.' },
-    waiting: { title: 'Nenhum agente à tua espera', description: 'Quando um agente precisar de uma resposta tua, a tarefa aparece aqui.' },
-    all: { title: 'Sem tarefas abertas', description: 'Crie a primeira tarefa e atribua-a a um agente.' },
+    mine: {
+        title: 'Nada consigo',
+        description: 'Quando lhe atribuírem trabalho, pedir algo a um agente ou uma aprovação esperar por si, aparece aqui.',
+    },
+    waiting: { title: 'Nenhum agente à sua espera', description: 'Quando um agente precisar de uma resposta sua, a tarefa aparece aqui.' },
+    all: { title: 'Sem tarefas abertas', description: 'Crie a primeira tarefa e atribua-a a um agente ou a uma pessoa.' },
     chats: { title: 'Sem conversas', description: 'Comece uma conversa com um agente para lhe pedir ajuda como assistente.' },
     closed: { title: 'Nada fechado', description: 'As tarefas feitas ou canceladas aparecem aqui.' },
 };
 
-export default function TasksIndex({ tasks, filters, counts, agents, people, goals, projects, priorities }: Props) {
+export default function TasksIndex({
+    tasks,
+    filters,
+    per_page_options,
+    counts,
+    status_counts,
+    waiting_total,
+    overdue_total,
+    agents,
+    people,
+    goals,
+    projects,
+    priorities,
+    statuses,
+}: Props) {
     const { tenant, auth } = usePage<SharedProps>().props;
     const canCreate = auth.user?.is_manager ?? false;
     const [open, setOpen] = useState(false);
-    const [q, setQ] = useState(filters.q ?? '');
+    const [selected, setSelected] = useState<number[]>([]);
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-    const firstRender = useRef(true);
 
-    useLive(tenant ? `tenant.${tenant.id}.tasks` : null, ['TaskUpdated'], () => router.reload({ only: ['tasks', 'counts'] }), {
-        only: ['tasks', 'counts'],
+    useLive(tenant ? `tenant.${tenant.id}.tasks` : null, ['TaskUpdated'], () => router.reload({ only: live }), {
+        only: live,
         poll: true,
-        intervalMs: 5000,
+        intervalMs: 10000,
     });
 
-    const visit = (next: Partial<Filters>) => {
-        const merged = { ...filters, q, ...next };
-        const params: Record<string, string | number> = { view: merged.view };
-        if (merged.agent) params.agent = merged.agent;
+    // A new page of results is a new selection.
+    useEffect(
+        () => setSelected([]),
+        [filters.view, filters.estado, filters.prioridade, filters.responsavel, filters.prazo, filters.q, tasks.current_page],
+    );
+
+    // A changed filter starts again at page 1; defaults stay out of the address.
+    const go = (next: Partial<Filters>) => {
+        const merged = { ...filters, ...next };
+        const params: Record<string, string | number> = {};
+        if (merged.view !== 'mine') params.view = merged.view;
+        if (merged.estado) params.estado = merged.estado;
+        if (merged.prioridade) params.prioridade = merged.prioridade;
+        if (merged.responsavel) params.responsavel = merged.responsavel;
+        if (merged.prazo) params.prazo = merged.prazo;
         if (merged.goal) params.goal = merged.goal;
         if (merged.project) params.project = merged.project;
         if (merged.q) params.q = merged.q;
-        router.get('/tasks', params, { preserveState: true, preserveScroll: true, replace: true });
+        if (merged.ordenar !== 'actividade') params.ordenar = merged.ordenar;
+        if (merged.agrupar !== 'estado') params.agrupar = merged.agrupar;
+        if (merged.por_pagina !== per_page_options[0]) params.por_pagina = merged.por_pagina;
+        router.get('/tasks', params, { preserveState: true, preserveScroll: true, replace: next.q !== undefined });
     };
 
+    // Searches as the person types, a moment after they stop.
+    const [query, setQuery] = useState(filters.q);
+    const typed = useRef(false);
     useEffect(() => {
-        if (firstRender.current) {
-            firstRender.current = false;
+        if (!typed.current) {
             return;
         }
-        const timer = window.setTimeout(() => visit({ q }), 300);
-        return () => window.clearTimeout(timer);
-    }, [q]);
+        const timer = window.setTimeout(() => go({ q: query.trim() }), 300);
 
-    const groups = statusOrder
-        .map((status) => ({ status, items: tasks.filter((task) => task.status === status) }))
-        .filter((group) => group.items.length > 0);
-    const goalFilter = filters.goal ? goals.find((goal) => goal.id === filters.goal) : null;
-    const projectFilter = filters.project ? projects.find((project) => project.id === filters.project) : null;
+        return () => window.clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [query]);
+    const search = (value: string) => {
+        typed.current = true;
+        setQuery(value);
+    };
+
+    const assigneeName = (key: string | null) => {
+        if (!key) return null;
+        if (key === 'ninguem') return 'Por atribuir';
+        const [type, id] = key.split(':');
+        const list: { id: number; name: string }[] = type === 'agent' ? agents : people;
+
+        return list.find((item) => item.id === Number(id))?.name ?? (type === 'agent' ? 'Agente' : 'Pessoa');
+    };
+    const statusLabel = (status: string) => statuses.find((s) => s.value === status)?.label ?? status;
+    const priorityLabel = (priority: string) => priorities.find((p) => p.value === priority)?.label ?? priority;
+
+    const chips = [
+        filters.estado && { key: 'estado', label: `Estado: ${statusLabel(filters.estado)}`, clear: { estado: null } },
+        filters.responsavel && { key: 'responsavel', label: `Responsável: ${assigneeName(filters.responsavel)}`, clear: { responsavel: null } },
+        filters.prioridade && { key: 'prioridade', label: `Prioridade: ${priorityLabel(filters.prioridade)}`, clear: { prioridade: null } },
+        filters.prazo && { key: 'prazo', label: dueLabels[filters.prazo], clear: { prazo: null } },
+        filters.project && {
+            key: 'project',
+            label: `Projecto: ${projects.find((p) => p.id === filters.project)?.name ?? '—'}`,
+            clear: { project: null },
+        },
+        filters.goal && { key: 'goal', label: `Objectivo: ${goals.find((g) => g.id === filters.goal)?.title ?? '—'}`, clear: { goal: null } },
+    ].filter(Boolean) as { key: string; label: string; clear: Partial<Filters> }[];
+    const filtered = chips.length > 0 || filters.q !== '';
+
+    const groups = useMemo(() => {
+        const keyOf = (task: TaskSummary): { key: string; label: ReactNode; icon: ReactNode } => {
+            if (filters.agrupar === 'estado') {
+                return { key: task.status, label: task.status_label, icon: <TaskStatusIcon status={task.status} /> };
+            }
+            if (filters.agrupar === 'prioridade') {
+                return { key: task.priority, label: task.priority_label, icon: <PriorityIcon priority={task.priority} /> };
+            }
+            if (filters.agrupar === 'responsavel') {
+                const who = task.assignee ?? task.assignee_user;
+                return who
+                    ? {
+                          key: `${task.assignee ? 'agent' : 'user'}:${who.id}`,
+                          label: who.name,
+                          icon: task.assignee ? (
+                              <AgentAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
+                          ) : (
+                              <Monogram name={who.name} className="size-5 rounded-md text-[9px]" />
+                          ),
+                      }
+                    : { key: 'ninguem', label: 'Por atribuir', icon: <UserRound className="size-4 text-muted-foreground" /> };
+            }
+
+            return { key: 'all', label: '', icon: null };
+        };
+        const list: { key: string; label: ReactNode; icon: ReactNode; items: TaskSummary[] }[] = [];
+        tasks.data.forEach((task) => {
+            const group = keyOf(task);
+            const last = list[list.length - 1];
+            if (last?.key === group.key) {
+                last.items.push(task);
+            } else {
+                list.push({ ...group, items: [task] });
+            }
+        });
+
+        return list;
+    }, [tasks.data, filters.agrupar]);
+
+    const pageIds = tasks.data.map((task) => task.id);
+    const toggle = (id: number, on: boolean) => setSelected((ids) => (on ? [...ids, id] : ids.filter((other) => other !== id)));
+    const bulk = (data: { status?: string; priority?: string }) =>
+        router.post('/tasks/bulk', { ids: selected, ...data }, { preserveScroll: true, onSuccess: () => setSelected([]) });
+    const setStatus = (task: TaskSummary, status: string) => router.patch(`/tasks/${task.id}`, { status }, { preserveScroll: true, only: live });
+    const inViewStatuses = statusOrder.filter((status) => status_counts[status] > 0 || filters.estado === status);
 
     return (
         <AppLayout>
-            <Head title="Tarefas" />
+            <Head title={filters.view === 'chats' ? 'Conversas' : 'Tarefas'} />
 
             <PageHeader
                 title={filters.view === 'chats' ? 'Conversas' : 'Tarefas'}
                 description={
                     filters.view === 'chats'
                         ? 'As suas conversas com os agentes: uma por agente, sempre a mesma, com o que lhe pediu e o que ele respondeu.'
-                        : 'O trabalho dos agentes e as conversas consigo: o que está em curso, o que espera por si.'
+                        : 'O trabalho das pessoas e dos agentes: o que está em curso, o que espera por si e o que já ficou feito.'
                 }
                 actions={
                     canCreate && (
-                        <Button onClick={() => setOpen(true)}>
+                        <Button size="sm" onClick={() => setOpen(true)}>
                             <Plus />
                             Nova tarefa
                         </Button>
@@ -282,128 +458,324 @@ export default function TasksIndex({ tasks, filters, counts, agents, people, goa
                 }
             />
 
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <Tabs value={filters.view} onValueChange={(view) => visit({ view: view as View })} className="min-w-0">
-                        <TabsList variant="line" className="scroll-fade h-9 max-w-full justify-start overflow-x-auto">
-                            <TabsTrigger value="mine" className="flex-none">
-                                Minhas
-                                <Count value={counts.mine} />
-                            </TabsTrigger>
-                            <TabsTrigger value="waiting" className="flex-none">
-                                À tua espera
-                                <Count value={counts.waiting} warn />
-                            </TabsTrigger>
-                            <TabsTrigger value="all" className="flex-none">
-                                Todas
-                            </TabsTrigger>
-                            <TabsTrigger value="chats" className="flex-none">
-                                Conversas
-                            </TabsTrigger>
-                            <TabsTrigger value="closed" className="flex-none">
-                                Fechadas
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        {projectFilter && (
-                            <button
-                                type="button"
-                                onClick={() => visit({ project: null })}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                                title="Retirar filtro"
-                            >
-                                Projecto: <span className="max-w-40 truncate text-foreground">{projectFilter.name}</span> ×
-                            </button>
-                        )}
-                        {goalFilter && (
-                            <button
-                                type="button"
-                                onClick={() => visit({ goal: null })}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                                title="Retirar filtro"
-                            >
-                                Objectivo: <span className="max-w-40 truncate text-foreground">{goalFilter.title}</span> ×
-                            </button>
-                        )}
-                        <Select
-                            value={filters.agent ? String(filters.agent) : NONE}
-                            onValueChange={(value) => visit({ agent: value === NONE ? null : Number(value) })}
-                        >
-                            <SelectTrigger size="sm" className="w-full sm:w-48">
-                                <SelectValue placeholder="Agente" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={NONE}>Todos os agentes</SelectItem>
-                                {agents.map((agent) => (
-                                    <SelectItem key={agent.id} value={String(agent.id)}>
-                                        {agent.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <div className="relative sm:w-64">
-                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Procurar por título…" className="h-8 pl-8 text-sm" />
-                        </div>
-                    </div>
+            {(waiting_total > 0 && filters.view !== 'waiting') || (overdue_total > 0 && filters.prazo !== 'atrasadas') ? (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                    {waiting_total > 0 && filters.view !== 'waiting' && (
+                        <Strip
+                            tone="warning"
+                            icon={Hand}
+                            text={`${plural(waiting_total, 'tarefa espera', 'tarefas esperam')} pela sua resposta.`}
+                            action="Responder"
+                            onClick={() => go({ view: 'waiting', estado: null })}
+                        />
+                    )}
+                    {overdue_total > 0 && filters.prazo !== 'atrasadas' && (
+                        <Strip
+                            tone="danger"
+                            icon={CalendarX2}
+                            text={`${plural(overdue_total, 'tarefa sua passou', 'tarefas suas passaram')} do prazo.`}
+                            action="Ver"
+                            onClick={() => go({ view: 'mine', prazo: 'atrasadas', estado: null })}
+                        />
+                    )}
                 </div>
+            ) : null}
 
-                {groups.length === 0 ? (
-                    <EmptyState
-                        icon={filters.view === 'chats' ? MessagesSquare : ListTodo}
-                        title={filters.q || filters.agent || filters.goal || filters.project ? 'Nada encontrado' : emptyCopy[filters.view].title}
-                        description={
-                            filters.q || filters.agent || filters.goal || filters.project
-                                ? 'Experimente retirar os filtros ou mudar de vista.'
-                                : emptyCopy[filters.view].description
-                        }
-                        action={
-                            canCreate && (
-                                <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-                                    <Plus />
-                                    Nova tarefa
-                                </Button>
-                            )
-                        }
-                    />
-                ) : (
-                    <div className="flex flex-col gap-5">
-                        {groups.map((group) => {
-                            const first = group.items[0];
-                            const isCollapsed = collapsed[group.status] ?? false;
-
-                            return (
-                                <div key={group.status} className="flex flex-col gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => setCollapsed({ ...collapsed, [group.status]: !isCollapsed })}
-                                        className="flex w-fit items-center gap-2 rounded-md px-1 py-0.5 text-sm font-medium hover:bg-accent/60"
-                                        aria-expanded={!isCollapsed}
-                                    >
-                                        <ChevronRight
-                                            className={cn('size-3.5 text-muted-foreground transition-transform', !isCollapsed && 'rotate-90')}
-                                        />
-                                        <TaskStatusIcon status={group.status} />
-                                        {first.status_label}
-                                        <span className="font-mono text-xs text-muted-foreground tabular-nums">{group.items.length}</span>
-                                    </button>
-                                    {!isCollapsed && (
-                                        <div className="divide-y overflow-hidden rounded-xl border bg-card">
-                                            {group.items.map((task) => (
-                                                <TaskRow key={task.id} task={task} />
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {tasks.length >= 200 && (
-                            <p className="text-center text-xs text-muted-foreground">A mostrar as 200 mais recentes. Use os filtros para afinar.</p>
-                        )}
+            <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
+                {/* Views and statuses: a rail on wide screens, a scrolling row of chips on a phone. */}
+                <nav aria-label="Vistas de tarefas" className="flex flex-col gap-4 max-lg:-mx-4">
+                    <div className="scroll-fade flex gap-1 overflow-x-auto max-lg:px-4 lg:flex-col lg:overflow-visible">
+                        {views.map((view) => (
+                            <RailButton
+                                key={view.key}
+                                label={view.label}
+                                title={view.hint}
+                                icon={<view.icon className="size-4 shrink-0" />}
+                                active={filters.view === view.key}
+                                count={counts[view.key]}
+                                urgent={view.key === 'waiting' && counts.waiting > 0}
+                                onClick={() => go({ view: view.key, estado: null })}
+                            />
+                        ))}
                     </div>
-                )}
+                    {filters.view !== 'chats' && inViewStatuses.length > 1 && (
+                        <div className="hidden flex-col gap-1 lg:flex">
+                            <div className="px-2 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Por estado</div>
+                            {inViewStatuses.map((status) => (
+                                <RailButton
+                                    key={status}
+                                    label={statusLabel(status)}
+                                    icon={<TaskStatusIcon status={status} />}
+                                    active={filters.estado === status}
+                                    count={status_counts[status]}
+                                    onClick={() => go({ estado: filters.estado === status ? null : status })}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </nav>
+
+                <div className="flex min-w-0 flex-col gap-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                        <div className="relative w-full sm:w-72">
+                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                value={query}
+                                onChange={(event) => search(event.target.value)}
+                                onKeyDown={(event) => event.key === 'Escape' && query !== '' && search('')}
+                                placeholder="Pesquisar título, descrição, nº ou responsável"
+                                aria-label="Pesquisar tarefas"
+                                className="h-8 pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
+                            />
+                            {query !== '' && (
+                                <button
+                                    type="button"
+                                    onClick={() => search('')}
+                                    className="absolute top-1/2 right-2 -translate-y-1/2 rounded text-muted-foreground hover:text-foreground"
+                                    aria-label="Limpar pesquisa"
+                                >
+                                    <X className="size-4" />
+                                </button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                            <FilterSelect
+                                label="Responsável"
+                                value={filters.responsavel}
+                                onChange={(responsavel) => go({ responsavel })}
+                                className="sm:w-44"
+                                options={[
+                                    { value: 'ninguem', label: 'Por atribuir' },
+                                    ...agents.map((agent) => ({ value: `agent:${agent.id}`, label: agent.name, hint: 'agente' })),
+                                    ...people.map((person) => ({ value: `user:${person.id}`, label: person.name, hint: 'pessoa' })),
+                                ]}
+                            />
+                            <FilterSelect
+                                label="Prioridade"
+                                value={filters.prioridade}
+                                onChange={(prioridade) => go({ prioridade: prioridade as TaskPriority | null })}
+                                className="sm:w-36"
+                                options={priorityOrder.map((p) => ({
+                                    value: p,
+                                    label: <PriorityIcon priority={p} label={priorityLabel(p)} withLabel />,
+                                }))}
+                            />
+                            <FilterSelect
+                                label="Prazo"
+                                value={filters.prazo}
+                                onChange={(prazo) => go({ prazo: prazo as Filters['prazo'] })}
+                                className="sm:w-40"
+                                options={Object.entries(dueLabels).map(([value, label]) => ({ value, label }))}
+                            />
+                            {filters.view !== 'chats' && (
+                                <FilterSelect
+                                    label="Estado"
+                                    value={filters.estado}
+                                    onChange={(estado) => go({ estado: estado as TaskStatus | null })}
+                                    className="lg:hidden"
+                                    options={inViewStatuses.map((s) => ({ value: s, label: statusLabel(s) }))}
+                                />
+                            )}
+                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="sm:ml-auto">
+                                    <SlidersHorizontal />
+                                    Mostrar
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuLabel>Agrupar por</DropdownMenuLabel>
+                                <DropdownMenuRadioGroup value={filters.agrupar} onValueChange={(agrupar) => go({ agrupar: agrupar as Group })}>
+                                    {(Object.keys(groupLabels) as Group[]).map((key) => (
+                                        <DropdownMenuRadioItem key={key} value={key}>
+                                            {groupLabels[key]}
+                                        </DropdownMenuRadioItem>
+                                    ))}
+                                </DropdownMenuRadioGroup>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                                <DropdownMenuRadioGroup value={filters.ordenar} onValueChange={(ordenar) => go({ ordenar: ordenar as Sort })}>
+                                    {(Object.keys(sortLabels) as Sort[]).map((key) => (
+                                        <DropdownMenuRadioItem key={key} value={key}>
+                                            {sortLabels[key]}
+                                        </DropdownMenuRadioItem>
+                                    ))}
+                                </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    {chips.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {chips.map((chip) => (
+                                <button
+                                    key={chip.key}
+                                    type="button"
+                                    onClick={() => go(chip.clear)}
+                                    className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 text-xs text-foreground/80 hover:bg-accent"
+                                    title="Retirar filtro"
+                                >
+                                    <span className="truncate">{chip.label}</span>
+                                    <X className="size-3 shrink-0 text-muted-foreground" />
+                                </button>
+                            ))}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                    typed.current = false;
+                                    setQuery('');
+                                    go({ estado: null, responsavel: null, prioridade: null, prazo: null, project: null, goal: null, q: '' });
+                                }}
+                            >
+                                Limpar filtros
+                            </Button>
+                        </div>
+                    )}
+
+                    {tasks.data.length === 0 ? (
+                        <EmptyState
+                            icon={filtered ? SearchX : filters.view === 'chats' ? MessagesSquare : filters.view === 'waiting' ? CheckCheck : ListTodo}
+                            title={filtered ? 'Nada encontrado' : emptyCopy[filters.view].title}
+                            description={
+                                filtered
+                                    ? `Nenhuma tarefa em «${views.find((v) => v.key === filters.view)?.label}»${filters.q ? ` tem «${filters.q}»` : ' corresponde aos filtros'}. Experimente outra palavra, retire filtros ou mude de vista.`
+                                    : emptyCopy[filters.view].description
+                            }
+                            action={
+                                canCreate &&
+                                !filtered &&
+                                filters.view !== 'chats' && (
+                                    <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+                                        <Plus />
+                                        Nova tarefa
+                                    </Button>
+                                )
+                            }
+                        />
+                    ) : (
+                        <>
+                            {/* Sticky under the top bar while choosing down the list. */}
+                            <div className="sticky top-14 z-20 flex min-h-11 flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-1.5 text-sm shadow-xs">
+                                <Checkbox
+                                    checked={selected.length === 0 ? false : selected.length === pageIds.length ? true : 'indeterminate'}
+                                    onCheckedChange={(on) => setSelected(on === true ? pageIds : [])}
+                                    aria-label="Seleccionar todas desta página"
+                                />
+                                <span className="text-muted-foreground">
+                                    {selected.length === 0
+                                        ? 'Seleccione para mudar várias de uma vez'
+                                        : plural(selected.length, 'seleccionada', 'seleccionadas')}
+                                </span>
+                                {selected.length > 0 && (
+                                    <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                                        <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
+                                            Limpar
+                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="sm" variant="outline">
+                                                    <Flag />
+                                                    Prioridade
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {priorityOrder.map((p) => (
+                                                    <DropdownMenuItem key={p} onSelect={() => bulk({ priority: p })}>
+                                                        <PriorityIcon priority={p} label={priorityLabel(p)} withLabel />
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="sm">
+                                                    <CircleDashed />
+                                                    Mudar estado
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {statusOrder.map((s) => (
+                                                    <DropdownMenuItem key={s} onSelect={() => bulk({ status: s })}>
+                                                        <TaskStatusIcon status={s} />
+                                                        {statusLabel(s)}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                )}
+                            </div>
+
+                            {groups.map((group, index) => {
+                                const key = `${group.key}-${index}`;
+                                const isCollapsed = collapsed[group.key] ?? false;
+                                const total = filters.agrupar === 'estado' ? status_counts[group.key as TaskStatus] : undefined;
+
+                                return (
+                                    <section key={key} className="flex flex-col gap-1.5">
+                                        {filters.agrupar !== 'nenhum' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setCollapsed({ ...collapsed, [group.key]: !isCollapsed })}
+                                                className="flex w-fit items-center gap-2 rounded-md px-1 py-0.5 text-sm font-medium hover:bg-accent/60"
+                                                aria-expanded={!isCollapsed}
+                                            >
+                                                <ChevronRight
+                                                    className={cn('size-3.5 text-muted-foreground transition-transform', !isCollapsed && 'rotate-90')}
+                                                />
+                                                {group.icon}
+                                                {group.label}
+                                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                                    {total !== undefined && total > group.items.length
+                                                        ? `${group.items.length} de ${number(total)}`
+                                                        : group.items.length}
+                                                </span>
+                                            </button>
+                                        )}
+                                        {!isCollapsed && (
+                                            <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                                                {group.items.map((task) => (
+                                                    <TaskRow
+                                                        key={task.id}
+                                                        task={task}
+                                                        selectable={{ selected: selected.includes(task.id), onSelect: (on) => toggle(task.id, on) }}
+                                                        onStatus={task.kind === 'task' ? (status) => setStatus(task, status) : undefined}
+                                                        statuses={statuses}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </section>
+                                );
+                            })}
+                        </>
+                    )}
+
+                    {tasks.total > 0 && (
+                        <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center">
+                            <Pagination page={tasks} noun={['tarefa', 'tarefas']} className="flex-1" />
+                            <label className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                Por página
+                                <NativeSelect
+                                    value={filters.por_pagina}
+                                    onChange={(event) => go({ por_pagina: Number(event.target.value) })}
+                                    className="h-8 w-20 text-xs md:text-xs"
+                                    aria-label="Tarefas por página"
+                                >
+                                    {per_page_options.map((size) => (
+                                        <option key={size} value={size}>
+                                            {size}
+                                        </option>
+                                    ))}
+                                </NativeSelect>
+                            </label>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <NewTaskDialog
@@ -414,39 +786,221 @@ export default function TasksIndex({ tasks, filters, counts, agents, people, goa
                 goals={goals}
                 projects={projects}
                 priorities={priorities}
-                defaultAgent={filters.agent}
+                defaultAgent={filters.responsavel?.startsWith('agent:') ? Number(filters.responsavel.slice(6)) : null}
                 defaultProject={filters.project}
             />
         </AppLayout>
     );
 }
 
-function Count({ value, warn = false }: { value: number; warn?: boolean }) {
-    if (value === 0) {
-        return null;
-    }
+function Strip({
+    tone,
+    icon: Icon,
+    text,
+    action,
+    onClick,
+}: {
+    tone: 'warning' | 'danger';
+    icon: LucideIcon;
+    text: string;
+    action: string;
+    onClick: () => void;
+}) {
+    return (
+        <div
+            className={cn(
+                'flex flex-1 items-center gap-3 rounded-xl border px-4 py-2.5 text-sm',
+                tone === 'warning' ? 'border-status-warning/40 bg-status-warning/10' : 'border-status-danger/30 bg-status-danger/[0.07]',
+            )}
+        >
+            <span
+                className={cn(
+                    'inline-flex size-7 shrink-0 items-center justify-center rounded-lg',
+                    tone === 'warning' ? 'bg-status-warning/20' : 'bg-status-danger/15 text-status-danger',
+                )}
+            >
+                <Icon className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1 font-medium">{text}</span>
+            <Button size="sm" variant="outline" onClick={onClick}>
+                {action}
+            </Button>
+        </div>
+    );
+}
+
+function RailButton({
+    label,
+    title,
+    icon,
+    active,
+    count,
+    urgent = false,
+    onClick,
+}: {
+    label: string;
+    title?: string;
+    icon: ReactNode;
+    active: boolean;
+    count: number;
+    urgent?: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            title={title}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+                'flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 text-sm whitespace-nowrap transition-colors max-lg:border',
+                active ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+            )}
+        >
+            {icon}
+            <span className="truncate lg:flex-1 lg:text-left">{label}</span>
+            {count > 0 && (
+                <span
+                    className={cn(
+                        'rounded-full px-1.5 font-mono text-[11px] text-foreground tabular-nums',
+                        urgent ? 'bg-status-warning/20' : active ? 'bg-background/80' : 'bg-muted',
+                    )}
+                >
+                    {number(count)}
+                </span>
+            )}
+        </button>
+    );
+}
+
+function FilterSelect({
+    label,
+    value,
+    onChange,
+    options,
+    className,
+}: {
+    label: string;
+    value: string | null;
+    onChange: (value: string | null) => void;
+    options: { value: string; label: ReactNode; hint?: string }[];
+    className?: string;
+}) {
+    return (
+        <Select value={value ?? NONE} onValueChange={(next) => onChange(next === NONE ? null : next)}>
+            <SelectTrigger size="sm" className={cn('w-full', value && 'border-primary/40 bg-primary/5', className)} aria-label={label}>
+                <SelectValue placeholder={label} />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value={NONE}>
+                    <span className="text-muted-foreground">{label}: todos</span>
+                </SelectItem>
+                {options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                        {option.hint && <span className="text-muted-foreground"> · {option.hint}</span>}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+/** A due date as a small chip: red when it has passed, amber when it is within two days. */
+export function DueChip({ due, closed }: { due: string; closed: boolean }) {
+    const left = new Date(due).getTime() - Date.now();
+    const tone = closed ? 'idle' : left < 0 ? 'danger' : left < 2 * 86_400_000 ? 'warning' : 'idle';
 
     return (
         <span
             className={cn(
-                'inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 font-mono text-[10px] tabular-nums',
-                warn ? 'bg-status-warning/20 text-warning-strong' : 'bg-muted text-muted-foreground',
+                'inline-flex h-5 shrink-0 items-center gap-1 rounded-md border px-1.5 text-[11px] whitespace-nowrap tabular-nums',
+                tone === 'danger' && 'border-status-danger/40 bg-status-danger/10 text-status-danger',
+                tone === 'warning' && 'border-status-warning/40 bg-status-warning/10 text-foreground',
+                tone === 'idle' && 'text-muted-foreground',
             )}
+            title={`Prazo: ${deadline(due)}`}
         >
-            {value}
+            <CalendarClock className="size-3" />
+            {tone === 'danger' ? `Atrasada ${ago(due)}` : shortDay(due)}
         </span>
     );
 }
 
-export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?: boolean }) {
+const shortDayFormat = new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'short' });
+const shortDay = (value: string) => shortDayFormat.format(new Date(value)).replace('.', '');
+
+export function TaskRow({
+    task,
+    compact = false,
+    selectable,
+    onStatus,
+    statuses,
+}: {
+    task: TaskSummary;
+    compact?: boolean;
+    selectable?: { selected: boolean; onSelect: (on: boolean) => void };
+    onStatus?: (status: string) => void;
+    statuses?: Option[];
+}) {
+    const closed = task.status === 'done' || task.status === 'cancelled';
+    const who = task.assignee ?? task.assignee_user;
+
     return (
-        <Link href={`/tasks/${task.id}`} className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/60">
-            <TaskStatusIcon status={task.status} label={task.status_label} />
+        <div
+            className={cn(
+                'group relative flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50',
+                selectable?.selected && 'bg-accent/70',
+            )}
+        >
+            {selectable && (
+                <span className="relative z-10 flex items-center">
+                    <Checkbox
+                        checked={selectable.selected}
+                        onCheckedChange={(on) => selectable.onSelect(on === true)}
+                        aria-label={`Seleccionar «${task.title}»`}
+                    />
+                </span>
+            )}
+            {onStatus && statuses ? (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            className="relative z-10 -m-1 rounded-md p-1 hover:bg-accent"
+                            aria-label={`Estado: ${task.status_label}. Mudar`}
+                        >
+                            <TaskStatusIcon status={task.status} label={task.status_label} />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Mudar estado</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={task.status} onValueChange={onStatus}>
+                            {statusOrder.map((status) => (
+                                <DropdownMenuRadioItem key={status} value={status}>
+                                    <TaskStatusIcon status={status} />
+                                    {statuses.find((s) => s.value === status)?.label ?? status}
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ) : (
+                <TaskStatusIcon status={task.status} label={task.status_label} />
+            )}
             <span className="hidden w-16 shrink-0 font-mono text-xs text-muted-foreground sm:inline">{task.ref}</span>
             <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
                     <PriorityIcon priority={task.priority} label={task.priority_label} />
-                    <span className="line-clamp-2 min-w-0 text-sm font-medium break-words sm:line-clamp-1">{task.title}</span>
+                    <Link
+                        href={`/tasks/${task.id}`}
+                        className={cn(
+                            'line-clamp-2 min-w-0 text-sm font-medium break-words after:absolute after:inset-0 focus-visible:outline-none sm:line-clamp-1',
+                            closed && 'text-muted-foreground',
+                        )}
+                    >
+                        {task.title}
+                    </Link>
                     {task.kind === 'chat' && (
                         <span className="hidden shrink-0 sm:inline-flex">
                             <ChatBadge />
@@ -455,30 +1009,47 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                     {task.working && <WorkingPulse />}
                 </div>
                 {/* Wraps to a second line on a phone instead of cutting every name. */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                     <span className="shrink-0 font-mono whitespace-nowrap sm:hidden">{task.ref}</span>
-                    {(task.assignee ?? task.assignee_user) && (
-                        <span className={cn('max-w-full truncate', !compact && 'md:hidden')}>{(task.assignee ?? task.assignee_user)!.name}</span>
-                    )}
+                    {who && <span className={cn('max-w-full truncate', !compact && 'md:hidden')}>{who.name}</span>}
                     {task.created_by_agent && task.created_by && <span className="max-w-full truncate">delegada por {task.created_by}</span>}
-                    {!task.created_by_agent && task.user && !compact && <span className="hidden truncate lg:inline">com {task.user}</span>}
+                    {!task.created_by_agent && task.user && !compact && <span className="hidden truncate lg:inline">pedida por {task.user}</span>}
+                    {task.due_at && (
+                        <span className={cn(!compact && 'md:hidden')}>
+                            <DueChip due={task.due_at} closed={closed} />
+                        </span>
+                    )}
                 </div>
             </div>
             {!compact && (
-                <div className="hidden shrink-0 items-center gap-3 text-xs text-muted-foreground md:flex">
-                    {task.goal && <GoalChip goal={task.goal} />}
-                    {task.assignee ? (
-                        <span className="flex w-36 items-center gap-2 truncate">
-                            <AgentAvatar name={task.assignee.name} className="size-5 rounded-md text-[9px]" />
-                            <span className="truncate text-foreground/80">{task.assignee.name}</span>
-                        </span>
-                    ) : task.assignee_user ? (
-                        <span className="flex w-36 items-center gap-2 truncate">
-                            <Monogram name={task.assignee_user.name} className="size-5 rounded-md text-[9px]" />
-                            <span className="truncate text-foreground/80">{task.assignee_user.name}</span>
+                <div className="hidden shrink-0 items-center gap-2 text-xs text-muted-foreground md:flex">
+                    {task.project ? (
+                        <span
+                            className="hidden max-w-40 items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[11px] xl:inline-flex"
+                            title={`Projecto: ${task.project.name}`}
+                        >
+                            <FolderKanban className="size-3 shrink-0" />
+                            <span className="truncate">{task.project.name}</span>
                         </span>
                     ) : (
-                        <span className="w-36">Por atribuir</span>
+                        task.goal && (
+                            <span className="hidden xl:inline-flex">
+                                <GoalChip goal={task.goal} />
+                            </span>
+                        )
+                    )}
+                    {task.due_at && <DueChip due={task.due_at} closed={closed} />}
+                    {who ? (
+                        <span className="ml-1 flex w-36 items-center gap-2 truncate">
+                            {task.assignee ? (
+                                <AgentAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
+                            ) : (
+                                <Monogram name={who.name} className="size-5 rounded-md text-[9px]" />
+                            )}
+                            <span className="truncate text-foreground/80">{who.name}</span>
+                        </span>
+                    ) : (
+                        <span className="ml-1 w-36">Por atribuir</span>
                     )}
                 </div>
             )}
@@ -496,7 +1067,7 @@ export function TaskRow({ task, compact = false }: { task: TaskSummary; compact?
                     {ago(task.last_activity_at ?? task.created_at)}
                 </span>
             </div>
-        </Link>
+        </div>
     );
 }
 

@@ -43,7 +43,7 @@ it('lets managers create projects under a goal and shows their progress to every
             ->where('can_manage', false));
 
     $this->actingAs($this->manager)->get(tenantUrl($this->tenant, "tasks?view=all&project={$project->id}"))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('tasks', 1));
+        ->assertInertia(fn (Assert $page) => $page->has('tasks.data', 1));
 });
 
 it('puts a task in a project and takes the goal from it', function () {

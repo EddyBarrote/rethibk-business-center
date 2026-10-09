@@ -178,7 +178,7 @@ it('shows tasks only to people involved, and never across tenants', function () 
     $this->actingAs($userB)->get(tenantUrl($this->b, "tasks/{$task->id}"))->assertNotFound();
 
     $this->actingAs($this->member)->get(tenantUrl($this->a, 'tasks?view=all'))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Tasks/Index')->has('tasks', 0));
+        ->assertInertia(fn (Assert $page) => $page->component('Tasks/Index')->has('tasks.data', 0));
 });
 
 it('posts a direct action and changes status from the console', function () {

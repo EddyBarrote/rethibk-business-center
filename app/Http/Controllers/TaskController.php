@@ -48,6 +48,18 @@ use Inertia\Response;
  */
 class TaskController extends Controller
 {
+    /** How many per page: the first is the default. */
+    private const PER_PAGE = [20, 50, 100];
+
+    /** What needs a person first, closed last: the order of the status groups. */
+    private const STATUS_ORDER = ['waiting_human', 'in_progress', 'in_review', 'blocked', 'todo', 'done', 'cancelled'];
+
+    private const PRIORITY_ORDER = ['urgent', 'high', 'normal', 'low'];
+
+    /**
+     * The tasks page (docs/DECISOES.md, "Página de tarefas"): views with their
+     * counts, filters that stay in the address, search, groups and pages.
+     */
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Task::class);
@@ -55,42 +67,217 @@ class TaskController extends Controller
 
         $filters = $request->validate([
             'view' => ['nullable', Rule::in(['mine', 'all', 'chats', 'waiting', 'closed'])],
+            'estado' => ['nullable', Rule::enum(TaskStatus::class)],
+            'prioridade' => ['nullable', Rule::enum(TaskPriority::class)],
+            'responsavel' => ['nullable', 'string', 'regex:/^((agent|user):\d+|ninguem)$/'],
+            'prazo' => ['nullable', Rule::in(['atrasadas', 'semana', 'sem-prazo'])],
             'agent' => ['nullable', 'integer'],
             'goal' => ['nullable', 'integer'],
             'project' => ['nullable', 'integer'],
             'person' => ['nullable', 'integer'],
             'q' => ['nullable', 'string', 'max:120'],
+            'ordenar' => ['nullable', Rule::in(['actividade', 'prioridade', 'prazo', 'criacao'])],
+            'agrupar' => ['nullable', Rule::in(['estado', 'prioridade', 'responsavel', 'nenhum'])],
+            'por_pagina' => ['nullable', 'integer', Rule::in(self::PER_PAGE)],
         ]);
         $view = $filters['view'] ?? 'mine';
+        // Older links (an agent's or a person's page) still say ?agent= or ?person=.
+        $assignee = $filters['responsavel'] ?? match (true) {
+            isset($filters['agent']) => "agent:{$filters['agent']}",
+            isset($filters['person']) => "user:{$filters['person']}",
+            default => null,
+        };
+        $search = trim((string) ($filters['q'] ?? ''));
+        $status = isset($filters['estado']) ? TaskStatus::from($filters['estado']) : null;
+        $sort = $filters['ordenar'] ?? 'actividade';
+        $group = $filters['agrupar'] ?? 'estado';
+        $perPage = (int) ($filters['por_pagina'] ?? self::PER_PAGE[0]);
 
-        $query = $this->visible(Task::query(), $user)
-            ->with(Present::TASK_RELATIONS)
-            ->withCount('messages')
+        // Everything but the view and the status: the counters beside them use it too.
+        $narrow = fn (Builder $q) => $q
             ->tap($this->listed(...))
-            ->when($view === 'mine', fn (Builder $q) => $q->open()->needing($user))
-            ->when($view === 'all', fn (Builder $q) => $q->open()->where('kind', TaskKind::Task))
-            ->when($view === 'chats', fn (Builder $q) => $q->where('kind', TaskKind::Chat)->whereNot('status', TaskStatus::Cancelled))
-            ->when($view === 'waiting', fn (Builder $q) => $q->where('status', TaskStatus::WaitingHuman))
-            ->when($view === 'closed', fn (Builder $q) => $q->whereIn('status', [TaskStatus::Done, TaskStatus::Cancelled]))
-            ->when($filters['agent'] ?? null, fn (Builder $q, $agent) => $q->where('assignee_agent_id', $agent))
+            ->when($assignee, fn (Builder $q) => $this->assignedTo($q, (string) $assignee))
+            ->when($filters['prioridade'] ?? null, fn (Builder $q, $priority) => $q->where('priority', $priority))
+            ->when($filters['prazo'] ?? null, fn (Builder $q, $due) => $this->due($q, $due))
             ->when($filters['goal'] ?? null, fn (Builder $q, $goal) => $q->where('goal_id', $goal))
             ->when($filters['project'] ?? null, fn (Builder $q, $project) => $q->where('project_id', $project))
-            ->when($filters['person'] ?? null, fn (Builder $q, $person) => $q->where('assignee_user_id', $person))
-            ->when($filters['q'] ?? null, fn (Builder $q, $term) => $q->where('title', 'like', '%'.$term.'%'))
-            ->orderByDesc('last_activity_at');
+            ->when($search !== '', fn (Builder $q) => $this->search($q, $search));
+        $base = fn (string $in) => $this->visible(Task::query(), $user)->tap($narrow)->tap(fn (Builder $q) => $this->inView($q, $in, $user));
 
-        $running = AgentRun::query()->whereNotNull('task_id')->whereIn('status', [RunStatus::Queued, RunStatus::Running])->pluck('task_id')->flip();
+        $page = $base($view)
+            ->with(Present::TASK_RELATIONS)
+            ->withCount('messages')
+            ->when($status, fn (Builder $q) => $q->where('status', $status))
+            ->tap(fn (Builder $q) => $this->sorted($q, $group, $sort))
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $running = AgentRun::query()->whereIn('task_id', $page->getCollection()->modelKeys())->whereIn('status', [RunStatus::Queued, RunStatus::Running])->pluck('task_id')->flip();
+        $byStatus = $base($view)->reorder()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $open = fn () => $this->visible(Task::query(), $user)->tap($this->listed(...))->open();
 
         return Inertia::render('Tasks/Index', [
-            'tasks' => $query->limit(200)->get()->map(fn (Task $task) => [...Present::task($task), 'working' => isset($running[$task->id])]),
-            'filters' => ['view' => $view, 'agent' => $filters['agent'] ?? null, 'goal' => $filters['goal'] ?? null, 'project' => $filters['project'] ?? null, 'q' => $filters['q'] ?? ''],
-            'counts' => [
-                // Counted with the same rule as the list, so a tab never promises rows it does not show.
-                'mine' => $this->visible(Task::query(), $user)->tap($this->listed(...))->open()->needing($user)->count(),
-                'waiting' => $this->visible(Task::query(), $user)->tap($this->listed(...))->where('status', TaskStatus::WaitingHuman)->count(),
+            'tasks' => $page->through(fn (Task $task) => [...Present::task($task), 'working' => isset($running[$task->id])]),
+            'filters' => [
+                'view' => $view,
+                'estado' => $status?->value,
+                'prioridade' => $filters['prioridade'] ?? null,
+                'responsavel' => $assignee,
+                'prazo' => $filters['prazo'] ?? null,
+                'goal' => $filters['goal'] ?? null,
+                'project' => $filters['project'] ?? null,
+                'q' => $search,
+                'ordenar' => $sort,
+                'agrupar' => $group,
+                'por_pagina' => $perPage,
             ],
+            'per_page_options' => self::PER_PAGE,
+            // Counted with the same rule and filters as the list, so a view never promises rows it does not show.
+            'counts' => collect(['mine', 'waiting', 'all', 'chats', 'closed'])->mapWithKeys(fn (string $in) => [$in => $base($in)->count()]),
+            'status_counts' => collect(self::STATUS_ORDER)->mapWithKeys(fn (string $s) => [$s => (int) ($byStatus[$s] ?? 0)]),
+            // The two strips on top: answers owed and deadlines passed, whatever the filters.
+            'waiting_total' => $open()->tap(fn (Builder $q) => $this->inView($q, 'waiting', $user))->count(),
+            'overdue_total' => $open()->tap(fn (Builder $q) => $this->due($q, 'atrasadas'))->tap(fn (Builder $q) => $this->inView($q, 'mine', $user))->count(),
             ...$this->formOptions($user),
         ]);
+    }
+
+    /**
+     * Change several at once from the list: their status or their priority.
+     * Tasks the person cannot change are left as they are.
+     */
+    public function bulk(Request $request, TaskThread $threads): RedirectResponse
+    {
+        Gate::authorize('viewAny', Task::class);
+        $user = $this->user($request);
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer'],
+            'status' => ['nullable', 'required_without:priority', Rule::enum(TaskStatus::class)],
+            'priority' => ['nullable', 'required_without:status', Rule::enum(TaskPriority::class)],
+        ]);
+
+        $changed = 0;
+        foreach ($this->visible(Task::query(), $user)->with(['parent', 'assigneeAgent'])->whereKey($data['ids'])->get() as $task) {
+            if (! $user->can('update', $task)) {
+                continue;
+            }
+
+            if (isset($data['priority']) && $task->priority->value !== $data['priority']) {
+                $task->forceFill(['priority' => $data['priority']])->save();
+                $threads->note($task, "{$user->name} mudou a prioridade para «{$task->priority->label()}».");
+            }
+
+            if (isset($data['status'])) {
+                $threads->setStatus($task, TaskStatus::from($data['status']), $user);
+            }
+
+            $changed++;
+        }
+
+        return back()->with('success', match ($changed) {
+            0 => 'Nenhuma tarefa foi alterada.',
+            1 => 'Uma tarefa actualizada.',
+            default => "{$changed} tarefas actualizadas.",
+        });
+    }
+
+    /**
+     * @param  Builder<Task>  $query
+     */
+    private function inView(Builder $query, string $view, User $user): void
+    {
+        match ($view) {
+            'mine' => $query->open()->needing($user),
+            'all' => $query->open()->where('kind', TaskKind::Task),
+            'chats' => $query->where('kind', TaskKind::Chat)->whereNot('status', TaskStatus::Cancelled),
+            'waiting' => $query->where('status', TaskStatus::WaitingHuman),
+            'closed' => $query->whereIn('status', [TaskStatus::Done, TaskStatus::Cancelled]),
+            default => null,
+        };
+    }
+
+    /**
+     * "agent:3", "user:7" or "ninguem" (nobody yet).
+     *
+     * @param  Builder<Task>  $query
+     */
+    private function assignedTo(Builder $query, string $assignee): void
+    {
+        if ($assignee === 'ninguem') {
+            $query->whereNull('assignee_agent_id')->whereNull('assignee_user_id');
+
+            return;
+        }
+
+        [$type, $id] = explode(':', $assignee);
+        $query->where($type === 'agent' ? 'assignee_agent_id' : 'assignee_user_id', (int) $id);
+    }
+
+    /**
+     * @param  Builder<Task>  $query
+     */
+    private function due(Builder $query, string $due): void
+    {
+        match ($due) {
+            'atrasadas' => $query->open()->where('due_at', '<', now()),
+            'semana' => $query->open()->whereBetween('due_at', [now(), now()->addDays(7)]),
+            'sem-prazo' => $query->whereNull('due_at'),
+            default => null,
+        };
+    }
+
+    /**
+     * Every word must appear in the title, the description, or the name of
+     * whoever has it; "MIC-12" or "12" also finds task number 12.
+     *
+     * @param  Builder<Task>  $query
+     */
+    private function search(Builder $query, string $search): void
+    {
+        $words = preg_split('/\s+/u', str_replace(['%', '_', '\\'], ' ', $search), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach (array_slice($words, 0, 8) as $word) {
+            $number = preg_match('/^(?:[a-z]{1,3}-)?(\d{1,9})$/i', $word, $match) === 1 ? (int) $match[1] : null;
+            $like = "%{$word}%";
+
+            $query->where(fn (Builder $q) => $q
+                ->where('title', 'like', $like)
+                ->orWhere('description', 'like', $like)
+                ->orWhereHas('assigneeAgent', fn (Builder $a) => $a->where('name', 'like', $like))
+                ->orWhereHas('assigneeUser', fn (Builder $u) => $u->where('name', 'like', $like))
+                ->when($number !== null, fn (Builder $q) => $q->orWhere('number', $number)));
+        }
+    }
+
+    /**
+     * The group comes first, so a group is never split across pages out of
+     * order; inside it, the chosen order.
+     *
+     * @param  Builder<Task>  $query
+     */
+    private function sorted(Builder $query, string $group, string $sort): void
+    {
+        $ranked = fn (string $column, array $order) => $query->orderByRaw(
+            "case {$column} ".implode(' ', array_fill(0, count($order), 'when ? then ?')).' else '.count($order).' end',
+            collect($order)->flatMap(fn (string $value, int $rank) => [$value, $rank])->all(),
+        );
+
+        match ($group) {
+            'estado' => $ranked('status', self::STATUS_ORDER),
+            'prioridade' => $ranked('priority', self::PRIORITY_ORDER),
+            'responsavel' => $query->orderByRaw('assignee_agent_id is null')->orderBy('assignee_agent_id')->orderByRaw('assignee_user_id is null')->orderBy('assignee_user_id'),
+            default => null,
+        };
+
+        match ($sort) {
+            'prioridade' => $ranked('priority', self::PRIORITY_ORDER)->orderByDesc('last_activity_at'),
+            'prazo' => $query->orderByRaw('due_at is null')->orderBy('due_at'),
+            'criacao' => $query->orderByDesc('created_at'),
+            default => $query->orderByDesc('last_activity_at'),
+        };
+
+        $query->orderByDesc('id');
     }
 
     /**

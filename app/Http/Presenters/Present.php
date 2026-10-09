@@ -184,6 +184,7 @@ final class Present
             'goal' => $task->goal ? ['id' => $task->goal->id, 'title' => $task->goal->title] : null,
             'project' => $task->project ? ['id' => $task->project->id, 'name' => $task->project->name] : null,
             'messages_count' => $task->messages_count ?? null,
+            'due_at' => $task->due_at?->toIso8601String(),
             'last_activity_at' => $task->last_activity_at?->toIso8601String(),
             'created_at' => $task->created_at->toIso8601String(),
         ];

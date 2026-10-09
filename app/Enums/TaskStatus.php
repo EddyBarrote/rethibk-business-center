@@ -17,7 +17,7 @@ enum TaskStatus: string
         return match ($this) {
             self::Todo => 'Por fazer',
             self::InProgress => 'Em curso',
-            self::WaitingHuman => 'À tua espera',
+            self::WaitingHuman => 'À sua espera',
             self::InReview => 'Em revisão',
             self::Blocked => 'Bloqueada',
             self::Done => 'Feita',

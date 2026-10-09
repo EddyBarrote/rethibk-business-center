@@ -163,7 +163,7 @@ it('puts the handed-over email in the tasks of the person who answers for the ar
         ->and($task->priority)->toBe(TaskPriority::High);
 
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?view=mine'))->assertOk()
-        ->assertInertia(fn ($page) => $page->where('tasks.0.id', $task->id));
+        ->assertInertia(fn ($page) => $page->where('tasks.data.0.id', $task->id));
 
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
         ->assertInertia(fn ($page) => $page->where('task.source.href', "/inbox/{$task->source_id}"));
@@ -229,7 +229,7 @@ it('shows what the agent is waiting on in the task and lets the person decide it
 
     // The owner is not on the task, but the decision waiting on them puts it in their tasks.
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?view=mine'))->assertOk()
-        ->assertInertia(fn ($page) => $page->where('tasks.0.id', $task->id)->where('counts.mine', 1));
+        ->assertInertia(fn ($page) => $page->where('tasks.data.0.id', $task->id)->where('counts.mine', 1));
 
     $this->actingAs($this->owner)->post(tenantUrl($this->tenant, "approvals/{$approval->id}/approve"))->assertRedirect();
 

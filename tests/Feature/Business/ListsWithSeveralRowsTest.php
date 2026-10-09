@@ -98,5 +98,5 @@ it('counts the task tabs with the same rule as the list, leaving out conversatio
     });
 
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'tasks'))->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page->where('counts.mine', fn ($count) => $count === count($page->toArray()['props']['tasks'])));
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('counts.mine', fn ($count) => $count === $page->toArray()['props']['tasks']['total']));
 });

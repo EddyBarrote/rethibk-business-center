@@ -592,3 +592,23 @@ Fica de fora por não existir ainda na plataforma: menções (@pessoa) e avisos 
 do nível passam pelas aprovações, que já chegam ao centro). Quando existirem, basta um tipo novo no enum.
 
 Testes: `tests/Feature/Notifications/NotificationsHubTest.php`.
+
+## Página de tarefas (09.10.2026)
+
+Pedido do Barrote: a lista `/tasks` ao nível do centro de notificações. Antes eram cinco separadores, um filtro por
+agente e uma pesquisa no título, com as 200 mais recentes de uma vez.
+
+| Decisão | Onde |
+|---|---|
+| **Vistas na coluna à esquerda** (em linha no telemóvel), cada uma com a sua contagem: Minhas, À sua espera, Todas abertas, Fechadas e Conversas. As contagens seguem os mesmos filtros e a mesma pesquisa da lista. Por baixo, **Por estado**, com as tarefas de cada estado na vista aberta; um clique filtra. | `TaskController::index()`, `inView()` |
+| **Filtros que ficam no endereço:** Responsável (agente, pessoa ou por atribuir), Prioridade, Prazo (ultrapassado, próximos 7 dias, sem prazo), Estado, Projecto e Objectivo, com fichas para retirar cada um e «Limpar filtros». Os links antigos `?agent=` e `?person=` continuam a funcionar. | `?responsavel=agent:3&prioridade=urgent&prazo=atrasadas` |
+| **Pesquisa** no título, na descrição e no nome do responsável, palavra a palavra; «MIC-12» ou «12» encontra a tarefa nº 12. Pesquisa enquanto se escreve. | `TaskController::search()` |
+| **Agrupar** por estado (por defeito), prioridade, responsável ou sem grupos, e **ordenar** por actividade recente (por defeito), prioridade, prazo ou criação, no botão «Mostrar». O grupo ordena primeiro na base de dados, para um grupo nunca se partir fora de ordem entre páginas. | `TaskController::sorted()` |
+| **Paginada** com 20, 50 ou 100 por página (20 por defeito), em vez das 200 de uma vez. | `Pages/Tasks/Index.tsx` |
+| **Mudar várias de uma vez:** seleccionar e mudar o estado ou a prioridade; as que a pessoa não pode alterar ficam como estão. Uma a uma, o ícone de estado abre o menu para o mudar ali mesmo (só tarefas; as conversas mudam-se na conversa). Não há apagar nem atribuir em bloco: atribuir acorda o agente e merece ser feito tarefa a tarefa. | `TaskController::bulk()`, `POST /tasks/bulk` |
+| **Faixas no topo:** quantas tarefas esperam pela sua resposta e quantas suas passaram do prazo, cada uma com o atalho para as ver. | `waiting_total`, `overdue_total` |
+| **Cada linha** mostra o prazo (vermelho quando passou, âmbar a menos de dois dias), o projecto ou objectivo, o responsável, as mensagens e a última actividade. | `TaskRow`, `DueChip` |
+| As conversas continuam privadas: só quem tem «Ler as conversas de todos» vê as dos outros, também nas contagens. A vista Conversas fica como estava, porque o ecrã das conversas está a ser repensado noutra conversa. | `TaskController::visible()` |
+| O estado «À tua espera» passa a «À sua espera», como no centro de notificações. | `TaskStatus::label()` |
+
+Testes: `tests/Feature/Tasks/TaskListTest.php`.
