@@ -67,7 +67,13 @@ export function ApprovalPanel({
 }) {
     return (
         <Sheet open={approval !== null} onOpenChange={(open) => !open && onClose()}>
-            <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-xl">
+            <SheetContent
+                side="right"
+                showCloseButton={false}
+                // Focus stays put, so no tooltip pops up on the first button.
+                onOpenAutoFocus={(event) => event.preventDefault()}
+                className="w-full gap-0 p-0 sm:max-w-xl"
+            >
                 {approval && (
                     <Body
                         key={approval.id}
