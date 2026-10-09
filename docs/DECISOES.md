@@ -649,3 +649,19 @@ Pedido do Barrote: a vista `/tasks?view=chats` já não fazia sentido e a conver
 | O caminho no topo de uma conversa passa a ser «Agentes › {agente}» (e «› Conversa de {pessoa}» na de outra pessoa). | `Pages/Tasks/Show.tsx` |
 
 Testes: `tests/Feature/Tasks/AgentConversationsTest.php`; sai `HomeTest.php`.
+
+## Rotinas e fluxos agendados (09.10.2026)
+
+Pergunta do Barrote: os agentes não eram proactivos. Já havia rotinas (um pedido num horário cron, só no super admin), vigias e o batimento, mas o resultado de uma rotina não chegava a ninguém, só o super admin as criava, uma hora perdida com o Mac a dormir não voltava a correr e os fluxos só começavam com um email. Decisões dele: o admin cria as rotinas, o resultado vai para a pessoa indicada e o admin recebe sempre, há uma página para as criar e os fluxos também podem começar por agenda.
+
+| Decisão | Onde |
+|---|---|
+| **Página Rotinas** (`/routines`), só para quem administra a empresa (`company.manage`), na barra a seguir a Fluxos de trabalho. Cada rotina diz o que acontece (um agente faz um pedido, ou começa um fluxo), quando, e quem recebe o resultado. Pode pausar-se, editar-se, apagar-se e «Correr agora». | `RoutineController`, `Pages/Routines/Index.tsx` |
+| **Horário em palavras:** Dias úteis, Todos os dias, Certos dias da semana, Uma vez por mês, De hora a hora, ou cron à mão. Guarda-se em cron, lido na hora de Maputo; mostra-se como «Dias úteis às 08:30». | `App\Support\ScheduleLabel`, `lib/schedule.ts` |
+| **O resultado vai para a pessoa indicada:** o pedido entra na conversa dessa pessoa com o agente, como mensagem da plataforma, e o agente responde ali (a pessoa recebe «X respondeu» como em qualquer conversa). Sem pessoa escolhida, é quem criou a rotina; sem essa, a chefia do agente. A pessoa tem de ter acesso ao agente. | `RoutineRunner::ask()` |
+| **Os admins recebem sempre** um aviso com o resultado (ou a falha, ou a aprovação pendente), com a ligação para a conversa quando a podem ler e, se não, para a rotina. Quem é a própria pessoa da rotina não recebe dois avisos. | `RoutineRunner::delivered()`, chamado pelo `AgentRunner` no fim de cada execução |
+| **Fluxos por agenda:** no editor, «Como começa»: Email depois da triagem ou Por agenda. Um fluxo por agenda não tem tipo de email, não pausa outros fluxos ao activar e começa nos horários das suas rotinas; a rotina abre a tarefa do fluxo com a pessoa indicada (ou a pessoa de recurso do fluxo) e avisa-a e aos admins. No mapa dos fluxos há a secção «Por agenda». | `workflows.trigger`, `RoutineRunner::startFlow()`, `Pages/Workflows/*` |
+| **Hora perdida recupera uma vez:** se o scheduler estava parado (o Mac a dormir), a rotina corre quando ele volta, uma vez, até 12 horas depois (`agents.routine_catch_up_hours`). | `AgentRoutine::dueAt()` |
+| Mantém-se: aprovações, revisão do Chief of Staff, orçamento e tecto absoluto aplicam-se como a qualquer execução; o custo vai para Consumo de IA. As rotinas do super admin continuam em Admin › Agentes. | |
+
+Migração `2026_10_09_140001`. Testes: `tests/Feature/Agents/RoutinesTest.php`.

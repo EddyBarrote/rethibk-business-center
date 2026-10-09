@@ -28,6 +28,7 @@ use App\Models\TaskMessage;
 use App\Models\User;
 use App\Support\Notifier;
 use App\Workflows\WorkflowEngine;
+use Closure;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -244,8 +245,10 @@ final class TaskThread
     /**
      * Put the assigned agent to work on the thread. One run at a time per task:
      * while one is active, new messages wait and are picked up when it ends.
+     *
+     * @param  (Closure(AgentRun): void)|null  $created  called with the run before it is queued
      */
-    public function wake(Task $task, ?User $requestedBy, TaskMessage|Task $source, TriggerType $trigger = TriggerType::Manual): ?AgentRun
+    public function wake(Task $task, ?User $requestedBy, TaskMessage|Task $source, TriggerType $trigger = TriggerType::Manual, ?Closure $created = null): ?AgentRun
     {
         $agent = $task->assigneeAgent;
 
@@ -267,7 +270,7 @@ final class TaskThread
             $task->forceFill(['status' => TaskStatus::InProgress, 'started_at' => now()])->save();
         }
 
-        return $this->runner()->dispatch($agent, $this->input($task, $source), $trigger, $requestedBy, $source, $task->id);
+        return $this->runner()->dispatch($agent, $this->input($task, $source), $trigger, $requestedBy, $source, $task->id, $created);
     }
 
     /**

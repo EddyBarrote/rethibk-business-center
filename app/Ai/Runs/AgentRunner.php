@@ -23,6 +23,7 @@ use App\Models\AgentRun;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Tasks\TaskThread;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Laravel\Ai\Events\StepCompleted;
@@ -60,9 +61,16 @@ final class AgentRunner
     /**
      * Queue a run (agents never run inside an HTTP request, section 3.2).
      */
-    public function dispatch(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null, ?int $taskId = null): AgentRun
+    /**
+     * @param  (Closure(AgentRun): void)|null  $created  called before the run is queued (a sync queue runs it inside this call)
+     */
+    public function dispatch(Agent $agent, string $input, TriggerType $trigger, ?User $requestedBy = null, ?Model $source = null, ?int $taskId = null, ?Closure $created = null): AgentRun
     {
         $run = $this->create($agent, $input, $trigger, $requestedBy, $source, $taskId);
+
+        if ($created !== null) {
+            $created($run);
+        }
 
         RunAgent::dispatch($run->tenant_id, $run->id)
             ->onQueue((string) config('agents.queues.'.$trigger->value, 'agents'));
@@ -171,6 +179,9 @@ final class AgentRunner
         if ($run->task_id !== null) {
             $this->threads->recordReply($run);
         }
+
+        // A routine's result also reaches the admins (docs/DECISOES.md, "Rotinas e fluxos agendados").
+        app(RoutineRunner::class)->delivered($run);
 
         AgentRunFinished::live($run);
 

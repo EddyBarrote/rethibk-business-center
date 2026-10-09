@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowRight, Mail, Plus, Settings2, Workflow as WorkflowIcon } from 'lucide-react';
+import { ArrowRight, CalendarClock, Mail, Plus, Settings2, Workflow as WorkflowIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { Monogram, Properties, Property, Section } from '@/Components/Blocks';
@@ -30,6 +30,9 @@ interface WorkflowSummary {
     description: string | null;
     status: 'draft' | 'active' | 'paused';
     status_label: string;
+    trigger: 'email' | 'schedule';
+    trigger_label: string;
+    routines: { id: number; name: string; schedule_label: string; is_active: boolean }[];
     email_category: string | null;
     email_category_label: string | null;
     agent: { id: number; name: string; level: string; level_label: string } | null;
@@ -95,7 +98,10 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
 
     const category = categories.find((row) => row.value === selected.category);
     const workflow = selected.workflow ? byId.get(selected.workflow) : category?.workflow_id ? byId.get(category.workflow_id) : undefined;
-    const others = workflows.filter((row) => row.status !== 'active');
+    const others = workflows.filter((row) => row.status !== 'active' && row.trigger === 'email');
+    const scheduled = workflows.filter((row) => row.trigger === 'schedule');
+    const schedules = (row: WorkflowSummary) =>
+        row.routines.filter((routine) => routine.is_active).map((routine) => routine.schedule_label).join(' · ') || 'sem horário';
     const gaps = workflows.flatMap((row) =>
         Object.entries(row.readiness)
             .filter(([, ready]) => ready.state === 'missing')
@@ -181,6 +187,46 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                 </div>
                             </Section>
 
+                            <Section
+                                title={`Por agenda · ${scheduled.length}`}
+                                action={
+                                    can_create && (
+                                        <Link href="/workflows/new?trigger=schedule" className="text-xs text-primary hover:underline">
+                                            Novo
+                                        </Link>
+                                    )
+                                }
+                            >
+                                {scheduled.length === 0 ? (
+                                    <p className="rounded-xl border border-dashed px-4 py-3 text-xs text-muted-foreground">
+                                        Fluxos que começam a horas certas, nas rotinas, sem esperar por um email.
+                                    </p>
+                                ) : (
+                                    <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                                        {scheduled.map((row) => (
+                                            <button
+                                                key={row.id}
+                                                type="button"
+                                                onClick={() => setSelected({ workflow: row.id })}
+                                                className={cn(
+                                                    'block w-full px-4 py-2.5 text-left transition-colors hover:bg-accent/60',
+                                                    selected.workflow === row.id && 'bg-accent',
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="truncate text-sm font-medium">{row.name}</span>
+                                                    <StatusBadge tone={statusTone(row.status)}>{row.status_label}</StatusBadge>
+                                                </div>
+                                                <div className="truncate text-xs text-muted-foreground">
+                                                    {schedules(row)} · {row.agent?.name ?? 'sem agente'}
+                                                </div>
+                                                <ReadinessBar summary={row.summary} className="mt-1.5" />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </Section>
+
                             {others.length > 0 && (
                                 <Section title="Rascunhos e pausados">
                                     <div className="divide-y overflow-hidden rounded-xl border bg-card">
@@ -213,12 +259,24 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                             {workflow ? (
                                 <div className="overflow-hidden rounded-xl border bg-card">
                                     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3 text-sm">
-                                        <span className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-2 py-1">
-                                            <Mail className="size-3.5 text-muted-foreground" />
-                                            {workflow.email_category_label}
-                                        </span>
-                                        <ArrowRight className="size-3.5 text-muted-foreground" />
-                                        <span className="rounded-lg border bg-background px-2 py-1">A Triagem classifica</span>
+                                        {workflow.trigger === 'schedule' ? (
+                                            <Link
+                                                href="/routines"
+                                                className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-2 py-1 hover:bg-accent/60"
+                                            >
+                                                <CalendarClock className="size-3.5 text-muted-foreground" />
+                                                {schedules(workflow)}
+                                            </Link>
+                                        ) : (
+                                            <>
+                                                <span className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-2 py-1">
+                                                    <Mail className="size-3.5 text-muted-foreground" />
+                                                    {workflow.email_category_label}
+                                                </span>
+                                                <ArrowRight className="size-3.5 text-muted-foreground" />
+                                                <span className="rounded-lg border bg-background px-2 py-1">A Triagem classifica</span>
+                                            </>
+                                        )}
                                         <ArrowRight className="size-3.5 text-muted-foreground" />
                                         <span className="rounded-lg border border-primary/50 bg-background px-2 py-1">
                                             {workflow.agent?.name ?? 'Sem agente'} abre a tarefa e começa
@@ -275,7 +333,10 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                     </Property>
                                     <Property label="Se não conseguir">{workflow.fallback ?? 'A chefia do agente'}</Property>
                                     <Property label="Últimos 30 dias">
-                                        {plural(workflow.runs_30d.total, 'email', 'emails')} · {workflow.runs_30d.completed} concluídos
+                                        {workflow.trigger === 'schedule'
+                                            ? plural(workflow.runs_30d.total, 'vez', 'vezes')
+                                            : plural(workflow.runs_30d.total, 'email', 'emails')}{' '}
+                                        · {workflow.runs_30d.completed} concluídos
                                     </Property>
                                     <Property label="Alterado">{ago(workflow.updated_at)}</Property>
                                     <div className="mt-2 space-y-1.5 border-t pt-3">
@@ -298,7 +359,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                 </Properties>
 
                                 {workflow.recent_runs.length > 0 && (
-                                    <Section title="Emails recentes">
+                                    <Section title={workflow.trigger === 'schedule' ? 'Execuções recentes' : 'Emails recentes'}>
                                         <div className="divide-y overflow-hidden rounded-xl border bg-card">
                                             {workflow.recent_runs.map((run) => (
                                                 <Link

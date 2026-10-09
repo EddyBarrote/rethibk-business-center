@@ -48,7 +48,7 @@ interface Props {
     };
     capabilities: { key: string; name: string; is_mutating: boolean; risk: number; ceiling: boolean }[];
     skills: { id: number; key: string; name: string; description: string; scope: string; is_available: boolean }[];
-    routines: { id: number; name: string; schedule: string; is_active: boolean; last_run_at: string | null }[];
+    routines: { id: number; name: string; schedule: string; schedule_label: string; is_active: boolean; last_run_at: string | null }[];
     runs: RunSummary[];
     users: { id: number; name: string }[];
     can: { run: boolean; request_work: boolean; manage: boolean; manage_access: boolean; view_memory: boolean };
@@ -76,7 +76,7 @@ type NowRun = RunSummary & {
 };
 
 export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memories, tasks, conversations, can, now }: Props) {
-    const { tenant } = usePage<SharedProps>().props;
+    const { tenant, auth } = usePage<SharedProps>().props;
     const form = useForm({ message: '', mode: 'message' as 'message' | 'action' });
     const [reason, setReason] = useState('');
     const [access, setAccess] = useState<Record<number, 'chat' | 'work'>>(Object.fromEntries(agent.assignees.map((user) => [user.id, user.level])));
@@ -388,8 +388,9 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                                         <EntityRow
                                             key={routine.id}
                                             leading={<Clock className="size-4 text-muted-foreground" />}
+                                            href={auth.user?.permissions.includes('company.manage') ? `/routines?routine=${routine.id}` : undefined}
                                             title={routine.name}
-                                            subtitle={<span className="font-mono">{routine.schedule}</span>}
+                                            subtitle={routine.schedule_label}
                                             meta={
                                                 <span title={routine.last_run_at ? dateTime(routine.last_run_at) : undefined}>
                                                     {routine.last_run_at ? ago(routine.last_run_at) : 'nunca correu'}

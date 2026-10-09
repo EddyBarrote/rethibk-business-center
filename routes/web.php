@@ -25,6 +25,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\Settings\AccessRoleController;
 use App\Http\Controllers\Settings\AttachmentSettingsController;
 use App\Http\Controllers\Settings\BrandController;
@@ -112,6 +113,11 @@ Route::middleware('auth')->group(function () {
     Route::put('workflows/{workflow}/status', [WorkflowController::class, 'status'])->name('workflows.status');
     Route::delete('workflows/{workflow}', [WorkflowController::class, 'destroy'])->name('workflows.destroy');
     Route::post('workflow-steps/{step}/decide', [WorkflowController::class, 'decide'])->middleware('throttle:30,1')->name('workflow-steps.decide');
+    Route::get('routines', [RoutineController::class, 'index'])->name('routines.index');
+    Route::post('routines', [RoutineController::class, 'store'])->name('routines.store');
+    Route::put('routines/{routine}', [RoutineController::class, 'update'])->name('routines.update');
+    Route::delete('routines/{routine}', [RoutineController::class, 'destroy'])->name('routines.destroy');
+    Route::post('routines/{routine}/run', [RoutineController::class, 'run'])->middleware('throttle:10,1')->name('routines.run');
     Route::get('runs', [AgentRunController::class, 'index'])->name('runs.index');
     Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
 

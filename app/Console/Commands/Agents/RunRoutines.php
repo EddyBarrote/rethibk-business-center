@@ -2,36 +2,38 @@
 
 namespace App\Console\Commands\Agents;
 
-use App\Ai\Runs\AgentRunner;
-use App\Enums\TriggerType;
+use App\Ai\Runs\RoutineRunner;
 use App\Models\AgentRoutine;
 use App\Tenancy\TenantManager;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
+/**
+ * Routines that are due run once (docs/DECISOES.md, "Rotinas e fluxos
+ * agendados"); one missed while the scheduler was down runs when it is back.
+ */
 #[Signature('agents:run-routines')]
-#[Description('Despacha as rotinas de agentes que estão na hora (agendado a cada minuto)')]
+#[Description('Despacha as rotinas de agentes e fluxos que estão na hora (agendado a cada minuto)')]
 class RunRoutines extends Command
 {
-    public function handle(TenantManager $tenants, AgentRunner $runner): int
+    public function handle(TenantManager $tenants, RoutineRunner $routines): int
     {
         $now = now();
         $dispatched = 0;
 
-        $tenants->eachActive(function () use ($now, $runner, &$dispatched): void {
+        $tenants->eachActive(function () use ($now, $routines, &$dispatched): void {
             AgentRoutine::query()
                 ->where('is_active', true)
-                ->whereHas('agent', fn ($agents) => $agents->active())
-                ->with('agent')
-                ->each(function (AgentRoutine $routine) use ($now, $runner, &$dispatched): void {
-                    if (! $routine->isDue($now)) {
+                ->with(['agent', 'workflow.agent', 'owner', 'createdBy'])
+                ->each(function (AgentRoutine $routine) use ($now, $routines, &$dispatched): void {
+                    if ($routine->dueAt($now) === null) {
                         return;
                     }
 
-                    $routine->forceFill(['last_run_at' => $now])->save();
-                    $runner->dispatch($routine->agent, $routine->prompt, TriggerType::Schedule, source: $routine);
-                    $dispatched++;
+                    if ($routines->run($routine, $now)['ok']) {
+                        $dispatched++;
+                    }
                 });
         });
 

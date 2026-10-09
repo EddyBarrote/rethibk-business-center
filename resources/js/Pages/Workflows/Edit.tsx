@@ -54,6 +54,7 @@ interface Props {
     initial: {
         name: string;
         description: string;
+        trigger: 'email' | 'schedule';
         email_category: string | null;
         agent_id: number | null;
         fallback_user_id: number | null;
@@ -61,6 +62,9 @@ interface Props {
     };
     readiness: Record<string, Readiness>;
     categories: Option[];
+    triggers: Option[];
+    routines: { id: number; name: string; schedule_label: string; is_active: boolean }[];
+    can_schedule: boolean;
     agents: AgentOption[];
     people: { id: number; name: string }[];
     capabilities: CapabilityOption[];
@@ -89,7 +93,7 @@ export default function WorkflowEdit(props: Props) {
     );
 }
 
-function Editor({ workflow, initial, readiness: initialReadiness, categories, agents, people, capabilities, skills, can_draft }: Props) {
+function Editor({ workflow, initial, readiness: initialReadiness, categories, triggers, routines, can_schedule, agents, people, capabilities, skills, can_draft }: Props) {
     const errors = usePage().props.errors as Record<string, string>;
     const linked = new URLSearchParams(window.location.search).get('node');
     const start = useMemo(() => toFlow(needsLayout(initial.graph) ? layout(initial.graph) : initial.graph, linked), [initial.graph]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -98,6 +102,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, ag
     const [form, setForm] = useState({
         name: initial.name,
         description: initial.description,
+        trigger: initial.trigger,
         email_category: initial.email_category ?? '',
         agent_id: initial.agent_id ? String(initial.agent_id) : '',
         fallback_user_id: initial.fallback_user_id ? String(initial.fallback_user_id) : '',
@@ -248,7 +253,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, ag
             ...form,
             agent_id: form.agent_id ? Number(form.agent_id) : null,
             fallback_user_id: form.fallback_user_id ? Number(form.fallback_user_id) : null,
-            email_category: form.email_category || null,
+            email_category: form.trigger === 'email' ? form.email_category || null : null,
             // The graph travels as JSON; Inertia's payload type does not know its shape.
             graph: graph as unknown as Record<string, never>,
             activate,
@@ -295,7 +300,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, ag
         postJson<{ graph: WfGraph }>('/workflows/draft', {
             description: drafting.text,
             agent_id: Number(form.agent_id),
-            email_category: form.email_category || null,
+            email_category: form.trigger === 'email' ? form.email_category || null : null,
         })
             .then((result) => {
                 setGraph(layout(result.graph));
@@ -373,24 +378,64 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, ag
                 </div>
             </div>
 
-            <div className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 xl:grid-cols-5">
                 <Field id="name" label="Nome do fluxo" error={errors.name}>
                     <Input id="name" value={form.name} maxLength={200} onChange={(event) => setForm({ ...form, name: event.target.value })} />
                 </Field>
-                <Field id="email_category" label="Tipo de email que o inicia" error={errors.email_category}>
+                <Field id="trigger" label="Como começa" error={errors.trigger}>
                     <NativeSelect
-                        id="email_category"
-                        value={form.email_category}
-                        onChange={(event) => setForm({ ...form, email_category: event.target.value })}
+                        id="trigger"
+                        value={form.trigger}
+                        onChange={(event) => setForm({ ...form, trigger: event.target.value as 'email' | 'schedule' })}
                     >
-                        <option value="">Escolha o tipo</option>
-                        {categories.map((category) => (
-                            <option key={category.value} value={category.value}>
-                                {category.label}
+                        {triggers.map((trigger) => (
+                            <option key={trigger.value} value={trigger.value}>
+                                {trigger.label}
                             </option>
                         ))}
                     </NativeSelect>
                 </Field>
+                {form.trigger === 'email' ? (
+                    <Field id="email_category" label="Tipo de email que o inicia" error={errors.email_category}>
+                        <NativeSelect
+                            id="email_category"
+                            value={form.email_category}
+                            onChange={(event) => setForm({ ...form, email_category: event.target.value })}
+                        >
+                            <option value="">Escolha o tipo</option>
+                            {categories.map((category) => (
+                                <option key={category.value} value={category.value}>
+                                    {category.label}
+                                </option>
+                            ))}
+                        </NativeSelect>
+                    </Field>
+                ) : (
+                    <Field id="schedules" label="Horários (em Rotinas)">
+                        <div className="flex min-h-9 flex-wrap items-center gap-1.5 text-sm">
+                            {routines.length === 0 && <span className="text-muted-foreground">Ainda sem horário.</span>}
+                            {routines.map((routine) => (
+                                <Link
+                                    key={routine.id}
+                                    href={`/routines?routine=${routine.id}`}
+                                    className={cn('rounded-md border bg-background px-2 py-1 text-xs hover:bg-accent/60', !routine.is_active && 'text-muted-foreground line-through')}
+                                    title={routine.name}
+                                >
+                                    {routine.schedule_label}
+                                </Link>
+                            ))}
+                            {can_schedule &&
+                                (workflow ? (
+                                    <Link href={`/routines?workflow=${workflow.id}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                        <Plus className="size-3" />
+                                        Horário
+                                    </Link>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">Guarde o fluxo para lhe dar um horário.</span>
+                                ))}
+                        </div>
+                    </Field>
+                )}
                 <Field id="agent_id" label="Agente que trata" error={errors.agent_id}>
                     <NativeSelect id="agent_id" value={form.agent_id} onChange={(event) => setForm({ ...form, agent_id: event.target.value })}>
                         <option value="">Escolha o agente</option>
@@ -416,7 +461,11 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, ag
                         ))}
                     </NativeSelect>
                 </Field>
-                <Field id="description" label="Como a Triagem reconhece este tipo de email (opcional)" className="sm:col-span-2 xl:col-span-4">
+                <Field
+                    id="description"
+                    label={form.trigger === 'email' ? 'Como a Triagem reconhece este tipo de email (opcional)' : 'Para que serve (opcional)'}
+                    className="sm:col-span-2 xl:col-span-5"
+                >
                     <Input
                         id="description"
                         value={form.description}

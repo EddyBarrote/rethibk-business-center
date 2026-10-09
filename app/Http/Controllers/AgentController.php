@@ -101,6 +101,7 @@ class AgentController extends Controller
                 'id' => $routine->id,
                 'name' => $routine->name,
                 'schedule' => $routine->schedule,
+                'schedule_label' => $routine->scheduleLabel(),
                 'is_active' => $routine->is_active,
                 'last_run_at' => $routine->last_run_at?->toIso8601String(),
             ]),

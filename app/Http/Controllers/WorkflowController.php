@@ -11,7 +11,9 @@ use App\Enums\EmailCategory;
 use App\Enums\Permission;
 use App\Enums\WorkflowRunStatus;
 use App\Enums\WorkflowStatus;
+use App\Enums\WorkflowTrigger;
 use App\Models\Agent;
+use App\Models\AgentRoutine;
 use App\Models\AuditLog;
 use App\Models\Capability;
 use App\Models\Skill;
@@ -96,7 +98,7 @@ class WorkflowController extends Controller
 
         $category = EmailCategory::tryFrom((string) $request->query('category'));
 
-        return $this->editor(null, $category);
+        return $this->editor(null, $category, WorkflowTrigger::tryFrom((string) $request->query('trigger')) ?? WorkflowTrigger::Email);
     }
 
     public function edit(Workflow $workflow): Response
@@ -153,7 +155,9 @@ class WorkflowController extends Controller
         $workflow->forceFill(['status' => $data['status'], 'updated_by_user_id' => $user->id])->save();
         AuditLog::record($user, 'workflow.status', ['workflow_id' => $workflow->id, 'status' => $data['status']], subject: $workflow);
 
-        return back()->with('success', 'Fluxo pausado. Os emails deste tipo voltam à regra de Definições.');
+        return back()->with('success', $workflow->trigger === WorkflowTrigger::Schedule
+            ? 'Fluxo pausado. As rotinas deixam de o começar até o voltar a activar.'
+            : 'Fluxo pausado. Os emails deste tipo voltam à regra de Definições.');
     }
 
     public function destroy(Request $request, Workflow $workflow): RedirectResponse
@@ -249,10 +253,11 @@ class WorkflowController extends Controller
         });
     }
 
-    private function editor(?Workflow $workflow, ?EmailCategory $category = null): Response
+    private function editor(?Workflow $workflow, ?EmailCategory $category = null, WorkflowTrigger $trigger = WorkflowTrigger::Email): Response
     {
         $agent = $workflow?->agent;
-        $graph = $workflow !== null ? $workflow->graph : $this->starterGraph($category);
+        $trigger = $workflow->trigger ?? $trigger;
+        $graph = $workflow !== null ? $workflow->graph : $this->starterGraph($trigger === WorkflowTrigger::Email ? $category : null, $trigger);
         $readiness = $this->readiness->check(new WorkflowGraph($graph), $agent);
 
         return Inertia::render('Workflows/Edit', [
@@ -260,13 +265,17 @@ class WorkflowController extends Controller
             'initial' => [
                 'name' => $workflow->name ?? ($category ? 'Responder a '.Str::lcfirst($category->label()) : ''),
                 'description' => $workflow->description ?? '',
-                'email_category' => $workflow?->email_category->value ?? $category?->value,
+                'trigger' => $trigger->value,
+                'email_category' => $workflow !== null ? $workflow->email_category?->value : $category?->value,
                 'agent_id' => $workflow !== null ? $workflow->agent_id : ($category ? $this->router->route($category)['agent']?->id : null),
                 'fallback_user_id' => $workflow?->fallback_user_id,
                 'graph' => $graph,
             ],
             'readiness' => $readiness,
             'categories' => EmailCategory::options(),
+            'triggers' => WorkflowTrigger::options(),
+            'routines' => $workflow !== null ? $this->routines($workflow) : [],
+            'can_schedule' => ($viewer = request()->user('web')) instanceof User && $viewer->canManageTenant(),
             'agents' => $this->agents(),
             'people' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'capabilities' => Capability::query()->where('is_enabled', true)->whereNotIn('key', CapabilityRegistry::hidden())
@@ -293,8 +302,11 @@ class WorkflowController extends Controller
             'description' => $workflow->description,
             'status' => $workflow->status->value,
             'status_label' => $workflow->status->label(),
+            'trigger' => $workflow->trigger->value,
+            'trigger_label' => $workflow->trigger->label(),
             'email_category' => $workflow->email_category?->value,
             'email_category_label' => $workflow->email_category?->label(),
+            'routines' => $this->routines($workflow),
             'agent' => $workflow->agent ? [
                 'id' => $workflow->agent->id,
                 'name' => $workflow->agent->name,
@@ -331,11 +343,11 @@ class WorkflowController extends Controller
     /**
      * @return array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}
      */
-    private function starterGraph(?EmailCategory $category): array
+    private function starterGraph(?EmailCategory $category, WorkflowTrigger $trigger = WorkflowTrigger::Email): array
     {
         return [
             'nodes' => [
-                ['id' => 'trigger', 'type' => WorkflowGraph::TRIGGER, 'position' => ['x' => 200, 'y' => 0], 'data' => ['label' => $category?->label() ?? 'Email depois da triagem']],
+                ['id' => 'trigger', 'type' => WorkflowGraph::TRIGGER, 'position' => ['x' => 200, 'y' => 0], 'data' => ['label' => $category?->label() ?? $trigger->label()]],
                 ['id' => 'end', 'type' => WorkflowGraph::END, 'position' => ['x' => 200, 'y' => 140], 'data' => ['label' => 'Fim']],
             ],
             'edges' => [['id' => 'trigger-end', 'source' => 'trigger', 'target' => 'end']],
@@ -350,7 +362,8 @@ class WorkflowController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:4000'],
-            'email_category' => ['required', Rule::enum(EmailCategory::class)],
+            'trigger' => ['nullable', Rule::enum(WorkflowTrigger::class)],
+            'email_category' => ['nullable', Rule::requiredIf(fn () => $request->input('trigger', 'email') !== 'schedule'), Rule::enum(EmailCategory::class)],
             'agent_id' => ['required', 'integer', TenantRule::exists('agents')],
             'fallback_user_id' => ['nullable', 'integer', TenantRule::exists('users')],
             'graph' => ['required', 'array'],
@@ -385,7 +398,25 @@ class WorkflowController extends Controller
             }
         }
 
+        $data['trigger'] ??= WorkflowTrigger::Email->value;
+
+        if ($data['trigger'] === WorkflowTrigger::Schedule->value) {
+            $data['email_category'] = null;
+        }
+
         return [...$data, 'graph' => $graph];
+    }
+
+    /**
+     * The schedules that start a flow: its routines (docs/DECISOES.md, "Rotinas e fluxos agendados").
+     *
+     * @return list<array{id: int, name: string, schedule_label: string, is_active: bool}>
+     */
+    private function routines(Workflow $workflow): array
+    {
+        return $workflow->routines()->orderBy('name')->get()
+            ->map(fn (AgentRoutine $routine) => ['id' => $routine->id, 'name' => $routine->name, 'schedule_label' => $routine->scheduleLabel(), 'is_active' => $routine->is_active])
+            ->values()->all();
     }
 
     /**
@@ -454,8 +485,17 @@ class WorkflowController extends Controller
             return $problems;
         }
 
+        if ($workflow->trigger === WorkflowTrigger::Schedule) {
+            $workflow->forceFill(['status' => WorkflowStatus::Active, 'updated_by_user_id' => $user->id])->save();
+            AuditLog::record($user, 'workflow.status', ['workflow_id' => $workflow->id, 'status' => 'active'], subject: $workflow);
+
+            return $workflow->routines()->where('is_active', true)->exists()
+                ? 'Fluxo activo: começa nos horários das suas rotinas.'
+                : 'Fluxo activo, mas ainda sem horário: crie a rotina que o começa em Rotinas.';
+        }
+
         $paused = DB::transaction(function () use ($workflow, $user) {
-            $others = Workflow::query()->whereKeyNot($workflow->id)->where('email_category', $workflow->email_category)->where('status', WorkflowStatus::Active)->get();
+            $others = Workflow::query()->whereKeyNot($workflow->id)->where('trigger', WorkflowTrigger::Email)->where('email_category', $workflow->email_category)->where('status', WorkflowStatus::Active)->get();
             $others->each(fn (Workflow $other) => $other->forceFill(['status' => WorkflowStatus::Paused])->save());
             $workflow->forceFill(['status' => WorkflowStatus::Active, 'updated_by_user_id' => $user->id])->save();
 

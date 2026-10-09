@@ -25,6 +25,10 @@ return [
 
     'schedule_timezone' => env('AGENTS_SCHEDULE_TIMEZONE', 'Africa/Maputo'),
 
+    // A routine missed while the scheduler was down (a laptop asleep) runs once
+    // when it comes back, if it is not older than this.
+    'routine_catch_up_hours' => (int) env('AGENTS_ROUTINE_CATCH_UP_HOURS', 12),
+
     /*
     | Queues per trigger (section 14.1).
     */
