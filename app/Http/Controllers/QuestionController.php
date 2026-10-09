@@ -27,7 +27,11 @@ class QuestionController extends Controller
             'answers.*.other' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $questions->answer($question, $user, array_values($data['answers']));
+        // validated() can reorder the keys (answers with an empty list come first): keep them by question.
+        $answers = $data['answers'];
+        ksort($answers);
+
+        $questions->answer($question, $user, array_values($answers));
 
         return back();
     }

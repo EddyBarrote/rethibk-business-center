@@ -94,7 +94,8 @@ it('pauses a chat run on the questions, shows the card on the reply and resumes 
             ->where('messages.1.question.can_answer', true));
 
     $this->actingAs($this->boss)->post(tenantUrl($this->tenant, "questions/{$question->id}/answer"), [
-        'answers' => [['selected' => ['PDF']], ['selected' => ['Vendas', 'Custos']]],
+        // An empty list in a later answer made validated() reorder the keys once.
+        'answers' => [['selected' => ['PDF'], 'other' => null], ['selected' => [], 'other' => 'Vendas e custos por projecto']],
     ])->assertRedirect();
 
     Queue::assertPushed(RunAgent::class, fn (RunAgent $job) => $job->runId === $run->id);
@@ -103,7 +104,8 @@ it('pauses a chat run on the questions, shows the card on the reply and resumes 
         expect($run->refresh()->status)->toBe(RunStatus::Queued)
             ->and($chat->refresh()->status)->toBe(TaskStatus::InProgress)
             ->and($question->refresh()->status)->toBe(QuestionStatus::Answered)
-            ->and($question->answers[1]['selected'])->toBe(['Vendas', 'Custos']);
+            ->and($question->answers[0]['selected'])->toBe(['PDF'])
+            ->and($question->answers[1]['other'])->toBe('Vendas e custos por projecto');
 
         app(AgentRunner::class)->run($run->refresh());
 
@@ -115,7 +117,7 @@ it('pauses a chat run on the questions, shows the card on the reply and resumes 
             ->toBe(['Preciso de duas escolhas suas.', 'Relatório em PDF com Vendas e Custos, a seguir.']);
     });
 
-    GenericAgent::assertPrompted(fn ($prompt) => str_contains($prompt->prompt, 'Respostas às tuas perguntas') && str_contains($prompt->prompt, 'Vendas, Custos'));
+    GenericAgent::assertPrompted(fn ($prompt) => str_contains($prompt->prompt, 'Respostas às tuas perguntas') && str_contains($prompt->prompt, '«Vendas e custos por projecto»'));
 });
 
 it('takes a message written in the conversation as the answer and resumes the paused run', function () {
