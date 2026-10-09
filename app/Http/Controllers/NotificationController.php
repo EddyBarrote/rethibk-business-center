@@ -26,21 +26,29 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class NotificationController extends Controller
 {
+    /** How many per page: the first is the default. */
+    private const PER_PAGE = [20, 50, 100];
+
     public function index(Request $request): Response
     {
         $user = $this->user($request);
         $filters = $request->validate([
             'estado' => ['nullable', Rule::in(['todas', 'por-ler'])],
+            'q' => ['nullable', 'string', 'max:100'],
+            'por_pagina' => ['nullable', 'integer', Rule::in(self::PER_PAGE)],
             'tipo' => ['nullable', Rule::in(array_column(NotificationCategory::cases(), 'value'))],
         ]);
         $unreadOnly = ($filters['estado'] ?? 'todas') === 'por-ler';
+        $search = trim((string) ($filters['q'] ?? ''));
+        $perPage = (int) ($filters['por_pagina'] ?? self::PER_PAGE[0]);
         $category = isset($filters['tipo']) ? NotificationCategory::from($filters['tipo']) : null;
 
         $page = $user->notifications()
             ->when($unreadOnly, fn (Builder $q) => $q->whereNull('read_at'))
             ->when($category, fn (Builder $q) => $q->where('type', $category?->value))
+            ->when($search !== '', fn (Builder $q) => $this->search($q, $search))
             ->latest()
-            ->paginate(30)
+            ->paginate($perPage)
             ->withQueryString();
 
         /** @var Collection<int, DatabaseNotification> $items */
@@ -49,8 +57,9 @@ class NotificationController extends Controller
 
         return Inertia::render('Notifications/Index', [
             'notifications' => $page->through(fn (DatabaseNotification $n) => $this->present($n, $user, $approvals)),
-            'categories' => $this->categories($user),
-            'filters' => ['estado' => $unreadOnly ? 'por-ler' : 'todas', 'tipo' => $category?->value],
+            'categories' => $this->categories($user, $search),
+            'filters' => ['estado' => $unreadOnly ? 'por-ler' : 'todas', 'tipo' => $category?->value, 'q' => $search, 'por_pagina' => $perPage],
+            'per_page_options' => self::PER_PAGE,
             'awaiting_decision' => $this->awaitingDecision($user),
         ]);
     }
@@ -171,9 +180,10 @@ class NotificationController extends Controller
      *
      * @return list<array{key: string, label: string, total: int, unread: int}>
      */
-    private function categories(User $user): array
+    private function categories(User $user, string $search = ''): array
     {
         $counts = $user->notifications()->reorder()
+            ->when($search !== '', fn (Builder $q) => $this->search($q, $search))
             ->selectRaw('type, count(*) as total, sum(case when read_at is null then 1 else 0 end) as unread')
             ->groupBy('type')
             ->get()
@@ -185,6 +195,21 @@ class NotificationController extends Controller
             'total' => (int) ($counts[$c->value]->total ?? 0),
             'unread' => (int) ($counts[$c->value]->unread ?? 0),
         ], NotificationCategory::cases());
+    }
+
+    /**
+     * Every word must appear in the title, text or sender, accents and case as typed
+     * or not (`notifications.search` is lower case; the database ignores accents where it can).
+     *
+     * @param  Builder<DatabaseNotification>  $query
+     */
+    private function search(Builder $query, string $search): void
+    {
+        $words = preg_split('/\s+/u', mb_strtolower(str_replace(['%', '_', '\\'], ' ', $search)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach (array_slice($words, 0, 8) as $word) {
+            $query->where('search', 'like', "%{$word}%");
+        }
     }
 
     /**

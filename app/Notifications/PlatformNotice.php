@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Enums\NotificationCategory;
+use App\Notifications\Channels\SearchableDatabaseChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -32,7 +33,7 @@ class PlatformNotice extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return [SearchableDatabaseChannel::class];
     }
 
     /** The kind goes in `notifications.type`, so the centre can filter by it. */

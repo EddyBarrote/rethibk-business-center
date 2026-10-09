@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Bell, BellOff, CheckCheck, CheckSquare, Mail, MailOpen, Settings2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Bell, BellOff, CheckCheck, CheckSquare, Mail, MailOpen, Search, SearchX, Settings2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState } from '@/Components/EmptyState';
 import { ApprovalActions } from '@/Components/notifications/ApprovalActions';
@@ -10,6 +10,8 @@ import { Pagination } from '@/Components/Pagination';
 import { StatusDot } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
+import { Input } from '@/Components/ui/input';
+import { NativeSelect } from '@/Components/ui/native-select';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/Components/ui/tooltip';
 import { useLive } from '@/hooks/useLive';
@@ -28,13 +30,14 @@ interface Category {
 interface Props {
     notifications: Paginated<Notice>;
     categories: Category[];
-    filters: { estado: 'todas' | 'por-ler'; tipo: string | null };
+    filters: { estado: 'todas' | 'por-ler'; tipo: string | null; q: string; por_pagina: number };
+    per_page_options: number[];
     awaiting_decision: number;
 }
 
 const live = ['notifications', 'categories', 'awaiting_decision', 'auth'];
 
-export default function NotificationsIndex({ notifications, categories, filters, awaiting_decision }: Props) {
+export default function NotificationsIndex({ notifications, categories, filters, awaiting_decision, per_page_options }: Props) {
     const { tenant, auth } = usePage<SharedProps>().props;
     const [selected, setSelected] = useState<string[]>([]);
     const unreadTotal = categories.reduce((sum, c) => sum + c.unread, 0);
@@ -49,16 +52,35 @@ export default function NotificationsIndex({ notifications, categories, filters,
     );
 
     // A new page of results is a new selection.
-    useEffect(() => setSelected([]), [filters.estado, filters.tipo, notifications.current_page]);
+    useEffect(() => setSelected([]), [filters.estado, filters.tipo, filters.q, notifications.current_page]);
 
+    // A changed filter starts again at page 1; the default page size stays out of the address.
     const go = (next: Partial<Props['filters']>) => {
         const merged = { ...filters, ...next };
         router.get(
             '/notifications',
-            { ...(merged.estado === 'por-ler' ? { estado: 'por-ler' } : {}), ...(merged.tipo ? { tipo: merged.tipo } : {}) },
-            { preserveState: true, preserveScroll: true },
+            {
+                ...(merged.estado === 'por-ler' ? { estado: 'por-ler' } : {}),
+                ...(merged.tipo ? { tipo: merged.tipo } : {}),
+                ...(merged.q ? { q: merged.q } : {}),
+                ...(merged.por_pagina !== per_page_options[0] ? { por_pagina: merged.por_pagina } : {}),
+            },
+            { preserveState: true, preserveScroll: true, replace: next.q !== undefined },
         );
     };
+
+    // Searches as the person types, a moment after they stop.
+    const [query, setQuery] = useState(filters.q);
+    const typed = useRef(false);
+    useEffect(() => {
+        if (!typed.current) {
+            return;
+        }
+        const timer = window.setTimeout(() => go({ q: query.trim() }), 300);
+
+        return () => window.clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [query]);
 
     const markRead = (data: { ids?: string[]; tipo?: string }) =>
         router.post('/notifications/read', data, { preserveScroll: true, onSuccess: () => setSelected([]) });
@@ -159,17 +181,49 @@ export default function NotificationsIndex({ notifications, categories, filters,
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
-                        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-                            {notifications.total > 0 && plural(notifications.total, 'notificação', 'notificações')}
-                        </span>
+                        <div className="relative ml-auto w-full sm:w-72">
+                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                value={query}
+                                onChange={(event) => {
+                                    typed.current = true;
+                                    setQuery(event.target.value);
+                                }}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Escape' && query !== '') {
+                                        typed.current = true;
+                                        setQuery('');
+                                    }
+                                }}
+                                placeholder="Pesquisar título, texto ou quem enviou"
+                                aria-label="Pesquisar notificações"
+                                className="h-8 pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
+                            />
+                            {query !== '' && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        typed.current = true;
+                                        setQuery('');
+                                    }}
+                                    className="absolute top-1/2 right-2 -translate-y-1/2 rounded text-muted-foreground hover:text-foreground"
+                                    aria-label="Limpar pesquisa"
+                                >
+                                    <X className="size-4" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {notifications.data.length === 0 ? (
                         <EmptyState
-                            icon={filters.estado === 'por-ler' ? CheckCheck : BellOff}
-                            title={filters.estado === 'por-ler' ? 'Tudo lido' : 'Sem notificações'}
+                            icon={filters.q ? SearchX : filters.estado === 'por-ler' ? CheckCheck : BellOff}
+                            title={filters.q ? 'Nada encontrado' : filters.estado === 'por-ler' ? 'Tudo lido' : 'Sem notificações'}
                             description={
-                                filters.estado === 'por-ler'
+                                filters.q
+                                    ? `Nenhuma notificação${current ? ` de ${current.label.toLowerCase()}` : ''}${filters.estado === 'por-ler' ? ' por ler' : ''} tem «${filters.q}». Experimente outra palavra ou limpe a pesquisa.`
+                                    : filters.estado === 'por-ler'
                                     ? 'Não há nada por ler aqui. As lidas continuam no separador «Todas».'
                                     : current
                                       ? `Ainda não recebeu notificações de ${current.label.toLowerCase()}.`
@@ -226,7 +280,26 @@ export default function NotificationsIndex({ notifications, categories, filters,
                             ))}
                         </>
                     )}
-                    <Pagination page={notifications} noun={['notificação', 'notificações']} />
+                    {notifications.total > 0 && (
+                        <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center">
+                            <Pagination page={notifications} noun={['notificação', 'notificações']} className="flex-1" />
+                            <label className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                Por página
+                                <NativeSelect
+                                    value={filters.por_pagina}
+                                    onChange={(event) => go({ por_pagina: Number(event.target.value) })}
+                                    className="h-8 w-20 text-xs md:text-xs"
+                                    aria-label="Notificações por página"
+                                >
+                                    {per_page_options.map((size) => (
+                                        <option key={size} value={size}>
+                                            {size}
+                                        </option>
+                                    ))}
+                                </NativeSelect>
+                            </label>
+                        </div>
+                    )}
                 </div>
             </div>
         </AppLayout>

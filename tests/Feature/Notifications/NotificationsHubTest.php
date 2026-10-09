@@ -160,3 +160,35 @@ it('tells the kind of older notifications from their link and title', function (
         ->and(NotificationCategory::infer(['url' => '/knowledge/2', 'title' => 'Para rever: x']))->toBe(NotificationCategory::Document)
         ->and(NotificationCategory::infer(['url' => null, 'title' => 'Olá']))->toBe(NotificationCategory::Agent);
 });
+
+it('searches title, text and sender word by word, with accents, and pages by the size chosen', function () {
+    notifyAs($this->tenant, $this->person, 'Aprovação pedida: Enviar email', NotificationCategory::Approval);
+    notifyAs($this->tenant, $this->person, 'Contrato a terminar: Cimentos do Púnguè', NotificationCategory::Deadline);
+    notifyAs($this->tenant, $this->person, 'Nova tarefa MIC-9', NotificationCategory::Task);
+    notifyAs($this->tenant, $this->other, 'Aprovação de outra pessoa', NotificationCategory::Approval);
+
+    $titles = fn (string $query) => $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, "notifications?{$query}"))
+        ->assertOk()->viewData('page')['props']['notifications']['data'];
+
+    expect(collect($titles('q='.urlencode('APROVAÇÃO')))->pluck('title')->all())->toBe(['Aprovação pedida: Enviar email'])
+        ->and(collect($titles('q='.urlencode('púnguè contrato')))->pluck('title')->all())->toBe(['Contrato a terminar: Cimentos do Púnguè'])
+        // The sender counts too; "%" is a letter like any other, never a wildcard.
+        ->and($titles('q='.urlencode('agente x')))->toHaveCount(3)
+        ->and($titles('q='.urlencode('100%')))->toHaveCount(0)
+        ->and($titles('q=mic-9&tipo=deadline'))->toHaveCount(0);
+
+    $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, 'notifications?q=contrato'))
+        ->assertInertia(fn ($page) => $page->where('filters.q', 'contrato')
+            ->where('categories', fn ($rows) => collect($rows)->firstWhere('key', 'deadline')['total'] === 1 && collect($rows)->firstWhere('key', 'task')['total'] === 0));
+
+    foreach (range(1, 22) as $i) {
+        notifyAs($this->tenant, $this->person, "Aviso {$i}", NotificationCategory::Agent);
+    }
+    $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, 'notifications'))
+        ->assertInertia(fn ($page) => $page->has('notifications.data', 20)->where('notifications.last_page', 2)->where('filters.por_pagina', 20));
+    $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, 'notifications?por_pagina=50'))
+        ->assertInertia(fn ($page) => $page->has('notifications.data', 25)->where('notifications.last_page', 1));
+    $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, 'notifications?page=2'))
+        ->assertInertia(fn ($page) => $page->has('notifications.data', 5));
+    $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, 'notifications?por_pagina=7'))->assertSessionHasErrors('por_pagina');
+});
