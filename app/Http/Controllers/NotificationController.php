@@ -201,7 +201,7 @@ class NotificationController extends Controller
         }
 
         return Approval::query()->with('agent')->whereKey($ids)->where('status', ApprovalStatus::Pending)
-            ->where('review_stage', '!=', Approval::STAGE_AGENT)->get()
+            ->where(fn (Builder $q) => $q->whereNull('review_stage')->orWhere('review_stage', '!=', Approval::STAGE_AGENT))->get()
             ->filter(fn (Approval $approval) => $user->can('decide', $approval))->count();
     }
 

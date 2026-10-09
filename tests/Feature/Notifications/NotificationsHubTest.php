@@ -125,6 +125,11 @@ it('puts an approval that needs a person in the centre of whoever may decide it,
 
     $this->actingAs($this->other, 'web')->get(tenantUrl($this->tenant, 'notifications'))
         ->assertInertia(fn ($page) => $page->where('awaiting_decision', 0));
+
+    // Approvals from before the Chief of Staff's review stage still count.
+    $approval->forceFill(['review_stage' => null])->save();
+    $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, 'notifications'))
+        ->assertInertia(fn ($page) => $page->where('awaiting_decision', 1));
 });
 
 it('follows each person\'s preferences, and never lets approvals leave the centre', function () {
