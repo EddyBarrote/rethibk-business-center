@@ -70,7 +70,7 @@ final class NotifyUser extends LocalCapability
             return CapabilityResult::error('pessoa não encontrada nesta organização.');
         }
 
-        $this->notifier->notify($user, $data['title'], $data['body'], $data['link'] ?? "/runs/{$context->run->id}", $context->agent->name, ($data['urgent'] ?? false) ? 'warning' : 'info', NotificationCategory::Agent, [
+        $this->notifier->notify($user, $data['title'], $data['body'], $data['link'] ?? "/settings/runs/{$context->run->id}", $context->agent->name, ($data['urgent'] ?? false) ? 'warning' : 'info', NotificationCategory::Agent, [
             'run_id' => $context->run->id,
             'task_id' => $context->run->task_id,
         ]);

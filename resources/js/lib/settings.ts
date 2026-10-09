@@ -1,8 +1,10 @@
 import {
+    Activity,
     AtSign,
     BellRing,
     BookOpen,
     Building2,
+    CalendarClock,
     ChartColumn,
     type LucideIcon,
     Paperclip,
@@ -14,6 +16,7 @@ import {
     SunMoon,
     UserRound,
     Users,
+    Workflow,
 } from 'lucide-react';
 
 /*
@@ -104,6 +107,25 @@ export const settingsGroups: SettingsGroup[] = [
     {
         label: 'Agentes de IA',
         items: [
+            {
+                label: 'Fluxos de trabalho',
+                href: '/settings/workflows',
+                icon: Workflow,
+                description: 'Os passos que um agente segue com cada tipo de email, ou a horas certas.',
+            },
+            {
+                label: 'Rotinas',
+                href: '/settings/routines',
+                icon: CalendarClock,
+                description: 'O que os agentes fazem sozinhos, a horas certas, e para quem vai o resultado.',
+                permissions: ['company.manage'],
+            },
+            {
+                label: 'Execuções',
+                href: '/settings/runs',
+                icon: Activity,
+                description: 'Cada vez que um agente trabalhou: o pedido, as ferramentas, o custo e o resultado.',
+            },
             {
                 label: 'Capacidades',
                 href: '/settings/capabilities',

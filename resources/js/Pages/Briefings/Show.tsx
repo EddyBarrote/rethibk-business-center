@@ -76,7 +76,7 @@ export default function BriefingShow({ briefing }: { briefing: BriefingSummary }
                     </Property>
                     {briefing.run_id && (
                         <Property label="Execução">
-                            <Link href={`/runs/${briefing.run_id}`} className="font-mono text-xs text-primary hover:underline">
+                            <Link href={`/settings/runs/${briefing.run_id}`} className="font-mono text-xs text-primary hover:underline">
                                 #{briefing.run_id}
                             </Link>
                         </Property>
@@ -95,7 +95,7 @@ export default function BriefingShow({ briefing }: { briefing: BriefingSummary }
                         </div>
                     )}
                     {briefing.run_id && (
-                        <Link href={`/runs/${briefing.run_id}`} className="mt-2 border-t pt-3 text-xs text-primary hover:underline">
+                        <Link href={`/settings/runs/${briefing.run_id}`} className="mt-2 border-t pt-3 text-xs text-primary hover:underline">
                             Ver como o agente preparou este briefing
                         </Link>
                     )}

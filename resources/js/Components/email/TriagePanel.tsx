@@ -78,7 +78,7 @@ export function TriagePanel({ open, message }: { open: OpenConversation; message
                     </Row>
                     <Row label="Execução">
                         {message.agent_run_id && (
-                            <Link href={`/runs/${message.agent_run_id}`} className="font-mono text-primary hover:underline">
+                            <Link href={`/settings/runs/${message.agent_run_id}`} className="font-mono text-primary hover:underline">
                                 #{message.agent_run_id}
                             </Link>
                         )}

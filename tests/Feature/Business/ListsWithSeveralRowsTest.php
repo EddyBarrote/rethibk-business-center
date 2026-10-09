@@ -43,7 +43,7 @@ it('renders lists and details with several rows', function (string $path) {
 
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, $path))->assertOk();
 })->with([
-    'runs',
+    'settings/runs',
     'approvals',
     'inbox',
     'inbox/{EmailMessage}',
@@ -78,13 +78,13 @@ it('keeps chat turns out of the work list and groups them under their conversati
     });
     $work = asTenant($this->tenant, fn () => AgentRun::query()->count()) - 3;
 
-    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'runs'))->assertOk()
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'settings/runs'))->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page->where('runs.total', $work)->where('conversations', null));
 
-    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'runs?origin=conversa'))->assertOk()
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'settings/runs?origin=conversa'))->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page->has('conversations.data', 1)->where('conversations.data.0.turns', 3)->where('conversations.data.0.task_id', $chat->id));
 
-    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'runs?origin=tarefa'))->assertOk()
+    $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, 'settings/runs?origin=tarefa'))->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page->where('runs.total', 1));
 });
 

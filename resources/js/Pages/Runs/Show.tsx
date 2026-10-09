@@ -46,7 +46,7 @@ export default function RunShow({
     );
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Execuções', href: '/runs' }, { label: `#${run.id}` }]}>
+        <AppLayout breadcrumbs={[{ label: 'Definições', href: '/settings' }, { label: 'Execuções', href: '/settings/runs' }, { label: `#${run.id}` }]}>
             <Head title={`Execução #${run.id}`} />
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -66,6 +66,26 @@ class AgentRoutine extends Model
         return $latest->gte($now->copy()->subHours((int) config('agents.routine_catch_up_hours', 12))) ? $latest : null;
     }
 
+    /**
+     * The next times on its schedule, in UTC.
+     *
+     * @return list<Carbon>
+     */
+    public function nextRuns(int $count = 3, ?Carbon $from = null): array
+    {
+        if (! CronExpression::isValidExpression($this->schedule)) {
+            return [];
+        }
+
+        $timezone = (string) config('agents.schedule_timezone');
+        $local = ($from ?? now())->copy()->setTimezone($timezone);
+
+        return array_map(
+            fn (\DateTime $date) => Carbon::instance($date)->utc(),
+            (new CronExpression($this->schedule))->getMultipleRunDates($count, $local),
+        );
+    }
+
     public function scheduleLabel(): string
     {
         return ScheduleLabel::for($this->schedule);

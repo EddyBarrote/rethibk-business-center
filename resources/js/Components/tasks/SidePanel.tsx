@@ -294,7 +294,7 @@ function RunView({
                 </button>
                 <span className="flex-1" />
                 <Link
-                    href={`/runs/${runId}`}
+                    href={`/settings/runs/${runId}`}
                     className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                     title="Abrir a execução na sua página"
                 >

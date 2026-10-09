@@ -4,17 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Ai\Runs\RoutineRunner;
 use App\Enums\AgentStatus;
+use App\Enums\RunStatus;
+use App\Enums\TaskStatus;
 use App\Enums\WorkflowTrigger;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
+use App\Models\AgentRun;
 use App\Models\AuditLog;
+use App\Models\Task;
 use App\Models\User;
 use App\Models\Workflow;
 use App\Tenancy\TenantRule;
 use Cron\CronExpression;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -35,6 +42,8 @@ class RoutineController extends Controller
             ->with(['agent.reportsTo', 'workflow.agent.reportsTo', 'workflow.fallbackUser', 'owner', 'createdBy', 'lastRun', 'lastTask'])
             ->orderBy('name')
             ->get();
+        $history = $this->history($routines);
+        $since = now()->subDays(30);
 
         return Inertia::render('Routines/Index', [
             'routines' => $routines->map(fn (AgentRoutine $routine) => [
@@ -62,10 +71,24 @@ class RoutineController extends Controller
                 'last_status_label' => $routine->lastRun?->status->label(),
                 'last_url' => match (true) {
                     $routine->lastTask !== null => "/tasks/{$routine->lastTask->id}",
-                    $routine->lastRun !== null => "/runs/{$routine->lastRun->id}",
+                    $routine->lastRun !== null => "/settings/runs/{$routine->lastRun->id}",
                     default => null,
                 },
                 'last_task' => $routine->lastTask?->kind->value === 'task' ? $routine->lastTask->identifier() : null,
+                'last_output' => $routine->lastRun !== null ? Str::limit(trim((string) ($routine->lastRun->output['text'] ?? '')), 1200) : null,
+                'last_error' => $routine->lastRun?->error !== null ? Str::limit((string) $routine->lastRun->error, 400) : null,
+                'next_runs' => $routine->is_active ? array_map(fn (Carbon $at) => $at->toIso8601String(), $routine->nextRuns(3)) : [],
+                'history' => $history[$routine->id] ?? [],
+                'stats' => (function () use ($history, $routine, $since) {
+                    $recent = collect($history[$routine->id] ?? [])->filter(fn (array $row) => $row['at'] !== null && Carbon::parse($row['at'])->gte($since));
+
+                    return [
+                        'total' => $recent->count(),
+                        'ok' => $recent->where('tone', 'success')->count(),
+                        'failed' => $recent->where('tone', 'danger')->count(),
+                        'cost' => round((float) $recent->sum('cost'), 4),
+                    ];
+                })(),
             ])->values(),
             'agents' => Agent::query()->where('status', '!=', AgentStatus::Draft)->orderBy('name')->get(['id', 'name', 'title', 'status'])
                 ->map(fn (Agent $agent) => ['id' => $agent->id, 'name' => $agent->name, 'title' => $agent->title, 'active' => $agent->isActive()])->values(),
@@ -123,6 +146,65 @@ class RoutineController extends Controller
         AuditLog::record($user, 'routine.run_now', ['routine_id' => $routine->id, 'ok' => $result['ok']], subject: $routine);
 
         return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
+     * What each routine did lately: the runs it started (a request to an agent)
+     * or the tasks it opened (a flow), newest first.
+     *
+     * @param  Collection<int, AgentRoutine>  $routines
+     * @return array<int, list<array{kind: string, at: string|null, status: string, status_label: string, tone: string, summary: string, cost: float|null, duration_ms: int|null, url: string}>>
+     */
+    private function history(Collection $routines): array
+    {
+        $ids = $routines->pluck('id');
+        $history = [];
+
+        AgentRun::query()->whereIn('agent_routine_id', $ids)->where('created_at', '>=', now()->subDays(60))->latest('id')->limit(500)->get()
+            ->each(function (AgentRun $run) use (&$history) {
+                $text = trim((string) ($run->output['text'] ?? ''));
+                $history[(int) $run->agent_routine_id][] = [
+                    'kind' => 'run',
+                    'at' => $run->created_at->toIso8601String(),
+                    'status' => $run->status->value,
+                    'status_label' => $run->status->label(),
+                    'tone' => match ($run->status) {
+                        RunStatus::Completed => 'success',
+                        RunStatus::Failed => 'danger',
+                        RunStatus::AwaitingApproval => 'warning',
+                        RunStatus::Queued, RunStatus::Running => 'running',
+                        default => 'idle',
+                    },
+                    'summary' => Str::limit($run->status === RunStatus::Failed ? (string) $run->error : ($text !== '' ? $text : 'Sem texto: o agente usou só ferramentas.'), 160),
+                    'cost' => $run->cost_usd,
+                    'duration_ms' => $run->duration_ms,
+                    'url' => $run->task_id !== null ? "/tasks/{$run->task_id}?execucao={$run->id}" : "/settings/runs/{$run->id}",
+                ];
+            });
+
+        Task::query()->where('source_type', (new AgentRoutine)->getMorphClass())->whereIn('source_id', $ids)->latest('id')->limit(300)->get()
+            ->each(function (Task $task) use (&$history) {
+                $history[(int) $task->source_id][] = [
+                    'kind' => 'task',
+                    'at' => $task->created_at->toIso8601String(),
+                    'status' => $task->status->value,
+                    'status_label' => $task->status->label(),
+                    'tone' => match (true) {
+                        $task->status === TaskStatus::Done => 'success',
+                        $task->status === TaskStatus::Cancelled => 'idle',
+                        $task->status->isClosed() => 'idle',
+                        $task->status === TaskStatus::Blocked => 'danger',
+                        $task->status === TaskStatus::WaitingHuman, $task->status === TaskStatus::InReview => 'warning',
+                        default => 'running',
+                    },
+                    'summary' => "{$task->identifier()} · {$task->title}",
+                    'cost' => null,
+                    'duration_ms' => null,
+                    'url' => "/tasks/{$task->id}",
+                ];
+            });
+
+        return array_map(fn (array $rows) => array_slice($rows, 0, 15), $history);
     }
 
     private function admin(Request $request): User

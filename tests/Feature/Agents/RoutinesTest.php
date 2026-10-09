@@ -45,10 +45,10 @@ it('says schedules in words', function () {
 });
 
 it('lets only admins see and create routines', function () {
-    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'routines'))->assertForbidden();
-    $this->actingAs($this->member)->post(tenantUrl($this->tenant, 'routines'), [])->assertForbidden();
+    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/routines'))->assertForbidden();
+    $this->actingAs($this->member)->post(tenantUrl($this->tenant, 'settings/routines'), [])->assertForbidden();
 
-    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'routines'), [
+    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/routines'), [
         'name' => 'Acompanhar entregas', 'kind' => 'agent', 'agent_id' => $this->agent->id,
         'prompt' => 'Lista as entregas em atraso.', 'schedule' => '30 8 * * 1-5', 'owner_user_id' => $this->ana->id,
     ])->assertRedirect()->assertSessionHas('success', 'Rotina criada: Dias úteis às 08:30.');
@@ -56,7 +56,7 @@ it('lets only admins see and create routines', function () {
     // Several routines in one list (strict mode forbids lazy loading across them).
     asTenant($this->tenant, fn () => AgentRoutine::factory()->create(['agent_id' => $this->agent->id, 'name' => 'Zeta', 'last_run_at' => now()]));
 
-    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'routines'))->assertOk()
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/routines'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Routines/Index')
             ->where('routines.0.schedule_label', 'Dias úteis às 08:30')
             ->where('routines.1.name', 'Zeta')
@@ -68,15 +68,15 @@ it('lets only admins see and create routines', function () {
 it('refuses a person who cannot talk to the agent, and a flow that starts with email', function () {
     $workflow = asTenant($this->tenant, fn () => Workflow::factory()->create(['agent_id' => $this->agent->id]));
 
-    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'routines'), [
+    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/routines'), [
         'name' => 'X', 'kind' => 'agent', 'agent_id' => $this->agent->id, 'prompt' => 'Y', 'schedule' => '0 8 * * *', 'owner_user_id' => $this->member->id,
     ])->assertSessionHasErrors('owner_user_id');
 
-    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'routines'), [
+    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/routines'), [
         'name' => 'X', 'kind' => 'workflow', 'workflow_id' => $workflow->id, 'schedule' => 'todos os dias',
     ])->assertSessionHasErrors('schedule');
 
-    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'routines'), [
+    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/routines'), [
         'name' => 'X', 'kind' => 'workflow', 'workflow_id' => $workflow->id, 'schedule' => '0 8 * * *',
     ])->assertSessionHasErrors('workflow_id');
 });
@@ -114,8 +114,18 @@ it('asks the agent in the conversation of the person it is for, and tells the ad
         expect($chat->messages()->where('author_type', 'agent')->sole()->body)->toBe('Há duas entregas em atraso.')
             ->and($this->ana->notifications()->sole()->data['title'])->toBe("{$this->agent->name} respondeu")
             ->and($this->admin->notifications()->sole()->data['title'])->toBe("Rotina «Acompanhar entregas»: {$this->agent->name} respondeu")
-            ->and($this->admin->notifications()->sole()->data['body'])->toContain('na conversa de Ana Sitoe');
+            ->and($this->admin->notifications()->sole()->data['body'])->toContain('na conversa de Ana Sitoe')
+            ->and($run->fresh()->agent_routine_id)->toBe($routine->id);
     });
+
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/routines'))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('routines.0.name', 'Acompanhar entregas')
+            ->where('routines.0.history.0.tone', 'success')
+            ->where('routines.0.history.0.summary', 'Há duas entregas em atraso.')
+            ->where('routines.0.last_output', 'Há duas entregas em atraso.')
+            ->where('routines.0.stats.total', 1)
+            ->has('routines.0.next_runs', 3));
 });
 
 it('catches up once on a routine missed while the machine slept, but not an old one', function () {
@@ -140,7 +150,7 @@ it('lets a flow start on a schedule, and the routine opens its task with the per
         ['id' => 'end', 'type' => 'end', 'position' => ['x' => 0, 'y' => 200], 'data' => ['label' => 'Fim']],
     ], 'edges' => [['id' => 'a', 'source' => 'start', 'target' => 'look'], ['id' => 'b', 'source' => 'look', 'target' => 'end']]];
 
-    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'workflows'), [
+    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/workflows'), [
         'name' => 'Entregas da semana', 'trigger' => 'schedule', 'agent_id' => $this->agent->id, 'graph' => $graph, 'activate' => true,
     ])->assertRedirect()->assertSessionHas('success', 'Fluxo activo, mas ainda sem horário: crie a rotina que o começa em Rotinas.');
 
@@ -149,12 +159,12 @@ it('lets a flow start on a schedule, and the routine opens its task with the per
         ->and($workflow->email_category)->toBeNull()
         ->and($workflow->status)->toBe(WorkflowStatus::Active);
 
-    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'routines'), [
+    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/routines'), [
         'name' => 'Entregas da semana', 'kind' => 'workflow', 'workflow_id' => $workflow->id, 'schedule' => '0 8 * * 1', 'owner_user_id' => $this->ana->id,
     ])->assertRedirect();
 
     $routine = asTenant($this->tenant, fn () => AgentRoutine::query()->sole());
-    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, "routines/{$routine->id}/run"))->assertSessionHas('success');
+    $this->actingAs($this->admin)->post(tenantUrl($this->tenant, "settings/routines/{$routine->id}/run"))->assertSessionHas('success');
 
     asTenant($this->tenant, function () use ($workflow) {
         $task = Task::query()->where('kind', TaskKind::Task)->sole();
@@ -167,7 +177,7 @@ it('lets a flow start on a schedule, and the routine opens its task with the per
             ->and(Workflow::activeFor(EmailCategory::ClientRfq))->toBeNull();
     });
 
-    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, "workflows/{$workflow->id}/edit"))->assertOk()
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, "settings/workflows/{$workflow->id}/edit"))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('initial.trigger', 'schedule')->where('routines.0.schedule_label', 'Às segundas, às 08:00'));
 });
 
@@ -180,4 +190,12 @@ it('does not run a routine whose flow is paused', function () {
 
     expect($result['ok'])->toBeFalse()
         ->and(asTenant($this->tenant, fn () => Task::query()->count()))->toBe(0);
+});
+
+it('lives in Definições: the old addresses lead there', function () {
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'routines'))->assertRedirect('/settings/routines');
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'workflows'))->assertRedirect('/settings/workflows');
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'runs'))->assertRedirect('/settings/runs');
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'runs/7'))->assertRedirect('/settings/runs/7');
+    $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'workflows/3/edit'))->assertRedirect('/settings/workflows/3/edit');
 });

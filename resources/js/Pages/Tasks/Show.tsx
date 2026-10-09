@@ -966,7 +966,7 @@ function WorkflowProgress({ progress }: { progress: NonNullable<WorkflowInfo['pr
     return (
         <Properties title="Fluxo">
             <div className="mb-2 flex items-center justify-between gap-2 text-sm">
-                <Link href={`/workflows?w=${progress.workflow.id}`} className="truncate font-medium hover:underline">
+                <Link href={`/settings/workflows?w=${progress.workflow.id}`} className="truncate font-medium hover:underline">
                     {progress.workflow.name}
                 </Link>
                 <StatusBadge tone={stepTone(progress.status === 'completed' ? 'done' : progress.status === 'running' ? 'active' : progress.status)}>

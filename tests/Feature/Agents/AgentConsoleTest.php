@@ -44,7 +44,7 @@ it('lists and shows the tenant agents only', function () {
 
     $this->actingAs($this->member)->get(tenantUrl($this->a, "agents/{$this->agent->id}"))->assertOk();
     $this->actingAs($this->member)->get(tenantUrl($this->a, "agents/{$this->agentB->id}"))->assertNotFound();
-    $this->actingAs($this->member)->get(tenantUrl($this->a, "runs/{$this->runB->id}"))->assertNotFound();
+    $this->actingAs($this->member)->get(tenantUrl($this->a, "settings/runs/{$this->runB->id}"))->assertNotFound();
     $this->actingAs($this->owner)->post(tenantUrl($this->a, "approvals/{$this->approvalB->id}/approve"))->assertNotFound();
 });
 

@@ -245,12 +245,12 @@ class NotificationController extends Controller
             return '/approvals?aprovacao='.(int) $notice->data['approval_id'];
         }
 
-        if (preg_match('#^/runs/(\d+)$#', $url, $match) === 1) {
+        if (preg_match('#^(?:/settings)?/runs/(\d+)$#', $url, $match) === 1) {
             $runId = (int) $match[1];
             $taskId = AgentRun::query()->whereKey($runId)->value('task_id');
         }
 
-        if ($taskId !== null && (str_starts_with($url, '/runs/') || $url === "/tasks/{$taskId}")) {
+        if ($taskId !== null && ($runId !== null || $url === "/tasks/{$taskId}")) {
             return "/tasks/{$taskId}".($runId !== null ? "?execucao={$runId}" : '');
         }
 

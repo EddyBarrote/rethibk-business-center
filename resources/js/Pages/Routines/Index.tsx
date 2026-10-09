@@ -1,25 +1,24 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CalendarClock, MoreHorizontal, Pencil, Play, Plus, Trash2, Workflow as WorkflowIcon } from 'lucide-react';
+import { CalendarClock, Clock, Coins, ExternalLink, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2, TriangleAlert, Workflow as WorkflowIcon } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { ListPanel } from '@/Components/Blocks';
+import { ListPanel, MetricCard, Properties, Property, Section } from '@/Components/Blocks';
 import { ConfirmDialog, FormDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
-import { RunStatusBadge } from '@/Components/RunStatusBadge';
+import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Switch } from '@/Components/ui/switch';
 import { Textarea } from '@/Components/ui/textarea';
-import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime } from '@/lib/format';
+import SettingsLayout from '@/Layouts/SettingsLayout';
+import { ago, dateTime, duration, plural, usd, usdPrecise } from '@/lib/format';
 import { defaultPick, describe, frequencies, type Frequency, fromCron, type SchedulePick, toCron, weekdays } from '@/lib/schedule';
 import { cn } from '@/lib/utils';
-import type { RunStatus } from '@/types';
 
 interface Routine {
     id: number;
@@ -39,6 +38,23 @@ interface Routine {
     last_status_label: string | null;
     last_url: string | null;
     last_task: string | null;
+    last_output: string | null;
+    last_error: string | null;
+    next_runs: string[];
+    history: HistoryRow[];
+    stats: { total: number; ok: number; failed: number; cost: number };
+}
+
+interface HistoryRow {
+    kind: 'run' | 'task';
+    at: string | null;
+    status: string;
+    status_label: string;
+    tone: Tone;
+    summary: string;
+    cost: number | null;
+    duration_ms: number | null;
+    url: string;
 }
 
 interface Props {
@@ -85,16 +101,22 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
     const [form, setForm] = useState<FormState>(blank);
     const [saving, setSaving] = useState(false);
     const [removing, setRemoving] = useState<Routine | null>(null);
+    const [selectedId, setSelectedId] = useState<number | null>(() => {
+        const id = Number(new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('routine'));
 
-    // Links from elsewhere: ?routine=ID opens it, ?workflow=ID starts one for that flow.
+        return routines.some((row) => row.id === id) ? id : (routines[0]?.id ?? null);
+    });
+
+    const select = (id: number) => {
+        setSelectedId(id);
+        window.history.replaceState(window.history.state, '', `/settings/routines?routine=${id}`);
+    };
+
+    // A link from a flow (?workflow=ID) starts a routine for it.
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const routine = routines.find((row) => String(row.id) === params.get('routine'));
-        const workflow = workflows.find((row) => String(row.id) === params.get('workflow'));
+        const workflow = workflows.find((row) => String(row.id) === new URLSearchParams(window.location.search).get('workflow'));
 
-        if (routine) {
-            edit(routine);
-        } else if (workflow) {
+        if (workflow) {
             setEditing(null);
             setForm({ ...blank, kind: 'workflow', workflow_id: String(workflow.id), name: workflow.name });
             setOpen(true);
@@ -126,33 +148,41 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
             schedule: toCron(form.pick),
             is_active: form.is_active,
         };
-        const options = { preserveScroll: true, onSuccess: () => setOpen(false), onFinish: () => setSaving(false) };
+        const options = { preserveScroll: true, preserveState: true, onSuccess: () => setOpen(false), onFinish: () => setSaving(false) };
 
         if (editing) {
-            router.put(`/routines/${editing.id}`, payload, options);
+            router.put(`/settings/routines/${editing.id}`, payload, options);
         } else {
-            router.post('/routines', payload, options);
+            router.post('/settings/routines', payload, options);
         }
     };
 
     const toggle = (routine: Routine, active: boolean) => {
         router.put(
-            `/routines/${routine.id}`,
+            `/settings/routines/${routine.id}`,
             {
                 ...fromRoutineToPayload(routine),
                 is_active: active,
             },
-            { preserveScroll: true },
+            { preserveScroll: true, preserveState: true },
         );
     };
 
-    const runNow = (routine: Routine) => router.post(`/routines/${routine.id}/run`, {}, { preserveScroll: true });
+    const runNow = (routine: Routine) => router.post(`/settings/routines/${routine.id}/run`, {}, { preserveScroll: true, preserveState: true });
 
     const setPick = (patch: Partial<SchedulePick>) => setForm((current) => ({ ...current, pick: { ...current.pick, ...patch } }));
     const agent = agents.find((row) => String(row.id) === form.agent_id);
 
+    const selected = routines.find((row) => row.id === selectedId) ?? routines[0];
+    const active = routines.filter((row) => row.is_active);
+    const failing = routines.filter((row) => row.stats.failed > 0);
+    const cost = routines.reduce((sum, row) => sum + row.stats.cost, 0);
+    const upcoming = active
+        .flatMap((row) => row.next_runs.slice(0, 1).map((at) => ({ row, at })))
+        .sort((a, b) => a.at.localeCompare(b.at))[0];
+
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Rotinas" />
 
             <PageHeader
@@ -166,110 +196,89 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                 }
             />
 
-            <div className="mt-6">
-                {routines.length === 0 ? (
-                    <EmptyState
-                        icon={CalendarClock}
-                        title="Ainda não há rotinas"
-                        description="Uma rotina pede trabalho a um agente, ou começa um fluxo, num horário: por exemplo, as margens por projecto às segundas às 08:00, para a directora financeira."
-                        action={
-                            <Button onClick={create}>
-                                <Plus />
-                                Criar a primeira rotina
-                            </Button>
-                        }
-                    />
-                ) : (
-                    <ListPanel>
-                        {routines.map((routine) => (
-                            <div key={routine.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
-                                <div className="flex min-w-0 flex-1 items-start gap-3">
-                                    {routine.kind === 'workflow' ? (
-                                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted">
-                                            <WorkflowIcon className="size-4 text-muted-foreground" />
-                                        </div>
-                                    ) : (
-                                        <AgentAvatar name={routine.agent?.name ?? '?'} className="size-8 shrink-0" />
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                        <button type="button" onClick={() => edit(routine)} className="block max-w-full truncate text-left text-sm font-medium hover:underline">
-                                            {routine.name}
-                                        </button>
-                                        <div className="text-xs text-muted-foreground">
-                                            <span className="font-medium text-foreground/80">{routine.schedule_label}</span>
-                                            {' · '}
-                                            {routine.kind === 'workflow'
-                                                ? `Fluxo «${routine.workflow?.name ?? '—'}»${routine.workflow?.agent ? ` com o ${routine.workflow.agent}` : ''}`
-                                                : (routine.agent?.name ?? 'Sem agente')}
-                                            {' · '}
-                                            {routine.recipient ? `para ${routine.recipient}` : 'sem pessoa: só os admins'}
-                                        </div>
-                                        {routine.kind === 'agent' && routine.prompt && (
-                                            <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{routine.prompt}</div>
-                                        )}
-                                        {((routine.kind === 'agent' && routine.agent && !routine.agent.active) ||
-                                            (routine.kind === 'workflow' && routine.workflow && !routine.workflow.active)) && (
-                                            <div className="mt-0.5 text-xs text-status-warning">
-                                                {routine.kind === 'agent' ? 'O agente está suspenso: a rotina não corre.' : 'O fluxo não está activo: a rotina não corre.'}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+            {routines.length === 0 ? (
+                <EmptyState
+                    icon={CalendarClock}
+                    title="Ainda não há rotinas"
+                    description="Uma rotina pede trabalho a um agente, ou começa um fluxo, num horário: por exemplo, as margens por projecto às segundas às 08:00, para a directora financeira."
+                    action={
+                        <Button onClick={create}>
+                            <Plus />
+                            Criar a primeira rotina
+                        </Button>
+                    }
+                />
+            ) : (
+                <>
+                    <div className="grid divide-y rounded-xl border bg-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
+                        <MetricCard icon={CalendarClock} value={active.length} label="Activas" description={`${routines.length - active.length} em pausa`} />
+                        <MetricCard
+                            icon={Clock}
+                            value={upcoming ? relative(upcoming.at) : '—'}
+                            label="Próxima"
+                            description={upcoming ? `${upcoming.row.name}, ${dateTime(upcoming.at)}` : 'Nenhuma rotina activa'}
+                        />
+                        <MetricCard
+                            icon={TriangleAlert}
+                            value={failing.length}
+                            label="Com falhas"
+                            description="nos últimos 30 dias"
+                            tone={failing.length > 0 ? 'danger' : undefined}
+                        />
+                        <MetricCard icon={Coins} value={usd(cost)} label="Custo" description="das rotinas nos últimos 30 dias" />
+                    </div>
 
-                                <div className="flex shrink-0 items-center gap-3 pl-11 sm:pl-0">
-                                    <div className="min-w-0 text-right text-xs text-muted-foreground" title={routine.last_run_at ? dateTime(routine.last_run_at) : undefined}>
-                                        {routine.last_run_at ? (
-                                            <span className="inline-flex items-center gap-2">
-                                                {routine.last_status && <RunStatusBadge status={routine.last_status as RunStatus} label={routine.last_status_label ?? ''} />}
-                                                {routine.last_url ? (
-                                                    <Link href={routine.last_url} className="hover:underline">
-                                                        {routine.last_task ?? 'correu'} {ago(routine.last_run_at)}
-                                                    </Link>
-                                                ) : (
-                                                    <>correu {ago(routine.last_run_at)}</>
-                                                )}
-                                            </span>
-                                        ) : (
-                                            'nunca correu'
+                    <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
+                        <Section title={`Rotinas · ${routines.length}`}>
+                            <ListPanel>
+                                {routines.map((routine) => (
+                                    <button
+                                        key={routine.id}
+                                        type="button"
+                                        onClick={() => select(routine.id)}
+                                        className={cn(
+                                            'flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/60',
+                                            selected?.id === routine.id && 'bg-accent',
                                         )}
-                                    </div>
-                                    <Switch
-                                        checked={routine.is_active}
-                                        onCheckedChange={(checked) => toggle(routine, checked)}
-                                        aria-label={routine.is_active ? 'Pausar rotina' : 'Activar rotina'}
-                                    />
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" aria-label="Mais acções">
-                                                <MoreHorizontal />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onSelect={() => edit(routine)}>
-                                                <Pencil />
-                                                Editar
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => runNow(routine)}>
-                                                <Play />
-                                                Correr agora
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem variant="destructive" onSelect={() => setRemoving(routine)}>
-                                                <Trash2 />
-                                                Apagar
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                            </div>
-                        ))}
-                    </ListPanel>
-                )}
-                <p className="mt-3 text-xs text-muted-foreground">
-                    Horas de {timezone.replace('Africa/', '')}. Uma rotina que falhe a hora (o servidor estava desligado) corre uma vez quando ele volta, até 12 horas depois.
-                    Aprovações, revisão do Chief of Staff e limites de custo aplicam-se como a qualquer outro trabalho; o custo aparece em Consumo de IA.
-                </p>
-            </div>
+                                    >
+                                        <RoutineIcon routine={routine} />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="truncate text-sm font-medium">{routine.name}</span>
+                                                <StatusDot tone={routineTone(routine)} />
+                                            </div>
+                                            <div className="truncate text-xs text-muted-foreground">{routine.schedule_label}</div>
+                                            <div className="truncate text-xs text-muted-foreground">
+                                                {routine.is_active
+                                                    ? routine.next_runs[0]
+                                                        ? `Próxima ${relative(routine.next_runs[0])}`
+                                                        : 'Sem próxima execução'
+                                                    : 'Em pausa'}
+                                                {routine.recipient ? ` · ${routine.recipient}` : ''}
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </ListPanel>
+                        </Section>
+
+                        {selected && (
+                            <RoutineDetail
+                                routine={selected}
+                                onEdit={() => edit(selected)}
+                                onRun={() => runNow(selected)}
+                                onToggle={(value) => toggle(selected, value)}
+                                onDelete={() => setRemoving(selected)}
+                            />
+                        )}
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                        Horas de {timezone.replace('Africa/', '')}. Uma rotina que falhe a hora (o servidor estava desligado) corre uma vez quando ele volta, até 12 horas
+                        depois. Aprovações, revisão do Chief of Staff e limites de custo aplicam-se como a qualquer outro trabalho; o custo aparece em Consumo de IA.
+                    </p>
+                </>
+            )}
 
             <FormDialog
                 open={open}
@@ -481,11 +490,11 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                 destructive
                 onConfirm={() => {
                     if (removing) {
-                        router.delete(`/routines/${removing.id}`, { preserveScroll: true, onFinish: () => setRemoving(null) });
+                        router.delete(`/settings/routines/${removing.id}`, { preserveScroll: true, onFinish: () => setRemoving(null) });
                     }
                 }}
             />
-        </AppLayout>
+        </SettingsLayout>
     );
 }
 
@@ -499,4 +508,237 @@ function fromRoutineToPayload(routine: Routine) {
         owner_user_id: routine.owner_user_id,
         schedule: routine.schedule,
     };
+}
+
+const routineTone = (routine: Routine): Tone => {
+    if (!routine.is_active) {
+        return 'idle';
+    }
+
+    return routine.history[0]?.tone ?? 'success';
+};
+
+/** "em 25 min", "em 3 h", "em 2 dias"; a past time reads as "há …". */
+function relative(iso: string): string {
+    const minutes = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+
+    if (minutes < 0) {
+        return ago(iso);
+    }
+
+    if (minutes < 60) {
+        return `em ${Math.max(minutes, 1)} min`;
+    }
+
+    if (minutes < 60 * 24) {
+        return `em ${Math.round(minutes / 60)} h`;
+    }
+
+    return `em ${plural(Math.round(minutes / (60 * 24)), 'dia', 'dias')}`;
+}
+
+function RoutineIcon({ routine, className }: { routine: Routine; className?: string }) {
+    return routine.kind === 'workflow' ? (
+        <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted', className)}>
+            <WorkflowIcon className="size-4 text-muted-foreground" />
+        </div>
+    ) : (
+        <AgentAvatar name={routine.agent?.name ?? '?'} className={cn('size-8 shrink-0', className)} />
+    );
+}
+
+function RoutineDetail({
+    routine,
+    onEdit,
+    onRun,
+    onToggle,
+    onDelete,
+}: {
+    routine: Routine;
+    onEdit: () => void;
+    onRun: () => void;
+    onToggle: (active: boolean) => void;
+    onDelete: () => void;
+}) {
+    const blocked =
+        (routine.kind === 'agent' && routine.agent && !routine.agent.active) || (routine.kind === 'workflow' && routine.workflow && !routine.workflow.active);
+    const last = routine.history[0];
+
+    return (
+        <div className="flex min-w-0 flex-col gap-5">
+            <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-start">
+                <RoutineIcon routine={routine} className="size-10" />
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-semibold tracking-tight">{routine.name}</h2>
+                        <StatusBadge tone={routine.is_active ? 'success' : 'idle'}>{routine.is_active ? 'Activa' : 'Em pausa'}</StatusBadge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        {routine.schedule_label} ·{' '}
+                        {routine.kind === 'workflow'
+                            ? `começa o fluxo «${routine.workflow?.name ?? '—'}»`
+                            : `pedido ao ${routine.agent?.name ?? 'agente'}`}
+                        {routine.recipient ? `, para ${routine.recipient}` : ''}
+                    </p>
+                    {blocked && (
+                        <p className="mt-1 text-xs text-status-warning">
+                            {routine.kind === 'agent' ? 'O agente está suspenso: a rotina não corre.' : 'O fluxo não está activo: a rotina não corre.'}
+                        </p>
+                    )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={onRun}>
+                        <Play />
+                        Correr agora
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => onToggle(!routine.is_active)}>
+                        {routine.is_active ? <Pause /> : <Play />}
+                        {routine.is_active ? 'Pausar' : 'Activar'}
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" aria-label="Mais acções">
+                                <MoreHorizontal />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={onEdit}>
+                                <Pencil />
+                                Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                                <Trash2 />
+                                Apagar
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
+                <div className="flex min-w-0 flex-col gap-5">
+                    <Section
+                        title={routine.kind === 'workflow' ? 'Nota para o agente' : 'O que o agente faz'}
+                        action={
+                            <button type="button" onClick={onEdit} className="text-xs text-primary hover:underline">
+                                Editar
+                            </button>
+                        }
+                    >
+                        <div className="rounded-xl border bg-card px-4 py-3 text-sm whitespace-pre-wrap">
+                            {routine.prompt || <span className="text-muted-foreground">Sem nota: o fluxo diz os passos.</span>}
+                        </div>
+                    </Section>
+
+                    <Section
+                        title="Último resultado"
+                        action={
+                            routine.last_url && (
+                                <Link href={routine.last_url} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                    {routine.kind === 'workflow' ? 'Abrir a tarefa' : 'Abrir a conversa'}
+                                    <ExternalLink className="size-3" />
+                                </Link>
+                            )
+                        }
+                    >
+                        {last ? (
+                            <div className="rounded-xl border bg-card px-4 py-3">
+                                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                    <StatusBadge tone={last.tone}>{last.status_label}</StatusBadge>
+                                    {last.at && <span title={dateTime(last.at)}>{ago(last.at)}</span>}
+                                    {last.duration_ms !== null && <span>· {duration(last.duration_ms)}</span>}
+                                    {last.cost !== null && <span>· {usdPrecise(last.cost)}</span>}
+                                </div>
+                                <p className="line-clamp-[12] text-sm whitespace-pre-wrap">
+                                    {routine.last_error ?? (routine.last_output || last.summary)}
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                                Ainda não correu. Use «Correr agora» para experimentar.
+                            </p>
+                        )}
+                    </Section>
+
+                    <Section title={`Histórico · ${routine.history.length}`}>
+                        {routine.history.length === 0 ? (
+                            <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">Sem execuções registadas.</p>
+                        ) : (
+                            <ListPanel>
+                                {routine.history.map((row, index) => (
+                                    <Link
+                                        key={`${row.kind}-${index}`}
+                                        href={row.url}
+                                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent/60"
+                                    >
+                                        <StatusDot tone={row.tone} />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="truncate">{row.summary}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {row.status_label}
+                                                {row.at ? ` · ${dateTime(row.at)}` : ''}
+                                            </div>
+                                        </div>
+                                        <div className="hidden shrink-0 text-right text-xs text-muted-foreground tabular-nums sm:block">
+                                            {row.duration_ms !== null && <div>{duration(row.duration_ms)}</div>}
+                                            {row.cost !== null && <div>{usdPrecise(row.cost)}</div>}
+                                        </div>
+                                    </Link>
+                                ))}
+                            </ListPanel>
+                        )}
+                    </Section>
+                </div>
+
+                <div className="flex min-w-0 flex-col gap-4">
+                    <Properties title="Detalhes">
+                        <Property label="Quando">{routine.schedule_label}</Property>
+                        <Property label="Próximas">
+                            {routine.next_runs.length > 0 ? (
+                                <span className="flex flex-col">
+                                    {routine.next_runs.map((at) => (
+                                        <span key={at}>
+                                            {dateTime(at)} <span className="text-muted-foreground">({relative(at)})</span>
+                                        </span>
+                                    ))}
+                                </span>
+                            ) : (
+                                <span className="text-muted-foreground">{routine.is_active ? 'Sem data' : 'Em pausa'}</span>
+                            )}
+                        </Property>
+                        <Property label={routine.kind === 'workflow' ? 'Fluxo' : 'Agente'}>
+                            {routine.kind === 'workflow' ? (
+                                routine.workflow ? (
+                                    <Link href={`/settings/workflows/${routine.workflow.id}/edit`} className="hover:underline">
+                                        {routine.workflow.name}
+                                    </Link>
+                                ) : null
+                            ) : routine.agent ? (
+                                <Link href={`/agents/${routine.agent.id}`} className="hover:underline">
+                                    {routine.agent.name}
+                                </Link>
+                            ) : null}
+                        </Property>
+                        {routine.kind === 'workflow' && <Property label="Agente">{routine.workflow?.agent}</Property>}
+                        <Property label="Recebe">{routine.recipient ?? <span className="text-muted-foreground">Só os admins</span>}</Property>
+                        <Property label="Admins">Recebem sempre um aviso</Property>
+                        <Property label="Criada por">{routine.created_by}</Property>
+                        <Property label="Cron">
+                            <span className="font-mono text-xs">{routine.schedule}</span>
+                        </Property>
+                    </Properties>
+
+                    <Properties title="Últimos 30 dias">
+                        <Property label="Execuções">{routine.stats.total}</Property>
+                        <Property label="Concluídas">{routine.stats.ok}</Property>
+                        <Property label="Falhadas">
+                            <span className={cn(routine.stats.failed > 0 && 'text-status-danger')}>{routine.stats.failed}</span>
+                        </Property>
+                        <Property label="Custo">{usdPrecise(routine.stats.cost)}</Property>
+                    </Properties>
+                </div>
+            </div>
+        </div>
+    );
 }

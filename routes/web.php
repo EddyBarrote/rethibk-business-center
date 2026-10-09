@@ -103,23 +103,7 @@ Route::middleware('auth')->group(function () {
     Route::get('org', [OrgController::class, 'index'])->name('org.index');
     Route::put('org', [OrgController::class, 'update'])->name('org.update');
     // Fluxos de trabalho (docs/DECISOES.md): the map, and the editor (canvas and list).
-    Route::get('workflows', [WorkflowController::class, 'index'])->name('workflows.index');
-    Route::get('workflows/new', [WorkflowController::class, 'create'])->name('workflows.create');
-    Route::post('workflows', [WorkflowController::class, 'store'])->name('workflows.store');
-    Route::post('workflows/check', [WorkflowController::class, 'check'])->middleware('throttle:120,1')->name('workflows.check');
-    Route::post('workflows/draft', [WorkflowController::class, 'draft'])->middleware('throttle:10,1')->name('workflows.draft');
-    Route::get('workflows/{workflow}/edit', [WorkflowController::class, 'edit'])->name('workflows.edit');
-    Route::put('workflows/{workflow}', [WorkflowController::class, 'update'])->name('workflows.update');
-    Route::put('workflows/{workflow}/status', [WorkflowController::class, 'status'])->name('workflows.status');
-    Route::delete('workflows/{workflow}', [WorkflowController::class, 'destroy'])->name('workflows.destroy');
     Route::post('workflow-steps/{step}/decide', [WorkflowController::class, 'decide'])->middleware('throttle:30,1')->name('workflow-steps.decide');
-    Route::get('routines', [RoutineController::class, 'index'])->name('routines.index');
-    Route::post('routines', [RoutineController::class, 'store'])->name('routines.store');
-    Route::put('routines/{routine}', [RoutineController::class, 'update'])->name('routines.update');
-    Route::delete('routines/{routine}', [RoutineController::class, 'destroy'])->name('routines.destroy');
-    Route::post('routines/{routine}/run', [RoutineController::class, 'run'])->middleware('throttle:10,1')->name('routines.run');
-    Route::get('runs', [AgentRunController::class, 'index'])->name('runs.index');
-    Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
 
     Route::get('approvals', [ApprovalController::class, 'index'])->name('approvals.index');
     Route::post('approvals/approve', [ApprovalController::class, 'approveMany'])->middleware('throttle:20,1')->name('approvals.approve-many');
@@ -231,6 +215,23 @@ Route::middleware('auth')->group(function () {
         Route::put('skills/global/{platformSkill}', [SkillController::class, 'toggleGlobal'])->name('skills.global');
         Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');
         Route::delete('skills/{skill}/files/{file}', [SkillController::class, 'destroyFile'])->name('skills.files.destroy');
+        // Fluxos de trabalho, Rotinas e Execuções (docs/DECISOES.md, "Fluxos, Rotinas e Execuções nas Definições")
+        Route::get('workflows', [WorkflowController::class, 'index'])->name('workflows.index');
+        Route::get('workflows/new', [WorkflowController::class, 'create'])->name('workflows.create');
+        Route::post('workflows', [WorkflowController::class, 'store'])->name('workflows.store');
+        Route::post('workflows/check', [WorkflowController::class, 'check'])->middleware('throttle:120,1')->name('workflows.check');
+        Route::post('workflows/draft', [WorkflowController::class, 'draft'])->middleware('throttle:10,1')->name('workflows.draft');
+        Route::get('workflows/{workflow}/edit', [WorkflowController::class, 'edit'])->name('workflows.edit');
+        Route::put('workflows/{workflow}', [WorkflowController::class, 'update'])->name('workflows.update');
+        Route::put('workflows/{workflow}/status', [WorkflowController::class, 'status'])->name('workflows.status');
+        Route::delete('workflows/{workflow}', [WorkflowController::class, 'destroy'])->name('workflows.destroy');
+        Route::get('routines', [RoutineController::class, 'index'])->name('routines.index');
+        Route::post('routines', [RoutineController::class, 'store'])->name('routines.store');
+        Route::put('routines/{routine}', [RoutineController::class, 'update'])->name('routines.update');
+        Route::delete('routines/{routine}', [RoutineController::class, 'destroy'])->name('routines.destroy');
+        Route::post('routines/{routine}/run', [RoutineController::class, 'run'])->middleware('throttle:10,1')->name('routines.run');
+        Route::get('runs', [AgentRunController::class, 'index'])->name('runs.index');
+        Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
         Route::get('usage', UsageController::class)->name('settings.usage');
         Route::get('email-rules', [EmailRuleController::class, 'index'])->name('settings.email-rules.index');
         Route::put('email-rules/{category}', [EmailRuleController::class, 'update'])->name('settings.email-rules.update');
@@ -252,4 +253,10 @@ Route::middleware('auth')->group(function () {
     Route::redirect('skills/create', '/settings/skills/create');
     Route::redirect('skills/{skill}/edit', '/settings/skills/{skill}/edit');
     Route::redirect('settings/erp', '/settings/integrations/erp');
+    Route::redirect('workflows', '/settings/workflows');
+    Route::redirect('workflows/new', '/settings/workflows/new');
+    Route::redirect('workflows/{workflow}/edit', '/settings/workflows/{workflow}/edit');
+    Route::redirect('routines', '/settings/routines');
+    Route::redirect('runs', '/settings/runs');
+    Route::redirect('runs/{run}', '/settings/runs/{run}');
 });

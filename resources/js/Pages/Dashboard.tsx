@@ -89,7 +89,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                 <Section
                     title="A trabalhar agora"
                     action={
-                        <Link href="/runs" className="text-muted-foreground hover:text-foreground">
+                        <Link href="/settings/runs" className="text-muted-foreground hover:text-foreground">
                             Ver execuções
                         </Link>
                     }
@@ -98,7 +98,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                         {live.map((run) => (
                             <Link
                                 key={run.id}
-                                href={`/runs/${run.id}`}
+                                href={`/settings/runs/${run.id}`}
                                 className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/60"
                             >
                                 <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     value={metrics.runs_running}
                     label="Execuções em curso"
                     description={`${metrics.runs_waiting} à espera de aprovação · ${metrics.runs_failed_week} falharam em 7 dias`}
-                    href="/runs"
+                    href="/settings/runs"
                 />
                 {can_view_costs && metrics.month_spend_usd !== null && (
                     <MetricCard
@@ -328,7 +328,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                 <Section
                     title="Actividade recente"
                     action={
-                        <Link href="/runs" className="text-muted-foreground hover:text-foreground">
+                        <Link href="/settings/runs" className="text-muted-foreground hover:text-foreground">
                             Ver todas
                         </Link>
                     }
@@ -340,7 +340,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                             {runs.map((run) => (
                                 <EntityRow
                                     key={run.id}
-                                    href={`/runs/${run.id}`}
+                                    href={`/settings/runs/${run.id}`}
                                     leading={<AgentAvatar name={run.agent.name} />}
                                     title={run.title ?? runTitle(run.input, toolNames)}
                                     subtitle={run.agent.name}

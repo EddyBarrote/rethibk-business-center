@@ -48,7 +48,7 @@ final class IssueDetector
 
         $failed = AgentRun::query()->where('status', RunStatus::Failed)->where('created_at', '>=', now()->subDay())->count();
         if ($failed > 0) {
-            $add('Agentes', 'média', ($failed === 1 ? '1 execução falhou' : "{$failed} execuções falharam").' nas últimas 24 h.', '/runs?status=failed');
+            $add('Agentes', 'média', ($failed === 1 ? '1 execução falhou' : "{$failed} execuções falharam").' nas últimas 24 h.', '/settings/runs?status=failed');
         }
 
         foreach (EmailMessage::query()->triage()->where('direction', 'inbound')->where('classification', EmailCategory::Lead->value)->whereNull('erp_lead_id')->where('status', 'processed')->limit(20)->get() as $email) {

@@ -665,3 +665,17 @@ Pergunta do Barrote: os agentes não eram proactivos. Já havia rotinas (um pedi
 | Mantém-se: aprovações, revisão do Chief of Staff, orçamento e tecto absoluto aplicam-se como a qualquer execução; o custo vai para Consumo de IA. As rotinas do super admin continuam em Admin › Agentes. | |
 
 Migração `2026_10_09_140001`. Testes: `tests/Feature/Agents/RoutinesTest.php`.
+
+## Fluxos, Rotinas e Execuções nas Definições (09.10.2026)
+
+Pedido do Barrote: Fluxos de trabalho, Rotinas e Execuções saem da barra principal e passam para as Definições, e a página das Rotinas fica mais completa.
+
+| Decisão | Onde |
+|---|---|
+| **No grupo «Agentes de IA» das Definições**, à frente de Capacidades: Fluxos de trabalho e Execuções para quem já os via, Rotinas só para quem administra a empresa. Saem da barra principal. | `lib/settings.ts`, `AppLayout` |
+| **Endereços novos** `/settings/workflows`, `/settings/routines` e `/settings/runs` (os nomes das rotas não mudam). Os antigos (`/workflows`, `/workflows/new`, `/workflows/{id}/edit`, `/routines`, `/runs`, `/runs/{id}`) levam aos novos. A decisão de um passo de fluxo numa tarefa (`/workflow-steps/{id}/decide`) fica onde estava. As notificações antigas com `/runs/{id}` continuam a abrir a tarefa da execução. | `routes/web.php`, `NotificationController::target()` |
+| As listas (Fluxos e Execuções) abrem com a barra das Definições ao lado; o editor de um fluxo e o detalhe de uma execução ficam em ecrã inteiro, com «Definições ›» no caminho. | `Pages/Workflows/*`, `Pages/Runs/*` |
+| **Rotinas com detalhe:** em cima, as activas, a próxima a correr, as que falharam e o custo dos últimos 30 dias. À esquerda, a lista (horário, próxima execução, quem recebe e um ponto com o estado da última). À direita, a rotina escolhida: o pedido, o último resultado (texto, estado, duração, custo e ligação para a conversa ou a tarefa), o histórico das últimas 15 execuções, as próximas três horas, quem recebe e os números de 30 dias, com «Correr agora», Pausar, Editar e Apagar. | `RoutineController::index()`, `history()`, `Pages/Routines/Index.tsx` |
+| Cada execução que uma rotina começa guarda a rotina (`agent_runs.agent_routine_id`); as que já existiam foram ligadas pela origem. Um fluxo por agenda conta as tarefas que abriu. | migração `2026_10_09_150001` |
+
+Testes: `tests/Feature/Agents/RoutinesTest.php`.

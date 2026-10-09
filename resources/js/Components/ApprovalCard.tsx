@@ -351,7 +351,7 @@ export function ApprovalCard({
                             <CollapsibleContent className="mt-2 grid gap-2">
                                 <p className="text-xs text-muted-foreground">
                                     Capacidade <code className="rounded bg-muted px-1 font-mono">{approval.action_type}</code> · execução{' '}
-                                    <Link href={`/runs/${approval.run_id}`} className="font-mono hover:underline">
+                                    <Link href={`/settings/runs/${approval.run_id}`} className="font-mono hover:underline">
                                         #{approval.run_id}
                                     </Link>{' '}
                                     · aprovação <span className="font-mono">#{approval.id}</span>
@@ -370,7 +370,7 @@ export function ApprovalCard({
                                 </Button>
                             )}
                             <Button variant="ghost" asChild>
-                                <Link href={`/runs/${approval.run_id}`}>Ver execução</Link>
+                                <Link href={`/settings/runs/${approval.run_id}`}>Ver execução</Link>
                             </Button>
                         </div>
                         {approval.can_decide && pending && (

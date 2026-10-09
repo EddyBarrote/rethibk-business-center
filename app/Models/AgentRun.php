@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int $agent_id
  * @property int|null $task_id
+ * @property int|null $agent_routine_id
  * @property TriggerType $trigger_type
  * @property int|null $requested_by_user_id
  * @property RunStatus $status

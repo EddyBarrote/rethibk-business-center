@@ -21,11 +21,13 @@ const pages: Record<string, [list: string, one: string]> = {
     projects: ['Projectos', 'Projecto'],
     reports: ['Documentos', 'Documento'],
     roles: ['Papéis', 'Papel'],
+    routines: ['Rotinas', 'Rotina'],
     runs: ['Execuções', 'Execução'],
     settings: ['Definições', 'Definições'],
     skills: ['Skills', 'Skill'],
     tasks: ['Tarefas', 'Tarefa'],
     users: ['Utilizadores', 'Utilizador'],
+    workflows: ['Fluxos de trabalho', 'Fluxo'],
 };
 
 /** Areas the console had before the ERP took them over; old briefings still point at them. */
@@ -39,14 +41,14 @@ const removed: Record<string, [list: string, one: string]> = {
 };
 
 /**
- * "/approvals" → Aprovações, "/runs/12" → Execução #12. `live` is false for an
+ * "/approvals" → Aprovações, "/settings/runs/12" → Execução #12. `live` is false for an
  * area the console no longer has; null when the path is not a page at all.
  */
 export function pathLabel(href: string): { label: string; live: boolean } | null {
     if (href === '/') {
         return { label: 'A minha caixa', live: true };
     }
-    const match = href.match(/^\/([a-z-]+)(?:\/(\d+))?\/?(?:[?#].*)?$/);
+    const match = href.match(/^(?:\/settings)?\/([a-z-]+)(?:\/(\d+))?\/?(?:[?#].*)?$/);
     const page = match ? (pages[match[1]] ?? removed[match[1]]) : undefined;
     if (!match || !page) {
         return null;

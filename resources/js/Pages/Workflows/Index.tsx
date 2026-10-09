@@ -10,7 +10,7 @@ import { Button } from '@/Components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { FlowSteps, ReadinessBadge, ReadinessBar, ReadinessLegend } from '@/Components/workflows/Readiness';
 import { useCan } from '@/hooks/useCan';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago, plural } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { fixLabel, flatten, type Readiness, type ReadinessSummary, type WfGraph } from '@/lib/workflows';
@@ -109,7 +109,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
     );
 
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Fluxos de trabalho" />
 
             <PageHeader
@@ -127,7 +127,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                         )}
                         {can_create && (
                             <Button asChild>
-                                <Link href={`/workflows/new${category && !category.workflow_id ? `?category=${category.value}` : ''}`}>
+                                <Link href={`/settings/workflows/new${category && !category.workflow_id ? `?category=${category.value}` : ''}`}>
                                     <Plus />
                                     Novo fluxo
                                 </Link>
@@ -155,7 +155,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                 </div>
 
                 <TabsContent value="types" className="mt-5">
-                    <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_17rem]">
+                    <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] 2xl:grid-cols-[19rem_minmax(0,1fr)_17rem]">
                         <div className="flex min-w-0 flex-col gap-5">
                             <Section title={`Tipos de email · ${categories.length}`}>
                                 <div className="divide-y overflow-hidden rounded-xl border bg-card">
@@ -191,7 +191,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                 title={`Por agenda · ${scheduled.length}`}
                                 action={
                                     can_create && (
-                                        <Link href="/workflows/new?trigger=schedule" className="text-xs text-primary hover:underline">
+                                        <Link href="/settings/workflows/new?trigger=schedule" className="text-xs text-primary hover:underline">
                                             Novo
                                         </Link>
                                     )
@@ -261,7 +261,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3 text-sm">
                                         {workflow.trigger === 'schedule' ? (
                                             <Link
-                                                href="/routines"
+                                                href="/settings/routines"
                                                 className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-2 py-1 hover:bg-accent/60"
                                             >
                                                 <CalendarClock className="size-3.5 text-muted-foreground" />
@@ -304,7 +304,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                     action={
                                         can_create && (
                                             <Button asChild>
-                                                <Link href={`/workflows/new?category=${category.value}`}>
+                                                <Link href={`/settings/workflows/new?category=${category.value}`}>
                                                     <Plus />
                                                     Criar fluxo para este tipo
                                                 </Link>
@@ -316,7 +316,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                         </Section>
 
                         {workflow && (
-                            <div className="flex min-w-0 flex-col gap-4 lg:col-span-2 xl:col-span-1">
+                            <div className="flex min-w-0 flex-col gap-4 lg:col-span-2 2xl:col-span-1">
                                 <Properties title={workflow.name}>
                                     <Property label="Estado">
                                         <StatusBadge tone={statusTone(workflow.status)}>{workflow.status_label}</StatusBadge>
@@ -352,7 +352,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                     {workflow.can_edit && (
                                         <div className="pt-2">
                                             <Button variant="outline" size="sm" asChild>
-                                                <Link href={`/workflows/${workflow.id}/edit`}>Editar fluxo</Link>
+                                                <Link href={`/settings/workflows/${workflow.id}/edit`}>Editar fluxo</Link>
                                             </Button>
                                         </div>
                                     )}
@@ -461,7 +461,7 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                                     </div>
                                     {gap.workflow.can_edit && (
                                         <Button variant="outline" size="sm" asChild>
-                                            <Link href={`/workflows/${gap.workflow.id}/edit?node=${gap.node}`}>Abrir o passo</Link>
+                                            <Link href={`/settings/workflows/${gap.workflow.id}/edit?node=${gap.node}`}>Abrir o passo</Link>
                                         </Button>
                                     )}
                                 </div>
@@ -470,6 +470,6 @@ export default function WorkflowsIndex({ categories, workflows, agents, can_crea
                     )}
                 </TabsContent>
             </Tabs>
-        </AppLayout>
+        </SettingsLayout>
     );
 }

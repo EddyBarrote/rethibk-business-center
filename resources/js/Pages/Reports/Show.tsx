@@ -70,11 +70,11 @@ export default function ReportShow({
                     {report.run_id && (
                         <>
                             <Property label="Execução">
-                                <Link href={`/runs/${report.run_id}`} className="font-mono text-xs text-primary hover:underline">
+                                <Link href={`/settings/runs/${report.run_id}`} className="font-mono text-xs text-primary hover:underline">
                                     #{report.run_id}
                                 </Link>
                             </Property>
-                            <Link href={`/runs/${report.run_id}`} className="mt-2 border-t pt-3 text-xs text-primary hover:underline">
+                            <Link href={`/settings/runs/${report.run_id}`} className="mt-2 border-t pt-3 text-xs text-primary hover:underline">
                                 Ver como o agente preparou este documento
                             </Link>
                         </>

@@ -38,7 +38,7 @@ beforeEach(function () {
 });
 
 it('shows the map to everyone, with each kind of email, who handles it and each step checked', function () {
-    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'workflows'))->assertOk()
+    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/workflows'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Workflows/Index')
             ->where('can_create', false)
             ->where('categories', fn ($rows) => collect($rows)->firstWhere('value', 'client_rfq')['workflow_id'] === $this->workflow->id
@@ -50,7 +50,7 @@ it('shows the map to everyone, with each kind of email, who handles it and each 
 });
 
 it('lets those who give access to the agent draw a flow, and checks it while it is drawn', function () {
-    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'workflows/new?category=client_request'))->assertOk()
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'settings/workflows/new?category=client_request'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Workflows/Edit')->where('initial.email_category', 'client_request')->where('initial.agent_id', $this->manager->id));
 
     $graph = ['nodes' => [
@@ -59,11 +59,11 @@ it('lets those who give access to the agent draw a flow, and checks it while it 
         ['id' => 'end', 'type' => 'end', 'position' => ['x' => 0, 'y' => 200], 'data' => ['label' => 'Fim']],
     ], 'edges' => [['id' => 'a', 'source' => 'start', 'target' => 'look'], ['id' => 'b', 'source' => 'look', 'target' => 'end']]];
 
-    $this->actingAs($this->owner)->postJson(tenantUrl($this->tenant, 'workflows/check'), ['agent_id' => $this->manager->id, 'graph' => $graph])->assertOk()
+    $this->actingAs($this->owner)->postJson(tenantUrl($this->tenant, 'settings/workflows/check'), ['agent_id' => $this->manager->id, 'graph' => $graph])->assertOk()
         ->assertJsonPath('readiness.look.state', 'alone')
         ->assertJsonPath('problems', []);
 
-    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'workflows'), [
+    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'settings/workflows'), [
         'name' => 'Responder a pedidos de cliente', 'email_category' => 'client_request', 'agent_id' => $this->manager->id, 'graph' => $graph, 'activate' => true,
     ])->assertRedirect();
 
@@ -76,7 +76,7 @@ it('lets those who give access to the agent draw a flow, and checks it while it 
             ->and($workflow->graph['nodes'][1]['data'])->toBe(['label' => 'Ver o cliente', 'capability' => 'erp.crm.get_account']);
     });
 
-    $this->actingAs($this->member)->post(tenantUrl($this->tenant, 'workflows'), ['name' => 'X', 'email_category' => 'lead', 'agent_id' => $this->manager->id, 'graph' => $graph])->assertForbidden();
+    $this->actingAs($this->member)->post(tenantUrl($this->tenant, 'settings/workflows'), ['name' => 'X', 'email_category' => 'lead', 'agent_id' => $this->manager->id, 'graph' => $graph])->assertForbidden();
 });
 
 it('does not turn on a flow that goes in circles, and pauses the other flow for the same email when one is turned on', function () {
@@ -86,12 +86,12 @@ it('does not turn on a flow that goes in circles, and pauses the other flow for 
         ['id' => 'b', 'type' => 'agent', 'data' => ['label' => 'B']],
     ], 'edges' => [['source' => 's', 'target' => 'a'], ['source' => 'a', 'target' => 'b'], ['source' => 'b', 'target' => 'a']]];
 
-    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'workflows'), ['name' => 'Circular', 'email_category' => 'client_rfq', 'agent_id' => $this->manager->id, 'graph' => $looping, 'activate' => true])
+    $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'settings/workflows'), ['name' => 'Circular', 'email_category' => 'client_rfq', 'agent_id' => $this->manager->id, 'graph' => $looping, 'activate' => true])
         ->assertSessionHas('success', fn ($message) => str_starts_with($message, 'Não foi activado'));
 
     $copy = asTenant($this->tenant, fn () => Workflow::query()->create(['name' => 'Outra versão', 'email_category' => EmailCategory::ClientRfq, 'agent_id' => $this->manager->id, 'graph' => $this->workflow->graph]));
 
-    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "workflows/{$copy->id}/status"), ['status' => 'active'])->assertSessionHas('success');
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/workflows/{$copy->id}/status"), ['status' => 'active'])->assertSessionHas('success');
 
     asTenant($this->tenant, function () use ($copy) {
         expect($copy->fresh()->status)->toBe(WorkflowStatus::Active)
@@ -160,7 +160,7 @@ it('proposes the blocks from a description, keeping only capabilities and agents
         ],
     ]]);
 
-    $response = $this->actingAs($this->owner)->postJson(tenantUrl($this->tenant, 'workflows/draft'), [
+    $response = $this->actingAs($this->owner)->postJson(tenantUrl($this->tenant, 'settings/workflows/draft'), [
         'description' => 'Quando um cliente pede cotação, ver se já é cliente e pedir preços aos fornecedores.',
         'agent_id' => $this->manager->id,
         'email_category' => 'client_rfq',

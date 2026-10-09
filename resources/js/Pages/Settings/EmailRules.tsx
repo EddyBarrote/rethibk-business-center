@@ -71,7 +71,7 @@ export default function EmailRules({ rules, agents, people }: Props) {
                                 <div className="text-sm font-medium">{rule.label}</div>
                                 <div className="truncate text-xs text-muted-foreground">
                                     {rule.workflow ? (
-                                        <Link href={`/workflows?w=${rule.workflow.id}`} className="inline-flex items-center gap-1 hover:underline">
+                                        <Link href={`/settings/workflows?w=${rule.workflow.id}`} className="inline-flex items-center gap-1 hover:underline">
                                             <Workflow className="size-3" />
                                             Fluxo «{rule.workflow.name}» com o {rule.handled_by}
                                         </Link>
@@ -118,7 +118,7 @@ export default function EmailRules({ rules, agents, people }: Props) {
                 </ListPanel>
                 <p className="mt-2 text-xs text-muted-foreground">
                     {plural(rules.length, 'tipo', 'tipos')} de email, {rules.filter((rule) => rule.workflow).length} com fluxo activo.{' '}
-                    <Link href="/workflows" className="text-primary hover:underline">
+                    <Link href="/settings/workflows" className="text-primary hover:underline">
                         Ver o mapa dos fluxos
                     </Link>
                 </p>

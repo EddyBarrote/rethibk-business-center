@@ -70,7 +70,7 @@ final class RoutineRunner
      */
     public function delivered(AgentRun $run): void
     {
-        $routine = AgentRoutine::query()->where('last_run_id', $run->id)->first();
+        $routine = $run->agent_routine_id !== null ? AgentRoutine::query()->find($run->agent_routine_id) : null;
 
         if ($routine === null) {
             return;
@@ -91,7 +91,7 @@ final class RoutineRunner
         }
 
         foreach ($this->admins($person) as $admin) {
-            $url = $run->task !== null && $admin->can('view', $run->task) ? "/tasks/{$run->task->id}" : "/routines?routine={$routine->id}";
+            $url = $run->task !== null && $admin->can('view', $run->task) ? "/tasks/{$run->task->id}" : "/settings/routines?routine={$routine->id}";
             $this->notifier->notify($admin, $title, $body, $url, $agent, $level, NotificationCategory::Agent, ['run_id' => $run->id, 'task_id' => $run->task_id]);
         }
     }
@@ -108,6 +108,7 @@ final class RoutineRunner
         }
 
         $remember = function (AgentRun $run) use ($routine): void {
+            $run->forceFill(['agent_routine_id' => $routine->id])->save();
             $routine->forceFill(['last_run_id' => $run->id])->save();
         };
         $person = $this->recipient($routine, $agent);

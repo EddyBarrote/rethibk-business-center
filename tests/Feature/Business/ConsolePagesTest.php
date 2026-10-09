@@ -47,7 +47,7 @@ it('renders every console page for the owner', function (string $path, string $c
     ['projects', 'Projects/Index'],
     ['agents', 'Agents/Index'],
     ['agents/{Agent}', 'Agents/Show'],
-    ['runs', 'Runs/Index'],
+    ['settings/runs', 'Runs/Index'],
     ['approvals', 'Approvals/Index'],
     ['knowledge', 'Knowledge/Index'],
     ['inbox', 'Email/Index'],

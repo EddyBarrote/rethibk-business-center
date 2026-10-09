@@ -229,7 +229,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                         <Section
                             title="Execuções recentes"
                             action={
-                                <Link href="/runs" className="text-muted-foreground hover:text-foreground">
+                                <Link href="/settings/runs" className="text-muted-foreground hover:text-foreground">
                                     Ver todas
                                 </Link>
                             }
@@ -388,7 +388,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                                         <EntityRow
                                             key={routine.id}
                                             leading={<Clock className="size-4 text-muted-foreground" />}
-                                            href={auth.user?.permissions.includes('company.manage') ? `/routines?routine=${routine.id}` : undefined}
+                                            href={auth.user?.permissions.includes('company.manage') ? `/settings/routines?routine=${routine.id}` : undefined}
                                             title={routine.name}
                                             subtitle={routine.schedule_label}
                                             meta={
@@ -530,7 +530,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
 }
 
 /** Where a run is followed: its conversation with the run open in the side panel, or the run on its own. */
-const runHref = (run: NowRun) => (run.task?.id ? `/tasks/${run.task.id}?execucao=${run.id}` : `/runs/${run.id}`);
+const runHref = (run: NowRun) => (run.task?.id ? `/tasks/${run.task.id}?execucao=${run.id}` : `/settings/runs/${run.id}`);
 
 /** The step a run is on, in words. */
 function stepLabel(run: NowRun, toolNames: Record<string, string> | undefined) {
@@ -669,7 +669,7 @@ function RunList({ runs }: { runs: RunSummary[] }) {
             {runs.map((run) => (
                 <EntityRow
                     key={run.id}
-                    href={`/runs/${run.id}`}
+                    href={`/settings/runs/${run.id}`}
                     leading={<span className="w-12 font-mono text-xs text-muted-foreground tabular-nums">#{run.id}</span>}
                     title={run.title ?? runTitle(run.input, toolNames)}
                     subtitle={run.trigger_label}

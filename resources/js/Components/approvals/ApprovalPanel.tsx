@@ -207,7 +207,7 @@ function Body({
                             />
                         ) : null}
                         <ContextLink
-                            href={`/runs/${approval.run_id}`}
+                            href={`/settings/runs/${approval.run_id}`}
                             icon={Activity}
                             title={full?.run?.title ?? `Execução #${approval.run_id}`}
                             meta={

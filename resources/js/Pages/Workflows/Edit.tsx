@@ -137,7 +137,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
 
         setDirty(true);
         const timer = window.setTimeout(() => {
-            postJson<{ readiness: Record<string, Readiness>; problems: string[] }>('/workflows/check', {
+            postJson<{ readiness: Record<string, Readiness>; problems: string[] }>('/settings/workflows/check', {
                 agent_id: form.agent_id ? Number(form.agent_id) : null,
                 graph,
             })
@@ -269,9 +269,9 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
         };
 
         if (workflow) {
-            router.put(`/workflows/${workflow.id}`, payload, options);
+            router.put(`/settings/workflows/${workflow.id}`, payload, options);
         } else {
-            router.post('/workflows', payload, options);
+            router.post('/settings/workflows', payload, options);
         }
     };
 
@@ -286,7 +286,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
             return;
         }
 
-        router.put(`/workflows/${workflow.id}/status`, { status }, { preserveScroll: true });
+        router.put(`/settings/workflows/${workflow.id}/status`, { status }, { preserveScroll: true });
     };
 
     const propose = () => {
@@ -297,7 +297,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
         }
 
         setDrafting((current) => ({ ...current, busy: true }));
-        postJson<{ graph: WfGraph }>('/workflows/draft', {
+        postJson<{ graph: WfGraph }>('/settings/workflows/draft', {
             description: drafting.text,
             agent_id: Number(form.agent_id),
             email_category: form.trigger === 'email' ? form.email_category || null : null,
@@ -317,7 +317,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
     const title = workflow?.name ?? (form.name || 'Novo fluxo');
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Fluxos de trabalho', href: '/workflows' }, { label: workflow ? workflow.name : 'Novo fluxo' }]}>
+        <AppLayout breadcrumbs={[{ label: 'Definições', href: '/settings' }, { label: 'Fluxos de trabalho', href: '/settings/workflows' }, { label: workflow ? workflow.name : 'Novo fluxo' }]}>
             <Head title={title} />
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -417,7 +417,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
                             {routines.map((routine) => (
                                 <Link
                                     key={routine.id}
-                                    href={`/routines?routine=${routine.id}`}
+                                    href={`/settings/routines?routine=${routine.id}`}
                                     className={cn('rounded-md border bg-background px-2 py-1 text-xs hover:bg-accent/60', !routine.is_active && 'text-muted-foreground line-through')}
                                     title={routine.name}
                                 >
@@ -426,7 +426,7 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
                             ))}
                             {can_schedule &&
                                 (workflow ? (
-                                    <Link href={`/routines?workflow=${workflow.id}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                    <Link href={`/settings/routines?workflow=${workflow.id}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                                         <Plus className="size-3" />
                                         Horário
                                     </Link>
@@ -639,12 +639,12 @@ function Editor({ workflow, initial, readiness: initialReadiness, categories, tr
                     description="Os emails deste tipo voltam à regra de Definições. Um fluxo que já tratou emails não se apaga: pause-o."
                     confirmLabel="Apagar"
                     destructive
-                    onConfirm={() => router.delete(`/workflows/${workflow.id}`)}
+                    onConfirm={() => router.delete(`/settings/workflows/${workflow.id}`)}
                 />
             )}
 
             <p className="text-xs text-muted-foreground">
-                <Link href="/workflows" className="hover:underline">
+                <Link href="/settings/workflows" className="hover:underline">
                     Voltar ao mapa dos fluxos
                 </Link>
             </p>

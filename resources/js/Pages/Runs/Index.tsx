@@ -10,7 +10,7 @@ import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { Button } from '@/Components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { useToolNames } from '@/hooks/useToolNames';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago, dateTime, duration, plural, runTitle, usd } from '@/lib/format';
 import type { Paginated, RunSummary } from '@/types';
 
@@ -54,11 +54,11 @@ export default function RunsIndex({
     const toolNames = useToolNames();
     const visit = (next: { status?: string | null; origin?: string | null }) => {
         const params = { status: filters.status, origin: filters.origin, ...next };
-        router.get('/runs', Object.fromEntries(Object.entries(params).filter(([, value]) => value)), { preserveState: true });
+        router.get('/settings/runs', Object.fromEntries(Object.entries(params).filter(([, value]) => value)), { preserveState: true });
     };
 
     return (
-        <AppLayout>
+        <SettingsLayout>
             <Head title="Execuções" />
             <PageHeader
                 title="Execuções"
@@ -180,7 +180,7 @@ export default function RunsIndex({
                             {runs.data.map((run) => (
                                 <EntityRow
                                     key={run.id}
-                                    href={`/runs/${run.id}`}
+                                    href={`/settings/runs/${run.id}`}
                                     leading={
                                         <div className="flex items-center gap-3">
                                             <span className="hidden w-10 font-mono text-xs text-muted-foreground tabular-nums sm:block">
@@ -212,6 +212,6 @@ export default function RunsIndex({
                     </div>
                 ))
             )}
-        </AppLayout>
+        </SettingsLayout>
     );
 }
