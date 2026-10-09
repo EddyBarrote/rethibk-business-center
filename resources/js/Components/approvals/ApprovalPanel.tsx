@@ -67,7 +67,13 @@ export function ApprovalPanel({
 }) {
     return (
         <Sheet open={approval !== null} onOpenChange={(open) => !open && onClose()}>
-            <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-xl">
+            <SheetContent
+                side="right"
+                showCloseButton={false}
+                // Focus stays put, so no tooltip pops up on the first button.
+                onOpenAutoFocus={(event) => event.preventDefault()}
+                className="w-full gap-0 p-0 sm:max-w-xl"
+            >
                 {approval && (
                     <Body
                         key={approval.id}
@@ -251,7 +257,7 @@ function Body({
                         />
                         {form.errors.note && <p className="text-xs text-destructive">{form.errors.note}</p>}
                     </div>
-                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
                         <Button variant="outline" disabled={form.processing || form.data.note.trim() === ''} onClick={() => decide('reject')}>
                             <X />
                             Rejeitar
