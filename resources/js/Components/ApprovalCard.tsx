@@ -18,7 +18,7 @@ import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { ApprovalSummary } from '@/types';
 
-const executionLabel = { not_executed: 'por executar', executed: 'executada', failed: 'falhou' };
+export const executionLabel = { not_executed: 'por executar', executed: 'executada', failed: 'falhou' };
 
 /** The arguments as labelled facts; long texts (an email body) below them, as written. */
 export function PayloadView({ payload }: { payload: Record<string, unknown> | null }) {
@@ -41,7 +41,7 @@ export function PayloadView({ payload }: { payload: Record<string, unknown> | nu
 }
 
 /** Why a person has to decide: the absolute ceiling, or the agent's level below what the action needs. */
-function Reason({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
+export function Reason({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
     if (approval.ceiling_reason) {
         return short ? (
             <span
@@ -78,7 +78,7 @@ function Reason({ approval, short = false }: { approval: ApprovalSummary; short?
 }
 
 /** The Chief of Staff's part (realinhamento L11): revalidating first, or the note it left for people. */
-function Review({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
+export function Review({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
     const who = approval.review_agent ?? 'Chief of Staff';
 
     if (approval.status === 'pending' && approval.review_stage === 'agent') {
@@ -131,14 +131,21 @@ export function ApprovalCard({
     selectable = false,
     selected = false,
     onSelectedChange,
+    onOpen,
+    active = false,
 }: {
     approval: ApprovalSummary;
     taskHref?: string | null;
     selectable?: boolean;
     selected?: boolean;
     onSelectedChange?: (selected: boolean) => void;
+    /** Opens the details somewhere else (the approvals page's side panel) instead of the dialog. */
+    onOpen?: () => void;
+    active?: boolean;
 }) {
-    const [details, setDetails] = useState(false);
+    const [dialog, setDialog] = useState(false);
+    const details = dialog && !onOpen;
+    const setDetails = (open: boolean) => (open && onOpen ? onOpen() : setDialog(open));
     const [rejecting, setRejecting] = useState(false);
     const form = useForm({ note: '' });
     const title = approvalTitle(approval.action_type, approval.payload, approval.action_summary);
@@ -156,10 +163,17 @@ export function ApprovalCard({
 
     const pending = approval.status === 'pending';
     const executed = approval.status === 'approved' && approval.execution_status !== 'not_executed';
-    const bulkable = approval.can_decide && pending && !approval.ceiling_reason;
+    // Selected to decide in bulk: rejecting covers everything, approving skips the absolute ceiling.
+    const bulkable = approval.can_decide && pending;
 
     return (
-        <div className={cn('group flex min-w-0 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3', selected && 'bg-primary/5')}>
+        <div
+            className={cn(
+                'group flex min-w-0 flex-col gap-2 px-4 py-3 transition-colors sm:flex-row sm:items-center sm:gap-3',
+                selected && 'bg-primary/5',
+                active && 'bg-accent/70 shadow-[inset_2px_0_0_var(--primary)]',
+            )}
+        >
             <div className="flex min-w-0 flex-1 items-start gap-3">
                 {selectable && (
                     <Checkbox
@@ -168,7 +182,7 @@ export function ApprovalCard({
                         disabled={!bulkable}
                         onCheckedChange={(on) => onSelectedChange?.(on === true)}
                         aria-label={`Seleccionar: ${title}`}
-                        title={!bulkable && approval.ceiling_reason ? 'Tecto absoluto: decida esta à parte' : undefined}
+                        title={approval.ceiling_reason ? 'Tecto absoluto: em bloco só se rejeita; aprova-se à parte' : undefined}
                     />
                 )}
                 <AgentAvatar name={approval.agent.name} className="mt-0.5 size-7" />

@@ -213,7 +213,7 @@ final class ApprovalService
                 $user,
                 'Aprovação pedida: '.self::actionName($approval),
                 $body,
-                '/approvals',
+                "/approvals?aprovacao={$approval->id}",
                 $agent->name,
                 'warning',
                 NotificationCategory::Approval,

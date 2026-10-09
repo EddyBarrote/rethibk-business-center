@@ -240,6 +240,11 @@ class NotificationController extends Controller
         $taskId = $notice->data['task_id'] ?? null;
         $runId = $notice->data['run_id'] ?? null;
 
+        // An approval opens on the approvals page with its details on the side, older notices too.
+        if ($url === '/approvals' && isset($notice->data['approval_id'])) {
+            return '/approvals?aprovacao='.(int) $notice->data['approval_id'];
+        }
+
         if (preg_match('#^/runs/(\d+)$#', $url, $match) === 1) {
             $runId = (int) $match[1];
             $taskId = AgentRun::query()->whereKey($runId)->value('task_id');
