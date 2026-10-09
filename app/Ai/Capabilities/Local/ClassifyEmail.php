@@ -124,10 +124,11 @@ final class ClassifyEmail extends LocalCapability
         ])->save();
 
         $category = EmailCategory::from($data['category']);
-        $personal = $message->mailbox->isPersonal();
+        $personal = ! $message->isTriage();
 
         // A person's own email stays with them: no hand-off to other areas, and
         // only what is urgent interrupts them (docs/DECISOES.md, "Caixas de email por pessoa").
+        // What their mailbox sent to triage is handled like any triage email.
         if ($personal) {
             $recipient = $message->mailbox->owners()->orderBy('mailbox_owners.id')->first();
             $task = null;

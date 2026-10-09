@@ -5,6 +5,7 @@ namespace App\Ai\Capabilities\Local;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
+use App\Ai\Runs\AgentDirectory;
 use App\Email\MailboxMailer;
 use App\Enums\AuditResult;
 use App\Enums\EmailStatus;
@@ -66,7 +67,11 @@ final class SendEmail extends LocalCapability
             return CapabilityResult::error('o agente não tem uma caixa de correio activa com SMTP configurado.');
         }
 
-        $original = isset($arguments['reply_to_email_id']) ? EmailMessage::query()->readableBy($context->agent)->find($arguments['reply_to_email_id']) : null;
+        $original = isset($arguments['reply_to_email_id']) ? EmailMessage::query()->readableBy($context->agent)->with('mailbox')->find($arguments['reply_to_email_id']) : null;
+
+        if ($original !== null && $original->mailbox->isPersonal() && $context->agent->id === app(AgentDirectory::class)->forRole('triage')?->id) {
+            return CapabilityResult::error('a triagem não responde a emails de caixas de pessoas.');
+        }
 
         try {
             $this->mailer->send($mailbox, $arguments['to'], $arguments['cc'] ?? [], $arguments['subject'], $arguments['body'], $original, $context->run->id);

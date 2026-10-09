@@ -5,6 +5,7 @@ namespace App\Ai\Capabilities\Local;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
+use App\Ai\Runs\AgentDirectory;
 use App\Enums\AutonomyLevel;
 use App\Enums\EmailStatus;
 use App\Jobs\PushDraftToServer;
@@ -61,6 +62,11 @@ final class DraftEmailReply extends LocalCapability
 
         if ($original === null) {
             return CapabilityResult::error('email não encontrado.');
+        }
+
+        // Triage reads and hands on what a person's mailbox sends it; the area that takes the task drafts the answer.
+        if ($original->mailbox->isPersonal() && $context->agent->id === app(AgentDirectory::class)->forRole('triage')?->id) {
+            return CapabilityResult::error('a triagem não responde nem prepara respostas a emails de caixas de pessoas; quem recebe a tarefa trata da resposta.');
         }
 
         // A reply to a person's email is drafted in their mailbox, for them to send; the agent never does.
