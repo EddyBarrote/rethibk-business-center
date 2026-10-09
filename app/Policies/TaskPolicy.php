@@ -45,14 +45,23 @@ class TaskPolicy
 
     /**
      * Writing in the thread wakes its agent, so it needs the right to run that agent.
+     * A conversation is written only by its person: "Ler as conversas de todos" reads them.
      */
     public function reply(User $actor, Task $task): bool
     {
+        if ($task->chat_key !== null && $task->user_id !== $actor->id) {
+            return false;
+        }
+
         return $this->view($actor, $task) && ($task->assigneeAgent === null || $actor->can('run', $task->assigneeAgent));
     }
 
     public function update(User $actor, Task $task): bool
     {
+        if ($task->chat_key !== null && $task->user_id !== $actor->id) {
+            return false;
+        }
+
         return $this->view($actor, $task);
     }
 }

@@ -68,7 +68,7 @@ it('gives a person a custom role and exceptions of their own', function () {
 
 it('lets nobody talk to an agent until given access, and the level decides what they may ask', function () {
     $this->actingAs($this->clerk)->get(tenantUrl($this->tenant, "agents/{$this->agent->id}/chat"))->assertForbidden();
-    $this->actingAs($this->clerk)->get(tenantUrl($this->tenant))->assertOk()
+    $this->actingAs($this->clerk)->get(tenantUrl($this->tenant, 'tasks'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('sidebar_agents', []));
 
     // The chefia of the agent's department grants access; a person outside it cannot.

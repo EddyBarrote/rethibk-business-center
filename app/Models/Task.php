@@ -47,6 +47,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
  * @property Carbon|null $last_activity_at
+ * @property Carbon|null $chat_read_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -116,6 +117,20 @@ class Task extends Model
             ->orWhere('created_by_user_id', $user->id)
             ->orWhere('assignee_user_id', $user->id)
             ->orWhereHas('runs.approvals', fn (Builder $approvals) => $approvals->pending()->visibleTo($user)));
+    }
+
+    /**
+     * The work between a person and an agent: tasks the agent owns or delegated,
+     * asked by the person, for them, or given to them (the agent's "Tarefas").
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function withAgentFor(Builder $query, Agent $agent, User $user): void
+    {
+        $query->where('kind', TaskKind::Task)
+            ->where(fn (Builder $q) => $q->where('assignee_agent_id', $agent->id)->orWhere('created_by_agent_id', $agent->id))
+            ->where(fn (Builder $q) => $q->where('user_id', $user->id)->orWhere('created_by_user_id', $user->id)->orWhere('assignee_user_id', $user->id));
     }
 
     /**
@@ -250,6 +265,7 @@ class Task extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'last_activity_at' => 'datetime',
+            'chat_read_at' => 'datetime',
         ];
     }
 }

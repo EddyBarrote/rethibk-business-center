@@ -3,7 +3,6 @@ import {
     Activity,
     Bell,
     CircleDot,
-    MessagesSquare,
     Network,
     Target,
     Bot,
@@ -14,14 +13,12 @@ import {
     Files,
     FolderKanban,
     FolderOpen,
-    Inbox,
     LayoutDashboard,
     Library,
     LogOut,
     type LucideIcon,
     Mail,
     Moon,
-    Pencil,
     Settings,
     Sun,
     UserRound,
@@ -55,7 +52,6 @@ import {
     SidebarInset,
     SidebarMenu,
     SidebarMenuBadge,
-    SidebarMenuAction,
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarProvider,
@@ -84,8 +80,8 @@ interface NavItem {
     badge?: 'approvals' | 'notifications' | 'waiting';
 }
 
+// Coming in opens the person's latest conversation: the agents below are the conversations (DECISOES, "Conversas a partir dos agentes").
 const topNav: NavItem[] = [
-    { label: 'A minha caixa', href: '/', icon: Inbox },
     { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
     { label: 'Email', href: '/inbox', icon: Mail, permissions: ['emails.own_mailboxes', 'emails.triage', 'emails.manage_mailboxes'] },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
@@ -93,7 +89,6 @@ const topNav: NavItem[] = [
 ];
 
 const workNav: NavItem[] = [
-    { label: 'Conversas', href: '/tasks?view=chats', icon: MessagesSquare },
     { label: 'Painel', href: '/painel', icon: LayoutDashboard },
     { label: 'Objectivos', href: '/goals', icon: Target },
     { label: 'Projectos', href: '/projects', icon: FolderKanban },
@@ -186,6 +181,60 @@ function NavGroup({
 function AgentsGroup({ url }: { url: string }) {
     const { sidebar_agents: agents } = usePage<SharedProps>().props;
     const live = agents.filter((agent) => agent.running > 0).length;
+    // The agents are the conversations: talked-to first, the most recent on top (the server orders them).
+    const talked = agents.filter((agent) => agent.chat_id !== null);
+    const others = agents.filter((agent) => agent.chat_id === null);
+
+    const item = (agent: SharedProps['sidebar_agents'][number]) => {
+        const href = !agent.can_chat ? `/agents/${agent.id}` : agent.chat_id !== null ? `/tasks/${agent.chat_id}` : `/agents/${agent.id}/chat`;
+        const active = (agent.chat_id !== null && url === `/tasks/${agent.chat_id}`) || url === `/agents/${agent.id}/chat`;
+        const hint = [
+            agent.can_chat ? `Conversar com ${agent.name}` : agent.name,
+            agent.running > 0 ? 'a trabalhar' : null,
+            agent.chat_waiting ? 'à sua espera' : null,
+            agent.unread > 0 ? `${agent.unread} por ler` : null,
+        ]
+            .filter(Boolean)
+            .join(' · ');
+
+        return (
+            <SidebarMenuItem key={agent.id}>
+                <SidebarMenuButton
+                    asChild
+                    isActive={active}
+                    tooltip={hint}
+                    className={cn('h-8 rounded-lg text-sidebar-foreground/85', agent.chat_id === null && 'text-muted-foreground')}
+                >
+                    <Link href={href} title={hint}>
+                        <span className="relative shrink-0">
+                            <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-4 rounded-[5px] text-[8px]" />
+                            {/* Collapsed to icons, the dot still says it needs you. */}
+                            {(agent.unread > 0 || agent.chat_waiting) && (
+                                <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-primary ring-2 ring-sidebar group-data-[collapsible=icon]:block" />
+                            )}
+                        </span>
+                        <span
+                            className={cn(
+                                'truncate',
+                                agent.unread > 0 && 'font-semibold text-sidebar-foreground',
+                                agent.status === 'suspended' && 'text-muted-foreground line-through',
+                            )}
+                        >
+                            {agent.name}
+                        </span>
+                        <span className="ml-auto flex items-center gap-1.5">
+                            {agent.running > 0 ? <StatusDot tone="running" /> : agent.chat_waiting && <StatusDot tone="warning" pulse={false} />}
+                            {agent.unread > 0 && (
+                                <span className="rounded-full bg-primary px-1.5 font-mono text-[10px] leading-4 text-primary-foreground tabular-nums">
+                                    {agent.unread > 99 ? '99+' : agent.unread}
+                                </span>
+                            )}
+                        </span>
+                    </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+        );
+    };
 
     return (
         <SidebarGroup className="py-1">
@@ -196,42 +245,13 @@ function AgentsGroup({ url }: { url: string }) {
                 )}
             </SidebarGroupLabel>
             <SidebarMenu className="gap-0.5">
-                {agents.map((agent) => (
-                    <SidebarMenuItem key={agent.id}>
-                        <SidebarMenuButton
-                            asChild
-                            isActive={agent.chat_id !== null && url === `/tasks/${agent.chat_id}`}
-                            tooltip={agent.can_chat ? `Conversar com ${agent.name}` : agent.name}
-                            className="h-8 rounded-lg text-sidebar-foreground/85"
-                        >
-                            {/* Grok-style: an agent in the sidebar is your conversation with it. */}
-                            <Link
-                                href={
-                                    !agent.can_chat
-                                        ? `/agents/${agent.id}`
-                                        : agent.chat_id !== null
-                                          ? `/tasks/${agent.chat_id}`
-                                          : `/agents/${agent.id}/chat`
-                                }
-                            >
-                                <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-4 rounded-[5px] text-[8px]" />
-                                <span className={cn(agent.status === 'suspended' && 'text-muted-foreground line-through')}>{agent.name}</span>
-                                {agent.running > 0 ? (
-                                    <StatusDot tone="running" className="ml-auto" />
-                                ) : (
-                                    agent.chat_waiting && <StatusDot tone="warning" pulse={false} className="ml-auto" />
-                                )}
-                            </Link>
-                        </SidebarMenuButton>
-                        {agent.can_manage && (
-                            <SidebarMenuAction asChild showOnHover>
-                                <Link href={`/agents/${agent.id}/edit`} title={`Editar ${agent.name}`} aria-label={`Editar ${agent.name}`}>
-                                    <Pencil />
-                                </Link>
-                            </SidebarMenuAction>
-                        )}
-                    </SidebarMenuItem>
-                ))}
+                {talked.map(item)}
+                {others.length > 0 && talked.length > 0 && (
+                    <li className="px-2 pt-2 pb-0.5 text-[10px] text-muted-foreground/70 group-data-[collapsible=icon]:hidden">
+                        Começar uma conversa
+                    </li>
+                )}
+                {others.map(item)}
                 <SidebarMenuItem>
                     <SidebarMenuButton
                         asChild
@@ -337,19 +357,13 @@ export default function AppLayout({
     }, [flash.success, flash.error]);
 
     const fullUrl = page.url;
-    // A conversation is a task underneath, but people find it under Conversas.
+    // A conversation is a task underneath, but people find it under its agent.
     const onConversation = (page.props as { task?: { is_conversation?: boolean } }).task?.is_conversation === true;
     const isActive = (href: string) => {
-        if (href === '/tasks?view=chats') {
-            return fullUrl.startsWith(href) || onConversation;
-        }
         if (href.includes('?')) {
             return fullUrl.startsWith(href);
         }
-        if (href === '/') {
-            return url === '/';
-        }
-        if (href === '/tasks' && (fullUrl.includes('view=chats') || onConversation)) {
+        if (href === '/tasks' && onConversation) {
             return false;
         }
 

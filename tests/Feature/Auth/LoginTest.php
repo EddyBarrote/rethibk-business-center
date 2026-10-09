@@ -56,11 +56,13 @@ it('signs out', function () {
     $this->assertGuest();
 });
 
-it('opens the personal desk for signed-in users, with the dashboard one click away', function () {
+it('sends signed-in users on from the start page, with the dashboard one click away', function () {
+    $this->actingAs($this->user)->get(tenantUrl($this->tenant, '/'))->assertRedirect();
     $this->actingAs($this->user)
+        ->followingRedirects()
         ->get(tenantUrl($this->tenant, '/'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Home')->where('auth.user.email', 'ana@micomoc.test'));
+        ->assertInertia(fn ($page) => $page->where('auth.user.email', 'ana@micomoc.test'));
 
     $this->actingAs($this->user)->get(tenantUrl($this->tenant, 'painel'))->assertOk()->assertInertia(fn ($page) => $page->component('Dashboard'));
 });

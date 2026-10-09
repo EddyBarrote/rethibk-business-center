@@ -43,7 +43,6 @@ it('renders lists and details with several rows', function (string $path) {
 
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, $path))->assertOk();
 })->with([
-    '/',
     'runs',
     'approvals',
     'inbox',

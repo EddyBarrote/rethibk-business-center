@@ -181,6 +181,7 @@ final class Present
             'assignee' => $task->assigneeAgent ? ['id' => $task->assigneeAgent->id, 'name' => $task->assigneeAgent->name] : null,
             'assignee_user' => $task->assigneeUser ? ['id' => $task->assigneeUser->id, 'name' => $task->assigneeUser->name] : null,
             'user' => $task->user?->name,
+            'user_id' => $task->user_id,
             'created_by' => $task->createdByAgent->name ?? $task->createdByUser->name ?? null,
             'created_by_agent' => $task->created_by_agent_id !== null,
             'goal' => $task->goal ? ['id' => $task->goal->id, 'title' => $task->goal->title] : null,

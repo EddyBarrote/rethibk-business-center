@@ -107,7 +107,7 @@ it('shows each person only the approvals they answer for', function () {
 
     $this->actingAs($this->member)->get(tenantUrl($this->a, 'approvals'))->assertInertia(fn (Assert $page) => $page->has('approvals.data', 0));
     $this->actingAs($this->boss)->get(tenantUrl($this->a, 'approvals'))->assertInertia(fn (Assert $page) => $page->has('approvals.data', 1)->where('approvals.data.0.can_decide', true));
-    $this->actingAs($this->owner)->get(tenantUrl($this->a, '/'))->assertInertia(fn (Assert $page) => $page->where('auth.pending_approvals', 1));
+    $this->actingAs($this->owner)->get(tenantUrl($this->a, 'tasks'))->assertInertia(fn (Assert $page) => $page->where('auth.pending_approvals', 1));
 });
 
 it('authorises live channels per tenant', function () {

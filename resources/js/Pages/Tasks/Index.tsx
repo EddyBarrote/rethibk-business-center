@@ -75,6 +75,7 @@ export interface TaskSummary {
     assignee: { id: number; name: string } | null;
     assignee_user: { id: number; name: string } | null;
     user: string | null;
+    user_id: number | null;
     created_by: string | null;
     created_by_agent: boolean;
     goal: { id: number; title: string } | null;
@@ -270,7 +271,6 @@ const views: { key: View; label: string; icon: LucideIcon; hint: string }[] = [
     { key: 'waiting', label: 'À sua espera', icon: Hand, hint: 'Um agente espera pela sua resposta' },
     { key: 'all', label: 'Todas abertas', icon: Layers, hint: 'Todo o trabalho aberto que pode ver' },
     { key: 'closed', label: 'Fechadas', icon: Archive, hint: 'Feitas ou canceladas' },
-    { key: 'chats', label: 'Conversas', icon: MessagesSquare, hint: 'As conversas com os agentes' },
 ];
 
 const dueLabels: Record<NonNullable<Filters['prazo']>, string> = {

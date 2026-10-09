@@ -10,7 +10,6 @@ use App\Enums\AgentStatus;
 use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
-use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
@@ -120,6 +119,8 @@ class AgentController extends Controller
             ]) : null,
             // The tasks between this person and the agent, inside the agent's page (09.10.2026).
             'tasks' => fn () => $this->tasks($agent, $user),
+            // Other people's conversations with it, read-only, for whoever may read them all (docs/DECISOES.md, "Conversas a partir dos agentes").
+            'conversations' => fn () => $user->hasPermission(Permission::ReadAllConversations) ? $this->conversations($agent, $user) : null,
             'users' => $user->can('manageAccess', $agent) ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [],
             'can' => [
                 'run' => $user->can('run', $agent),
@@ -270,9 +271,7 @@ class AgentController extends Controller
     private function tasks(Agent $agent, User $user): array
     {
         return Task::query()
-            ->where('kind', TaskKind::Task)
-            ->where(fn ($q) => $q->where('assignee_agent_id', $agent->id)->orWhere('created_by_agent_id', $agent->id))
-            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('created_by_user_id', $user->id)->orWhere('assignee_user_id', $user->id))
+            ->withAgentFor($agent, $user)
             ->with(Present::TASK_RELATIONS)
             ->orderByRaw('case when status in (?, ?) then 1 else 0 end', [TaskStatus::Done->value, TaskStatus::Cancelled->value])
             ->latest('last_activity_at')
@@ -280,6 +279,34 @@ class AgentController extends Controller
             ->limit(100)
             ->get()
             ->map(fn (Task $task) => Present::task($task))
+            ->all();
+    }
+
+    /**
+     * The other people's conversations with this agent, the most recent first.
+     *
+     * @return list<array{id: int, person: string|null, messages: int, status: string, status_label: string, last_activity_at: string|null}>
+     */
+    private function conversations(Agent $agent, User $user): array
+    {
+        return Task::query()
+            ->whereNotNull('chat_key')
+            ->where('assignee_agent_id', $agent->id)
+            ->where('user_id', '!=', $user->id)
+            ->whereHas('messages')
+            ->with('user:id,name')
+            ->withCount('messages')
+            ->latest('last_activity_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (Task $chat) => [
+                'id' => $chat->id,
+                'person' => $chat->user?->name,
+                'messages' => (int) $chat->messages_count,
+                'status' => $chat->status->value,
+                'status_label' => $chat->status->label(),
+                'last_activity_at' => $chat->last_activity_at?->toIso8601String(),
+            ])
             ->all();
     }
 

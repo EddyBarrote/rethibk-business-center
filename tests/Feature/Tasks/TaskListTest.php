@@ -6,7 +6,6 @@ use App\Models\Agent;
 use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Tasks\TaskThread;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -71,16 +70,8 @@ it('filters, searches, counts every view and pages the list', function () {
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?estado=nada'))->assertSessionHasErrors('estado');
 });
 
-it('keeps other people\'s conversations out of the list', function () {
-    asTenant($this->tenant, function () {
-        $threads = app(TaskThread::class);
-        $threads->post($threads->conversation($this->owner, $this->agent), $this->owner, 'Olá');
-    });
-
-    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?view=chats'))
-        ->assertInertia(fn (Assert $page) => $page->has('tasks.data', 1)->where('counts.chats', 1));
-    $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'tasks?view=chats'))
-        ->assertInertia(fn (Assert $page) => $page->has('tasks.data', 0)->where('counts.chats', 0));
+it('sends the old conversations view to the conversations, which live under the agents', function () {
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks?view=chats'))->assertRedirectToRoute('home');
 });
 
 it('changes the status and priority of several tasks at once, only where allowed', function () {

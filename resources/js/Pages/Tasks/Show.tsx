@@ -10,7 +10,7 @@ import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
 import { type ChatMessage, ChatThread, type ToolCall, WorkingBubble } from '@/Components/tasks/Chat';
 import { type Journey, JourneyView } from '@/Components/tasks/Journey';
-import { type PanelRun, type PanelTab, SidePanel } from '@/Components/tasks/SidePanel';
+import { type AgentWork, type PanelRun, type PanelTab, SidePanel } from '@/Components/tasks/SidePanel';
 import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
@@ -50,6 +50,8 @@ interface Props extends TaskFormOptions {
     journey?: Journey;
     attachment_limits: AttachmentLimits;
     can: { reply: boolean; update: boolean; manage_agent: boolean };
+    /** In the person's own conversation: their tasks with this agent and its approvals (side panel "Tarefas"). */
+    agent_work: AgentWork | null;
 }
 
 /** The flow this task follows, or the decision of a flow's step it asks of a person (docs/DECISOES.md, "Fluxos de trabalho"). */
@@ -73,7 +75,19 @@ interface WorkflowInfo {
 }
 
 const NONE = 'none';
-const reloadProps = ['task', 'messages', 'children', 'runs', 'working', 'tool_calls', 'approvals', 'workflow', 'has_journey'];
+const reloadProps = [
+    'task',
+    'messages',
+    'children',
+    'runs',
+    'working',
+    'tool_calls',
+    'approvals',
+    'workflow',
+    'has_journey',
+    'agent_work',
+    'sidebar_agents',
+];
 const PANEL_KEY = 'micomoc.conversa.painel';
 
 interface PendingApproval {
@@ -137,6 +151,7 @@ export default function TaskShow({
     working,
     tool_calls: toolCalls,
     panel_run: panelRun,
+    agent_work: agentWork,
     tool_names: toolNames,
     approvals,
     workflow,
@@ -278,6 +293,8 @@ export default function TaskShow({
     };
 
     const agentName = task.assignee?.name ?? task.agent?.name ?? 'O agente';
+    // Someone else's conversation, open to read for whoever may read them all (never to write).
+    const someoneElses = task.is_conversation && task.user_id !== auth.user?.id;
     const isClosed = task.status === 'done' || task.status === 'cancelled';
     const pendingQuestion =
         task.status === 'waiting_human'
@@ -343,6 +360,7 @@ export default function TaskShow({
             onOpenRun={openRun}
             onCloseRun={closeRun}
             details={details}
+            agentWork={agentWork}
         />
     );
 
@@ -350,9 +368,15 @@ export default function TaskShow({
         <AppLayout
             bleed
             breadcrumbs={
-                task.is_conversation
-                    ? [{ label: 'Conversas', href: '/tasks?view=chats' }, { label: agentName }]
-                    : [{ label: 'Tarefas', href: '/tasks' }, { label: task.ref }]
+                !task.is_conversation
+                    ? [{ label: 'Tarefas', href: '/tasks' }, { label: task.ref }]
+                    : someoneElses
+                      ? [
+                            { label: 'Agentes', href: '/agents' },
+                            { label: agentName, href: task.assignee ? `/agents/${task.assignee.id}` : undefined },
+                            { label: `Conversa de ${task.user}` },
+                        ]
+                      : [{ label: 'Agentes', href: '/agents' }, { label: agentName }]
             }
         >
             <Head title={task.is_conversation ? `Conversa com ${agentName}` : `${task.ref} · ${task.title}`} />
@@ -642,7 +666,9 @@ export default function TaskShow({
                             ) : (
                                 <div className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
                                     <Lock className="size-4 shrink-0" />
-                                    Só quem participa nesta tarefa ou responde pelo agente pode escrever aqui.
+                                    {someoneElses
+                                        ? `Conversa de ${task.user} com ${agentName}. Pode lê-la, mas só ${task.user} escreve aqui.`
+                                        : 'Só quem participa nesta tarefa ou responde pelo agente pode escrever aqui.'}
                                 </div>
                             )}
 
@@ -721,9 +747,7 @@ function TaskProperties({
             <Property label="Responsável">
                 {can.update ? (
                     <InlineSelect
-                        value={
-                            task.assignee ? `agent:${task.assignee.id}` : task.assignee_user ? `user:${task.assignee_user.id}` : NONE
-                        }
+                        value={task.assignee ? `agent:${task.assignee.id}` : task.assignee_user ? `user:${task.assignee_user.id}` : NONE}
                         onChange={(value) =>
                             update(
                                 value.startsWith('user:')
@@ -1010,4 +1034,3 @@ function WorkflowDecision({ decision }: { decision: NonNullable<WorkflowInfo['de
         </div>
     );
 }
-

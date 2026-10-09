@@ -60,7 +60,7 @@ class TaskController extends Controller
      * The tasks page (docs/DECISOES.md, "Página de tarefas"): views with their
      * counts, filters that stay in the address, search, groups and pages.
      */
-    public function index(Request $request): Response
+    public function index(Request $request): RedirectResponse|Response
     {
         Gate::authorize('viewAny', Task::class);
         $user = $this->user($request);
@@ -81,6 +81,11 @@ class TaskController extends Controller
             'por_pagina' => ['nullable', 'integer', Rule::in(self::PER_PAGE)],
         ]);
         $view = $filters['view'] ?? 'mine';
+
+        // Conversations are opened from the agents in the sidebar (docs/DECISOES.md, "Conversas a partir dos agentes").
+        if ($view === 'chats') {
+            return redirect()->route('home');
+        }
         // Older links (an agent's or a person's page) still say ?agent= or ?person=.
         $assignee = $filters['responsavel'] ?? match (true) {
             isset($filters['agent']) => "agent:{$filters['agent']}",
@@ -133,7 +138,7 @@ class TaskController extends Controller
             ],
             'per_page_options' => self::PER_PAGE,
             // Counted with the same rule and filters as the list, so a view never promises rows it does not show.
-            'counts' => collect(['mine', 'waiting', 'all', 'chats', 'closed'])->mapWithKeys(fn (string $in) => [$in => $base($in)->count()]),
+            'counts' => collect(['mine', 'waiting', 'all', 'closed'])->mapWithKeys(fn (string $in) => [$in => $base($in)->count()]),
             'status_counts' => collect(self::STATUS_ORDER)->mapWithKeys(fn (string $s) => [$s => (int) ($byStatus[$s] ?? 0)]),
             // The two strips on top: answers owed and deadlines passed, whatever the filters.
             'waiting_total' => $open()->tap(fn (Builder $q) => $this->inView($q, 'waiting', $user))->count(),
@@ -190,7 +195,6 @@ class TaskController extends Controller
         match ($view) {
             'mine' => $query->open()->needing($user),
             'all' => $query->open()->where('kind', TaskKind::Task),
-            'chats' => $query->where('kind', TaskKind::Chat)->whereNot('status', TaskStatus::Cancelled),
             'waiting' => $query->where('status', TaskStatus::WaitingHuman),
             'closed' => $query->whereIn('status', [TaskStatus::Done, TaskStatus::Cancelled]),
             default => null,
@@ -402,6 +406,12 @@ class TaskController extends Controller
         $task->load(['assigneeAgent', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'parent:id,number,title,tenant_id', 'tenant:id,slug']);
 
         $active = $task->runs()->whereIn('status', [RunStatus::Queued, RunStatus::Running])->latest('id')->first();
+        $mine = $task->chat_key !== null && $task->user_id === $user->id;
+
+        if ($mine) {
+            // Read up to now: the sidebar stops counting its answers as unread.
+            $task->forceFill(['chat_read_at' => now()])->saveQuietly();
+        }
 
         return Inertia::render('Tasks/Show', [
             'task' => [
@@ -452,6 +462,8 @@ class TaskController extends Controller
             'has_journey' => $task->kind !== TaskKind::Chat && TaskJourney::worthShowing($task),
             'journey' => Inertia::optional(fn () => app(TaskJourney::class)->for($task, fn (Task $node) => $user->can('view', $node))),
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
+            // In a conversation, the side panel's "Tarefas": the person's work with this agent and its approvals.
+            'agent_work' => fn () => $mine && $task->assigneeAgent !== null ? $this->agentWork($task->assigneeAgent, $user) : null,
             'can' => [
                 'reply' => $user->can('reply', $task),
                 'update' => $user->can('update', $task),
@@ -459,6 +471,37 @@ class TaskController extends Controller
             ],
             ...$this->formOptions($user),
         ]);
+    }
+
+    /**
+     * The person's tasks with an agent (open first) and the agent's approvals they can see.
+     *
+     * @return array{tasks: list<array<string, mixed>>, approvals: list<array<string, mixed>>}
+     */
+    private function agentWork(Agent $agent, User $user): array
+    {
+        return [
+            'tasks' => Task::query()
+                ->withAgentFor($agent, $user)
+                ->with(Present::TASK_RELATIONS)
+                ->orderByRaw('case when status in (?, ?) then 1 else 0 end', [TaskStatus::Done->value, TaskStatus::Cancelled->value])
+                ->latest('last_activity_at')
+                ->latest('id')
+                ->limit(30)
+                ->get()
+                ->map(fn (Task $task) => Present::task($task))
+                ->all(),
+            'approvals' => Approval::query()
+                ->with([...Present::APPROVAL_RELATIONS, 'run:id,task_id'])
+                ->where('agent_id', $agent->id)
+                ->visibleTo($user)
+                ->pending()
+                ->latest('id')
+                ->limit(20)
+                ->get()
+                ->map(fn (Approval $approval) => [...Present::approval($approval, $user->can('decide', $approval)), 'task_id' => $approval->run?->task_id])
+                ->all(),
+        ];
     }
 
     /**

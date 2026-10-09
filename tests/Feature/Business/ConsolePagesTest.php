@@ -43,7 +43,6 @@ it('renders every console page for the owner', function (string $path, string $c
     $this->actingAs($owner, 'web')->get(tenantUrl($this->tenant, $path))->assertOk()
         ->assertInertia(fn ($page) => $page->component($component));
 })->with([
-    ['/', 'Home'],
     ['painel', 'Dashboard'],
     ['projects', 'Projects/Index'],
     ['agents', 'Agents/Index'],

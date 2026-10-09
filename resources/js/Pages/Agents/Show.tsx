@@ -20,7 +20,7 @@ import { type FormEvent, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { EntityRow, ListPanel, Properties, Property, Section } from '@/Components/Blocks';
+import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
@@ -54,7 +54,18 @@ interface Props {
     can: { run: boolean; request_work: boolean; manage: boolean; manage_access: boolean; view_memory: boolean };
     memories: Memory[] | null;
     tasks: TaskSummary[];
+    /** Other people's conversations with the agent, read-only, for whoever may read them all. */
+    conversations: TeamConversation[] | null;
     now: { active: NowRun[]; last: NowRun | null };
+}
+
+interface TeamConversation {
+    id: number;
+    person: string | null;
+    messages: number;
+    status: string;
+    status_label: string;
+    last_activity_at: string | null;
 }
 
 /** A run on the agent's page with its conversation and the step it is on (AgentController::now). */
@@ -64,7 +75,7 @@ type NowRun = RunSummary & {
     step: { type: string; tool_name: string | null; at: string } | null;
 };
 
-export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memories, tasks, can, now }: Props) {
+export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memories, tasks, conversations, can, now }: Props) {
     const { tenant } = usePage<SharedProps>().props;
     const form = useForm({ message: '', mode: 'message' as 'message' | 'action' });
     const [reason, setReason] = useState('');
@@ -155,6 +166,12 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                             Execuções
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">{runs.length}</span>
                         </TabsTrigger>
+                        {conversations !== null && (
+                            <TabsTrigger value="conversations" className="flex-none">
+                                Conversas da equipa
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">{conversations.length}</span>
+                            </TabsTrigger>
+                        )}
                         {memories !== null && (
                             <TabsTrigger value="memory" className="flex-none">
                                 Memória
@@ -240,6 +257,45 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                     <TabsContent value="runs">
                         <RunList runs={runs} />
                     </TabsContent>
+
+                    {conversations !== null && (
+                        <TabsContent value="conversations" className="flex flex-col gap-3">
+                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Lock className="size-3.5" />
+                                As conversas de outras pessoas com {agent.name}. Pode lê-las, não escrever nelas.
+                            </p>
+                            {conversations.length === 0 ? (
+                                <EmptyState
+                                    icon={MessagesSquare}
+                                    title="Sem conversas de outras pessoas"
+                                    description={`Ninguém mais conversou ainda com ${agent.name}.`}
+                                />
+                            ) : (
+                                <ListPanel>
+                                    {conversations.map((chat) => (
+                                        <Link
+                                            key={chat.id}
+                                            href={`/tasks/${chat.id}`}
+                                            className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50"
+                                        >
+                                            <Monogram name={chat.person ?? '?'} className="size-7 text-[10px]" />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate text-sm font-medium">{chat.person ?? 'Pessoa removida'}</span>
+                                                <span className="block truncate text-xs text-muted-foreground">
+                                                    {chat.messages} {chat.messages === 1 ? 'mensagem' : 'mensagens'} · {chat.status_label}
+                                                </span>
+                                            </span>
+                                            {chat.last_activity_at && (
+                                                <span className="shrink-0 text-xs text-muted-foreground" title={dateTime(chat.last_activity_at)}>
+                                                    {ago(chat.last_activity_at)}
+                                                </span>
+                                            )}
+                                        </Link>
+                                    ))}
+                                </ListPanel>
+                            )}
+                        </TabsContent>
+                    )}
 
                     {memories !== null && (
                         <TabsContent value="memory">

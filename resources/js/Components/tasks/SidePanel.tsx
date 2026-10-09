@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, ChevronDown, Info, type LucideIcon, Paperclip, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, ChevronDown, CircleDot, Info, type LucideIcon, Paperclip, X } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -11,6 +11,7 @@ import { RunRequest, RunTimeline, type Step } from '@/Components/runs/RunTimelin
 import { useLive } from '@/hooks/useLive';
 import { dateTime, duration, number, runTitle, time, usd, usdPrecise } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { TaskRow, type TaskSummary } from '@/Pages/Tasks/Index';
 import type { ApprovalSummary, RunSummary, SharedProps } from '@/types';
 
 import type { ChatMessage, OpenRun } from './Chat';
@@ -22,7 +23,13 @@ import type { ChatMessage, OpenRun } from './Chat';
  * agent did never leaves the chat (docs/DECISOES.md, "Página de conversa").
  */
 
-export type PanelTab = 'details' | 'runs' | 'files';
+export type PanelTab = 'details' | 'tasks' | 'runs' | 'files';
+
+/** The person's work with the agent of their conversation (docs/DECISOES.md, "Conversas a partir dos agentes"). */
+export interface AgentWork {
+    tasks: TaskSummary[];
+    approvals: (ApprovalSummary & { task_id: number | null })[];
+}
 
 export interface PanelRun {
     run: RunSummary;
@@ -32,6 +39,7 @@ export interface PanelRun {
 
 const tabs: { value: PanelTab; label: string; icon: LucideIcon }[] = [
     { value: 'details', label: 'Detalhes', icon: Info },
+    { value: 'tasks', label: 'Tarefas', icon: CircleDot },
     { value: 'runs', label: 'Execuções', icon: Activity },
     { value: 'files', label: 'Ficheiros', icon: Paperclip },
 ];
@@ -49,6 +57,7 @@ export function SidePanel({
     onOpenRun,
     onCloseRun,
     details,
+    agentWork = null,
     className,
 }: {
     tab: PanelTab;
@@ -63,16 +72,23 @@ export function SidePanel({
     onOpenRun: OpenRun;
     onCloseRun: () => void;
     details: ReactNode;
+    agentWork?: AgentWork | null;
     className?: string;
 }) {
     const files = messages.filter((message) => message.attachments.length > 0);
-    const counts: Partial<Record<PanelTab, number>> = { runs: runs.length, files: files.reduce((n, m) => n + m.attachments.length, 0) };
+    const open = agentWork?.tasks.filter((task) => task.status !== 'done' && task.status !== 'cancelled').length ?? 0;
+    const counts: Partial<Record<PanelTab, number>> = {
+        tasks: open + (agentWork?.approvals.length ?? 0),
+        runs: runs.length,
+        files: files.reduce((n, m) => n + m.attachments.length, 0),
+    };
+    const shown = tabs.filter(({ value }) => value !== 'tasks' || agentWork !== null);
 
     return (
         <div className={cn('flex h-full min-h-0 flex-col bg-sidebar/40', className)}>
             <div className="flex h-11 shrink-0 items-center gap-1 border-b px-2">
                 <div role="tablist" aria-label="Painel" className="flex min-w-0 flex-1 items-center gap-0.5">
-                    {tabs.map(({ value, label, icon: Icon }) => (
+                    {shown.map(({ value, label, icon: Icon }) => (
                         <button
                             key={value}
                             type="button"
@@ -109,8 +125,54 @@ export function SidePanel({
                     ) : (
                         <RunList runs={runs} toolNames={toolNames} onOpenRun={onOpenRun} />
                     ))}
+                {tab === 'tasks' && agentWork && <WorkList work={agentWork} />}
                 {tab === 'files' && <FilesList messages={files} />}
             </div>
+        </div>
+    );
+}
+
+function WorkList({ work }: { work: AgentWork }) {
+    if (work.tasks.length === 0 && work.approvals.length === 0) {
+        return (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
+                <CircleDot className="size-5" />
+                Ainda não tem tarefas com este agente. Peça trabalho aqui na conversa e a tarefa aparece nesta lista.
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-5 p-3">
+            {work.approvals.length > 0 && (
+                <section className="flex flex-col gap-2">
+                    <h3 className="px-1 text-xs font-medium text-muted-foreground">Aprovações à espera · {work.approvals.length}</h3>
+                    <ApprovalList>
+                        {work.approvals.map((approval) => (
+                            <ApprovalCard
+                                key={approval.id}
+                                approval={approval}
+                                taskHref={approval.task_id !== null ? `/tasks/${approval.task_id}` : null}
+                            />
+                        ))}
+                    </ApprovalList>
+                </section>
+            )}
+            {work.tasks.length > 0 && (
+                <section className="flex flex-col gap-2">
+                    <h3 className="flex items-center justify-between px-1 text-xs font-medium text-muted-foreground">
+                        As suas tarefas com este agente
+                        <Link href="/tasks" className="font-normal hover:text-foreground">
+                            Todas as tarefas
+                        </Link>
+                    </h3>
+                    <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                        {work.tasks.map((task) => (
+                            <TaskRow key={task.id} task={task} compact />
+                        ))}
+                    </div>
+                </section>
+            )}
         </div>
     );
 }
@@ -153,7 +215,9 @@ function RunList({ runs, toolNames, onOpenRun }: { runs: RunSummary[]; toolNames
                                 <span className="flex-1" />
                                 {run.duration_ms !== null && <span className="tabular-nums">{duration(run.duration_ms)}</span>}
                                 <span className="tabular-nums" title={dateTime(run.created_at)}>
-                                    {new Date(run.created_at).toDateString() === new Date().toDateString() ? time(run.created_at) : dateTime(run.created_at)}
+                                    {new Date(run.created_at).toDateString() === new Date().toDateString()
+                                        ? time(run.created_at)
+                                        : dateTime(run.created_at)}
                                 </span>
                                 <span className="w-12 text-right tabular-nums">{usd(run.cost_usd)}</span>
                             </span>

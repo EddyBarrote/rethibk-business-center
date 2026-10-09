@@ -125,8 +125,8 @@ it('lets managers give a task to a person directly, and keeps others asking thro
         ->assignee_user_id->toBe($this->clerk->id)
         ->and(AgentRun::query()->count())->toBe(0));
 
-    $this->actingAs($this->clerk)->get(tenantUrl($this->tenant))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('work.0.title', 'Arquivar contratos'));
+    $this->actingAs($this->clerk)->get(tenantUrl($this->tenant, 'tasks'))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('tasks.data.0.title', 'Arquivar contratos'));
 });
 
 it('wakes each agent on a heartbeat for its quietest open task, once', function () {
