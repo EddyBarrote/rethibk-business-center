@@ -130,6 +130,11 @@ final class InboundEmailIngestor
 
         $mailbox->forceFill(['last_inbound_at' => now()])->save();
 
+        // Only new email goes: what arrived before the owner turned it on stays theirs.
+        if ($mailbox->sendsToTriage() && $message->direction === 'inbound') {
+            $message->forceFill(['sent_to_triage_at' => now()])->save();
+        }
+
         ProcessInboundEmail::dispatch($message->tenant_id, $message->id)->onQueue('email');
 
         return $message;

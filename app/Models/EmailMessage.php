@@ -52,6 +52,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $agent_run_id
  * @property Carbon|null $received_at
  * @property Carbon|null $sent_at
+ * @property Carbon|null $sent_to_triage_at
  * @property Carbon|null $read_at
  * @property string|null $dedup_hash
  * @property int|null $email_folder_id
@@ -87,35 +88,47 @@ class EmailMessage extends Model
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
-        $agentMailboxes = Mailbox::query()->where('kind', Mailbox::AGENT)->select('id');
-
         $query->where(fn (Builder $q) => $q
             ->whereIn('mailbox_id', Mailbox::query()->ownedBy($user)->select('id'))
-            ->orWhere(fn (Builder $w) => $w->where('routed_to_user_id', $user->id)->whereIn('mailbox_id', $agentMailboxes))
-            ->when($user->hasPermission(Permission::ReadTriageEmails), fn (Builder $w) => $w->orWhereIn('mailbox_id', $agentMailboxes)));
+            ->orWhere(fn (Builder $w) => $w->where('routed_to_user_id', $user->id)->triage())
+            ->when($user->hasPermission(Permission::ReadTriageEmails), fn (Builder $w) => $w->orWhere(fn (Builder $t) => $t->triage())));
     }
 
     /**
-     * What an agent reads: the triage email, and the personal mailboxes whose
-     * owners let it read them.
+     * What an agent reads: the triage email (with what a person's mailbox
+     * sent to triage), and the personal mailboxes whose owners let it read them.
      *
      * @param  Builder<self>  $query
      */
     #[Scope]
     protected function readableBy(Builder $query, Agent $agent): void
     {
-        $query->whereIn('mailbox_id', Mailbox::query()->readableBy($agent)->select('id'));
+        $query->where(fn (Builder $q) => $q
+            ->whereIn('mailbox_id', Mailbox::query()->readableBy($agent)->select('id'))
+            ->orWhereNotNull('sent_to_triage_at'));
     }
 
     /**
-     * Email of the agents' mailboxes, the company's triage; never a person's mailbox.
+     * The company's triage: the email of the agents' mailboxes and what a
+     * person's mailbox sent to triage; never the rest of a person's mailbox.
      *
      * @param  Builder<self>  $query
      */
     #[Scope]
     protected function triage(Builder $query): void
     {
-        $query->whereIn('mailbox_id', Mailbox::query()->where('kind', Mailbox::AGENT)->select('id'));
+        $query->where(fn (Builder $q) => $q
+            ->whereIn('mailbox_id', Mailbox::query()->where('kind', Mailbox::AGENT)->select('id'))
+            ->orWhereNotNull('sent_to_triage_at'));
+    }
+
+    /**
+     * Whether it is triage email: in an agent's mailbox, or sent to triage
+     * by the person's mailbox it arrived in.
+     */
+    public function isTriage(): bool
+    {
+        return $this->sent_to_triage_at !== null || ! $this->mailbox->isPersonal();
     }
 
     /**
@@ -209,6 +222,7 @@ class EmailMessage extends Model
             'deadline_at' => 'datetime',
             'received_at' => 'datetime',
             'sent_at' => 'datetime',
+            'sent_to_triage_at' => 'datetime',
             'read_at' => 'datetime',
             'removed_at' => 'datetime',
             'is_flagged' => 'boolean',
