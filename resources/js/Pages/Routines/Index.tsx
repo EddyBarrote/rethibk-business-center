@@ -1,5 +1,18 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CalendarClock, Clock, Coins, ExternalLink, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2, TriangleAlert, Workflow as WorkflowIcon } from 'lucide-react';
+import {
+    CalendarClock,
+    Clock,
+    Coins,
+    ExternalLink,
+    MoreHorizontal,
+    Pause,
+    Pencil,
+    Play,
+    Plus,
+    Trash2,
+    TriangleAlert,
+    Workflow as WorkflowIcon,
+} from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -76,7 +89,16 @@ interface FormState {
     pick: SchedulePick;
 }
 
-const blank: FormState = { name: '', kind: 'agent', agent_id: '', workflow_id: '', prompt: '', owner_user_id: '', is_active: true, pick: defaultPick };
+const blank: FormState = {
+    name: '',
+    kind: 'agent',
+    agent_id: '',
+    workflow_id: '',
+    prompt: '',
+    owner_user_id: '',
+    is_active: true,
+    pick: defaultPick,
+};
 
 const fromRoutine = (routine: Routine): FormState => ({
     name: routine.name,
@@ -177,9 +199,7 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
     const active = routines.filter((row) => row.is_active);
     const failing = routines.filter((row) => row.stats.failed > 0);
     const cost = routines.reduce((sum, row) => sum + row.stats.cost, 0);
-    const upcoming = active
-        .flatMap((row) => row.next_runs.slice(0, 1).map((at) => ({ row, at })))
-        .sort((a, b) => a.at.localeCompare(b.at))[0];
+    const upcoming = active.flatMap((row) => row.next_runs.slice(0, 1).map((at) => ({ row, at }))).sort((a, b) => a.at.localeCompare(b.at))[0];
 
     return (
         <SettingsLayout>
@@ -211,7 +231,12 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
             ) : (
                 <>
                     <div className="grid divide-y rounded-xl border bg-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
-                        <MetricCard icon={CalendarClock} value={active.length} label="Activas" description={`${routines.length - active.length} em pausa`} />
+                        <MetricCard
+                            icon={CalendarClock}
+                            value={active.length}
+                            label="Activas"
+                            description={`${routines.length - active.length} em pausa`}
+                        />
                         <MetricCard
                             icon={Clock}
                             value={upcoming ? relative(upcoming.at) : '—'}
@@ -228,7 +253,7 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                         <MetricCard icon={Coins} value={usd(cost)} label="Custo" description="das rotinas nos últimos 30 dias" />
                     </div>
 
-                    <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
+                    <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
                         <Section title={`Rotinas · ${routines.length}`}>
                             <ListPanel>
                                 {routines.map((routine) => (
@@ -274,8 +299,9 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                     </div>
 
                     <p className="text-xs text-muted-foreground">
-                        Horas de {timezone.replace('Africa/', '')}. Uma rotina que falhe a hora (o servidor estava desligado) corre uma vez quando ele volta, até 12 horas
-                        depois. Aprovações, revisão do Chief of Staff e limites de custo aplicam-se como a qualquer outro trabalho; o custo aparece em Consumo de IA.
+                        Horas de {timezone.replace('Africa/', '')}. Uma rotina que falhe a hora (o servidor estava desligado) corre uma vez quando ele
+                        volta, até 12 horas depois. Aprovações, revisão do Chief of Staff e limites de custo aplicam-se como a qualquer outro
+                        trabalho; o custo aparece em Consumo de IA.
                     </p>
                 </>
             )}
@@ -327,7 +353,11 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                     {form.kind === 'agent' ? (
                         <>
                             <Field id="agent_id" label="Agente" error={errors.agent_id}>
-                                <NativeSelect id="agent_id" value={form.agent_id} onChange={(event) => setForm({ ...form, agent_id: event.target.value })}>
+                                <NativeSelect
+                                    id="agent_id"
+                                    value={form.agent_id}
+                                    onChange={(event) => setForm({ ...form, agent_id: event.target.value })}
+                                >
                                     <option value="">Escolha o agente</option>
                                     {agents.map((row) => (
                                         <option key={row.id} value={row.id}>
@@ -360,9 +390,17 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                                 id="workflow_id"
                                 label="Fluxo"
                                 error={errors.workflow_id}
-                                hint={workflows.length === 0 ? 'Ainda não há fluxos que começam por agenda: no editor do fluxo, escolha «Por agenda» em «Como começa».' : undefined}
+                                hint={
+                                    workflows.length === 0
+                                        ? 'Ainda não há fluxos que começam por agenda: no editor do fluxo, escolha «Por agenda» em «Como começa».'
+                                        : undefined
+                                }
                             >
-                                <NativeSelect id="workflow_id" value={form.workflow_id} onChange={(event) => setForm({ ...form, workflow_id: event.target.value })}>
+                                <NativeSelect
+                                    id="workflow_id"
+                                    value={form.workflow_id}
+                                    onChange={(event) => setForm({ ...form, workflow_id: event.target.value })}
+                                >
                                     <option value="">Escolha o fluxo</option>
                                     {workflows.map((row) => (
                                         <option key={row.id} value={row.id}>
@@ -374,7 +412,13 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                                 </NativeSelect>
                             </Field>
                             <Field id="prompt" label="Nota para o agente (opcional)" error={errors.prompt}>
-                                <Textarea id="prompt" rows={2} value={form.prompt} maxLength={10000} onChange={(event) => setForm({ ...form, prompt: event.target.value })} />
+                                <Textarea
+                                    id="prompt"
+                                    rows={2}
+                                    value={form.prompt}
+                                    maxLength={10000}
+                                    onChange={(event) => setForm({ ...form, prompt: event.target.value })}
+                                />
                             </Field>
                         </>
                     )}
@@ -396,7 +440,11 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                                 ))}
                             </NativeSelect>
                             {form.pick.frequency === 'hourly' ? (
-                                <NativeSelect aria-label="Minuto" value={form.pick.minute} onChange={(event) => setPick({ minute: Number(event.target.value) })}>
+                                <NativeSelect
+                                    aria-label="Minuto"
+                                    value={form.pick.minute}
+                                    onChange={(event) => setPick({ minute: Number(event.target.value) })}
+                                >
                                     {[0, 15, 30, 45].map((minute) => (
                                         <option key={minute} value={minute}>
                                             aos {minute} min
@@ -412,7 +460,13 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                                     onChange={(event) => setPick({ cron: event.target.value })}
                                 />
                             ) : (
-                                <Input aria-label="Hora" type="time" step={300} value={form.pick.time} onChange={(event) => setPick({ time: event.target.value })} />
+                                <Input
+                                    aria-label="Hora"
+                                    type="time"
+                                    step={300}
+                                    value={form.pick.time}
+                                    onChange={(event) => setPick({ time: event.target.value })}
+                                />
                             )}
                         </div>
                         {form.pick.frequency === 'weekly' && (
@@ -425,7 +479,9 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                                             key={day.value}
                                             type="button"
                                             aria-pressed={on}
-                                            onClick={() => setPick({ days: on ? form.pick.days.filter((d) => d !== day.value) : [...form.pick.days, day.value] })}
+                                            onClick={() =>
+                                                setPick({ days: on ? form.pick.days.filter((d) => d !== day.value) : [...form.pick.days, day.value] })
+                                            }
                                             className={cn(
                                                 'rounded-md border px-2.5 py-1 text-xs transition-colors hover:bg-accent/60',
                                                 on && 'border-primary bg-primary text-primary-foreground hover:bg-primary/90',
@@ -438,7 +494,11 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                             </div>
                         )}
                         {form.pick.frequency === 'monthly' && (
-                            <NativeSelect aria-label="Dia do mês" value={form.pick.day} onChange={(event) => setPick({ day: Number(event.target.value) })}>
+                            <NativeSelect
+                                aria-label="Dia do mês"
+                                value={form.pick.day}
+                                onChange={(event) => setPick({ day: Number(event.target.value) })}
+                            >
                                 {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
                                     <option key={day} value={day}>
                                         Dia {day}
@@ -458,7 +518,11 @@ export default function RoutinesIndex({ routines, agents, workflows, people, tim
                                 : 'A tarefa do fluxo fica com esta pessoa. Os admins recebem sempre um aviso.'
                         }
                     >
-                        <NativeSelect id="owner_user_id" value={form.owner_user_id} onChange={(event) => setForm({ ...form, owner_user_id: event.target.value })}>
+                        <NativeSelect
+                            id="owner_user_id"
+                            value={form.owner_user_id}
+                            onChange={(event) => setForm({ ...form, owner_user_id: event.target.value })}
+                        >
                             <option value="">
                                 {form.kind === 'workflow'
                                     ? 'A pessoa de recurso do fluxo'
@@ -561,32 +625,37 @@ function RoutineDetail({
     onDelete: () => void;
 }) {
     const blocked =
-        (routine.kind === 'agent' && routine.agent && !routine.agent.active) || (routine.kind === 'workflow' && routine.workflow && !routine.workflow.active);
+        (routine.kind === 'agent' && routine.agent && !routine.agent.active) ||
+        (routine.kind === 'workflow' && routine.workflow && !routine.workflow.active);
     const last = routine.history[0];
 
     return (
         <div className="flex min-w-0 flex-col gap-5">
-            <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-start">
-                <RoutineIcon routine={routine} className="size-10" />
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-lg font-semibold tracking-tight">{routine.name}</h2>
-                        <StatusBadge tone={routine.is_active ? 'success' : 'idle'}>{routine.is_active ? 'Activa' : 'Em pausa'}</StatusBadge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                        {routine.schedule_label} ·{' '}
-                        {routine.kind === 'workflow'
-                            ? `começa o fluxo «${routine.workflow?.name ?? '—'}»`
-                            : `pedido ao ${routine.agent?.name ?? 'agente'}`}
-                        {routine.recipient ? `, para ${routine.recipient}` : ''}
-                    </p>
-                    {blocked && (
-                        <p className="mt-1 text-xs text-status-warning">
-                            {routine.kind === 'agent' ? 'O agente está suspenso: a rotina não corre.' : 'O fluxo não está activo: a rotina não corre.'}
+            <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 2xl:flex-row 2xl:items-start">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <RoutineIcon routine={routine} className="size-10" />
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-lg font-semibold tracking-tight">{routine.name}</h2>
+                            <StatusBadge tone={routine.is_active ? 'success' : 'idle'}>{routine.is_active ? 'Activa' : 'Em pausa'}</StatusBadge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            {routine.schedule_label} ·{' '}
+                            {routine.kind === 'workflow'
+                                ? `começa o fluxo «${routine.workflow?.name ?? '—'}»`
+                                : `pedido ao ${routine.agent?.name ?? 'agente'}`}
+                            {routine.recipient ? `, para ${routine.recipient}` : ''}
                         </p>
-                    )}
+                        {blocked && (
+                            <p className="mt-1 text-xs text-status-warning">
+                                {routine.kind === 'agent'
+                                    ? 'O agente está suspenso: a rotina não corre.'
+                                    : 'O fluxo não está activo: a rotina não corre.'}
+                            </p>
+                        )}
+                    </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 pl-[3.25rem] 2xl:pl-0">
                     <Button variant="outline" size="sm" onClick={onRun}>
                         <Play />
                         Correr agora
@@ -616,7 +685,7 @@ function RoutineDetail({
                 </div>
             </div>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
+            <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_19rem]">
                 <div className="flex min-w-0 flex-col gap-5">
                     <Section
                         title={routine.kind === 'workflow' ? 'Nota para o agente' : 'O que o agente faz'}
@@ -691,7 +760,7 @@ function RoutineDetail({
                     </Section>
                 </div>
 
-                <div className="flex min-w-0 flex-col gap-4">
+                <div className="grid min-w-0 content-start gap-4 sm:grid-cols-2 2xl:grid-cols-1">
                     <Properties title="Detalhes">
                         <Property label="Quando">{routine.schedule_label}</Property>
                         <Property label="Próximas">
