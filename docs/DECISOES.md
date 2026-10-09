@@ -516,3 +516,20 @@ ferramentas que o agente chamou por baixo da resposta.
 Fica de fora, para não chocar com «Memória e conversa única por agente»: como a página do agente abre esta conversa.
 
 Testes: `tests/Feature/Tasks/TaskThreadTest.php` («lists the tools of each turn…»).
+
+## Agente: o que está a fazer (09.10.2026)
+
+A barra lateral dizia que um agente estava a trabalhar, mas a página dele só mostrava «A trabalhar»: não dizia em que conversa nem em que passo, e a lista de execuções não levava à conversa.
+
+| Decisão | Onde |
+|---|---|
+| **Cartão «A fazer agora» no topo da página do agente**, uma linha por execução na fila ou a correr (a mesma regra da barra lateral): a conversa ou tarefa, o passo em que vai (a pensar, a usar uma ferramenta pelo nome em Capacidades, a escrever a resposta, à espera de aprovação), quando começou e a pedido de quem. | `AgentController::now()`, `Pages/Agents/Show.tsx` (`NowPanel`) |
+| **Ao vivo:** cada passo novo da execução actualiza a linha; o início e o fim de execuções actualizam o cartão, a lista e a barra lateral. Sem Reverb, recarrega a cada 3 segundos enquanto houver trabalho. | `useLive` em `Pages/Agents/Show.tsx` |
+| **«Abrir conversa» / «Abrir tarefa»** leva a `/tasks/{id}?execucao={run}`, com a execução aberta no painel lateral; sem tarefa, «Ver execução» abre `/runs/{id}`. | `runHref()` |
+| **A conversa privada de outra pessoa aparece como «Numa conversa privada»**, sem título nem botão (a regra de `TaskPolicy::view`). | `AgentController::runTask()` |
+| **Parado, uma linha:** «Sem trabalho em curso. Última actividade há X: …», com a última execução terminada. | `NowPanel` |
+| O distintivo «A trabalhar» no cabeçalho passa a vir dos dados da própria página, por isso nunca contradiz o cartão. | `Pages/Agents/Show.tsx` |
+
+Contido de propósito, para juntar sem choque com «Memória e conversa única por agente» (separador Tarefas e conversa única): não mexe nos separadores nem no botão «Conversar».
+
+Testes: `tests/Feature/Agents/AgentConsoleTest.php` («shows on the agent page what it is doing now…»).

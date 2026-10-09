@@ -2,10 +2,14 @@
 
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
+use App\Enums\RunStatus;
+use App\Enums\StepType;
 use App\Jobs\RunAgent;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\AgentRunStep;
 use App\Models\Approval;
+use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
@@ -120,4 +124,38 @@ it('authorises live channels per tenant', function () {
     $auth($this->member, $this->a, "tenant.{$this->a->id}.approvals")->assertForbidden();
     $auth($this->owner, $this->a, "tenant.{$this->a->id}.approvals")->assertOk();
     $auth($this->member, $this->a, "tenant.{$this->a->id}.user.{$this->owner->id}")->assertForbidden();
+});
+
+it('shows on the agent page what it is doing now, with its conversation and step', function () {
+    [$mine, $theirs] = asTenant($this->a, function () {
+        $mine = Task::factory()->create(['title' => 'Cobrar a factura da Cimentos', 'user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id]);
+        $theirs = Task::factory()->chat()->create(['title' => 'Conversa do membro', 'user_id' => $this->member->id, 'chat_key' => $this->member->id.':'.$this->agent->id]);
+        $running = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $mine->id, 'status' => RunStatus::Running, 'started_at' => now()]);
+        AgentRunStep::factory()->create(['agent_run_id' => $running->id, 'seq' => 1, 'type' => StepType::Reasoning]);
+        AgentRunStep::factory()->create(['agent_run_id' => $running->id, 'seq' => 2, 'type' => StepType::ToolCall, 'tool_name' => 'erp.list_invoices']);
+        AgentRunStep::factory()->create(['agent_run_id' => $running->id, 'seq' => 3, 'type' => StepType::ToolResult, 'tool_name' => 'erp.list_invoices']);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $theirs->id, 'status' => RunStatus::Queued]);
+
+        return [$mine, $theirs];
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "agents/{$this->agent->id}"))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('now.active', 2)
+            ->where('now.last', null)
+            ->where('now.active.0.task.id', $mine->id)
+            ->where('now.active.0.task.title', 'Cobrar a factura da Cimentos')
+            ->where('now.active.0.step.type', 'tool_call')
+            ->where('now.active.0.step.tool_name', 'erp.list_invoices')
+            // Someone else's conversation is named, never shown.
+            ->where('now.active.1.status', 'queued')
+            ->where('now.active.1.task.visible', false)
+            ->where('now.active.1.task.id', null)
+            ->where('now.active.1.task.title', null));
+
+    asTenant($this->a, fn () => AgentRun::query()->update(['status' => RunStatus::Completed, 'finished_at' => now()]));
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "agents/{$this->agent->id}"))
+        ->assertInertia(fn (Assert $page) => $page->has('now.active', 0)->where('now.last.task.id', null)->where('now.last.task.visible', false));
 });

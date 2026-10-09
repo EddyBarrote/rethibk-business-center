@@ -8,6 +8,8 @@ use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Runs\AgentRunner;
 use App\Enums\AgentStatus;
 use App\Enums\Permission;
+use App\Enums\RunStatus;
+use App\Enums\StepType;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
@@ -15,10 +17,12 @@ use App\Models\AgentAssignment;
 use App\Models\AgentMemory;
 use App\Models\AgentRoutine;
 use App\Models\AgentRun;
+use App\Models\AgentRunStep;
 use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\Capability;
 use App\Models\Skill;
+use App\Models\Task;
 use App\Models\User;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
@@ -100,6 +104,8 @@ class AgentController extends Controller
                 'last_run_at' => $routine->last_run_at?->toIso8601String(),
             ]),
             'runs' => $agent->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
+            // What the agent is doing right now, at the top of its page (docs/DECISOES.md, "Agente: o que está a fazer").
+            'now' => fn () => $this->now($agent, $user),
             'memories' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->with(['aboutUser:id,name', 'task:id,number,title,tenant_id', 'task.tenant:id,slug'])->latest('id')->limit(300)->get()->map(fn (AgentMemory $memory) => [
                 'id' => $memory->id,
                 'content' => $memory->content,
@@ -203,5 +209,72 @@ class AgentController extends Controller
         $consolidator->publish($agent);
 
         return back()->with('success', 'Esquecido.');
+    }
+
+    /**
+     * The agent's queued and running work, each with its conversation and the
+     * step it is on, the same rule the sidebar uses to say it is working. When
+     * idle, its last finished run says what it did last and when.
+     *
+     * @return array{active: list<array<string, mixed>>, last: array<string, mixed>|null}
+     */
+    private function now(Agent $agent, User $user): array
+    {
+        $active = $agent->runs()
+            ->whereIn('status', [RunStatus::Queued, RunStatus::Running])
+            ->with(['agent:id,name', 'requestedBy:id,name', 'task'])
+            ->oldest('id')
+            ->get();
+
+        $last = $active->isEmpty()
+            ? $agent->runs()->whereNotIn('status', [RunStatus::Queued, RunStatus::Running])->with(['agent:id,name', 'requestedBy:id,name', 'task'])->latest('id')->first()
+            : null;
+
+        $steps = AgentRunStep::query()
+            ->whereIn('agent_run_id', $active->pluck('id'))
+            ->whereIn('type', [StepType::ToolCall, StepType::Reasoning, StepType::Message, StepType::Approval])
+            ->orderByDesc('seq')
+            ->get()
+            ->unique('agent_run_id')
+            ->keyBy('agent_run_id');
+
+        $present = fn (AgentRun $run) => [
+            ...Present::run($run),
+            'started_at' => $run->started_at?->toIso8601String(),
+            'task' => $this->runTask($run->task, $user),
+            'step' => isset($steps[$run->id]) ? [
+                'type' => $steps[$run->id]->type->value,
+                'tool_name' => $steps[$run->id]->tool_name,
+                'at' => $steps[$run->id]->created_at->toIso8601String(),
+            ] : null,
+        ];
+
+        return [
+            'active' => $active->map($present)->values()->all(),
+            'last' => $last ? $present($last) : null,
+        ];
+    }
+
+    /**
+     * The conversation or task a run belongs to. Someone else's private
+     * conversation is named as such, without its title or a link.
+     *
+     * @return array{id: int|null, ref: string|null, title: string|null, kind: string, visible: bool}|null
+     */
+    private function runTask(?Task $task, User $user): ?array
+    {
+        if ($task === null) {
+            return null;
+        }
+
+        $visible = $user->can('view', $task);
+
+        return [
+            'id' => $visible ? $task->id : null,
+            'ref' => $visible ? $task->identifier() : null,
+            'title' => $visible ? $task->title : null,
+            'kind' => $task->kind->value,
+            'visible' => $visible,
+        ];
     }
 }
