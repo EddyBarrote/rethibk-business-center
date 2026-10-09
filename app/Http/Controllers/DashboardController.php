@@ -37,7 +37,7 @@ class DashboardController extends Controller
                 : null,
             'issues' => fn () => $user->isManager() ? $issues->detect() : [],
             'live' => AgentRun::query()->with(['agent:id,name', 'requestedBy:id,name'])
-                ->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval])
+                ->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval, RunStatus::AwaitingInput])
                 ->latest('id')->limit(4)->get()
                 ->map(fn (AgentRun $run) => Present::run($run)),
             'metrics' => fn () => $this->metrics($budget, $user->hasPermission(Permission::ViewCosts)),
@@ -60,7 +60,7 @@ class DashboardController extends Controller
     {
         $agents = Agent::query()->where('status', '!=', AgentStatus::Draft)->get(['id', 'status']);
         $byStatus = AgentRun::query()
-            ->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval])
+            ->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval, RunStatus::AwaitingInput])
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
@@ -102,7 +102,7 @@ class DashboardController extends Controller
             $bucket = match ($run->status) {
                 RunStatus::Completed => 'completed',
                 RunStatus::Failed => 'failed',
-                RunStatus::AwaitingApproval => 'waiting',
+                RunStatus::AwaitingApproval, RunStatus::AwaitingInput => 'waiting',
                 default => 'other',
             };
             $days[$key][$bucket]++;

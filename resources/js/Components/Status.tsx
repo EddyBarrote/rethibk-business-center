@@ -55,7 +55,7 @@ export function StatusBadge({ tone, children, dot: withDot = true, className, ti
 /* Mappings from domain states to tones, so every screen agrees. */
 
 export const runTone = (status: string): Tone =>
-    ({ queued: 'idle', running: 'running', awaiting_approval: 'warning', completed: 'success', failed: 'danger', cancelled: 'idle' })[status] as Tone ?? 'idle';
+    ({ queued: 'idle', running: 'running', awaiting_approval: 'warning', awaiting_input: 'warning', completed: 'success', failed: 'danger', cancelled: 'idle' })[status] as Tone ?? 'idle';
 
 export const agentTone = (status: string, running = false): Tone => (running ? 'running' : ({ active: 'success', draft: 'idle', suspended: 'danger' })[status] as Tone ?? 'idle');
 

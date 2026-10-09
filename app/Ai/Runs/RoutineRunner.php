@@ -82,6 +82,7 @@ final class RoutineRunner
 
         [$title, $body, $level] = match ($run->status) {
             RunStatus::Failed => ["A rotina «{$routine->name}» falhou", Str::limit((string) $run->error, 300), 'warning'],
+            RunStatus::AwaitingInput => ["A rotina «{$routine->name}» espera uma resposta", Str::limit($text !== '' ? $text : "{$agent} fez perguntas e continua quando lhe responderem.", 300), 'warning'],
             RunStatus::AwaitingApproval => ["A rotina «{$routine->name}» espera aprovação", Str::limit($text !== '' ? $text : "{$agent} precisa de uma aprovação para continuar.", 300), 'warning'],
             default => ["Rotina «{$routine->name}»: {$agent} respondeu", Str::limit($text !== '' ? $text : 'Concluída, sem texto.', 300), 'info'],
         };

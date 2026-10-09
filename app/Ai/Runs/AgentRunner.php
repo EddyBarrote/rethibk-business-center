@@ -11,6 +11,7 @@ use App\Ai\Budget\Pricing;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Attachments\ModelInput;
 use App\Enums\AuditResult;
+use App\Enums\QuestionStatus;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
 use App\Enums\TriggerType;
@@ -19,6 +20,7 @@ use App\Events\AgentRunStarted;
 use App\Events\TaskReplyStreaming;
 use App\Jobs\RunAgent;
 use App\Models\Agent;
+use App\Models\AgentQuestion;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -28,6 +30,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Laravel\Ai\Events\StepCompleted;
 use Laravel\Ai\Files\File;
+use Laravel\Ai\Messages\AssistantMessage;
+use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\StreamStart;
 use Laravel\Ai\Streaming\Events\TextDelta;
@@ -56,6 +60,7 @@ final class AgentRunner
         private readonly Pricing $pricing,
         private readonly TaskThread $threads,
         private readonly ModelInput $attachments,
+        private readonly QuestionService $questions,
     ) {}
 
     /**
@@ -104,7 +109,11 @@ final class AgentRunner
         $agent = $run->agent;
         $started = hrtime(true);
 
-        $run->forceFill(['status' => RunStatus::Running, 'started_at' => now()])->save();
+        // Answered questions resume the same run (docs/DECISOES.md, "Perguntas dos agentes").
+        $resumed = $this->questions->takeAnswered($run);
+        $before = $resumed !== null ? ['input' => $run->input_tokens, 'output' => $run->output_tokens, 'cost' => (float) $run->cost_usd, 'ms' => (int) $run->duration_ms] : null;
+
+        $run->forceFill(['status' => RunStatus::Running, 'started_at' => $run->started_at ?? now()])->save();
         AgentRunStarted::live($run);
 
         try {
@@ -116,17 +125,29 @@ final class AgentRunner
             $this->assertProviderConfigured($agent);
 
             $context = new CapabilityContext($agent, $run);
-            $generic = new GenericAgent($agent, $run, $this->composer->for($agent, $run), $this->tools->for($context), $this->threads->history($run));
 
             // The files of the message (or email) go to the model as files when its
             // provider reads them, otherwise as text (docs/DECISOES.md, "Anexos nas conversas").
             $input = $this->attachments->build($agent->provider, $this->threads->attachmentsFor($run), textInPrompt: $run->trigger_type === TriggerType::Email);
+            $history = $this->threads->history($run);
+            $prompt = $run->input.$input['text'];
+            $files = $input['files'];
+
+            if ($resumed !== null) {
+                // The turn so far, then the answers as the new prompt.
+                $history[] = new UserMessage($prompt, $files);
+                $history[] = new AssistantMessage(trim(((string) ($run->output['text'] ?? ''))."\n\n[Fizeste perguntas com questions.ask:]\n".$this->questions->transcript($resumed, withAnswers: false)));
+                $prompt = $this->questions->continuation($resumed);
+                $files = [];
+            }
+
+            $generic = new GenericAgent($agent, $run, $this->composer->for($agent, $run), $this->tools->for($context), $history);
 
             $this->runCosts[$run->id] = 0.0;
             // In a task thread the answer streams to the console as it is written.
             $response = $run->task_id !== null
-                ? $this->streamToThread($generic, $run, $run->input.$input['text'], $input['files'])
-                : $generic->prompt($run->input.$input['text'], $input['files']);
+                ? $this->streamToThread($generic, $run, $prompt, $files)
+                : $generic->prompt($prompt, $files);
 
             $provider = $response->meta->provider;
             $model = $response->meta->model;
@@ -136,13 +157,18 @@ final class AgentRunner
             $this->recorder->step($run, StepType::Message, ['text' => $response->text]);
 
             $run->forceFill([
-                'status' => $run->approvals()->pending()->exists() ? RunStatus::AwaitingApproval : RunStatus::Completed,
+                'status' => match (true) {
+                    AgentQuestion::query()->where('agent_run_id', $run->id)->where(fn ($q) => $q->where('status', QuestionStatus::Pending)
+                        ->orWhere(fn ($q) => $q->where('status', QuestionStatus::Answered)->whereNull('resumed_at')))->exists() => RunStatus::AwaitingInput,
+                    $run->approvals()->pending()->exists() => RunStatus::AwaitingApproval,
+                    default => RunStatus::Completed,
+                },
                 'output' => ['text' => $response->text],
                 'provider' => $provider,
                 'model' => $model,
-                'input_tokens' => $input,
-                'output_tokens' => $output,
-                'cost_usd' => $this->pricing->cost($provider, $model, $input, $output),
+                'input_tokens' => $input + ($before['input'] ?? 0),
+                'output_tokens' => $output + ($before['output'] ?? 0),
+                'cost_usd' => $this->pricing->cost($provider, $model, $input, $output) + ($before['cost'] ?? 0.0),
             ]);
         } catch (Throwable $e) {
             $message = $e instanceof BudgetExceeded || $e instanceof MissingProviderKey ? $e->getMessage() : 'O agente falhou: '.Str::limit($e->getMessage(), 500);
@@ -152,8 +178,10 @@ final class AgentRunner
             $run->forceFill([
                 'status' => RunStatus::Failed,
                 'error' => $message,
-                'cost_usd' => $this->runCosts[$run->id] ?? 0.0,
+                'cost_usd' => ($this->runCosts[$run->id] ?? 0.0) + ($before['cost'] ?? 0.0),
             ]);
+
+            $this->questions->cancelFor($run);
 
             if (! $e instanceof BudgetExceeded && ! $e instanceof MissingProviderKey) {
                 report($e);
@@ -163,8 +191,8 @@ final class AgentRunner
         }
 
         $run->forceFill([
-            'duration_ms' => (int) round((hrtime(true) - $started) / 1_000_000),
-            'finished_at' => $run->status === RunStatus::AwaitingApproval ? null : now(),
+            'duration_ms' => (int) round((hrtime(true) - $started) / 1_000_000) + ($before['ms'] ?? 0),
+            'finished_at' => in_array($run->status, [RunStatus::AwaitingApproval, RunStatus::AwaitingInput], true) ? null : now(),
         ])->save();
 
         AuditLog::record($agent, 'agent.run', [
@@ -184,6 +212,11 @@ final class AgentRunner
         app(RoutineRunner::class)->delivered($run);
 
         AgentRunFinished::live($run);
+
+        // Answered while it was still running: carry on straight away.
+        if ($run->status === RunStatus::AwaitingInput) {
+            $this->questions->resumeIfAnswered($run);
+        }
 
         return $run;
     }

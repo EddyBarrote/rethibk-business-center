@@ -424,8 +424,18 @@ class TaskController extends Controller
                 'source' => $this->source($task),
                 'agent' => $task->assigneeAgent ? Present::agent($task->assigneeAgent) : null,
             ],
-            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready()])->get()->map(fn (TaskMessage $m) => [
+            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name'])->get()->map(fn (TaskMessage $m) => [
                 'id' => $m->id,
+                // The agent's questions, as a card on its message (docs/DECISOES.md, "Perguntas dos agentes").
+                'question' => $m->question ? [
+                    'id' => $m->question->id,
+                    'status' => $m->question->status->value,
+                    'questions' => $m->question->questions,
+                    'answers' => $m->question->answers,
+                    'answered_by' => $m->question->answeredBy?->name,
+                    'answered_at' => $m->question->answered_at?->toIso8601String(),
+                    'can_answer' => $m->question->isPending() && ($user->id === $m->question->asked_user_id || $user->can('reply', $task)),
+                ] : null,
                 'attachments' => $m->attachments->map(fn (MessageAttachment $a) => Present::attachment($a))->values(),
                 'author_type' => $m->author_type->value,
                 'author' => $m->authorName(),

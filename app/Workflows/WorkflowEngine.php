@@ -127,6 +127,11 @@ final class WorkflowEngine
             return;
         }
 
+        // Questions to a person: the step stays with the agent, whose same run carries on when answered.
+        if ($agentRun->status === RunStatus::AwaitingInput) {
+            return;
+        }
+
         if ($agentRun->status === RunStatus::Failed) {
             $this->block($step, 'A execução do agente falhou: '.Str::limit((string) $agentRun->error, 200));
 

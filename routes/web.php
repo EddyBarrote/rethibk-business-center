@@ -24,6 +24,7 @@ use App\Http\Controllers\MailboxController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\Settings\AccessRoleController;
@@ -86,6 +87,7 @@ Route::middleware('auth')->group(function () {
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('tasks/{task}/messages', [TaskController::class, 'message'])->middleware('throttle:30,1')->name('tasks.message');
+    Route::post('questions/{question}/answer', [QuestionController::class, 'answer'])->middleware('throttle:30,1')->name('questions.answer');
     Route::get('agents/{agent}/chat', [TaskController::class, 'conversation'])->name('agents.conversation');
     Route::post('agents/{agent}/chat', [TaskController::class, 'chat'])->middleware('throttle:20,1')->name('agents.chat');
     // Files in conversations (docs/DECISOES.md, "Anexos nas conversas"): uploaded in parts, sent with the message.

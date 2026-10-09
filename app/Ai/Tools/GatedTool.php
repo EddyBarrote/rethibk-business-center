@@ -11,6 +11,7 @@ use App\Ai\Runs\RunRecorder;
 use App\Enums\AuditResult;
 use App\Enums\CapabilitySource;
 use App\Enums\StepType;
+use App\Models\AgentQuestion;
 use App\Models\AuditLog;
 use App\Models\Capability;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -87,6 +88,13 @@ final class GatedTool implements Tool
         $run = $this->context->run;
 
         $recorder->step($run, StepType::ToolCall, ['arguments' => $arguments], $this->capability->key);
+
+        // After questions.ask the run only waits (docs/DECISOES.md, "Perguntas dos agentes").
+        if ($this->capability->key !== 'questions.ask' && AgentQuestion::query()->where('agent_run_id', $run->id)->pending()->exists()) {
+            $recorder->step($run, StepType::Error, ['ok' => false, 'content' => 'À espera das respostas às perguntas.'], $this->capability->key);
+
+            return 'Não executado: estás à espera das respostas às tuas perguntas. Termina a tua resposta agora com uma frase curta; continuas quando a pessoa responder.';
+        }
 
         $decision = app(AutonomyGate::class)->evaluate($this->capability, $arguments, $this->context);
 

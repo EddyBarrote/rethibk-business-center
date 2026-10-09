@@ -42,7 +42,7 @@ class Heartbeat extends Command
                     ->where('kind', TaskKind::Task)
                     ->whereIn('status', [TaskStatus::Todo, TaskStatus::InProgress])
                     ->where('last_activity_at', '<', now()->subMinutes($minutes))
-                    ->whereDoesntHave('runs', fn ($runs) => $runs->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval]))
+                    ->whereDoesntHave('runs', fn ($runs) => $runs->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval, RunStatus::AwaitingInput]))
                     ->oldest('last_activity_at')
                     ->first();
 

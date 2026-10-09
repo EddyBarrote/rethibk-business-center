@@ -47,7 +47,7 @@ export interface AgentSummary {
     reports_to: string | null;
 }
 
-export type RunStatus = 'queued' | 'running' | 'awaiting_approval' | 'completed' | 'failed' | 'cancelled';
+export type RunStatus = 'queued' | 'running' | 'awaiting_approval' | 'awaiting_input' | 'completed' | 'failed' | 'cancelled';
 
 export interface RunSummary {
     id: number;

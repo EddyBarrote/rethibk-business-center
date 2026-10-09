@@ -50,6 +50,10 @@ Ao carregar, `skills.load` troca `{{marca.nome}}`, `{{marca.cor}}`, `{{marca.cor
 
 Ficheiros aceites: md, txt, csv, json, xml, html, pdf, docx, xlsx (até 10 MB). O texto é extraído no upload com `TextExtractor`; um ficheiro sem texto legível fica guardado mas o agente não o consegue ler (o ecrã avisa).
 
+## Perguntas de escolha
+
+Todos os agentes têm `questions.ask`, o equivalente ao AskUserQuestion do Claude: 1 a 4 perguntas com 2 a 4 opções cada (e «Outra» sempre disponível). A execução pausa (`awaiting_input`), a pergunta aparece como cartão na conversa e, fora de uma conversa ao vivo, chega à pessoa como notificação «À sua espera». Responder retoma a mesma execução. Detalhes em `docs/DECISOES.md`, «Perguntas dos agentes».
+
 ## Conectores
 
 - **Servidor MCP:** URL do endpoint (transporte HTTP do MCP) e, opcionalmente, um token Bearer. Ao guardar, a plataforma lista as ferramentas e cria uma capacidade `conn.<chave>.<ferramenta>` (da empresa) ou `global.<chave>.<ferramenta>` (global) por cada uma. Ferramentas com `readOnlyHint` são de leitura; as outras contam como escrita.

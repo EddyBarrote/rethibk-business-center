@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Monogram } from '@/Components/Blocks';
+import { type AgentQuestions, QuestionCard } from '@/Components/tasks/QuestionCard';
 import { Markdown } from '@/Components/Markdown';
 import { StatusDot } from '@/Components/Status';
 import type { MessageAttachment } from '@/lib/attachments';
@@ -26,6 +27,8 @@ export interface ChatMessage {
     attachments: MessageAttachment[];
     run_id: number | null;
     created_at: string;
+    /** The agent's questions on this message, answered on the card. */
+    question?: AgentQuestions | null;
 }
 
 export interface ToolCall {
@@ -189,6 +192,7 @@ function AgentBubble({
                     </div>
                 )}
                 {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} />}
+                {message.question && <QuestionCard question={message.question} />}
                 <div className="flex w-full flex-col items-start gap-1">
                     {tools.length > 0 && message.run_id && <ToolCalls runId={message.run_id} calls={tools} onOpenRun={onOpenRun} />}
                     <div className="flex items-center gap-2 px-1">

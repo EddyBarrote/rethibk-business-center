@@ -3,6 +3,7 @@
 namespace App\Tasks;
 
 use App\Ai\Runs\AgentRunner;
+use App\Ai\Runs\QuestionService;
 use App\Attachments\AttachmentStore;
 use App\Attachments\ModelInput;
 use App\Attachments\StoredFile;
@@ -17,6 +18,7 @@ use App\Enums\TriggerType;
 use App\Events\TaskUpdated;
 use App\Jobs\ConsolidateAgentMemory;
 use App\Models\Agent;
+use App\Models\AgentQuestion;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
@@ -150,6 +152,13 @@ final class TaskThread
         }
 
         $fromAssignee = $author instanceof Agent && $author->id === $task->assignee_agent_id;
+
+        // Writing while the agent waits on its questions answers them, and the paused run carries on.
+        if ($wake && $author instanceof User && $kind !== TaskMessageKind::Event && app(QuestionService::class)->answerWithMessage($task, $message, $author)) {
+            TaskUpdated::live($task);
+
+            return $message;
+        }
 
         // Answering a waiting agent, or a person sending back work in review,
         // hands the turn back to the agent.
@@ -302,7 +311,7 @@ final class TaskThread
         if ($run->status === RunStatus::Failed) {
             $note = $this->note($task, 'A execução falhou: '.Str::limit((string) $run->error, 300), $run);
             app(AttachmentStore::class)->attachToMessage($files, $note);
-        } elseif ($text !== '' || $files->isNotEmpty()) {
+        } elseif ($text !== '' || $files->isNotEmpty() || $run->status === RunStatus::AwaitingInput) {
             $reply = $task->messages()->create([
                 'author_type' => ActorType::Agent,
                 'author_agent_id' => $run->agent_id,
@@ -313,8 +322,12 @@ final class TaskThread
             app(AttachmentStore::class)->attachToMessage($files, $reply);
             $task->forceFill(['last_activity_at' => now()])->save();
 
-            // The person who asked from the console is watching; others get a notification.
-            if ($run->trigger_type !== TriggerType::Manual) {
+            // The agent's questions show as a card on this reply (docs/DECISOES.md, "Perguntas dos agentes").
+            AgentQuestion::query()->where('agent_run_id', $run->id)->where('task_id', $task->id)->whereNull('task_message_id')->update(['task_message_id' => $reply->id]);
+
+            // The person who asked from the console is watching; others get a notification
+            // (for questions, QuestionService already sent one).
+            if ($run->trigger_type !== TriggerType::Manual && $run->status !== RunStatus::AwaitingInput) {
                 $this->notifyUser($task, "{$run->agent->name} respondeu", Str::limit($text !== '' ? $text : 'Enviou ficheiros.', 300), category: NotificationCategory::Conversation, runId: $run->id);
             }
         }
@@ -331,7 +344,10 @@ final class TaskThread
 
         TaskUpdated::live($task);
 
-        $this->pickUpWaitingMessages($task, $run);
+        // Paused on questions, the run itself carries on once they are answered.
+        if ($run->status !== RunStatus::AwaitingInput) {
+            $this->pickUpWaitingMessages($task, $run);
+        }
     }
 
     /**
@@ -351,7 +367,9 @@ final class TaskThread
         $messages = TaskMessage::query()
             ->where('task_id', $run->task_id)
             ->where('id', '<', $before)
-            ->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready()])
+            // What this run already wrote (before pausing for questions) goes back in by AgentRunner.
+            ->where(fn ($q) => $q->whereNull('agent_run_id')->orWhere('agent_run_id', '!=', $run->id))
+            ->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name'])
             ->orderByDesc('id')
             ->limit(40)
             ->get()
@@ -367,8 +385,11 @@ final class TaskThread
         return $messages->map(function (TaskMessage $message) use ($run, $recent, $input, $provider) {
             if ($message->author_type === ActorType::Agent && $message->author_agent_id === $run->agent_id) {
                 $sent = $message->attachments->map(fn (MessageAttachment $a) => "{$a->reference()}: {$a->filename}")->implode('; ');
+                $asked = $message->question !== null
+                    ? "\n\n[Perguntaste com questions.ask".($message->question->answeredBy ? "; {$message->question->answeredBy->name} respondeu" : '; ainda sem resposta').":]\n".app(QuestionService::class)->transcript($message->question)
+                    : '';
 
-                return new AssistantMessage($message->body.($sent !== '' ? "\n\n[Enviaste: {$sent}]" : ''));
+                return new AssistantMessage(trim($message->body.($sent !== '' ? "\n\n[Enviaste: {$sent}]" : '').$asked));
             }
 
             $files = [];

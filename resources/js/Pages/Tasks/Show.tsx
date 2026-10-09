@@ -300,6 +300,8 @@ export default function TaskShow({
         task.status === 'waiting_human'
             ? [...messages].reverse().find((m) => m.author_type === 'agent' && (m.kind === 'message' || m.kind === 'action'))
             : undefined;
+    // Questions asked with questions.ask are answered on their card, in the conversation.
+    const pendingCard = messages.some((m) => m.question?.status === 'pending');
     const childrenDone = children.filter((child) => child.status === 'done').length;
     const childrenActive = children.filter((child) => child.status === 'in_progress' || child.status === 'in_review').length;
 
@@ -565,8 +567,19 @@ export default function TaskShow({
                                     <CircleHelp className="mt-0.5 size-4 shrink-0 text-status-warning" />
                                     <div className="min-w-0 space-y-1 text-sm">
                                         <p className="font-medium">{agentName} está à tua espera</p>
-                                        {pendingQuestion && <p className="line-clamp-2 text-muted-foreground">{plainText(pendingQuestion.body)}</p>}
-                                        <p className="text-xs text-muted-foreground">Responda abaixo para a tarefa continuar.</p>
+                                        {pendingCard ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                Responda às perguntas no cartão acima, ou escreva abaixo a sua resposta. {agentName} continua logo a
+                                                seguir.
+                                            </p>
+                                        ) : (
+                                            <>
+                                                {pendingQuestion && (
+                                                    <p className="line-clamp-2 text-muted-foreground">{plainText(pendingQuestion.body)}</p>
+                                                )}
+                                                <p className="text-xs text-muted-foreground">Responda abaixo para a tarefa continuar.</p>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ) : null}

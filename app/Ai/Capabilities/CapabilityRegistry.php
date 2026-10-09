@@ -3,6 +3,7 @@
 namespace App\Ai\Capabilities;
 
 use App\Ai\Capabilities\Local\AskHuman;
+use App\Ai\Capabilities\Local\AskQuestions;
 use App\Ai\Capabilities\Local\AttachFile;
 use App\Ai\Capabilities\Local\BudgetOverride;
 use App\Ai\Capabilities\Local\ClassifyEmail;
@@ -100,6 +101,7 @@ final class CapabilityRegistry
         // Tasks and conversations (Paperclip-style collaboration)
         CreateTask::class,
         AskHuman::class,
+        AskQuestions::class,
         UpdateTaskStatus::class,
         CompleteWorkflowStep::class,
         ListTasks::class,
@@ -131,7 +133,7 @@ final class CapabilityRegistry
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
+    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];

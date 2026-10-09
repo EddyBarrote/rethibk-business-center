@@ -7,6 +7,8 @@ enum RunStatus: string
     case Queued = 'queued';
     case Running = 'running';
     case AwaitingApproval = 'awaiting_approval';
+    /** The agent asked a person questions (questions.ask) and waits for the answer. */
+    case AwaitingInput = 'awaiting_input';
     case Completed = 'completed';
     case Failed = 'failed';
     case Cancelled = 'cancelled';
@@ -17,6 +19,7 @@ enum RunStatus: string
             self::Queued => 'Em fila',
             self::Running => 'A correr',
             self::AwaitingApproval => 'À espera de aprovação',
+            self::AwaitingInput => 'À espera de resposta',
             self::Completed => 'Concluído',
             self::Failed => 'Falhou',
             self::Cancelled => 'Cancelado',

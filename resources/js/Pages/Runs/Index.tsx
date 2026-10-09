@@ -18,6 +18,7 @@ const statuses = [
     ['', 'Todas'],
     ['running', 'A correr'],
     ['awaiting_approval', 'À espera de aprovação'],
+    ['awaiting_input', 'À espera de resposta'],
     ['completed', 'Concluídas'],
     ['failed', 'Falhadas'],
 ];

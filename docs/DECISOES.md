@@ -679,3 +679,21 @@ Pedido do Barrote: Fluxos de trabalho, Rotinas e Execuções saem da barra princ
 | Cada execução que uma rotina começa guarda a rotina (`agent_runs.agent_routine_id`); as que já existiam foram ligadas pela origem. Um fluxo por agenda conta as tarefas que abriu. | migração `2026_10_09_150001` |
 
 Testes: `tests/Feature/Agents/RoutinesTest.php`.
+
+## Perguntas dos agentes (09.10.2026)
+
+Pedido do Barrote: os agentes precisam de uma ferramenta como o AskUserQuestion do Claude. Feito com as escolhas por omissão abaixo; nenhuma ficou por confirmar.
+
+| Decisão | Onde |
+|---|---|
+| **Capacidade base `questions.ask` («Fazer perguntas de escolha»)**, dada a todos os agentes como `tasks.ask_human` e sem passar pelo portão de autonomia (risco Observe). O agente faz 1 a 4 perguntas; cada uma tem pergunta, etiqueta curta, 2 a 4 opções com rótulo e descrição de uma linha, e escolha múltipla opcional. «Outra» (texto livre) é sempre da plataforma: se o modelo a puser nas opções, sai. | `App\Ai\Capabilities\Local\AskQuestions`, `CapabilityRegistry::ALWAYS_ON`, `InstructionComposer` |
+| **A execução pausa:** a execução fica `awaiting_input` («À espera de resposta», sem `finished_at`) e a tarefa fica «À sua espera». Depois de perguntar, qualquer outra ferramenta nessa execução devolve «estás à espera das respostas», e uma segunda ronda de perguntas também. | `RunStatus::AwaitingInput`, `AgentRunner`, `GatedTool` |
+| **Responder retoma a mesma execução**, não abre outra: a execução volta à fila e o modelo recebe a conversa anterior, o pedido original, o que já tinha escrito com as perguntas e, como nova mensagem, as respostas. Tokens, custo e duração somam-se na mesma execução. | `QuestionService::answer()`, `AgentRunner::run()` |
+| **Cartão interactivo na bolha do agente:** separadores com as etiquetas quando há várias perguntas, opções numeradas (teclas 1–4), «Outra» com caixa de texto, Anterior/Seguinte e «Enviar respostas». Respondido, o cartão fica com as escolhas e «Respondido por X às hh:mm» — é o registo da resposta na conversa, e entra no histórico do agente nas conversas seguintes. Uma execução que falha antes da resposta deixa o cartão «sem resposta». | `Components/tasks/QuestionCard.tsx`, `Chat.tsx`, `TaskController::show()` |
+| **Escrever na conversa também responde:** enquanto há perguntas pendentes, uma mensagem da pessoa responde a todas como «Outra» e retoma a execução, em vez de acordar o agente outra vez. | `TaskThread::post()`, `QuestionService::answerWithMessage()` |
+| **Para quem vai a pergunta:** a pessoa da tarefa (ou quem a criou), senão quem pediu a execução, senão a chefia do agente. Vai para a própria tarefa quando é do agente e dessa pessoa; senão, para a conversa da pessoa com o agente. Uma execução sem tarefa (triagem de email, rotina sem pessoa) passa a viver nessa conversa, e a resposta final aparece lá. | `QuestionService::ask()` |
+| **Fora de uma conversa ao vivo** (rotina, fluxo, triagem, pedido de outro agente) a pessoa recebe a notificação «X tem perguntas para si» na categoria «À sua espera», com ligação para a conversa. Quem está a conversar com o agente vê o cartão aparecer e não recebe notificação. Os admins de uma rotina recebem «A rotina espera uma resposta». | `QuestionService::ask()`, `RoutineRunner::delivered()` |
+| **Quem pode responder:** a pessoa a quem se perguntou, ou quem pode escrever na tarefa. Responde-se uma vez; respostas validadas (uma só escolha em perguntas simples, todas respondidas). Fica no registo de auditoria (`question.answered`). | `QuestionController`, `POST /questions/{id}/answer` |
+| Fluxos: um passo cujo agente fez perguntas continua com ele (não conta como «terminou sem concluir»). O batimento e o painel contam `awaiting_input` como em espera. | `WorkflowEngine::runEnded()`, `Heartbeat`, `DashboardController` |
+
+Migração `2026_10_09_170001` (tabela `agent_questions` e o estado novo em `agent_runs.status`). Testes: `tests/Feature/Agents/AgentQuestionsTest.php`.
