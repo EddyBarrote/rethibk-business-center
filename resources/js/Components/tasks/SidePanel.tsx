@@ -4,12 +4,13 @@ import { type ReactNode, useEffect, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
+import { approvalTitle } from '@/lib/approvals';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Markdown } from '@/Components/Markdown';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { RunRequest, RunTimeline, type Step } from '@/Components/runs/RunTimeline';
 import { useLive } from '@/hooks/useLive';
-import { dateTime, duration, number, runTitle, time, usd, usdPrecise } from '@/lib/format';
+import { ago, dateTime, duration, number, runTitle, time, usd, usdPrecise } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { TaskRow, type TaskSummary } from '@/Pages/Tasks/Index';
 import type { ApprovalSummary, RunSummary, SharedProps } from '@/types';
@@ -100,7 +101,8 @@ export function SidePanel({
                                 tab === value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                             )}
                         >
-                            <Icon className="size-3.5" />
+                            {/* Four tabs fit the narrow panel by their names alone; the icons come back when there is room. */}
+                            <Icon className="hidden size-3.5 2xl:block" />
                             {label}
                             {!!counts[value] && <span className="text-[10px] text-muted-foreground tabular-nums">{counts[value]}</span>}
                         </button>
@@ -147,15 +149,28 @@ function WorkList({ work }: { work: AgentWork }) {
             {work.approvals.length > 0 && (
                 <section className="flex flex-col gap-2">
                     <h3 className="px-1 text-xs font-medium text-muted-foreground">Aprovações à espera · {work.approvals.length}</h3>
-                    <ApprovalList>
+                    {/* A short row each: they are decided where they open (the task, or Aprovações), with the whole context. */}
+                    <ul className="divide-y overflow-hidden rounded-xl border bg-card">
                         {work.approvals.map((approval) => (
-                            <ApprovalCard
-                                key={approval.id}
-                                approval={approval}
-                                taskHref={approval.task_id !== null ? `/tasks/${approval.task_id}` : null}
-                            />
+                            <li key={approval.id}>
+                                <Link
+                                    href={approval.task_id !== null ? `/tasks/${approval.task_id}` : '/approvals'}
+                                    className="flex items-start gap-2.5 px-3 py-2.5 transition-colors hover:bg-accent/50"
+                                >
+                                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-status-warning" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="line-clamp-2 text-sm leading-snug">
+                                            {approvalTitle(approval.action_type, approval.payload, approval.action_summary)}
+                                        </span>
+                                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                                            {approval.can_decide ? 'Espera a sua decisão' : 'À espera de decisão'} · {ago(approval.created_at)}
+                                        </span>
+                                    </span>
+                                    <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                                </Link>
+                            </li>
                         ))}
-                    </ApprovalList>
+                    </ul>
                 </section>
             )}
             {work.tasks.length > 0 && (

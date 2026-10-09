@@ -397,8 +397,9 @@ export default function AppLayout({
 
                     <SidebarContent className="gap-1 px-1">
                         <NavGroup items={topNav.filter(allowed)} isActive={isActive} counts={counts} />
-                        <NavGroup label="Trabalho" items={workNav.filter(allowed)} isActive={isActive} counts={counts} />
+                        {/* The agents are the conversations, so they come right after what needs you. */}
                         <AgentsGroup url={url} />
+                        <NavGroup label="Trabalho" items={workNav.filter(allowed)} isActive={isActive} counts={counts} />
                     </SidebarContent>
 
                     <SidebarFooter className="gap-1 border-t border-sidebar-border/60 p-2">

@@ -633,3 +633,19 @@ agente e uma pesquisa no título, com as 200 mais recentes de uma vez.
 | O estado «À tua espera» passa a «À sua espera», como no centro de notificações. | `TaskStatus::label()` |
 
 Testes: `tests/Feature/Tasks/TaskListTest.php`.
+
+## Conversas a partir dos agentes (09.10.2026)
+
+Pedido do Barrote: a vista `/tasks?view=chats` já não fazia sentido e a conversa devia ser o ecrã de destaque. Depois de ver a proposta com um ecrã «Conversas» próprio, decidiu que não: clica-se no agente para conversar. Escolheu a opção A para a entrada (a conversa mais recente).
+
+| Decisão | Onde |
+|---|---|
+| **Entrar abre a conversa mais recente** da pessoa (a de actividade mais recente com um agente com quem ainda pode falar). Sem nenhuma, abre uma conversa em branco com o primeiro agente a quem pode falar; sem agentes, Tarefas. «A minha caixa» deixa de existir: o que precisa da pessoa está no sino, nos contadores da barra (Tarefas, Aprovações, Notificações) e em Tarefas › Minhas. | `HomeController`; sai `Pages/Home.tsx` |
+| **O grupo «Agentes» da barra é a lista de conversas**, logo abaixo de Tarefas, Email, Aprovações e Notificações: primeiro os agentes com quem a pessoa já falou, a conversa mais recente em cima, e por baixo de «Começar uma conversa» os outros, por nome. Cada um mostra se está a trabalhar, se está à espera da pessoa e quantas respostas estão por ler; com a barra fechada em ícones, um ponto no avatar. O lápis de editar sai da barra (está no topo da conversa). | `HandleInertiaRequests::sidebarAgents()`, `AppLayout` (`AgentsGroup`) |
+| **Por ler:** respostas do agente (mensagens e relatórios) depois da última vez que a pessoa abriu a conversa (`tasks.chat_read_at`, guardado ao abrir). Quem só lê a conversa de outra pessoa não a marca como lida. As conversas que já existiam começam como lidas. | migração `2026_10_09_110001`, `TaskController::show()` |
+| **Sai o item «Conversas» e a vista de conversas em Tarefas:** `/tasks?view=chats` leva à entrada (a conversa mais recente). A lista de tarefas fica só com tarefas. | `TaskController::index()`, `Pages/Tasks/Index.tsx` |
+| **Separador «Tarefas» no painel da conversa**, só na conversa da própria pessoa: as aprovações à espera desse agente que a pessoa pode ver (cada uma abre onde se decide: a tarefa, ou Aprovações) e as tarefas da pessoa com o agente, abertas primeiro (a mesma regra do separador Tarefas da página do agente, agora `Task::withAgentFor()`). Os quatro separadores mostram só o nome no painel estreito. | `TaskController::agentWork()`, `Components/tasks/SidePanel.tsx` |
+| **Conversas de outras pessoas só para leitura.** Quem tem «Ler as conversas de todos» encontra-as no separador «Conversas da equipa» da página do agente; abrem sem caixa de escrita («Conversa de X com Y. Pode lê-la, mas só X escreve aqui.»). O servidor deixa de aceitar mensagens ou mudanças de estado de quem não é a pessoa da conversa (antes, essa permissão também deixava escrever). | `TaskPolicy::reply()`, `update()`, `AgentController::conversations()`, `Pages/Agents/Show.tsx` |
+| O caminho no topo de uma conversa passa a ser «Agentes › {agente}» (e «› Conversa de {pessoa}» na de outra pessoa). | `Pages/Tasks/Show.tsx` |
+
+Testes: `tests/Feature/Tasks/AgentConversationsTest.php`; sai `HomeTest.php`.
