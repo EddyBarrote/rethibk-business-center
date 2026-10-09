@@ -117,7 +117,7 @@ export default function NotificationsIndex({ notifications, categories, filters,
                     </span>
                     <span className="min-w-0 flex-1">
                         <span className="font-medium">{plural(awaiting_decision, 'aprovação espera', 'aprovações esperam')} pela sua decisão.</span>{' '}
-                        <span className="text-muted-foreground">Pagamentos, contratos e acções acima do nível de um agente só avançam com uma pessoa.</span>
+                        <span className="hidden text-muted-foreground sm:inline">Pagamentos, contratos e acções acima do nível de um agente só avançam com uma pessoa.</span>
                     </span>
                     <Button size="sm" variant="outline" onClick={() => go({ tipo: 'approval', estado: 'todas' })}>
                         Decidir agora
@@ -321,7 +321,7 @@ function NoticeRow({
                             notice.read ? 'font-medium text-muted-foreground' : 'font-semibold text-foreground',
                         )}
                     >
-                        <span className="line-clamp-1">{notice.title}</span>
+                        <span className="line-clamp-2 sm:line-clamp-1">{notice.title}</span>
                     </Link>
                     <span className="shrink-0 pt-0.5 text-xs text-muted-foreground tabular-nums" title={dateTime(notice.created_at)}>
                         {ago(notice.created_at)}
