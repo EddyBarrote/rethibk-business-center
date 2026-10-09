@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Monogram } from '@/Components/Blocks';
+import { NotificationBell } from '@/Components/notifications/NotificationBell';
 import { RethinkMark } from '@/Components/RethinkMark';
 import { StatusDot } from '@/Components/Status';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/Components/ui/breadcrumb';
@@ -449,6 +450,9 @@ export default function AppLayout({
                                 })}
                             </BreadcrumbList>
                         </Breadcrumb>
+                        <div className="ml-auto flex items-center gap-1">
+                            <NotificationBell />
+                        </div>
                     </header>
 
                     {/* One width for every page, so content always starts at the same place. */}

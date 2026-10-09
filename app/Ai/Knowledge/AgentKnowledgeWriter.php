@@ -3,6 +3,7 @@
 namespace App\Ai\Knowledge;
 
 use App\Enums\AutonomyLevel;
+use App\Enums\NotificationCategory;
 use App\Models\Agent;
 use App\Models\KnowledgeDomain;
 use App\Models\KnowledgeItem;
@@ -41,6 +42,7 @@ final class AgentKnowledgeWriter
             ($pending ? 'Os outros agentes só o vêem depois de aprovado.' : 'Publicado').($domain ? " Domínio {$domain->name}." : ''),
             "/knowledge/{$item->id}",
             $agent->name,
+            category: NotificationCategory::Document,
         );
     }
 }

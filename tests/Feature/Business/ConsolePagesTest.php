@@ -71,6 +71,7 @@ it('renders every console page for the owner', function (string $path, string $c
     ['settings/usage', 'Settings/Usage'],
     ['settings/profile', 'Settings/Profile'],
     ['settings/appearance', 'Settings/Appearance'],
+    ['settings/notifications', 'Settings/Notifications'],
 ]);
 
 it('shows people their own mailboxes and the triage email routed to them, and triage email to whoever the matrix allows', function () {

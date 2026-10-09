@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Enums\BriefingType;
+use App\Enums\NotificationCategory;
 use App\Mail\BriefingMail;
 use App\Models\Briefing;
 use App\Models\Tenant;
@@ -98,7 +99,7 @@ final class PublishBriefing extends LocalCapability
         ]);
 
         $path = "/briefings/{$briefing->id}";
-        $this->notifier->notify($reader, $briefing->title, $data['highlights'][0] ?? 'O briefing está pronto.', $path, $context->agent->name);
+        $this->notifier->notify($reader, $briefing->title, $data['highlights'][0] ?? 'O briefing está pronto.', $path, $context->agent->name, category: NotificationCategory::Document);
 
         $emailed = true;
 

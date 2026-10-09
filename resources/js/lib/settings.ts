@@ -1,5 +1,6 @@
 import {
     AtSign,
+    BellRing,
     BookOpen,
     Building2,
     ChartColumn,
@@ -138,6 +139,7 @@ export const settingsGroups: SettingsGroup[] = [
         items: [
             { label: 'Perfil', href: '/settings/profile', icon: UserRound, description: 'O seu nome e a sua palavra-passe.' },
             { label: 'Aparência', href: '/settings/appearance', icon: SunMoon, description: 'Tema claro, escuro ou o do sistema.' },
+            { label: 'Notificações', href: '/settings/notifications', icon: BellRing, description: 'O que lhe chega no centro, no ecrã e por email.' },
         ],
     },
 ];

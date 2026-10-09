@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationCategory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -13,12 +14,17 @@ class PlatformNotice extends Notification
 {
     use Queueable;
 
+    /**
+     * @param  array<string, int|string|null>  $meta  what it is about (approval_id, task_id, run_id), for the centre to act on it
+     */
     public function __construct(
         public string $title,
         public string $body,
         public ?string $url = null,
         public ?string $from = null,
         public string $level = 'info',
+        public NotificationCategory $category = NotificationCategory::Agent,
+        public array $meta = [],
     ) {}
 
     /**
@@ -27,6 +33,12 @@ class PlatformNotice extends Notification
     public function via(object $notifiable): array
     {
         return ['database'];
+    }
+
+    /** The kind goes in `notifications.type`, so the centre can filter by it. */
+    public function databaseType(object $notifiable): string
+    {
+        return $this->category->value;
     }
 
     /**
@@ -40,6 +52,7 @@ class PlatformNotice extends Notification
             'url' => $this->url,
             'from' => $this->from,
             'level' => $this->level,
+            ...array_filter($this->meta, fn ($value) => $value !== null),
         ];
     }
 }

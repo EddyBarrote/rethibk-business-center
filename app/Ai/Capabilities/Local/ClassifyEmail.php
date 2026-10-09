@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Enums\EmailCategory;
+use App\Enums\NotificationCategory;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
@@ -150,6 +151,8 @@ final class ClassifyEmail extends LocalCapability
                 $task !== null ? "/tasks/{$task->id}" : "/inbox/{$message->id}",
                 $context->agent->name,
                 $urgent ? 'warning' : 'info',
+                $task !== null ? NotificationCategory::Task : NotificationCategory::Email,
+                ['task_id' => $task?->id, 'email_id' => $message->id],
             );
             $notified = $person->name;
         }

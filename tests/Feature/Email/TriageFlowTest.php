@@ -9,6 +9,7 @@ use App\Enums\RunStatus;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Mail\AgentMessage;
+use App\Mail\NoticeMail;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\Department;
@@ -106,7 +107,9 @@ it('fences the email as data, flags the injection, and holds any send to a new o
             ->and($approval->ceiling_reason)->toContain('entidade nova');
     });
 
-    Mail::assertNothingSent();
+    // Nothing goes out; only the person who decides hears of the approval (Centro de notificações).
+    Mail::assertNotSent(AgentMessage::class);
+    Mail::assertNotSent(NoticeMail::class, fn (NoticeMail $mail) => $mail->hasTo('pagamentos@pagamentos-urgentes.example'));
 });
 
 it('hands supplier invoices, CVs and client requests to the agent of the area', function () {

@@ -9,6 +9,7 @@ use App\Ai\Capabilities\CapabilityRegistry;
 use App\Enums\ApprovalStatus;
 use App\Enums\AuditResult;
 use App\Enums\ExecutionStatus;
+use App\Enums\NotificationCategory;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
 use App\Enums\TaskKind;
@@ -23,6 +24,7 @@ use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\Capability;
 use App\Models\User;
+use App\Support\Notifier;
 use App\Tasks\TaskThread;
 use App\Workflows\WorkflowEngine;
 use Illuminate\Support\Facades\DB;
@@ -182,6 +184,42 @@ final class ApprovalService
         ])));
 
         ApprovalRequested::live($approval, $notify);
+
+        $this->notifyDeciders($approval, $notify);
+    }
+
+    /**
+     * Into each decider's notifications centre, where they can approve or
+     * reject it there and then: the agent's manager and assignees who may
+     * decide it, or else everyone who may (budget, trust, an agent with nobody).
+     *
+     * @param  list<int>  $candidateIds
+     */
+    private function notifyDeciders(Approval $approval, array $candidateIds): void
+    {
+        $active = User::query()->where('is_active', true);
+        $deciders = (clone $active)->whereKey($candidateIds)->get()->filter(fn (User $user) => $user->can('decide', $approval));
+
+        if ($deciders->isEmpty()) {
+            $deciders = $active->get()->filter(fn (User $user) => $user->can('decide', $approval));
+        }
+
+        $agent = $approval->agent;
+        $body = "{$agent->name} quer: {$approval->action_summary}"
+            .($approval->review_note ? "\n\nRevalidação: {$approval->review_note}" : '');
+
+        foreach ($deciders as $user) {
+            app(Notifier::class)->notify(
+                $user,
+                'Aprovação pedida: '.self::actionName($approval),
+                $body,
+                '/approvals',
+                $agent->name,
+                'warning',
+                NotificationCategory::Approval,
+                ['approval_id' => $approval->id, 'run_id' => $approval->agent_run_id, 'task_id' => $approval->run?->task_id],
+            );
+        }
     }
 
     private function decideByAgent(Approval $approval, Agent $reviewer, ApprovalStatus $status, string $note): void

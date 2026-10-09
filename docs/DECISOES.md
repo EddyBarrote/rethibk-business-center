@@ -533,3 +533,28 @@ A barra lateral dizia que um agente estava a trabalhar, mas a página dele só m
 Contido de propósito, para juntar sem choque com «Memória e conversa única por agente» (separador Tarefas e conversa única): não mexe nos separadores nem no botão «Conversar».
 
 Testes: `tests/Feature/Agents/AgentConsoleTest.php` («shows on the agent page what it is doing now…»).
+
+## Centro de notificações (09.10.2026)
+
+Pedido do Barrote: a página `/notifications` passa a ser o centro de notificações completo. Antes era uma lista
+simples; as aprovações não ficavam lá (só um aviso ao vivo), não havia sino no topo nem preferências.
+
+| Decisão | Onde |
+|---|---|
+| **Oito tipos de notificação:** Aprovações, À sua espera (agente à espera de resposta, tarefa pronta para rever), Tarefas (atribuídas por pessoas, agentes ou fluxos, e concluídas), Conversas, Email (encaminhados, fora do SLA), Prazos e lembretes (prazos, concursos, contratos, seguimentos), Documentos (briefings, documentos, conhecimento) e Avisos dos agentes. Quem notifica diz o tipo. | `App\Enums\NotificationCategory`, `Notifier::notify()` |
+| **O tipo vai na coluna `notifications.type`** (`databaseType()`), para filtrar e contar na base de dados. As notificações antigas ganharam o tipo pela ligação e pelo título, numa migração nova. | `PlatformNotice`, `2026_10_09_090001_notifications_hub` |
+| **As aprovações para pessoas chegam ao centro** de quem as pode decidir (a chefia e as pessoas do agente; se nenhuma puder, quem a matriz deixa: orçamento, confiança, tudo). **Aprovar e Rejeitar ali mesmo**, Rejeitar pede o motivo como na página Aprovações; depois de decidida mostra quem decidiu. Uma faixa no topo diz quantas esperam por si. | `ApprovalService::notifyDeciders()`, `ApprovalActions` |
+| **Filtros por tipo** (coluna à esquerda, em linha no telemóvel, com as por ler de cada tipo) **e Todas / Por ler**; o endereço guarda os filtros (`?tipo=approval&estado=por-ler`). | `NotificationController::index()` |
+| **Agrupadas por dia** (Hoje, Ontem, «Quarta-feira, 7 de outubro»), 30 por página. | `Pages/Notifications/Index.tsx` |
+| **Marcar em bloco:** seleccionar e «Marcar como lidas» / «Marcar como por ler»; «Marcar todas como lidas» respeita o tipo aberto. Uma a uma no ícone à direita. Não há apagar: a notificação é o registo do que foi dito. | `read()`, `unread()` |
+| **Abrir leva ao assunto:** tarefas e conversas abrem na página da conversa; quando a notificação vem de uma execução, a execução abre no painel lateral (`/tasks/{id}?execucao={run}`), também nas antigas que apontavam para `/runs/{id}`. Aprovações abrem em Aprovações. | `NotificationController::destination()` |
+| **Sino no topo, à direita:** conta as por ler e abre as últimas 8, com «Marcar todas como lidas», «Ver todas as notificações» e o atalho para as preferências. O item da barra lateral fica. | `Components/notifications/NotificationBell.tsx` |
+| **Ao vivo pelo Reverb:** cada notificação nova actualiza o sino e o centro; sem socket, o centro recarrega a cada 15 s. | `UserNotified`, `useLive` |
+| **Preferências por pessoa** em Definições › A minha conta › Notificações: por tipo, «No centro», «Alerta no ecrã» e «Por email». Por defeito tudo vai para o centro; alerta no ecrã para Aprovações, À sua espera, Tarefas e Conversas; email só para Aprovações. **As aprovações não saem do centro** (só uma pessoa as decide). O alerta só existe para o que fica no centro. | `NotificationPreferences`, `NotificationPreferencesController`, `users.notification_preferences` |
+| **Email da notificação** em texto simples, com o link que a abre (e a marca como lida). Uma falha de envio nunca pára o agente. | `NoticeMail`, `mail/notice.blade.php` |
+| `useLive` passa a desligar só o seu próprio ouvinte, para o sino e a página poderem ouvir o mesmo evento no mesmo canal. | `hooks/useLive.ts` |
+
+Fica de fora por não existir ainda na plataforma: menções (@pessoa) e avisos directos do ERP (as escritas no ERP acima
+do nível passam pelas aprovações, que já chegam ao centro). Quando existirem, basta um tipo novo no enum.
+
+Testes: `tests/Feature/Notifications/NotificationsHubTest.php`.

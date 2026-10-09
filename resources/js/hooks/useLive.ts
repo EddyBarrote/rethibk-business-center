@@ -24,10 +24,11 @@ export function useLive<T = Record<string, unknown>>(
         }
 
         const subscription = echo().private(channel);
-        const names = eventsKey.split(',');
-        names.forEach((name) => subscription.listen(name, (payload: T) => handler.current(name, payload)));
+        // Each listener is removed on its own: the top bar and a page can hear the same event on one channel.
+        const listeners = eventsKey.split(',').map((name) => [name, (payload: T) => handler.current(name, payload)] as const);
+        listeners.forEach(([name, listener]) => subscription.listen(name, listener));
 
-        return () => names.forEach((name) => subscription.stopListening(name));
+        return () => listeners.forEach(([name, listener]) => subscription.stopListening(name, listener));
     }, [channel, eventsKey]);
 
     const only = fallback?.only.join(',') ?? '';

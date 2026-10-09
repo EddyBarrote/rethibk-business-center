@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Enums\AutonomyLevel;
+use App\Enums\NotificationCategory;
 use App\Models\User;
 use App\Support\Notifier;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -69,7 +70,10 @@ final class NotifyUser extends LocalCapability
             return CapabilityResult::error('pessoa não encontrada nesta organização.');
         }
 
-        $this->notifier->notify($user, $data['title'], $data['body'], $data['link'] ?? "/runs/{$context->run->id}", $context->agent->name, ($data['urgent'] ?? false) ? 'warning' : 'info');
+        $this->notifier->notify($user, $data['title'], $data['body'], $data['link'] ?? "/runs/{$context->run->id}", $context->agent->name, ($data['urgent'] ?? false) ? 'warning' : 'info', NotificationCategory::Agent, [
+            'run_id' => $context->run->id,
+            'task_id' => $context->run->task_id,
+        ]);
 
         return CapabilityResult::data(['notified' => $user->name]);
     }

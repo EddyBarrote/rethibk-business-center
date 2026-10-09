@@ -5,6 +5,7 @@ namespace App\Ai\Capabilities\Local;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
+use App\Enums\NotificationCategory;
 use App\Models\Report;
 use App\Models\User;
 use App\Support\Notifier;
@@ -104,7 +105,7 @@ final class DraftReport extends LocalCapability
         };
 
         if ($reviewer !== null) {
-            $this->notifier->notify($reviewer, self::TYPES[$data['type']].': '.$report->title, 'Documento pronto para rever.', "/reports/{$report->id}", $context->agent->name);
+            $this->notifier->notify($reviewer, self::TYPES[$data['type']].': '.$report->title, 'Documento pronto para rever.', "/reports/{$report->id}", $context->agent->name, category: NotificationCategory::Document);
         }
 
         return CapabilityResult::data(['report_id' => $report->id, 'link' => "/reports/{$report->id}", 'notified' => $reviewer?->name]);

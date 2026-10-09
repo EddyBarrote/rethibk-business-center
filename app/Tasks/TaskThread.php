@@ -8,6 +8,7 @@ use App\Attachments\ModelInput;
 use App\Attachments\StoredFile;
 use App\Enums\ActorType;
 use App\Enums\ApprovalStatus;
+use App\Enums\NotificationCategory;
 use App\Enums\RunStatus;
 use App\Enums\TaskKind;
 use App\Enums\TaskMessageKind;
@@ -113,7 +114,7 @@ final class TaskThread
         }
 
         if ($agentOpensWithPerson) {
-            $this->notifyUser($task, "{$author->name} quer falar consigo", Str::limit((string) ($message ?? $task->title), 300));
+            $this->notifyUser($task, "{$author->name} quer falar consigo", Str::limit((string) ($message ?? $task->title), 300), category: NotificationCategory::Conversation);
         }
 
         if ($task->assignee_user_id !== null && $task->assignee_user_id !== ($author instanceof User ? $author->id : null)) {
@@ -161,7 +162,7 @@ final class TaskThread
 
         if ($fromAssignee) {
             if ($notify) {
-                $this->notifyUser($task, "{$author->name} respondeu", Str::limit($body !== '' ? $body : 'Enviou ficheiros.', 300));
+                $this->notifyUser($task, "{$author->name} respondeu", Str::limit($body !== '' ? $body : 'Enviou ficheiros.', 300), category: NotificationCategory::Conversation);
             }
         } elseif ($wake) {
             $this->wake($task, $author instanceof User ? $author : null, $message, $author instanceof Agent ? TriggerType::Agent : TriggerType::Manual);
@@ -220,7 +221,7 @@ final class TaskThread
         }
 
         if ($status === TaskStatus::InReview && $by instanceof Agent && $task->kind === TaskKind::Task) {
-            $this->notifyUser($task, "{$task->identifier()} pronta para rever", $note ?? $task->title, urgent: true);
+            $this->notifyUser($task, "{$task->identifier()} pronta para rever", $note ?? $task->title, urgent: true, category: NotificationCategory::Waiting);
         }
 
         if ($status === TaskStatus::Done && $by instanceof Agent && $task->parent_id === null && $task->kind === TaskKind::Task) {
@@ -228,7 +229,7 @@ final class TaskThread
         }
 
         if ($status === TaskStatus::WaitingHuman) {
-            $this->notifyUser($task, ($by->name ?? 'Um agente').' está à sua espera', $note ?? $task->title, urgent: true);
+            $this->notifyUser($task, ($by->name ?? 'Um agente').' está à sua espera', $note ?? $task->title, urgent: true, category: NotificationCategory::Waiting);
         }
 
         if ($status->isClosed()) {
@@ -311,7 +312,7 @@ final class TaskThread
 
             // The person who asked from the console is watching; others get a notification.
             if ($run->trigger_type !== TriggerType::Manual) {
-                $this->notifyUser($task, "{$run->agent->name} respondeu", Str::limit($text !== '' ? $text : 'Enviou ficheiros.', 300));
+                $this->notifyUser($task, "{$run->agent->name} respondeu", Str::limit($text !== '' ? $text : 'Enviou ficheiros.', 300), category: NotificationCategory::Conversation, runId: $run->id);
             }
         }
 
@@ -535,11 +536,11 @@ final class TaskThread
         $person = $task->assigneeUser;
 
         if ($person !== null) {
-            $this->notifier->notify($person, "Nova tarefa {$task->identifier()}: {$task->title}", Str::limit((string) ($task->description ?? $task->title), 300), "/tasks/{$task->id}", $by->name, $task->priority->value === 'urgent' ? 'warning' : 'info');
+            $this->notifier->notify($person, "Nova tarefa {$task->identifier()}: {$task->title}", Str::limit((string) ($task->description ?? $task->title), 300), "/tasks/{$task->id}", $by->name, $task->priority->value === 'urgent' ? 'warning' : 'info', NotificationCategory::Task, ['task_id' => $task->id]);
         }
     }
 
-    private function notifyUser(Task $task, string $title, string $body, bool $urgent = false): void
+    private function notifyUser(Task $task, string $title, string $body, bool $urgent = false, NotificationCategory $category = NotificationCategory::Task, ?int $runId = null): void
     {
         $user = $task->user ?? $task->createdByUser;
 
@@ -547,7 +548,7 @@ final class TaskThread
             return;
         }
 
-        $this->notifier->notify($user, $title, $body, "/tasks/{$task->id}", $task->assigneeAgent?->name, $urgent ? 'warning' : 'info');
+        $this->notifier->notify($user, $title, $body, "/tasks/{$task->id}", $task->assigneeAgent?->name, $urgent ? 'warning' : 'info', $category, ['task_id' => $task->id, 'run_id' => $runId]);
     }
 
     private function runner(): AgentRunner

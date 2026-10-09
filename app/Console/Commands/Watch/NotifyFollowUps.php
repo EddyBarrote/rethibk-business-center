@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Watch;
 
 use App\Ai\Runs\AgentRunner;
+use App\Enums\NotificationCategory;
 use App\Enums\TriggerType;
 use App\Models\EmailMessage;
 use App\Models\FollowUp;
@@ -34,7 +35,7 @@ class NotifyFollowUps extends Command
                     $person = $followUp->user ?? $followUp->agent?->reportsTo;
 
                     if ($person instanceof User) {
-                        $notifier->notify($person, 'Seguimento: '.$followUp->title, (string) ($followUp->note ?: 'Chegou a data deste seguimento.'), $this->link($followUp), $followUp->agent?->name, 'warning');
+                        $notifier->notify($person, 'Seguimento: '.$followUp->title, (string) ($followUp->note ?: 'Chegou a data deste seguimento.'), $this->link($followUp), $followUp->agent?->name, 'warning', NotificationCategory::Deadline);
                     }
 
                     if ($followUp->user_id === null && $followUp->agent?->isActive()) {

@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Watch;
 
 use App\Ai\Runs\AgentDirectory;
+use App\Enums\NotificationCategory;
 use App\Enums\Role;
 use App\Enums\TenderStatus;
 use App\Models\EmailMessage;
@@ -35,14 +36,14 @@ class WatchDeadlines extends Command
             foreach (EmailMessage::query()->where('direction', 'inbound')->whereBetween('deadline_at', [now(), $until])->with('routedTo')->get() as $email) {
                 if ($this->once("email:{$email->id}")) {
                     $person = $email->routedTo ?? $fallback;
-                    $person && $notifier->notify($person, 'Prazo a chegar: '.$email->subject, 'Termina '.$email->deadline_at?->diffForHumans().'. '.$email->summary, "/inbox/{$email->id}", 'Vigilância de prazos', 'warning');
+                    $person && $notifier->notify($person, 'Prazo a chegar: '.$email->subject, 'Termina '.$email->deadline_at?->diffForHumans().'. '.$email->summary, "/inbox/{$email->id}", 'Vigilância de prazos', 'warning', NotificationCategory::Deadline);
                     $count++;
                 }
             }
 
             foreach (Tender::query()->whereIn('status', [TenderStatus::New, TenderStatus::Reviewing, TenderStatus::Bidding])->whereBetween('deadline_at', [now(), $until])->get() as $tender) {
                 if ($this->once("tender:{$tender->id}")) {
-                    $fallback && $notifier->notify($fallback, 'Concurso a fechar: '.$tender->title, 'Submissão termina '.$tender->deadline_at?->diffForHumans().' ('.$tender->status->label().').', null, 'Vigilância de prazos', 'warning');
+                    $fallback && $notifier->notify($fallback, 'Concurso a fechar: '.$tender->title, 'Submissão termina '.$tender->deadline_at?->diffForHumans().' ('.$tender->status->label().').', null, 'Vigilância de prazos', 'warning', NotificationCategory::Deadline);
                     $count++;
                 }
             }

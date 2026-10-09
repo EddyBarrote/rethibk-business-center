@@ -4,6 +4,7 @@ namespace App\Console\Commands\Watch;
 
 use App\Ai\Runs\AgentDirectory;
 use App\Console\Concerns\DispatchesRoles;
+use App\Enums\NotificationCategory;
 use App\Enums\TriggerType;
 use App\Insights\SlaMonitor;
 use App\Models\EmailMessage;
@@ -34,7 +35,7 @@ class WatchSla extends Command
                 $person = $email->routedTo ?? $agents->forRole('client_manager')?->reportsTo;
                 $count++;
 
-                $person && $notifier->notify($person, 'Pedido de cliente fora do SLA', "«{$breach['subject']}» de {$breach['from']} espera há {$breach['hours_waiting']} h (SLA {$breach['sla_hours']} h).", "/inbox/{$breach['email_id']}", 'Vigilância de SLA', 'warning');
+                $person && $notifier->notify($person, 'Pedido de cliente fora do SLA', "«{$breach['subject']}» de {$breach['from']} espera há {$breach['hours_waiting']} h (SLA {$breach['sla_hours']} h).", "/inbox/{$breach['email_id']}", 'Vigilância de SLA', 'warning', NotificationCategory::Email);
 
                 $this->dispatchRole('client_manager', "O pedido do cliente no email #{$breach['email_id']} passou o SLA ({$breach['hours_waiting']} h de {$breach['sla_hours']} h). Lê-o, abre a ficha do cliente e prepara a resposta (rascunho para aprovação).", $email, TriggerType::Schedule);
             }

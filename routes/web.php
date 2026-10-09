@@ -32,6 +32,7 @@ use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\EmailRuleController;
 use App\Http\Controllers\Settings\ErpConnectionController;
 use App\Http\Controllers\Settings\IntegrationController;
+use App\Http\Controllers\Settings\NotificationPreferencesController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\UsageController;
@@ -165,8 +166,10 @@ Route::middleware('auth')->group(function () {
     Route::get('attachments/{attachment}/preview', [InboxController::class, 'attachmentPreview'])->middleware('throttle:60,1')->name('attachments.preview');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/recent', [NotificationController::class, 'recent'])->name('notifications.recent');
     Route::get('notifications/{notification}', [NotificationController::class, 'open'])->name('notifications.open');
-    Route::post('notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read');
+    Route::post('notifications/read', [NotificationController::class, 'read'])->name('notifications.read');
+    Route::post('notifications/unread', [NotificationController::class, 'unread'])->name('notifications.unread');
 
     Route::get('briefings', [BriefingController::class, 'index'])->name('briefings.index');
     Route::get('briefings/{briefing}', [BriefingController::class, 'show'])->name('briefings.show');
@@ -228,6 +231,8 @@ Route::middleware('auth')->group(function () {
         Route::get('profile', [ProfileController::class, 'show'])->name('settings.profile.show');
         Route::put('profile', [ProfileController::class, 'update'])->name('settings.profile.update');
         Route::put('profile/email-images', [ProfileController::class, 'emailImages'])->name('settings.profile.email-images');
+        Route::get('notifications', [NotificationPreferencesController::class, 'show'])->name('settings.notifications.show');
+        Route::put('notifications', [NotificationPreferencesController::class, 'update'])->name('settings.notifications.update');
         Route::put('password', [ProfileController::class, 'password'])->middleware('throttle:6,1')->name('settings.password.update');
         Route::inertia('appearance', 'Settings/Appearance')->name('settings.appearance');
     });
