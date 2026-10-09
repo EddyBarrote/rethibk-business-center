@@ -481,9 +481,9 @@ export default function TasksIndex({
                 </div>
             ) : null}
 
-            <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
                 {/* Views and statuses: a rail on wide screens, a scrolling row of chips on a phone. */}
-                <nav aria-label="Vistas de tarefas" className="flex flex-col gap-4 max-lg:-mx-4">
+                <nav aria-label="Vistas de tarefas" className="flex min-w-0 flex-col gap-4 max-lg:-mx-4">
                     <div className="scroll-fade flex gap-1 overflow-x-auto max-lg:px-4 lg:flex-col lg:overflow-visible">
                         {views.map((view) => (
                             <RailButton
