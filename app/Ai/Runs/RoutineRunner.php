@@ -48,6 +48,7 @@ final class RoutineRunner
      */
     public function run(AgentRoutine $routine, ?Carbon $now = null): array
     {
+        $routine->loadMissing(['agent.reportsTo', 'workflow.agent.reportsTo', 'workflow.fallbackUser', 'owner', 'createdBy']);
         $routine->forceFill(['last_run_at' => $now ?? now()])->save();
 
         return $routine->workflow_id !== null ? $this->startFlow($routine) : $this->ask($routine);

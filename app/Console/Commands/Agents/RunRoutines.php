@@ -25,7 +25,7 @@ class RunRoutines extends Command
         $tenants->eachActive(function () use ($now, $routines, &$dispatched): void {
             AgentRoutine::query()
                 ->where('is_active', true)
-                ->with(['agent', 'workflow.agent', 'owner', 'createdBy'])
+                ->with(['agent.reportsTo', 'workflow.agent.reportsTo', 'workflow.fallbackUser', 'owner', 'createdBy'])
                 ->each(function (AgentRoutine $routine) use ($now, $routines, &$dispatched): void {
                     if ($routine->dueAt($now) === null) {
                         return;

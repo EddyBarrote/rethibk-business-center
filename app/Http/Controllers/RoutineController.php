@@ -32,7 +32,7 @@ class RoutineController extends Controller
         $this->admin($request);
 
         $routines = AgentRoutine::query()
-            ->with(['agent.reportsTo', 'workflow.agent', 'workflow.fallbackUser', 'owner', 'createdBy', 'lastRun', 'lastTask'])
+            ->with(['agent.reportsTo', 'workflow.agent.reportsTo', 'workflow.fallbackUser', 'owner', 'createdBy', 'lastRun', 'lastTask'])
             ->orderBy('name')
             ->get();
 

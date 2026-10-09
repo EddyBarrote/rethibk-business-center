@@ -53,12 +53,16 @@ it('lets only admins see and create routines', function () {
         'prompt' => 'Lista as entregas em atraso.', 'schedule' => '30 8 * * 1-5', 'owner_user_id' => $this->ana->id,
     ])->assertRedirect()->assertSessionHas('success', 'Rotina criada: Dias úteis às 08:30.');
 
+    // Several routines in one list (strict mode forbids lazy loading across them).
+    asTenant($this->tenant, fn () => AgentRoutine::factory()->create(['agent_id' => $this->agent->id, 'name' => 'Zeta', 'last_run_at' => now()]));
+
     $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'routines'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Routines/Index')
             ->where('routines.0.schedule_label', 'Dias úteis às 08:30')
+            ->where('routines.1.name', 'Zeta')
             ->where('routines.0.recipient', 'Ana Sitoe'));
 
-    expect(asTenant($this->tenant, fn () => AgentRoutine::query()->sole()->created_by_user_id))->toBe($this->admin->id);
+    expect(asTenant($this->tenant, fn () => AgentRoutine::query()->where('name', 'Acompanhar entregas')->sole()->created_by_user_id))->toBe($this->admin->id);
 });
 
 it('refuses a person who cannot talk to the agent, and a flow that starts with email', function () {
@@ -87,11 +91,13 @@ it('asks the agent in the conversation of the person it is for, and tells the ad
     ]));
     $this->travelTo(now()->next('Monday')->setTimezone('Africa/Maputo')->setTime(8, 30)->utc());
 
+    asTenant($this->tenant, fn () => AgentRoutine::factory()->create(['agent_id' => $this->agent->id, 'schedule' => '0 3 * * *', 'name' => 'Outra']));
+
     $this->artisan('agents:run-routines')->assertSuccessful();
     $this->artisan('agents:run-routines')->assertSuccessful();
 
     asTenant($this->tenant, function () {
-        $routine = AgentRoutine::query()->sole();
+        $routine = AgentRoutine::query()->where('name', 'Acompanhar entregas')->sole();
         $chat = Task::query()->where('kind', TaskKind::Chat)->sole();
         $run = AgentRun::query()->sole();
 
