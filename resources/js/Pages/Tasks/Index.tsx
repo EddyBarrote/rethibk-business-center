@@ -515,9 +515,9 @@ export default function TasksIndex({
                     )}
                 </nav>
 
-                <div className="flex min-w-0 flex-col gap-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                        <div className="relative w-full sm:w-72">
+                <div className="@container flex min-w-0 flex-col gap-4">
+                    <div className="flex flex-col gap-2 @3xl:flex-row @3xl:items-center">
+                        <div className="relative w-full @3xl:w-64 @5xl:w-72">
                             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 type="search"
@@ -539,12 +539,12 @@ export default function TasksIndex({
                                 </button>
                             )}
                         </div>
-                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                        <div className="grid grid-cols-2 gap-2 @xl:grid-cols-4 @3xl:flex @3xl:flex-1 @3xl:items-center">
                             <FilterSelect
                                 label="Responsável"
                                 value={filters.responsavel}
                                 onChange={(responsavel) => go({ responsavel })}
-                                className="sm:w-44"
+                                className="@3xl:w-40"
                                 options={[
                                     { value: 'ninguem', label: 'Por atribuir' },
                                     ...agents.map((agent) => ({ value: `agent:${agent.id}`, label: agent.name, hint: 'agente' })),
@@ -555,7 +555,7 @@ export default function TasksIndex({
                                 label="Prioridade"
                                 value={filters.prioridade}
                                 onChange={(prioridade) => go({ prioridade: prioridade as TaskPriority | null })}
-                                className="sm:w-36"
+                                className="@3xl:w-32"
                                 options={priorityOrder.map((p) => ({
                                     value: p,
                                     label: <PriorityIcon priority={p} label={priorityLabel(p)} withLabel />,
@@ -565,7 +565,7 @@ export default function TasksIndex({
                                 label="Prazo"
                                 value={filters.prazo}
                                 onChange={(prazo) => go({ prazo: prazo as Filters['prazo'] })}
-                                className="sm:w-40"
+                                className="@3xl:w-32"
                                 options={Object.entries(dueLabels).map(([value, label]) => ({ value, label }))}
                             />
                             {filters.view !== 'chats' && (
@@ -573,14 +573,14 @@ export default function TasksIndex({
                                     label="Estado"
                                     value={filters.estado}
                                     onChange={(estado) => go({ estado: estado as TaskStatus | null })}
-                                    className="lg:hidden"
+                                    className="@3xl:w-32 lg:hidden"
                                     options={inViewStatuses.map((s) => ({ value: s, label: statusLabel(s) }))}
                                 />
                             )}
                         </div>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="sm:ml-auto">
+                                <Button variant="outline" size="sm" className="@3xl:ml-auto">
                                     <SlidersHorizontal />
                                     Mostrar
                                 </Button>
@@ -889,7 +889,7 @@ function FilterSelect({
     return (
         <Select value={value ?? NONE} onValueChange={(next) => onChange(next === NONE ? null : next)}>
             <SelectTrigger size="sm" className={cn('w-full', value && 'border-primary/40 bg-primary/5', className)} aria-label={label}>
-                <SelectValue placeholder={label} />
+                <SelectValue placeholder={label}>{value ? (options.find((option) => option.value === value)?.label ?? label) : label}</SelectValue>
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value={NONE}>
@@ -946,126 +946,131 @@ export function TaskRow({
     const closed = task.status === 'done' || task.status === 'cancelled';
     const who = task.assignee ?? task.assignee_user;
 
+    // Sized by the room the list has, not the window: the same row sits in a page, a tab and a side column.
     return (
-        <div
-            className={cn(
-                'group relative flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50',
-                selectable?.selected && 'bg-accent/70',
-            )}
-        >
-            {selectable && (
-                <span className="relative z-10 flex items-center">
-                    <Checkbox
-                        checked={selectable.selected}
-                        onCheckedChange={(on) => selectable.onSelect(on === true)}
-                        aria-label={`Seleccionar «${task.title}»`}
-                    />
-                </span>
-            )}
-            {onStatus && statuses ? (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button
-                            type="button"
-                            className="relative z-10 -m-1 rounded-md p-1 hover:bg-accent"
-                            aria-label={`Estado: ${task.status_label}. Mudar`}
-                        >
-                            <TaskStatusIcon status={task.status} label={task.status_label} />
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Mudar estado</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={task.status} onValueChange={onStatus}>
-                            {statusOrder.map((status) => (
-                                <DropdownMenuRadioItem key={status} value={status}>
-                                    <TaskStatusIcon status={status} />
-                                    {statuses.find((s) => s.value === status)?.label ?? status}
-                                </DropdownMenuRadioItem>
-                            ))}
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            ) : (
-                <TaskStatusIcon status={task.status} label={task.status_label} />
-            )}
-            <span className="hidden w-16 shrink-0 font-mono text-xs text-muted-foreground sm:inline">{task.ref}</span>
-            <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-2">
-                    <PriorityIcon priority={task.priority} label={task.priority_label} />
-                    <Link
-                        href={`/tasks/${task.id}`}
-                        className={cn(
-                            'line-clamp-2 min-w-0 text-sm font-medium break-words after:absolute after:inset-0 focus-visible:outline-none sm:line-clamp-1',
-                            closed && 'text-muted-foreground',
-                        )}
-                    >
-                        {task.title}
-                    </Link>
-                    {task.kind === 'chat' && (
-                        <span className="hidden shrink-0 sm:inline-flex">
-                            <ChatBadge />
-                        </span>
-                    )}
-                    {task.working && <WorkingPulse />}
-                </div>
-                {/* Wraps to a second line on a phone instead of cutting every name. */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                    <span className="shrink-0 font-mono whitespace-nowrap sm:hidden">{task.ref}</span>
-                    {who && <span className={cn('max-w-full truncate', !compact && 'md:hidden')}>{who.name}</span>}
-                    {task.created_by_agent && task.created_by && <span className="max-w-full truncate">delegada por {task.created_by}</span>}
-                    {!task.created_by_agent && task.user && !compact && <span className="hidden truncate lg:inline">pedida por {task.user}</span>}
-                    {task.due_at && (
-                        <span className={cn(!compact && 'md:hidden')}>
-                            <DueChip due={task.due_at} closed={closed} />
-                        </span>
-                    )}
-                </div>
-            </div>
-            {!compact && (
-                <div className="hidden shrink-0 items-center gap-2 text-xs text-muted-foreground md:flex">
-                    {task.project ? (
-                        <span
-                            className="hidden max-w-40 items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[11px] xl:inline-flex"
-                            title={`Projecto: ${task.project.name}`}
-                        >
-                            <FolderKanban className="size-3 shrink-0" />
-                            <span className="truncate">{task.project.name}</span>
-                        </span>
-                    ) : (
-                        task.goal && (
-                            <span className="hidden xl:inline-flex">
-                                <GoalChip goal={task.goal} />
-                            </span>
-                        )
-                    )}
-                    {task.due_at && <DueChip due={task.due_at} closed={closed} />}
-                    {who ? (
-                        <span className="ml-1 flex w-36 items-center gap-2 truncate">
-                            {task.assignee ? (
-                                <AgentAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
-                            ) : (
-                                <Monogram name={who.name} className="size-5 rounded-md text-[9px]" />
-                            )}
-                            <span className="truncate text-foreground/80">{who.name}</span>
-                        </span>
-                    ) : (
-                        <span className="ml-1 w-36">Por atribuir</span>
-                    )}
-                </div>
-            )}
-            <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                {task.messages_count !== null && task.messages_count > 0 && (
-                    <span
-                        className="hidden items-center gap-1 tabular-nums sm:inline-flex"
-                        title={`${task.messages_count} mensagens na conversa, das pessoas e do agente`}
-                    >
-                        <MessageSquare className="size-3.5" />
-                        {task.messages_count}
+        <div className="@container">
+            <div
+                className={cn(
+                    'group relative flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50',
+                    selectable?.selected && 'bg-accent/70',
+                )}
+            >
+                {selectable && (
+                    <span className="relative z-10 flex items-center">
+                        <Checkbox
+                            checked={selectable.selected}
+                            onCheckedChange={(on) => selectable.onSelect(on === true)}
+                            aria-label={`Seleccionar «${task.title}»`}
+                        />
                     </span>
                 )}
-                <span className="text-right whitespace-nowrap sm:w-16" title={dateTime(task.last_activity_at ?? task.created_at)}>
-                    {ago(task.last_activity_at ?? task.created_at)}
-                </span>
+                {onStatus && statuses ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button
+                                type="button"
+                                className="relative z-10 -m-1 rounded-md p-1 hover:bg-accent"
+                                aria-label={`Estado: ${task.status_label}. Mudar`}
+                            >
+                                <TaskStatusIcon status={task.status} label={task.status_label} />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Mudar estado</DropdownMenuLabel>
+                            <DropdownMenuRadioGroup value={task.status} onValueChange={onStatus}>
+                                {statusOrder.map((status) => (
+                                    <DropdownMenuRadioItem key={status} value={status}>
+                                        <TaskStatusIcon status={status} />
+                                        {statuses.find((s) => s.value === status)?.label ?? status}
+                                    </DropdownMenuRadioItem>
+                                ))}
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : (
+                    <TaskStatusIcon status={task.status} label={task.status_label} />
+                )}
+                <span className="hidden w-16 shrink-0 font-mono text-xs text-muted-foreground @lg:inline">{task.ref}</span>
+                <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <PriorityIcon priority={task.priority} label={task.priority_label} />
+                        <Link
+                            href={`/tasks/${task.id}`}
+                            className={cn(
+                                'line-clamp-2 min-w-0 text-sm font-medium break-words after:absolute after:inset-0 focus-visible:outline-none @lg:line-clamp-1',
+                                closed && 'text-muted-foreground',
+                            )}
+                        >
+                            {task.title}
+                        </Link>
+                        {task.kind === 'chat' && (
+                            <span className="hidden shrink-0 @lg:inline-flex">
+                                <ChatBadge />
+                            </span>
+                        )}
+                        {task.working && <WorkingPulse />}
+                    </div>
+                    {/* Wraps to a second line on a phone instead of cutting every name. */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <span className="shrink-0 font-mono whitespace-nowrap @lg:hidden">{task.ref}</span>
+                        {who && <span className={cn('max-w-full truncate', !compact && '@3xl:hidden')}>{who.name}</span>}
+                        {task.created_by_agent && task.created_by && <span className="max-w-full truncate">delegada por {task.created_by}</span>}
+                        {!task.created_by_agent && task.user && !compact && (
+                            <span className="hidden truncate @4xl:inline">pedida por {task.user}</span>
+                        )}
+                        {task.due_at && (
+                            <span className={cn(!compact && '@3xl:hidden')}>
+                                <DueChip due={task.due_at} closed={closed} />
+                            </span>
+                        )}
+                    </div>
+                </div>
+                {!compact && (
+                    <div className="hidden shrink-0 items-center gap-2 text-xs text-muted-foreground @3xl:flex">
+                        {task.project ? (
+                            <span
+                                className="hidden max-w-40 items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[11px] @5xl:inline-flex"
+                                title={`Projecto: ${task.project.name}`}
+                            >
+                                <FolderKanban className="size-3 shrink-0" />
+                                <span className="truncate">{task.project.name}</span>
+                            </span>
+                        ) : (
+                            task.goal && (
+                                <span className="hidden @5xl:inline-flex">
+                                    <GoalChip goal={task.goal} />
+                                </span>
+                            )
+                        )}
+                        {task.due_at && <DueChip due={task.due_at} closed={closed} />}
+                        {who ? (
+                            <span className="ml-1 flex w-36 items-center gap-2 truncate">
+                                {task.assignee ? (
+                                    <AgentAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
+                                ) : (
+                                    <Monogram name={who.name} className="size-5 rounded-md text-[9px]" />
+                                )}
+                                <span className="truncate text-foreground/80">{who.name}</span>
+                            </span>
+                        ) : (
+                            <span className="ml-1 w-36">Por atribuir</span>
+                        )}
+                    </div>
+                )}
+                <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                    {task.messages_count !== null && task.messages_count > 0 && (
+                        <span
+                            className="hidden items-center gap-1 tabular-nums @lg:inline-flex"
+                            title={`${task.messages_count} mensagens na conversa, das pessoas e do agente`}
+                        >
+                            <MessageSquare className="size-3.5" />
+                            {task.messages_count}
+                        </span>
+                    )}
+                    <span className="text-right whitespace-nowrap @lg:w-16" title={dateTime(task.last_activity_at ?? task.created_at)}>
+                        {ago(task.last_activity_at ?? task.created_at)}
+                    </span>
+                </div>
             </div>
         </div>
     );
