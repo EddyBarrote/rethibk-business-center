@@ -536,11 +536,11 @@ function Stat({
                 <Icon className="size-3.5" />
                 {label}
             </span>
-            <span className={cn('text-2xl font-semibold tracking-tight tabular-nums', tone === 'warning' && 'text-status-warning')}>{value}</span>
-            <span className="line-clamp-2 text-xs text-muted-foreground">{hint}</span>
+            <span className={cn('text-xl font-semibold tracking-tight tabular-nums sm:text-2xl', tone === 'warning' && 'text-status-warning')}>{value}</span>
+            <span className="line-clamp-1 text-xs text-muted-foreground sm:line-clamp-2">{hint}</span>
         </>
     );
-    const className = 'flex min-w-0 flex-col gap-1 px-4 py-3 text-left';
+    const className = 'flex min-w-0 flex-col gap-0.5 px-3 py-2.5 text-left sm:gap-1 sm:px-4 sm:py-3';
 
     return onClick ? (
         <button type="button" onClick={onClick} className={cn(className, 'transition-colors hover:bg-accent/60')}>
