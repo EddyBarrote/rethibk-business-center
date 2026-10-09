@@ -42,6 +42,25 @@ final class EmailPrompt
     }
 
     /**
+     * For an email a person's mailbox sent to the company's triage
+     * (docs/DECISOES.md, "Caixa de pessoa que envia para a triagem"). Triage
+     * classifies it and hands it to the area that handles it; the mailbox is
+     * still the people's, so triage never answers from it.
+     */
+    public static function forTriage(EmailMessage $message): string
+    {
+        $owners = $message->mailbox->owners()->orderBy('name')->get(['users.id', 'name', 'email']);
+        $names = $owners->map(fn ($u) => "{$u->name} <{$u->email}>")->implode(', ') ?: '(sem dono)';
+
+        return "Chegou um email à caixa {$message->mailbox->address}, de {$names}, que envia o email novo para a triagem. Email #{$message->id}. ".self::thread($message)."\n"
+            .'Faz a triagem: classifica-o com a capacidade de triagem, extrai os campos relevantes e diz quem deve tratar; a plataforma entrega-o à área certa como tarefa. Se for uma oportunidade ou concurso, regista-a. '
+            .'Usa também os anexos (PDF, imagens, áudio): muitas vezes o pedido, a referência ou o valor estão lá e não no texto. '
+            .'Esta caixa é de pessoas: não respondas, não prepares rascunhos e nunca envies emails dela nem em nome dos donos. Quem trata a tarefa prepara a resposta para um dono rever e enviar.'
+            .self::flows()
+            .self::body($message);
+    }
+
+    /**
      * How the people who drew the active flows describe their kind of email
      * (docs/DECISOES.md, "Fluxos de trabalho"), so triage recognises them.
      */

@@ -36,6 +36,7 @@ interface MailboxRow {
     last_inbound_at: string | null;
     owners: { id: number; name: string }[];
     readers: { id: number; name: string; processes_new: boolean }[];
+    sends_to_triage: boolean;
     mine: boolean;
 }
 
@@ -92,9 +93,11 @@ export default function Mailboxes({ mailboxes, agents, people, default_reader_id
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                     {can.manage_all ? `De ${mailbox.owners.map((o) => o.name).join(', ') || 'ninguém'} · ` : ''}
-                                    {mailbox.readers.length === 0
-                                        ? 'Nenhum agente a lê'
-                                        : `Lida por ${mailbox.readers.map((r) => (r.processes_new ? `${r.name} (vê o email novo)` : r.name)).join(', ')}`}
+                                    {mailbox.sends_to_triage
+                                        ? 'O email novo vai para a triagem'
+                                        : mailbox.readers.length === 0
+                                          ? 'Nenhum agente a lê'
+                                          : `Lida por ${mailbox.readers.map((r) => (r.processes_new ? `${r.name} (vê o email novo)` : r.name)).join(', ')}`}
                                 </p>
                                 {mailbox.error_message && (
                                     <p className="text-xs text-destructive" title={mailbox.last_error ?? undefined}>
@@ -181,6 +184,7 @@ function MailboxDialog({
         owners: mailbox?.owners.map((o) => o.id) ?? [],
         readers: initialReaders,
         processor: mailbox ? (mailbox.readers.find((r) => r.processes_new)?.id ?? null) : (defaultReaderId ?? null),
+        sends_to_triage: mailbox?.sends_to_triage ?? false,
     });
 
     const toggleReader = (id: number, on: boolean) => {
@@ -278,13 +282,33 @@ function MailboxDialog({
                 </div>
             </Field>
 
+            <label className="flex items-start gap-2 text-sm">
+                <Checkbox
+                    className="mt-0.5"
+                    checked={form.data.sends_to_triage}
+                    onCheckedChange={(checked) => form.setData('sends_to_triage', checked === true)}
+                />
+                <span>
+                    Enviar o email novo para a triagem
+                    <span className="block text-xs text-muted-foreground">
+                        Para endereços da empresa, como geral@. O Agente de Triagem classifica cada email que chega e entrega-o à área certa como
+                        tarefa; quem vê a triagem passa a ver esses emails. Nunca responde nem envia. O email que já cá estava fica só consigo.
+                    </span>
+                </span>
+            </label>
+
             <Field
                 id="processor"
                 label="Quem vê cada email novo"
                 error={errors.processor}
-                hint="Este agente lê cada email que chega e diz-lhe o que precisa de si."
+                hint={
+                    form.data.sends_to_triage
+                        ? 'Com a triagem ligada, é o Agente de Triagem que vê cada email novo.'
+                        : 'Este agente lê cada email que chega e diz-lhe o que precisa de si.'
+                }
             >
                 <Select
+                    disabled={form.data.sends_to_triage}
                     value={form.data.processor ? String(form.data.processor) : NONE}
                     onValueChange={(value) => form.setData('processor', value === NONE ? null : Number(value))}
                 >

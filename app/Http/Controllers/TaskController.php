@@ -182,7 +182,8 @@ class TaskController extends Controller
     }
 
     /**
-     * Write to an agent from its page: the message goes into that one conversation.
+     * Write to an agent from its page: the message goes into that one
+     * conversation, as a message or as a direct action ("Executar").
      */
     public function chat(Request $request, Agent $agent, TaskThread $threads, AttachmentStore $store): RedirectResponse
     {
@@ -190,13 +191,19 @@ class TaskController extends Controller
         $user = $this->user($request);
         $data = $request->validate([
             'message' => ['required_without:attachment_ids', 'nullable', 'string', 'max:10000'],
+            'mode' => ['sometimes', Rule::in(['message', 'action'])],
             'attachment_ids' => ['array'],
             'attachment_ids.*' => ['integer'],
         ]);
+        $mode = $data['mode'] ?? 'message';
+
+        if ($mode === 'action') {
+            Gate::authorize('requestWork', $agent);
+        }
 
         $files = $store->claim($user, array_map('intval', $data['attachment_ids'] ?? []), null);
         $chat = $threads->conversation($user, $agent);
-        $threads->post($chat, $user, (string) ($data['message'] ?? ''), attachments: $files);
+        $threads->post($chat, $user, (string) ($data['message'] ?? ''), TaskMessageKind::from($mode), attachments: $files);
 
         return to_route('tasks.show', $chat);
     }

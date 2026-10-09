@@ -53,12 +53,12 @@ class AgentPolicy
     }
 
     /**
-     * See and correct the agent's memory: the person it answers to and those
-     * who administer the company (realinhamento, decisão 18).
+     * See and correct what the agent remembers of each person: only the
+     * administrators (docs/DECISOES.md, 09.10.2026; replaces decisão 18).
      */
     public function viewMemory(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && ($actor->hasPermission(Permission::ManageAgentMemory) || $agent->reports_to_user_id === $actor->id);
+        return $this->view($actor, $agent) && $actor->hasPermission(Permission::ManageAgentMemory);
     }
 
     private function level(User $actor, Agent $agent): ?string

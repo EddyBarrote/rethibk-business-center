@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Ai\Runs\AgentDirectory;
 use App\Concerns\BelongsToTenant;
 use App\Enums\MailboxStatus;
 use App\Enums\Permission;
@@ -26,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int|null $agent_id
  * @property string $kind
+ * @property bool $sends_to_triage
  * @property string $address
  * @property string $display_name
  * @property string $inbound_provider
@@ -49,7 +51,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $last_outbound_at
  */
 #[Fillable([
-    'agent_id', 'kind', 'address', 'display_name', 'inbound_provider', 'imap_host', 'imap_port', 'imap_username', 'imap_password',
+    'agent_id', 'kind', 'sends_to_triage', 'address', 'display_name', 'inbound_provider', 'imap_host', 'imap_port', 'imap_username', 'imap_password',
     'imap_encryption', 'imap_folder', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'status', 'save_sent_copy',
 ])]
 #[Hidden(['inbound_secret', 'imap_password', 'smtp_password'])]
@@ -116,13 +118,27 @@ class Mailbox extends Model
     }
 
     /**
-     * The agent that looks at new email as it arrives: the mailbox's own agent,
-     * or for a person's mailbox the reader its owners chose.
+     * A person's mailbox whose new email goes to the company's triage
+     * (docs/DECISOES.md, "Caixa de pessoa que envia para a triagem").
+     */
+    public function sendsToTriage(): bool
+    {
+        return $this->isPersonal() && $this->sends_to_triage;
+    }
+
+    /**
+     * The agent that looks at new email as it arrives: the mailbox's own agent;
+     * for a person's mailbox, the triage agent if it sends its email to
+     * triage, or else the reader its owners chose.
      */
     public function processor(): ?Agent
     {
         if (! $this->isPersonal()) {
             return $this->agent;
+        }
+
+        if ($this->sends_to_triage) {
+            return app(AgentDirectory::class)->forRole('triage');
         }
 
         $reader = MailboxReader::query()->where('mailbox_id', $this->id)->where('processes_new', true)->with('agent')->first();
@@ -198,6 +214,7 @@ class Mailbox extends Model
         return [
             'status' => MailboxStatus::class,
             'kind' => 'string',
+            'sends_to_triage' => 'boolean',
             'inbound_secret' => 'encrypted',
             'imap_password' => 'encrypted',
             'smtp_password' => 'encrypted',

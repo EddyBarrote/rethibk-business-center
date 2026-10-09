@@ -108,7 +108,7 @@ enum Permission: string
             self::ManageAgents => 'Criar, editar, suspender e reactivar agentes, com as suas instruções, capacidades e orçamento.',
             self::GrantAgentAccess => 'Dizer quem fala com os agentes do seu departamento.',
             self::TalkToAllAgents => 'Conversar e pedir trabalho a qualquer agente sem acesso individual.',
-            self::ManageAgentMemory => 'Ver, corrigir e apagar o que qualquer agente memorizou. Cada pessoa já o faz nos agentes que lhe respondem.',
+            self::ManageAgentMemory => 'Ver, corrigir e apagar o que cada agente memorizou de cada pessoa. Só quem tem esta permissão vê a memória dos agentes.',
             self::ConfirmTrustLevels => 'Confirmar as mudanças de nível de confiança que o Chief of Staff propõe.',
             self::ManageCatalog => 'Ligar e desligar capacidades, escrever skills e ligar conectores.',
             self::ReadAllConversations => 'Abrir as conversas de qualquer pessoa com os agentes.',

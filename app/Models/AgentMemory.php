@@ -11,13 +11,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * A fact an agent learned (docs/DECISOES.md, realinhamento L7). Work facts
- * serve every conversation of the agent and go to the knowledge base; a
- * personal fact serves only conversations with the person it is about.
+ * A fact an agent learned (docs/DECISOES.md, realinhamento L7). Each person
+ * has their own memory with each agent (09.10.2026): a fact belongs to the
+ * person it was learned with (`user_id`), or to the agent alone when the work
+ * had no person. Work facts also go to the knowledge base, shared with
+ * everyone; personal facts never leave the person's memory.
  *
  * @property int $id
  * @property int $tenant_id
  * @property int $agent_id
+ * @property int|null $user_id
  * @property string $content
  * @property string $kind
  * @property int|null $about_user_id
@@ -27,7 +30,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['agent_id', 'content', 'kind', 'about_user_id', 'task_id', 'knowledge_item_id', 'edited_by_user_id'])]
+#[Fillable(['agent_id', 'user_id', 'content', 'kind', 'about_user_id', 'task_id', 'knowledge_item_id', 'edited_by_user_id'])]
 class AgentMemory extends Model
 {
     /** @use HasFactory<AgentMemoryFactory> */
@@ -43,6 +46,16 @@ class AgentMemory extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Agent::class);
+    }
+
+    /**
+     * The person whose memory with the agent this is.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     /**

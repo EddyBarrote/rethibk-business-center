@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Runs\AgentDirectory;
 use App\Ai\Runs\AgentRunner;
 use App\Attachments\AttachmentLimits;
 use App\Attachments\ModelInput;
@@ -244,7 +245,7 @@ class InboxController extends Controller
     public function retriage(Request $request, EmailMessage $message, AgentRunner $runner): RedirectResponse
     {
         $this->authorizeView($request, $message);
-        $agent = $message->mailbox->processor();
+        $agent = $message->sent_to_triage_at !== null ? app(AgentDirectory::class)->forRole('triage') : $message->mailbox->processor();
         abort_unless($agent instanceof Agent && $agent->isActive(), 409, 'A caixa não tem um agente activo.');
 
         $message->forceFill(['status' => EmailStatus::Processing])->save();
@@ -342,10 +343,10 @@ class InboxController extends Controller
                 'q' => $search,
                 'category' => $filters['category'] ?? null,
                 'unread' => (bool) ($filters['unread'] ?? false),
-                'triage' => $selected !== null && ! $selected->isPersonal(),
+                'triage' => $selected !== null && (! $selected->isPersonal() || $selected->sendsToTriage()),
             ],
             'messages' => $messages,
-            'categories' => $selected !== null && ! $selected->isPersonal() ? $this->categories($selected) : [],
+            'categories' => $selected !== null && (! $selected->isPersonal() || $selected->sendsToTriage()) ? $this->categories($selected) : [],
             'open' => $conversation,
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
             'can_connect' => $user->hasPermission(Permission::ConnectOwnMailboxes) || $user->hasPermission(Permission::ManageMailboxes),

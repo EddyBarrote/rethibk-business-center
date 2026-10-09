@@ -14,6 +14,7 @@ import {
     Play,
     Send,
     Wrench,
+    Zap,
 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
@@ -35,6 +36,7 @@ import { useLive } from '@/hooks/useLive';
 import { useToolNames } from '@/hooks/useToolNames';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, runTitle, usd } from '@/lib/format';
+import { TaskRow, type TaskSummary } from '@/Pages/Tasks/Index';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
 
 interface Props {
@@ -49,8 +51,9 @@ interface Props {
     routines: { id: number; name: string; schedule: string; is_active: boolean; last_run_at: string | null }[];
     runs: RunSummary[];
     users: { id: number; name: string }[];
-    can: { run: boolean; manage: boolean; manage_access: boolean; view_memory: boolean };
+    can: { run: boolean; request_work: boolean; manage: boolean; manage_access: boolean; view_memory: boolean };
     memories: Memory[] | null;
+    tasks: TaskSummary[];
     now: { active: NowRun[]; last: NowRun | null };
 }
 
@@ -61,9 +64,9 @@ type NowRun = RunSummary & {
     step: { type: string; tool_name: string | null; at: string } | null;
 };
 
-export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memories, can, now }: Props) {
+export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memories, tasks, can, now }: Props) {
     const { tenant } = usePage<SharedProps>().props;
-    const form = useForm({ input: '' });
+    const form = useForm({ message: '', mode: 'message' as 'message' | 'action' });
     const [reason, setReason] = useState('');
     const [access, setAccess] = useState<Record<number, 'chat' | 'work'>>(Object.fromEntries(agent.assignees.map((user) => [user.id, user.level])));
     // The same rule as the sidebar (queued or running), from this page's own live data so the two never disagree.
@@ -80,9 +83,15 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
         { only: ['runs', 'now', 'sidebar_agents'], poll: isRunning },
     );
 
+    // Asking from the agent's page goes into the person's one conversation with it (09.10.2026).
+    const send = (mode: 'message' | 'action') => {
+        form.transform((data) => ({ ...data, mode }));
+        form.post(`/agents/${agent.id}/chat`);
+    };
+
     const submit = (event: FormEvent) => {
         event.preventDefault();
-        form.post(`/agents/${agent.id}/runs`);
+        send(can.request_work ? 'action' : 'message');
     };
 
     const setStatus = (status: 'active' | 'suspended') => router.put(`/agents/${agent.id}/status`, { status, reason }, { preserveScroll: true });
@@ -112,12 +121,6 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <AutonomyBadge level={agent.autonomy_level} withLabel />
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={`/tasks?view=all&agent=${agent.id}`}>
-                            <ListTodo />
-                            Tarefas
-                        </Link>
-                    </Button>
                     {can.manage && (
                         <Button variant="outline" size="sm" asChild>
                             <Link href={`/agents/${agent.id}/edit`}>
@@ -144,6 +147,10 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                         <TabsTrigger value="overview" className="flex-none">
                             Visão geral
                         </TabsTrigger>
+                        <TabsTrigger value="tasks" className="flex-none">
+                            Tarefas
+                            <span className="font-mono text-xs text-muted-foreground tabular-nums">{tasks.length}</span>
+                        </TabsTrigger>
                         <TabsTrigger value="runs" className="flex-none">
                             Execuções
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">{runs.length}</span>
@@ -164,20 +171,34 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                             <form onSubmit={submit} className="flex flex-col gap-3 rounded-xl border bg-card p-5">
                                 <div>
                                     <h2 className="text-sm font-semibold">Pedir ao agente</h2>
-                                    <p className="text-xs text-muted-foreground">O pedido entra na fila e pode acompanhá-lo ao vivo.</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Vai para a sua conversa com {agent.name}, onde acompanha a resposta ao vivo.
+                                        {can.request_work && ' «Executar» pede-lhe que faça já e reporte.'}
+                                    </p>
                                 </div>
                                 <Textarea
                                     rows={3}
                                     placeholder="Ex.: Resume os leads novos desta semana."
-                                    value={form.data.input}
-                                    onChange={(e) => form.setData('input', e.target.value)}
+                                    value={form.data.message}
+                                    onChange={(e) => form.setData('message', e.target.value)}
                                 />
-                                <InputError message={form.errors.input} />
-                                <div className="flex justify-end">
-                                    <Button type="submit" disabled={form.processing || form.data.input.trim() === ''}>
+                                <InputError message={form.errors.message} />
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={can.request_work ? 'outline' : 'default'}
+                                        disabled={form.processing || form.data.message.trim() === ''}
+                                        onClick={() => send('message')}
+                                    >
                                         <Send />
-                                        Executar
+                                        Enviar
                                     </Button>
+                                    {can.request_work && (
+                                        <Button type="submit" disabled={form.processing || form.data.message.trim() === ''}>
+                                            <Zap />
+                                            Executar
+                                        </Button>
+                                    )}
                                 </div>
                             </form>
                         )}
@@ -198,6 +219,22 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                         >
                             <RunList runs={runs.slice(0, 5)} />
                         </Section>
+                    </TabsContent>
+
+                    <TabsContent value="tasks">
+                        {tasks.length === 0 ? (
+                            <EmptyState
+                                icon={ListTodo}
+                                title={`Ainda sem tarefas com ${agent.name}`}
+                                description="O que pedir como trabalho na conversa passa a uma tarefa e aparece aqui."
+                            />
+                        ) : (
+                            <ListPanel>
+                                {tasks.map((task) => (
+                                    <TaskRow key={task.id} task={task} compact />
+                                ))}
+                            </ListPanel>
+                        )}
                     </TabsContent>
 
                     <TabsContent value="runs">
@@ -608,14 +645,16 @@ interface Memory {
     id: number;
     content: string;
     kind: 'work' | 'personal';
+    person: { id: number; name: string } | null;
     about: string | null;
     task: { id: number; ref: string } | null;
     knowledge_item_id: number | null;
     created_at: string;
 }
 
-/** What the agent remembers, for its chefia and the administrators to correct (realinhamento L7). */
+/** What the agent remembers of each person, for the administrators to correct (09.10.2026). */
 function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[] }) {
+    const [person, setPerson] = useState<string>('all');
     const [editing, setEditing] = useState<number | null>(null);
     const [draft, setDraft] = useState('');
     const [forgetting, setForgetting] = useState<Memory | null>(null);
@@ -637,14 +676,30 @@ function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[]
             { preserveScroll: true, onSuccess: () => setEditing(null) },
         );
 
+    const people = [...new Map(memories.filter((m) => m.person).map((m) => [m.person!.id, m.person!.name])).entries()].sort((a, b) =>
+        a[1].localeCompare(b[1]),
+    );
+    const shown = memories.filter((m) => person === 'all' || (person === 'agent' ? m.person === null : String(m.person?.id) === person));
+
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-xs text-muted-foreground">
-                Factos de trabalho servem em todas as conversas do agente e vão para a base de conhecimento (pasta Memória dos agentes). Os pessoais
-                só aparecem nas conversas com a pessoa a quem dizem respeito.
-            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <p className="flex-1 text-xs text-muted-foreground">
+                    Cada pessoa tem a sua memória com o agente: só serve nas conversas e tarefas com essa pessoa. Os factos de trabalho também vão
+                    para a base de conhecimento (pasta Memória dos agentes), e é assim que servem os outros. Os pessoais nunca saem dali.
+                </p>
+                <NativeSelect aria-label="Memória de quem" className="sm:w-56" value={person} onChange={(e) => setPerson(e.target.value)}>
+                    <option value="all">Todas as pessoas</option>
+                    {people.map(([id, name]) => (
+                        <option key={id} value={String(id)}>
+                            {name}
+                        </option>
+                    ))}
+                    {memories.some((m) => m.person === null) && <option value="agent">Só do agente (sem pessoa)</option>}
+                </NativeSelect>
+            </div>
             <ListPanel>
-                {memories.map((memory) => (
+                {shown.map((memory) => (
                     <div key={memory.id} className="flex flex-col gap-2 px-4 py-3">
                         {editing === memory.id ? (
                             <Textarea rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
@@ -652,6 +707,7 @@ function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[]
                             <p className="text-sm">{memory.content}</p>
                         )}
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground/80">{memory.person?.name ?? 'Do agente'}</span>
                             <StatusBadge tone={memory.kind === 'work' ? 'running' : 'idle'} dot={false}>
                                 {memory.kind === 'work' ? 'trabalho' : `pessoal${memory.about ? ` · ${memory.about}` : ''}`}
                             </StatusBadge>

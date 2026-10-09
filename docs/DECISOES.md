@@ -534,6 +534,39 @@ Contido de propósito, para juntar sem choque com «Memória e conversa única p
 
 Testes: `tests/Feature/Agents/AgentConsoleTest.php` («shows on the agent page what it is doing now…»).
 
+## Caixa de pessoa que envia para a triagem (09.10.2026)
+
+Pedido do Barrote: chegou um pedido de cotação a geral@rethink.co.mz (email #81) e a triagem «não fez nada». A
+triagem correu, mas geral@ é uma caixa de pessoa (dono: Carlos Tembe), e numa caixa de pessoa o agente trabalha
+como assistente do dono: classifica sem encaminhar para outras áreas (decisão de 05.10). Tentou dar a tarefa ao
+dono, foi recusado (não é da sua área) e acabou por a passar ao Chief of Staff, sem ligação ao email. O pedido
+nunca chegou ao Gestor de Clientes.
+
+| Decisão | Onde |
+|---|---|
+| **Cada caixa de pessoa tem a opção «Enviar o email novo para a triagem»**, desligada por omissão, que o dono (ou quem gere todas as caixas) liga em Definições › Caixas de email. Serve endereços da empresa como geral@. | migração `2026_10_09_060001`, `Mailbox::sendsToTriage()`, `MailboxController`, `Pages/Mailboxes/Index.tsx` |
+| **Só o email novo vai:** cada email que entra com a opção ligada guarda `sent_to_triage_at`. O que já estava na caixa continua só do dono. | `InboundEmailIngestor`, `EmailMessage::isTriage()` |
+| **Esse email é tratado como triagem da empresa:** o Agente de Triagem classifica-o e a plataforma entrega-o à área certa como tarefa ligada ao email (`EmailRouter`, fluxos, regras), como num email da caixa de triagem. | `ProcessInboundEmail`, `EmailPrompt::forTriage`, `ClassifyEmail` |
+| **Quem vê:** quem tem «Ver emails de triagem» e a pessoa para quem foi encaminhado; os agentes lêem-no (o da área precisa dele para a tarefa). Os resumos e alertas da organização passam a contá-lo. O resto da caixa continua privado. | `EmailMessage::triage`, `visibleTo`, `readableBy` |
+| **A triagem nunca responde nem envia** de uma caixa de pessoa: `email.draft_reply` e `comms.send_email` recusam-no no servidor, além do aviso no pedido. Quem recebe a tarefa prepara a resposta como rascunho na caixa, e só um dono a envia (regra de sempre do `MailboxMailer`). | `DraftEmailReply`, `SendEmail` |
+| Ligada a opção, o «Quem vê cada email novo» da caixa fica sem efeito (é a triagem). | `Mailbox::processor()` |
+| **geral@rethink.co.mz fica com a opção ligada**, por ser o endereço geral da empresa. O email #81 foi enviado de novo para a triagem; os emails anteriores ficaram como estavam. A tarefa MIC-23, criada por engano para o Chief of Staff, foi cancelada. | dados (09.10.2026) |
+
+Testes: `tests/Feature/Email/TriageFromPersonalMailboxTest.php`.
+
+## Memória por pessoa e tarefas dentro do agente (09.10.2026)
+
+O Barrote: cada agente tem a sua memória em cada pessoa, há uma só conversa com cada agente, e as tarefas vivem na vista do agente. Respostas dele às perguntas, uma a uma:
+
+| Decisão | Onde |
+|---|---|
+| **Cada pessoa tem a sua memória com cada agente** (`agent_memories.user_id`). Um facto pertence à pessoa da conversa ou tarefa de onde veio; o que vem de trabalho sem pessoa (rotinas, email) fica do agente e serve todas as conversas. A memória que já existia passou para a pessoa da tarefa de onde veio. | migração `2026_10_09_090001`, `MemoryConsolidator` |
+| **Partilha pela base de conhecimento:** os factos de trabalho continuam a ir para o artigo «Memória de {agente}», e é por aí (`memory.search`) que o que uma pessoa ensinou serve as outras. Os pessoais nunca saem da memória da pessoa. Substitui a decisão 16. | `MemoryConsolidator::forPrompt()`, `publish()` |
+| **Só os administradores** (permissão «Corrigir a memória de qualquer agente») vêem, corrigem e apagam a memória; a chefia do agente e a própria pessoa não. O separador Memória filtra por pessoa. Substitui a decisão 18. | `AgentPolicy::viewMemory()`, `MemoryList` |
+| **«Executar» na página do agente vai para a conversa única**: «Enviar» manda uma mensagem e «Executar» uma acção directa (só com «Pedir trabalho»), ambas na conversa da pessoa com o agente, que abre a seguir. Deixa de haver execuções soltas a partir da página. | `TaskController::chat()` (`mode`), `Pages/Agents/Show.tsx` |
+| **Separador «Tarefas» na página do agente**, com as tarefas da pessoa com esse agente: atribuídas a ele ou delegadas por ele, pedidas pela pessoa, para ela ou atribuídas a ela. Abertas primeiro; cada uma abre o seu fio. A lista geral de Tarefas mantém-se. | `AgentController::tasks()` |
+
+Testes: `tests/Feature/Agents/AgentMemoryTest.php`, `tests/Feature/Agents/AgentPageTest.php`.
 ## Centro de notificações (09.10.2026)
 
 Pedido do Barrote: a página `/notifications` passa a ser o centro de notificações completo. Antes era uma lista

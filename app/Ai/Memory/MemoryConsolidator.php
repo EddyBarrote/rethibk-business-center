@@ -17,6 +17,7 @@ use App\Models\KnowledgeItem;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Ai\Responses\StructuredAgentResponse;
@@ -24,15 +25,16 @@ use Laravel\Ai\Responses\StructuredAgentResponse;
 /**
  * Consolidated memory (docs/DECISOES.md, realinhamento L7): after a task, and
  * once a day for conversations, the agent keeps the facts worth remembering.
- * Work facts reach every conversation of the agent and, automatically, the
- * knowledge base (one article per agent); personal facts stay with the person.
+ * Each person has their own memory with the agent (09.10.2026); work facts
+ * also reach the knowledge base automatically (one article per agent), which
+ * is how what one person taught the agent serves the others.
  */
 final class MemoryConsolidator
 {
     /** How many facts reach the agent's prompt. */
-    public const PROMPT_WORK_FACTS = 40;
+    public const PROMPT_PERSON_FACTS = 40;
 
-    public const PROMPT_PERSONAL_FACTS = 10;
+    public const PROMPT_AGENT_FACTS = 20;
 
     public function __construct(
         private readonly BudgetGuard $budget,
@@ -65,8 +67,9 @@ final class MemoryConsolidator
             return 0;
         }
 
+        $owner = $task->user_id ?? $task->created_by_user_id;
         $transcript = $messages->map(fn (TaskMessage $m) => '['.$m->authorName().'] '.Str::limit($m->body, 1500))->implode("\n\n");
-        $response = (new MemoryExtractor($agent->name, $this->known($agent)))
+        $response = (new MemoryExtractor($agent->name, $this->known($agent, $owner)))
             ->prompt("Excerto de {$task->identifier()} «{$task->title}»:\n\n{$transcript}", provider: $agent->provider ?: config('ai.default'), model: $agent->model ?: (config('agents.model') ?: null));
 
         $facts = (array) (($response instanceof StructuredAgentResponse ? $response->toArray() : (array) json_decode($response->text, true))['facts'] ?? []);
@@ -76,7 +79,7 @@ final class MemoryConsolidator
         foreach ($facts as $fact) {
             $content = Str::limit(trim((string) ($fact['content'] ?? '')), 500, '…');
 
-            if ($content === '' || AgentMemory::query()->where('agent_id', $agent->id)->where('content', $content)->exists()) {
+            if ($content === '' || $this->memoryOf($agent, $owner)->where('content', $content)->exists()) {
                 continue;
             }
 
@@ -84,6 +87,7 @@ final class MemoryConsolidator
 
             AgentMemory::query()->create([
                 'agent_id' => $agent->id,
+                'user_id' => $owner,
                 'content' => $content,
                 'kind' => $personal ? AgentMemory::PERSONAL : AgentMemory::WORK,
                 'about_user_id' => $personal ? ($this->match($people, (string) ($fact['about'] ?? ''))->id ?? $task->user_id) : null,
@@ -102,21 +106,24 @@ final class MemoryConsolidator
     }
 
     /**
-     * What the agent remembers, for its prompt: its work facts, and the
-     * personal ones about the person it is talking to.
+     * What the agent remembers, for its prompt: its memory with the person it
+     * is talking to, and what it learned from work with no person. What other
+     * people taught it reaches it through the knowledge base.
      */
     public function forPrompt(Agent $agent, ?User $person): string
     {
-        $work = AgentMemory::query()->where('agent_id', $agent->id)->where('kind', AgentMemory::WORK)->latest('id')->limit(self::PROMPT_WORK_FACTS)->pluck('content');
-        $personal = $person === null ? collect() : AgentMemory::query()->where('agent_id', $agent->id)->where('kind', AgentMemory::PERSONAL)->where('about_user_id', $person->id)->latest('id')->limit(self::PROMPT_PERSONAL_FACTS)->pluck('content');
+        $own = $person === null ? collect() : AgentMemory::query()->where('agent_id', $agent->id)->where('user_id', $person->id)->latest('id')->limit(self::PROMPT_PERSON_FACTS)->pluck('content');
+        $agentOnly = AgentMemory::query()->where('agent_id', $agent->id)->whereNull('user_id')->latest('id')->limit(self::PROMPT_AGENT_FACTS)->pluck('content');
 
-        if ($work->isEmpty() && $personal->isEmpty()) {
+        if ($own->isEmpty() && $agentOnly->isEmpty()) {
             return '';
         }
 
-        return "## A tua memória\nO que aprendeste em conversas e tarefas anteriores. Usa-o, mas confirma o que pode ter mudado.\n"
-            .$work->reverse()->map(fn (string $fact) => "- {$fact}")->implode("\n")
-            .($personal->isNotEmpty() ? "\n\nSobre {$person?->name} (só para conversas com esta pessoa):\n".$personal->reverse()->map(fn (string $fact) => "- {$fact}")->implode("\n") : '');
+        $list = fn (Collection $facts) => $facts->reverse()->map(fn (string $fact) => "- {$fact}")->implode("\n");
+
+        return "## A tua memória\nO que aprendeste em conversas e tarefas anteriores. Usa-o, mas confirma o que pode ter mudado. O que aprendeste com outras pessoas está na base de conhecimento (memory.search).\n"
+            .($own->isNotEmpty() ? "\nCom {$person?->name}:\n".$list($own) : '')
+            .($agentOnly->isNotEmpty() ? ($own->isNotEmpty() ? "\n\n" : "\n")."Do teu trabalho sem pessoa (rotinas, email):\n".$list($agentOnly) : '');
     }
 
     /**
@@ -159,9 +166,19 @@ final class MemoryConsolidator
             && ($this->budget->budget()->tenantMonthly === null || $this->budget->tenantSpent() < $this->budget->tenantCap());
     }
 
-    private function known(Agent $agent): string
+    /**
+     * The person's memory with the agent, or the agent's own when there is no person.
+     *
+     * @return Builder<AgentMemory>
+     */
+    private function memoryOf(Agent $agent, ?int $person): Builder
     {
-        $facts = AgentMemory::query()->where('agent_id', $agent->id)->latest('id')->limit(60)->pluck('content');
+        return AgentMemory::query()->where('agent_id', $agent->id)->where('user_id', $person);
+    }
+
+    private function known(Agent $agent, ?int $person): string
+    {
+        $facts = $this->memoryOf($agent, $person)->latest('id')->limit(60)->pluck('content');
 
         return $facts->isEmpty() ? '(nada ainda)' : $facts->map(fn (string $fact) => "- {$fact}")->implode("\n");
     }

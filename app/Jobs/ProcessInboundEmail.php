@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Ai\Runs\AgentDirectory;
 use App\Ai\Runs\AgentRunner;
 use App\Email\EmailPrompt;
 use App\Email\PromptInjectionDetector;
@@ -49,7 +50,7 @@ class ProcessInboundEmail extends TenantAwareJob
 
         $message->forceFill(['flags' => array_values(array_unique($flags)) ?: null])->save();
 
-        $agent = $message->mailbox->processor();
+        $agent = $message->sent_to_triage_at !== null ? app(AgentDirectory::class)->forRole('triage') : $message->mailbox->processor();
 
         if ($agent === null || ! $agent->isActive()) {
             // Kept for people to read; nobody to triage it automatically.
@@ -63,7 +64,11 @@ class ProcessInboundEmail extends TenantAwareJob
 
         // On a sync queue the run finishes inside dispatch() and moves the
         // email on, so only the run id is written afterwards.
-        $prompt = $message->mailbox->isPersonal() ? EmailPrompt::forPerson($message) : EmailPrompt::for($message);
+        $prompt = match (true) {
+            $message->sent_to_triage_at !== null => EmailPrompt::forTriage($message),
+            $message->mailbox->isPersonal() => EmailPrompt::forPerson($message),
+            default => EmailPrompt::for($message),
+        };
         $run = $runner->dispatch($agent, $prompt, TriggerType::Email, source: $message);
         EmailMessage::query()->whereKey($message->id)->update(['agent_run_id' => $run->id]);
     }
