@@ -107,9 +107,12 @@ it('lets an agent propose a fact that waits for a person, then a curator approve
 
 it('turns what the agent learned for the whole company into a proposal when it consolidates its memory', function () {
     MemoryExtractor::fake([[
-        'facts' => [
-            ['content' => 'As compras acima de 100 000 MT precisam de três cotações.', 'kind' => 'work', 'company' => true, 'section' => 'rules'],
-            ['content' => 'A Ana prefere o relatório em PDF.', 'kind' => 'work'],
+        'entries' => [
+            ['section' => 'topics', 'title' => 'Compras', 'description' => 'Regras de compras.', 'body' => '- Acima de 100 000 MT, três cotações.', 'kind' => 'work'],
+            ['section' => 'preferences', 'title' => 'Preferências', 'description' => 'Como gosta de receber o trabalho.', 'body' => '- Relatórios em PDF.', 'kind' => 'personal'],
+        ],
+        'company' => [
+            ['content' => 'As compras acima de 100 000 MT precisam de três cotações.', 'section' => 'rules'],
         ],
     ]]);
 

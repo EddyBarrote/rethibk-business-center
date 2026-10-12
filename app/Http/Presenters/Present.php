@@ -4,6 +4,7 @@ namespace App\Http\Presenters;
 
 use App\Enums\TaskKind;
 use App\Models\Agent;
+use App\Models\AgentMemory;
 use App\Models\AgentRoutine;
 use App\Models\AgentRun;
 use App\Models\Approval;
@@ -11,6 +12,7 @@ use App\Models\Contract;
 use App\Models\EmailMessage;
 use App\Models\MessageAttachment;
 use App\Models\Task;
+use Illuminate\Support\Str;
 
 /**
  * Shapes shared by several tenant console screens.
@@ -159,6 +161,29 @@ final class Present
 
     /** Relations Present::approval() reads. */
     public const APPROVAL_RELATIONS = ['agent', 'run:id,task_id', 'assignedTo:id,name', 'decidedBy:id,name', 'decidedByAgent:id,name', 'reviewAgent:id,name'];
+
+    /**
+     * An entry of an agent's memory (docs/DECISOES.md, "Memória em entradas").
+     *
+     * @return array<string, mixed>
+     */
+    public static function memory(AgentMemory $memory): array
+    {
+        return [
+            'id' => $memory->id,
+            'section' => $memory->section->value,
+            'title' => $memory->title ?? Str::limit($memory->content, 60),
+            'description' => $memory->description,
+            'content' => $memory->content,
+            'kind' => $memory->kind,
+            'agent_id' => $memory->agent_id,
+            'person' => $memory->relationLoaded('user') && $memory->user ? ['id' => $memory->user->id, 'name' => $memory->user->name] : null,
+            'about' => $memory->relationLoaded('aboutUser') ? $memory->aboutUser?->name : null,
+            'task' => $memory->relationLoaded('task') && $memory->task ? ['id' => $memory->task->id, 'ref' => $memory->task->identifier()] : null,
+            'edited' => $memory->edited_by_user_id !== null,
+            'updated_at' => $memory->updated_at->toIso8601String(),
+        ];
+    }
 
     /**
      * A task or conversation as a row (Tarefas, A minha caixa).

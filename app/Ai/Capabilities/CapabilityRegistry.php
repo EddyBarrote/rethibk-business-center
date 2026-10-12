@@ -33,6 +33,7 @@ use App\Ai\Capabilities\Local\PublishBriefing;
 use App\Ai\Capabilities\Local\RateSupplier;
 use App\Ai\Capabilities\Local\ReadAttachment;
 use App\Ai\Capabilities\Local\ReadEmail;
+use App\Ai\Capabilities\Local\ReadMemory;
 use App\Ai\Capabilities\Local\ReadMessageAttachment;
 use App\Ai\Capabilities\Local\ReadSkillFile;
 use App\Ai\Capabilities\Local\ReadWebPage;
@@ -43,6 +44,7 @@ use App\Ai\Capabilities\Local\ScheduleFollowUp;
 use App\Ai\Capabilities\Local\SearchConversations;
 use App\Ai\Capabilities\Local\SearchEmails;
 use App\Ai\Capabilities\Local\SearchKnowledge;
+use App\Ai\Capabilities\Local\SearchPastChats;
 use App\Ai\Capabilities\Local\SendEmail;
 use App\Ai\Capabilities\Local\SlaStatus;
 use App\Ai\Capabilities\Local\SuggestBankMatch;
@@ -62,6 +64,9 @@ final class CapabilityRegistry
     private const CAPABILITIES = [
         SearchKnowledge::class,
         RememberDecision::class,
+        // Memory in entries (docs/DECISOES.md, 12.10.2026).
+        ReadMemory::class,
+        SearchPastChats::class,
         SendEmail::class,
         // E03: triage
         ReadEmail::class,
@@ -133,7 +138,7 @@ final class CapabilityRegistry
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'tasks.create', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
+    public const ALWAYS_ON = ['memory.search', 'memory.read', 'memory.search_chats', 'tasks.create', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];

@@ -7,6 +7,7 @@ use App\Ai\Budget\BudgetGuard;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Runs\AgentRunner;
 use App\Enums\AgentStatus;
+use App\Enums\MemorySection;
 use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
@@ -108,16 +109,8 @@ class AgentController extends Controller
             'runs' => $agent->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
             // What the agent is doing right now, at the top of its page (docs/DECISOES.md, "Agente: o que está a fazer").
             'now' => fn () => $this->now($agent, $user),
-            'memories' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->with(['user:id,name', 'aboutUser:id,name', 'task:id,number,title,tenant_id', 'task.tenant:id,slug'])->latest('id')->limit(300)->get()->map(fn (AgentMemory $memory) => [
-                'id' => $memory->id,
-                'content' => $memory->content,
-                'kind' => $memory->kind,
-                'person' => $memory->user ? ['id' => $memory->user->id, 'name' => $memory->user->name] : null,
-                'about' => $memory->aboutUser?->name,
-                'task' => $memory->task ? ['id' => $memory->task->id, 'ref' => $memory->task->identifier()] : null,
-                'knowledge_item_id' => $memory->knowledge_item_id,
-                'created_at' => $memory->created_at->toIso8601String(),
-            ]) : null,
+            'memories' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->with(['user:id,name', 'aboutUser:id,name', 'task:id,number,title,tenant_id', 'task.tenant:id,slug'])->orderByDesc('updated_at')->limit(300)->get()->map(fn (AgentMemory $memory) => Present::memory($memory)) : null,
+            'memory_sections' => MemorySection::options(),
             // The tasks between this person and the agent, inside the agent's page (09.10.2026).
             'tasks' => fn () => $this->tasks($agent, $user),
             // Other people's conversations with it, read-only, for whoever may read them all (docs/DECISOES.md, "Conversas a partir dos agentes").
@@ -188,7 +181,7 @@ class AgentController extends Controller
     }
 
     /**
-     * Correct a fact the agent remembers (realinhamento, decisão 18).
+     * Correct an entry the agent remembers (realinhamento, decisão 18; entries since 12.10.2026).
      */
     public function updateMemory(Request $request, Agent $agent, AgentMemory $memory, MemoryConsolidator $consolidator): RedirectResponse
     {
@@ -196,7 +189,7 @@ class AgentController extends Controller
         abort_unless($memory->agent_id === $agent->id, 404);
 
         $data = $request->validate([
-            'content' => ['required', 'string', 'max:500'],
+            ...AgentMemory::rules(),
             'kind' => ['required', Rule::in([AgentMemory::WORK, AgentMemory::PERSONAL])],
         ]);
 
@@ -212,7 +205,7 @@ class AgentController extends Controller
         Gate::authorize('viewMemory', $agent);
         abort_unless($memory->agent_id === $agent->id, 404);
 
-        AuditLog::record($this->user($request), 'agent.memory_deleted', ['memory_id' => $memory->id, 'content' => $memory->content], subject: $agent);
+        AuditLog::record($this->user($request), 'agent.memory_deleted', ['memory_id' => $memory->id, 'title' => $memory->title, 'content' => $memory->content], subject: $agent);
         $memory->delete();
         $consolidator->publish($agent);
 

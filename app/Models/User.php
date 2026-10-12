@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $last_mailbox_id
  * @property bool $email_images_ask
  * @property array<string, array<string, bool>>|null $notification_preferences
+ * @property array<string, bool>|null $memory_preferences
  * @property array<string, bool>|null $permission_overrides
  * @property bool $is_active
  * @property Carbon|null $last_seen_at
@@ -147,6 +148,7 @@ class User extends Authenticatable
             'last_mailbox_id' => 'integer',
             'email_images_ask' => 'boolean',
             'notification_preferences' => 'array',
+            'memory_preferences' => 'array',
         ];
     }
 }

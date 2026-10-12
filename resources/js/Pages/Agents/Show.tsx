@@ -1,33 +1,16 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import {
-    Activity,
-    BookOpen,
-    Brain,
-    Clock,
-    ExternalLink,
-    ListTodo,
-    Lock,
-    MessagesSquare,
-    MoreHorizontal,
-    Pause,
-    Pencil,
-    Play,
-    Send,
-    Wrench,
-    Zap,
-} from 'lucide-react';
+import { Activity, BookOpen, Brain, Clock, ExternalLink, ListTodo, Lock, MessagesSquare, Pause, Pencil, Play, Send, Wrench, Zap } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
-import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
+import { type MemoryEntry, MemoryEntries, type MemorySectionOption } from '@/Components/memory/MemoryEntries';
 import { InputError } from '@/Components/InputError';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge, StatusDot } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Input } from '@/Components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
@@ -52,7 +35,8 @@ interface Props {
     runs: RunSummary[];
     users: { id: number; name: string }[];
     can: { run: boolean; request_work: boolean; manage: boolean; manage_access: boolean; view_memory: boolean };
-    memories: Memory[] | null;
+    memories: MemoryEntry[] | null;
+    memory_sections: MemorySectionOption[];
     tasks: TaskSummary[];
     /** Other people's conversations with the agent, read-only, for whoever may read them all. */
     conversations: TeamConversation[] | null;
@@ -75,7 +59,20 @@ type NowRun = RunSummary & {
     step: { type: string; tool_name: string | null; at: string } | null;
 };
 
-export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memories, tasks, conversations, can, now }: Props) {
+export default function AgentShow({
+    agent,
+    capabilities,
+    skills,
+    routines,
+    runs,
+    users,
+    memories,
+    memory_sections,
+    tasks,
+    conversations,
+    can,
+    now,
+}: Props) {
     const { tenant, auth } = usePage<SharedProps>().props;
     const form = useForm({ message: '', mode: 'message' as 'message' | 'action' });
     const [reason, setReason] = useState('');
@@ -299,7 +296,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
 
                     {memories !== null && (
                         <TabsContent value="memory">
-                            <MemoryList agentId={agent.id} memories={memories} />
+                            <MemoryList memories={memories} sections={memory_sections} />
                         </TabsContent>
                     )}
 
@@ -388,7 +385,11 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                                         <EntityRow
                                             key={routine.id}
                                             leading={<Clock className="size-4 text-muted-foreground" />}
-                                            href={auth.user?.permissions.includes('company.manage') ? `/settings/routines?routine=${routine.id}` : undefined}
+                                            href={
+                                                auth.user?.permissions.includes('company.manage')
+                                                    ? `/settings/routines?routine=${routine.id}`
+                                                    : undefined
+                                            }
                                             title={routine.name}
                                             subtitle={routine.schedule_label}
                                             meta={
@@ -698,40 +699,19 @@ function ChatAction({ agent }: { agent: AgentSummary }) {
     );
 }
 
-interface Memory {
-    id: number;
-    content: string;
-    kind: 'work' | 'personal';
-    person: { id: number; name: string } | null;
-    about: string | null;
-    task: { id: number; ref: string } | null;
-    knowledge_item_id: number | null;
-    created_at: string;
-}
-
-/** What the agent remembers of each person, for the administrators to correct (09.10.2026). */
-function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[] }) {
+/** What the agent remembers of each person, for the administrators to correct (09.10.2026; entries since 12.10.2026). */
+function MemoryList({ memories, sections }: { memories: MemoryEntry[]; sections: MemorySectionOption[] }) {
     const [person, setPerson] = useState<string>('all');
-    const [editing, setEditing] = useState<number | null>(null);
-    const [draft, setDraft] = useState('');
-    const [forgetting, setForgetting] = useState<Memory | null>(null);
 
     if (memories.length === 0) {
         return (
             <EmptyState
                 icon={Brain}
                 title="Ainda sem memória"
-                description="No fim de cada tarefa, e uma vez por dia nas conversas, o agente guarda aqui o que aprendeu."
+                description="No fim de cada tarefa, a cada 30 mensagens de uma conversa e todas as noites, o agente arruma aqui o que aprendeu, em entradas com nome."
             />
         );
     }
-
-    const save = (memory: Memory, kind = memory.kind) =>
-        router.put(
-            `/agents/${agentId}/memories/${memory.id}`,
-            { content: editing === memory.id ? draft : memory.content, kind },
-            { preserveScroll: true, onSuccess: () => setEditing(null) },
-        );
 
     const people = [...new Map(memories.filter((m) => m.person).map((m) => [m.person!.id, m.person!.name])).entries()].sort((a, b) =>
         a[1].localeCompare(b[1]),
@@ -739,11 +719,11 @@ function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[]
     const shown = memories.filter((m) => person === 'all' || (person === 'agent' ? m.person === null : String(m.person?.id) === person));
 
     return (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <p className="flex-1 text-xs text-muted-foreground">
-                    Cada pessoa tem a sua memória com o agente: só serve nas conversas e tarefas com essa pessoa. Os factos de trabalho também vão
-                    para a base de conhecimento (pasta Memória dos agentes), e é assim que servem os outros. Os pessoais nunca saem dali.
+                    Cada pessoa tem a sua memória com o agente, em entradas por secção, e vê-a em A minha conta › Memória. As entradas partilhadas
+                    também vão para a base de conhecimento (pasta Memória dos agentes), e é assim que servem os outros. As outras nunca saem dali.
                 </p>
                 <NativeSelect aria-label="Memória de quem" className="sm:w-56" value={person} onChange={(e) => setPerson(e.target.value)}>
                     <option value="all">Todas as pessoas</option>
@@ -755,82 +735,7 @@ function MemoryList({ agentId, memories }: { agentId: number; memories: Memory[]
                     {memories.some((m) => m.person === null) && <option value="agent">Só do agente (sem pessoa)</option>}
                 </NativeSelect>
             </div>
-            <ListPanel>
-                {shown.map((memory) => (
-                    <div key={memory.id} className="flex flex-col gap-2 px-4 py-3">
-                        {editing === memory.id ? (
-                            <Textarea rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
-                        ) : (
-                            <p className="text-sm">{memory.content}</p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span className="font-medium text-foreground/80">{memory.person?.name ?? 'Do agente'}</span>
-                            <StatusBadge tone={memory.kind === 'work' ? 'running' : 'idle'} dot={false}>
-                                {memory.kind === 'work' ? 'trabalho' : `pessoal${memory.about ? ` · ${memory.about}` : ''}`}
-                            </StatusBadge>
-                            {memory.task && (
-                                <Link
-                                    href={`/tasks/${memory.task.id}`}
-                                    className="hover:text-foreground hover:underline"
-                                    title="A tarefa de onde veio"
-                                >
-                                    Da tarefa {memory.task.ref}
-                                </Link>
-                            )}
-                            <span title={dateTime(memory.created_at)}>{ago(memory.created_at)}</span>
-                            <span className="ml-auto flex gap-1">
-                                {editing === memory.id ? (
-                                    <>
-                                        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
-                                            Cancelar
-                                        </Button>
-                                        <Button size="sm" onClick={() => save(memory)} disabled={draft.trim() === ''}>
-                                            Guardar
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost" className="size-7" aria-label="Acções sobre esta memória">
-                                                <MoreHorizontal />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                                onSelect={() => {
-                                                    setEditing(memory.id);
-                                                    setDraft(memory.content);
-                                                }}
-                                            >
-                                                Corrigir
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => save(memory, memory.kind === 'work' ? 'personal' : 'work')}>
-                                                {memory.kind === 'work' ? 'Tornar pessoal' : 'Tornar de trabalho'}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem variant="destructive" onSelect={() => setForgetting(memory)}>
-                                                Esquecer
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                )}
-                            </span>
-                        </div>
-                    </div>
-                ))}
-            </ListPanel>
-            <ConfirmDialog
-                open={forgetting !== null}
-                onOpenChange={(open) => !open && setForgetting(null)}
-                title="Esquecer esta memória?"
-                description={forgetting ? `«${forgetting.content}» deixa de estar nas conversas do agente e na base de conhecimento.` : undefined}
-                confirmLabel="Esquecer"
-                destructive
-                onConfirm={() =>
-                    forgetting &&
-                    router.delete(`/agents/${agentId}/memories/${forgetting.id}`, { preserveScroll: true, onFinish: () => setForgetting(null) })
-                }
-            />
+            <MemoryEntries entries={shown} sections={sections} url={(e) => `/agents/${e.agent_id}/memories/${e.id}`} showPerson={person === 'all'} />
         </div>
     );
 }

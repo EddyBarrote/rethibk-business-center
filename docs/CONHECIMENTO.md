@@ -31,6 +31,8 @@ Registadas em `App\Providers\KnowledgeServiceProvider` (padrão de [CAPACIDADES.
 | Chave | O que faz | Quem a tem |
 |---|---|---|
 | `memory.search` | Pesquisa o que o agente pode ver, opcionalmente num domínio. | Todos |
+| `memory.read` | Lê inteira uma entrada da memória do agente com a pessoa da execução (o prompt só traz o índice). | Todos |
+| `memory.search_chats` | Procura nas conversas e tarefas anteriores da pessoa com este agente, se a pessoa o permitir. | Todos |
 | `knowledge.browse` | Lista domínios, ou pastas e itens de um domínio. | Todos |
 | `knowledge.read` | Lê um item inteiro, por partes. Conteúdo externo vem cercado como não confiável. | Todos |
 | `knowledge.save` | Guarda um artigo num domínio/pasta (cria a pasta). Abaixo de N3 fica para rever. | Os seis modelos; risco N1 |
