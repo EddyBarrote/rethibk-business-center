@@ -15,7 +15,7 @@ return [
 
     'model' => env('AI_MODEL') ?: null,
 
-    'max_steps' => 8,
+    'max_steps' => 15,
 
     'timeout' => 120,
 

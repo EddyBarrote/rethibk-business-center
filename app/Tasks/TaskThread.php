@@ -337,6 +337,11 @@ final class TaskThread
             }
         }
 
+        // The model stopped without a word (the step limit, or an empty answer): say so instead of going quiet.
+        if ($run->status === RunStatus::Completed && $text === '' && $files->isEmpty()) {
+            $this->note($task, "{$run->agent->name} terminou sem escrever resposta, provavelmente por ter chegado ao limite de passos. Diga «continua» para ele seguir.", $run);
+        }
+
         if ($run->status === RunStatus::AwaitingApproval) {
             $pending = Approval::query()->where('agent_run_id', $run->id)->where('status', ApprovalStatus::Pending)->pluck('action_summary');
             $this->note($task, $pending->isEmpty()

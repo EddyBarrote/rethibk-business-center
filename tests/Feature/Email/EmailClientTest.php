@@ -4,6 +4,7 @@ use App\Email\Imap\ImapGateway;
 use App\Email\MailboxSync;
 use App\Enums\EmailStatus;
 use App\Enums\Permission;
+use App\Events\MailboxUpdated;
 use App\Jobs\FetchMailbox;
 use App\Jobs\ProcessInboundEmail;
 use App\Jobs\PushDraftToServer;
@@ -17,6 +18,7 @@ use App\Models\MailboxReader;
 use App\Models\MessageAttachment;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -254,6 +256,30 @@ it('opens the mailbox the person chose last time, with each mailbox\'s unread co
 
     $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, 'inbox'))
         ->assertInertia(fn ($page) => $page->where('current.mailbox', $triage->id)->where('current.triage', true));
+});
+
+it('counts the person\'s unread email for the sidebar and tells the screens when it changes', function () {
+    Event::fake([MailboxUpdated::class]);
+    $this->imap->deliver('INBOX', rawEmail('a@fora', 'Por ler'));
+    $this->imap->deliver('INBOX', rawEmail('b@fora', 'Também por ler'));
+    syncAna($this);
+
+    Event::assertDispatched(MailboxUpdated::class, fn (MailboxUpdated $e) => $e->mailboxId === $this->mailbox->id);
+
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, 'inbox'))
+        ->assertInertia(fn ($page) => $page->where('auth.unread_emails', 2));
+
+    // Nobody counts someone else's personal mailbox, not even the owner of the company.
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'tasks'))
+        ->assertInertia(fn ($page) => $page->where('auth.unread_emails', 0));
+
+    // Reading one takes it off the count, and says so.
+    Event::fake([MailboxUpdated::class]);
+    $message = asTenant($this->tenant, fn () => EmailMessage::query()->where('subject', 'Por ler')->sole());
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$message->id}"))
+        ->assertInertia(fn ($page) => $page->where('auth.unread_emails', 1));
+
+    Event::assertDispatched(MailboxUpdated::class);
 });
 
 it('loads email images on their own, except in Spam or for whoever asked to be asked', function () {

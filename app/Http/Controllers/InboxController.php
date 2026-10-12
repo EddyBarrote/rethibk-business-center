@@ -365,7 +365,7 @@ class InboxController extends Controller
     private function mailboxes(User $user): Collection
     {
         return Mailbox::query()
-            ->where(fn (Builder $q) => $q->ownedBy($user)->when($user->hasPermission(Permission::ReadTriageEmails), fn (Builder $w) => $w->orWhere('kind', Mailbox::AGENT)))
+            ->inClientOf($user)
             ->with('agent:id,name')
             ->orderByRaw("case when kind = 'person' then 0 else 1 end")
             ->orderBy('address')
