@@ -6,6 +6,7 @@ import {
     ChevronDown,
     ChevronRight,
     ChevronUp,
+    CircleAlert,
     CircleDot,
     Code2,
     Loader2,
@@ -38,6 +39,20 @@ export interface ApprovalRow extends ApprovalSummary {
 export interface OpenApproval extends ApprovalRow {
     run: { id: number; title: string | null; status: string; status_label: string; requested_by: string | null } | null;
     task: { id: number; ref: string; title: string } | null;
+    recipients: RecipientSource[] | null;
+}
+
+/** A recipient of the email, as the ERP record the agent read in this run has it. */
+export interface RecipientSource {
+    email: string;
+    found: boolean;
+    /** Not found, but the run's trace was cut short, so it cannot be checked from here. */
+    cut: boolean;
+    name: string | null;
+    title: string | null;
+    customer: string | null;
+    primary: boolean;
+    tool: string | null;
 }
 
 /**
@@ -195,6 +210,8 @@ function Body({
                     <PayloadView payload={approval.payload} />
                 </section>
 
+                {full?.recipients && <Recipients recipients={full.recipients} />}
+
                 <section className="grid gap-2">
                     <Heading>De onde vem</Heading>
                     <div className="divide-y overflow-hidden rounded-lg border">
@@ -276,6 +293,44 @@ function Body({
                 )
             )}
         </div>
+    );
+}
+
+/** Each recipient next to the ERP contact it came from, or a warning when no ERP read in the run carries it. */
+function Recipients({ recipients }: { recipients: RecipientSource[] }) {
+    return (
+        <section className="grid gap-2">
+            <Heading>Destinatário no ERP</Heading>
+            <div className="divide-y overflow-hidden rounded-lg border">
+                {recipients.map((recipient) =>
+                    recipient.found ? (
+                        <div key={recipient.email} className="flex items-start gap-3 px-3 py-2.5">
+                            <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                            <div className="min-w-0 text-sm">
+                                <p className="font-medium break-words">{recipient.name ?? recipient.email}</p>
+                                <p className="text-xs break-words text-muted-foreground">
+                                    {[recipient.title, recipient.customer, recipient.primary && 'contacto principal', recipient.email]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div key={recipient.email} className="flex items-start gap-3 px-3 py-2.5">
+                            <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                            <div className="min-w-0 text-sm">
+                                <p className="font-medium break-words">{recipient.email}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {recipient.cut
+                                        ? 'O registo desta execução ficou cortado e não dá para confirmar daqui. Confirme o contacto no ERP antes de aprovar.'
+                                        : 'Não aparece em nada que o agente leu do ERP nesta execução. Confirme o contacto antes de aprovar.'}
+                                </p>
+                            </div>
+                        </div>
+                    ),
+                )}
+            </div>
+        </section>
     );
 }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Runs\ApprovalService;
+use App\Ai\Runs\RecipientSources;
 use App\Enums\ApprovalArea;
 use App\Enums\ApprovalStatus;
 use App\Enums\Permission;
@@ -356,6 +357,7 @@ class ApprovalController extends Controller
                 'status_label' => $approval->run->status->label(),
                 'requested_by' => $approval->run->requestedBy?->name,
             ],
+            'recipients' => app(RecipientSources::class)->forApproval($approval),
             'task' => $task === null || ! $user->can('view', $task) ? null : [
                 'id' => $task->id,
                 'ref' => $task->identifier(),

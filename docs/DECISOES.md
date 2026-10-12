@@ -740,6 +740,19 @@ O Barrote reparou que o item Email da barra lateral não mostrava quantos emails
 
 Testes: `tests/Feature/Email/EmailClientTest.php`.
 
+## Nomes nos emails de cobrança vêm do ERP (12.10.2026)
+
+Queixa do Barrote: na aprovação 16 o Agente de Finanças escrevia a «Felício Guelume» da Loop Experience e parecia um nome inventado. Comparado com o ERP real: o contacto existe (Felicio Guelume, Contracts Manager, contacto principal da Loop Experience, Lda), e as três facturas e valores batem. O agente só acrescentou o acento. O que fazia parecer inventado era o registo da execução: guardava só os primeiros 4000 caracteres de cada resposta do ERP, e o contacto vinha depois do corte, por isso não se via de onde vinha.
+
+| Decisão | Onde |
+|---|---|
+| **O registo da execução guarda a resposta completa de cada ferramenta** (até 200 000 caracteres). O agente sempre recebeu a resposta inteira; agora quem revê vê o mesmo. | `GatedTool::TRACE_LIMIT` |
+| **A aprovação de um email mostra cada destinatário como o ERP o tem** (secção «Destinatário no ERP»: nome, cargo, cliente, contacto principal), procurado no que o agente leu do ERP nessa execução. Quando nenhum resultado do ERP da execução traz esse email, aparece um aviso para confirmar o contacto antes de aprovar. Nas execuções antigas, gravadas com o corte, o aviso diz que o registo ficou cortado e que se confirme no ERP. | `App\Ai\Runs\RecipientSources`, `ApprovalController::open()`, `ApprovalPanel.tsx` |
+| **Regra no prompt:** nomes, emails, números e valores copiam-se tal como o ERP os devolve, sem acentos nem correcções; sem contacto no ERP, não se adivinha. | `InstructionComposer` |
+| O ERP continua só de leitura para os agentes; nada mudou nas capacidades do ERP. | — |
+
+Testes: `tests/Feature/Agents/ApprovalsPageTest.php`.
+
 ## Email: pesquisa e filtros (12.10.2026)
 
 O Barrote pediu filtro e pesquisa nas páginas de Email. Já havia uma caixa de pesquisa (Enter, sempre em todas as pastas) e o botão «Não lidos»; ficam agora como nas outras listas (/tasks, /notifications, /approvals).
