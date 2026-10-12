@@ -46,6 +46,8 @@ export interface OpenApproval extends ApprovalRow {
 export interface RecipientSource {
     email: string;
     found: boolean;
+    /** Not found, but the run's trace was cut short, so it cannot be checked from here. */
+    cut: boolean;
     name: string | null;
     title: string | null;
     customer: string | null;
@@ -318,7 +320,11 @@ function Recipients({ recipients }: { recipients: RecipientSource[] }) {
                             <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
                             <div className="min-w-0 text-sm">
                                 <p className="font-medium break-words">{recipient.email}</p>
-                                <p className="text-xs text-muted-foreground">Não aparece em nada que o agente leu do ERP nesta execução. Confirme o contacto antes de aprovar.</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {recipient.cut
+                                        ? 'O registo desta execução ficou cortado e não dá para confirmar daqui. Confirme o contacto no ERP antes de aprovar.'
+                                        : 'Não aparece em nada que o agente leu do ERP nesta execução. Confirme o contacto antes de aprovar.'}
+                                </p>
                             </div>
                         </div>
                     ),

@@ -170,7 +170,24 @@ it('shows each email recipient as the ERP contact the agent read in the run, or 
             ->where('open.recipients.0.title', 'Contracts Manager')
             ->where('open.recipients.0.primary', true)
             ->where('open.recipients.1.email', 'alguem@inventado.co.mz')
-            ->where('open.recipients.1.found', false));
+            ->where('open.recipients.1.found', false)
+            ->where('open.recipients.1.cut', false));
+});
+
+it('says when a recipient cannot be checked because an older run kept only the start of the ERP answer', function () {
+    $run = asTenant($this->tenant, fn () => AgentRun::factory()->create(['agent_id' => $this->mine->id]));
+
+    asTenant($this->tenant, fn () => AgentRunStep::factory()->create([
+        'agent_run_id' => $run->id,
+        'type' => StepType::ToolResult,
+        'tool_name' => 'erp.list_contacts',
+        'payload' => ['ok' => true, 'content' => '{"total":22,"items":[{"email":"outro@exemplo.co.mz"...'],
+    ]));
+
+    $approval = ($this->approval)($this->mine, ['agent_run_id' => $run->id, 'action_type' => 'comms.send_email', 'payload' => ['to' => ['felicio.guelume@coralflng.com']]]);
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->tenant, "approvals?vista=todas&aprovacao={$approval->id}"))
+        ->assertInertia(fn ($page) => $page->where('open.recipients.0.found', false)->where('open.recipients.0.cut', true));
 });
 
 it('keeps what a tool returned in full in the run trace', function () {

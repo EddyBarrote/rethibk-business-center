@@ -15,8 +15,8 @@ use App\Models\Approval;
 final class RecipientSources
 {
     /**
-     * @return list<array{email: string, found: bool, name: string|null, title: string|null, customer: string|null, primary: bool, tool: string|null}>|null
-     *                                                                                                                                                      null when the action has no recipients
+     * @return list<array{email: string, found: bool, cut: bool, name: string|null, title: string|null, customer: string|null, primary: bool, tool: string|null}>|null
+     *                                                                                                                                                                 null when the action has no recipients
      */
     public function forApproval(Approval $approval): ?array
     {
@@ -26,14 +26,16 @@ final class RecipientSources
             return null;
         }
 
-        $records = $this->erpRecords($approval->agent_run_id);
+        [$records, $cut] = $this->erpRecords($approval->agent_run_id);
 
-        return array_map(function (string $email) use ($records): array {
+        return array_map(function (string $email) use ($records, $cut): array {
             $record = $records[mb_strtolower($email)] ?? null;
 
             return [
                 'email' => $email,
                 'found' => $record !== null,
+                // Runs recorded before the full trace kept only 4000 characters.
+                'cut' => $record === null && $cut,
                 'name' => $record['name'] ?? null,
                 'title' => $record['title'] ?? null,
                 'customer' => $record['customer'] ?? null,
@@ -64,33 +66,37 @@ final class RecipientSources
 
     /**
      * Every record with an email address in the run's ERP results, keyed by
-     * the lower-cased address. The first record found for an address wins.
+     * the lower-cased address, and whether any of those results was cut short.
+     * The first record found for an address wins.
      *
-     * @return array<string, array{name: string|null, title: string|null, customer: string|null, primary: bool, tool: string}>
+     * @return array{0: array<string, array{name: string|null, title: string|null, customer: string|null, primary: bool, tool: string}>, 1: bool}
      */
     private function erpRecords(?int $runId): array
     {
         if ($runId === null) {
-            return [];
+            return [[], false];
         }
 
         $records = [];
+        $cut = false;
 
         AgentRunStep::query()
             ->where('agent_run_id', $runId)
             ->where('type', StepType::ToolResult)
             ->where('tool_name', 'like', 'erp.%')
             ->orderBy('seq')
-            ->each(function (AgentRunStep $step) use (&$records): void {
+            ->each(function (AgentRunStep $step) use (&$records, &$cut): void {
                 $content = $step->payload['content'] ?? null;
                 $data = is_string($content) ? json_decode($content, true) : $content;
 
                 if (is_array($data)) {
                     $this->collect($data, null, (string) $step->tool_name, $records);
+                } elseif (is_string($content) && str_ends_with($content, '...')) {
+                    $cut = true;
                 }
             });
 
-        return $records;
+        return [$records, $cut];
     }
 
     /**

@@ -747,7 +747,7 @@ Queixa do Barrote: na aprovação 16 o Agente de Finanças escrevia a «Felício
 | Decisão | Onde |
 |---|---|
 | **O registo da execução guarda a resposta completa de cada ferramenta** (até 200 000 caracteres). O agente sempre recebeu a resposta inteira; agora quem revê vê o mesmo. | `GatedTool::TRACE_LIMIT` |
-| **A aprovação de um email mostra cada destinatário como o ERP o tem** (secção «Destinatário no ERP»: nome, cargo, cliente, contacto principal), procurado no que o agente leu do ERP nessa execução. Quando nenhum resultado do ERP da execução traz esse email, aparece um aviso para confirmar o contacto antes de aprovar. Execuções antigas, gravadas com o corte, podem mostrar o aviso mesmo com o contacto certo. | `App\Ai\Runs\RecipientSources`, `ApprovalController::open()`, `ApprovalPanel.tsx` |
+| **A aprovação de um email mostra cada destinatário como o ERP o tem** (secção «Destinatário no ERP»: nome, cargo, cliente, contacto principal), procurado no que o agente leu do ERP nessa execução. Quando nenhum resultado do ERP da execução traz esse email, aparece um aviso para confirmar o contacto antes de aprovar. Nas execuções antigas, gravadas com o corte, o aviso diz que o registo ficou cortado e que se confirme no ERP. | `App\Ai\Runs\RecipientSources`, `ApprovalController::open()`, `ApprovalPanel.tsx` |
 | **Regra no prompt:** nomes, emails, números e valores copiam-se tal como o ERP os devolve, sem acentos nem correcções; sem contacto no ERP, não se adivinha. | `InstructionComposer` |
 | O ERP continua só de leitura para os agentes; nada mudou nas capacidades do ERP. | — |
 
