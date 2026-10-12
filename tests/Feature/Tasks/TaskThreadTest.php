@@ -22,6 +22,8 @@ use App\Tasks\TaskThread;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Ai\PendingStep;
+use Laravel\Ai\ToolChoice;
 
 beforeEach(function () {
     Queue::fake();
@@ -304,4 +306,36 @@ it('lists the tools of each turn and opens one of its runs in the side panel', f
     // A run of another task never opens here.
     $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$task->id}?execucao={$other->id}"))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('panel_run', null));
+});
+
+it('says so in the thread when the agent ends a turn without a word', function () {
+    GenericAgent::fake(['']);
+
+    asTenant($this->a, function () {
+        $threads = app(TaskThread::class);
+        $chat = $threads->conversation($this->boss, $this->chief);
+        $threads->post($chat, $this->boss, 'Corre a triagem');
+
+        app(AgentRunner::class)->run(AgentRun::query()->sole());
+
+        expect($chat->messages()->where('author_type', ActorType::Agent)->exists())->toBeFalse()
+            ->and($chat->messages()->where('author_type', ActorType::System)->latest('id')->first()->body)->toContain('limite de passos');
+    });
+});
+
+it('takes the tools away on the last step so the agent still answers', function () {
+    asTenant($this->a, function () {
+        $run = AgentRun::factory()->create(['agent_id' => $this->chief->id]);
+        $agent = new GenericAgent($this->chief, $run, 'Instruções.', []);
+        $step = fn (int $number, bool $final) => new PendingStep($number, $final, 'gemini', 'm', 'Instruções.', [], [], null, null);
+        $seen = fn (PendingStep $step) => $agent->middleware()[0]($step, fn (PendingStep $step) => $step);
+
+        $last = $seen($step(7, true));
+        $middle = $seen($step(3, false));
+
+        expect($last->options?->toolChoice?->mode)->toBe(ToolChoice::none)
+            ->and($last->instructions)->toContain(GenericAgent::LAST_STEP)
+            ->and($middle->options?->toolChoice)->toBeNull()
+            ->and($middle->instructions)->toBe('Instruções.');
+    });
 });

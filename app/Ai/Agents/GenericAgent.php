@@ -6,18 +6,23 @@ use App\Models\Agent as AgentRecord;
 use App\Models\AgentRun;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Contracts\HasMiddleware;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Messages\Message;
+use Laravel\Ai\PendingStep;
 use Laravel\Ai\Promptable;
+use Laravel\Ai\ToolChoice;
 
 /**
  * The one agent class (docs/DECISOES.md): personality, instructions, model,
  * limits and tools all come from the agents row. Only AgentRunner builds it.
  */
-final class GenericAgent implements Agent, Conversational, HasTools
+final class GenericAgent implements Agent, Conversational, HasMiddleware, HasTools
 {
     use Promptable;
+
+    public const LAST_STEP = 'Chegaste ao limite de passos desta execução: já não podes usar ferramentas. Responde agora à pessoa com o que fizeste, o que encontraste e o que ficou por fazer, para ela te pedir que continues.';
 
     /**
      * @param  list<Tool>  $tools
@@ -80,7 +85,22 @@ final class GenericAgent implements Agent, Conversational, HasTools
 
     public function maxSteps(): int
     {
-        return $this->record->max_steps ?: (int) config('agents.max_steps', 8);
+        return $this->record->max_steps ?: (int) config('agents.max_steps', 15);
+    }
+
+    /**
+     * On the last step the model may not call tools, so a run that reaches the
+     * step limit still ends with an answer instead of a dropped tool call.
+     *
+     * @return list<\Closure>
+     */
+    public function middleware(): array
+    {
+        return [
+            fn (PendingStep $step, \Closure $next) => $step->isFinalStep && ! $step->isFirstStep()
+                ? $next($step->withToolChoice(ToolChoice::none)->withInstructions(trim($step->instructions."\n\n".self::LAST_STEP)))
+                : $next($step),
+        ];
     }
 
     public function timeout(): int
