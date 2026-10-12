@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Bot, ChevronRight, Clock, Folder, FolderPlus, Inbox, Library, Lock, NotebookPen, Search, Settings2, Upload } from 'lucide-react';
+import { Bot, Building2, ChevronRight, Clock, Folder, FolderPlus, Inbox, Library, Lock, NotebookPen, Search, Settings2, Upload } from 'lucide-react';
 import { type DragEvent, type FormEvent, useRef, useState } from 'react';
 
 import { EntityRow, ListPanel, Section } from '@/Components/Blocks';
@@ -28,6 +28,7 @@ interface Props {
     filters: { q: string; view: 'review' | null };
     pending: number;
     unfiled: number;
+    company_pending: number;
     semantic: boolean;
     accept: string;
     can: { manage_domains: boolean };
@@ -73,7 +74,7 @@ function NavRow({
     );
 }
 
-export default function KnowledgeIndex({ domains, domain, folder, folders, items, filters, pending, semantic, accept, can }: Props) {
+export default function KnowledgeIndex({ domains, domain, folder, folders, items, filters, pending, company_pending, semantic, accept, can }: Props) {
     const paged = usePaged(items, 20);
     const canWrite = useCan();
     const [query, setQuery] = useState(filters.q);
@@ -204,6 +205,10 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         <NavRow href="/knowledge?view=review" active={filters.view === 'review'} count={pending} warn>
                             <Inbox className="size-4 text-muted-foreground" />
                             Para rever
+                        </NavRow>
+                        <NavRow href="/knowledge/company" active={false} count={company_pending} warn>
+                            <Building2 className="size-4 text-muted-foreground" />
+                            Memória da empresa
                         </NavRow>
                     </div>
                     <div className="flex flex-col gap-0.5">

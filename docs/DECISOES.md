@@ -697,3 +697,21 @@ Pedido do Barrote: os agentes precisam de uma ferramenta como o AskUserQuestion 
 | Fluxos: um passo cujo agente fez perguntas continua com ele (não conta como «terminou sem concluir»). O batimento e o painel contam `awaiting_input` como em espera. | `WorkflowEngine::runEnded()`, `Heartbeat`, `DashboardController` |
 
 Migração `2026_10_09_170001` (tabela `agent_questions` e o estado novo em `agent_runs.status`). Testes: `tests/Feature/Agents/AgentQuestionsTest.php`.
+
+## Memória da empresa (12.10.2026)
+
+Pedido do Barrote: uma memória geral da empresa. Antes, só as decisões (as 8 mais recentes de 90 dias) chegavam sempre a todos os agentes; o resto estava espalhado pela base de conhecimento e pelos artigos «Memória de {agente}», que os agentes só liam se pesquisassem. Ele aprovou a proposta abaixo.
+
+| Decisão | Onde |
+|---|---|
+| **Uma lista de factos com seis secções fixas:** Quem somos, Clientes e parceiros, Regras e políticas, Preços e condições, Pessoas e papéis, Decisões. Cada facto é uma ou duas frases (até 1000 caracteres), com quem o escreveu ou propôs, quem o aprovou e a data. | `company_facts`, `App\Enums\CompanySection`, `App\Models\CompanyFact` |
+| **Entra sempre no prompt de todos os agentes** («## Memória da empresa», por secção, no lugar de «Decisões em vigor»). Tem um limite de caracteres por tenant (`company_memory_chars`, 8000 por omissão, no super admin); acima dele ficam de fora os factos mais antigos e o agente é avisado. | `CompanyMemory::forPrompt()`, `InstructionComposer`, `config/business.php` |
+| **Um facto pode ficar limitado a um domínio do conhecimento:** só o sabem os agentes (e só o vêem as pessoas) que abrem esse domínio. Sem domínio, é de todos. | `CompanyMemory::visibleTo()` |
+| **Os agentes propõem, uma pessoa aprova.** Capacidade `company.propose_fact`, dada a todos os agentes e sem passar pelo portão de autonomia (só cria uma proposta). Pode indicar o facto que corrige (`replaces_id`); ao aprovar, o antigo sai («substituído»). A mesma frase não é proposta duas vezes. | `ProposeCompanyFact`, `CompanyMemory::propose()`, `approve()` |
+| **A consolidação da memória também propõe:** o extractor marca os factos de trabalho que valem para toda a empresa (`company`, com a secção) e esses viram propostas, além de irem para a memória do agente como antes. O extractor recebe a memória da empresa para não repetir. | `MemoryExtractor`, `MemoryConsolidator::consolidate()` |
+| **Quem aprova e escreve:** factos de toda a empresa, quem tem «Gerir todo o conhecimento»; factos de um domínio, também as chefias que abrem esse domínio (a regra de revisão do conhecimento). Recebem uma notificação (Documentos) por cada proposta. Criar, editar, aprovar, rejeitar e apagar fica na auditoria (`company_memory.*`). | `CompanyMemory::canCurate()`, `CompanyMemoryController` |
+| **Decisões:** `memory.remember_decision` continua a guardar o artigo na base de conhecimento e passa a pôr a decisão, já publicada, na secção Decisões (o portão já pediu a aprovação de uma pessoa). As decisões deixam de expirar aos 90 dias. As que já existiam foram copiadas pela migração. Um artigo de tipo «decisão» gravado com `knowledge.save` já não entra no prompt. | `RememberDecision`, migração `2026_10_12_150001` |
+| **Ecrã Conhecimento › Memória da empresa** (`/knowledge/company`): espaço usado no prompt, propostas dos agentes (Aprovar, Editar e aprovar, Rejeitar), e as seis secções com Adicionar, editar e apagar. Na barra do Conhecimento, com o número de propostas à espera. | `Pages/Knowledge/Company.tsx`, `KnowledgeController::index()` |
+| Fica como estava: a memória de cada agente com cada pessoa e os artigos «Memória de {agente}». | — |
+
+Testes: `tests/Feature/Knowledge/CompanyMemoryTest.php`.

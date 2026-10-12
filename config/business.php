@@ -26,4 +26,8 @@ return [
     // Agents wake on their own for work of theirs that has been quiet this
     // long, Paperclip's heartbeat (realinhamento L6). 0 turns it off.
     'heartbeat_minutes' => 60,
+
+    // Characters of the company memory that reach every agent's prompt
+    // (docs/DECISOES.md, 12.10.2026). Past this, the oldest facts are left out.
+    'company_memory_chars' => 8000,
 ];

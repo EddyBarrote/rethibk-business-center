@@ -10,6 +10,10 @@ Duas peças que se usam juntas: a **base de conhecimento** (o que a organizaçã
 - **Pesquisa:** `KnowledgeBase::search($q, $limit, $viewer, $domainId)` — semântica com embeddings guardados em JSON quando há fornecedor; por palavras sem ele. Filtra sempre por `KnowledgeAccess::items($viewer)`.
 - **Ecrãs:** Conhecimento (explorador por domínio e pasta, arrastar ficheiros, "Para rever"), artigo/ficheiro com pré-visualização (PDF e imagens no browser, texto extraído para o resto), editor com pré-visualização, Domínios (só administradores).
 
+## Memória da empresa
+
+Factos que todos os agentes lêem sempre, em seis secções (`company_facts`), em Conhecimento › Memória da empresa. Os agentes propõem e uma pessoa aprova. Detalhe em [DECISOES.md](DECISOES.md#memória-da-empresa-12102026).
+
 ## Ficheiros gerados
 
 - `DocumentGenerator::generate(DocumentFormat, DocumentSpec)` escreve o ficheiro em `storage/app/private/documents/` e uma linha em `generated_documents` com o markdown de origem.
@@ -30,6 +34,7 @@ Registadas em `App\Providers\KnowledgeServiceProvider` (padrão de [CAPACIDADES.
 | `knowledge.browse` | Lista domínios, ou pastas e itens de um domínio. | Todos |
 | `knowledge.read` | Lê um item inteiro, por partes. Conteúdo externo vem cercado como não confiável. | Todos |
 | `knowledge.save` | Guarda um artigo num domínio/pasta (cria a pasta). Abaixo de N3 fica para rever. | Os seis modelos; risco N1 |
+| `company.propose_fact` | Propõe um facto à memória da empresa; uma pessoa aprova. | Todos |
 | `documents.generate` | Gera DOCX/PPTX/XLSX/PDF; opcionalmente arquiva no conhecimento. | Os seis modelos; risco N0 (o ficheiro fica na consola) |
 
 ## Testes

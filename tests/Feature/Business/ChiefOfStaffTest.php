@@ -2,8 +2,6 @@
 
 use App\Ai\Agents\GenericAgent;
 use App\Ai\Agents\InstructionComposer;
-use App\Ai\Knowledge\KnowledgeBase;
-use App\Enums\KnowledgeType;
 use App\Enums\RunStatus;
 use App\Mail\BriefingMail;
 use App\Models\AgentRun;
@@ -101,13 +99,15 @@ it('finds blockers and inconsistencies across areas', function () {
     });
 });
 
-it('gives every agent the decisions recorded with RememberDecision', function () {
+it('gives every agent the decisions recorded with RememberDecision, in the company memory', function () {
     asTenant($this->tenant, function () {
-        app(KnowledgeBase::class)->remember(KnowledgeType::Decision, 'Não aceitar obras abaixo de 15% de margem', 'Decidido pela Direcção-Geral em 04/10/2026.', $this->director);
+        $result = runCapability($this->cos, 'memory.remember_decision', ['title' => 'Não aceitar obras abaixo de 15% de margem', 'content' => 'Decidido pela Direcção-Geral em 04/10/2026.']);
         $finance = templateAgent('finance');
 
-        expect(app(InstructionComposer::class)->for($finance))
-            ->toContain('## Decisões em vigor')
+        expect($result->ok)->toBeTrue()
+            ->and(app(InstructionComposer::class)->for($finance))
+            ->toContain('## Memória da empresa')
+            ->toContain('### Decisões')
             ->toContain('Não aceitar obras abaixo de 15% de margem');
     });
 });

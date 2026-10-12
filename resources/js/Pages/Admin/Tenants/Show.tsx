@@ -69,6 +69,7 @@ const businessFields: [string, string, string][] = [
     ['min_margin_pct', 'Margem mínima por projecto (%)', 'Abaixo disto, alerta.'],
     ['budget_alert_pct', 'Alerta de orçamento consumido (%)', 'Por projecto.'],
     ['unreconciled_days', 'Banco por reconciliar (dias)', 'Depois disto é um bloqueio.'],
+    ['company_memory_chars', 'Memória da empresa no prompt (caracteres)', 'Acima disto, os factos mais antigos ficam de fora.'],
 ];
 
 const scopeLabel: Record<string, string> = { tenant: 'Organização', agent: 'Agente', run: 'Execução' };

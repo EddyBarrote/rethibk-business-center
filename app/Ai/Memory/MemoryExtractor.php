@@ -15,7 +15,7 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
 {
     use Promptable;
 
-    public function __construct(private readonly string $agentName, private readonly string $known) {}
+    public function __construct(private readonly string $agentName, private readonly string $known, private readonly string $company = '(nada ainda)') {}
 
     public function instructions(): string
     {
@@ -28,10 +28,15 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
         Cada facto: uma frase curta e completa, que se entende sozinha (nomes, não "ele").
         kind: "work" para factos de trabalho (servem para qualquer colega); "personal" para o que é pessoal ou que a pessoa pediu para ficar entre vocês.
         about: o nome da pessoa a quem um facto pessoal diz respeito; vazio nos factos de trabalho.
+        company: true só para factos de trabalho que valem para toda a empresa e para todos os agentes (quem somos, condições de um cliente ou parceiro, uma regra ou política, um preço, quem decide o quê, uma decisão da direcção) e que ainda não estão na memória da empresa (abaixo). Uma pessoa aprova-os antes de chegarem a todos.
+        section: a secção desses factos: about, clients, rules, pricing, people ou decisions.
         Se nada vale a pena, devolve uma lista vazia.
 
         O que o agente já sabe:
         {$this->known}
+
+        A memória da empresa:
+        {$this->company}
         TXT;
     }
 
@@ -42,6 +47,8 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
                 'content' => $schema->string()->required(),
                 'kind' => $schema->string()->enum(['work', 'personal'])->required(),
                 'about' => $schema->string(),
+                'company' => $schema->boolean(),
+                'section' => $schema->string()->enum(['about', 'clients', 'rules', 'pricing', 'people', 'decisions']),
             ]))->required(),
         ];
     }

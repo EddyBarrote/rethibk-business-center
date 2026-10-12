@@ -8,6 +8,7 @@ use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Knowledge\KnowledgeBase;
 use App\Ai\Knowledge\KnowledgeLocator;
 use App\Enums\ActorType;
+use App\Enums\CompanySection;
 use App\Enums\KnowledgeType;
 use App\Jobs\EmbedKnowledgeItem;
 use App\Models\Agent;
@@ -41,6 +42,7 @@ final class MemoryConsolidator
         private readonly KnowledgeBase $knowledge,
         private readonly KnowledgeAccess $access,
         private readonly KnowledgeLocator $locator,
+        private readonly CompanyMemory $company,
     ) {}
 
     /**
@@ -69,7 +71,7 @@ final class MemoryConsolidator
 
         $owner = $task->user_id ?? $task->created_by_user_id;
         $transcript = $messages->map(fn (TaskMessage $m) => '['.$m->authorName().'] '.Str::limit($m->body, 1500))->implode("\n\n");
-        $response = (new MemoryExtractor($agent->name, $this->known($agent, $owner)))
+        $response = (new MemoryExtractor($agent->name, $this->known($agent, $owner), $this->companyFacts($agent)))
             ->prompt("Excerto de {$task->identifier()} «{$task->title}»:\n\n{$transcript}", provider: $agent->provider ?: config('ai.default'), model: $agent->model ?: (config('agents.model') ?: null));
 
         $facts = (array) (($response instanceof StructuredAgentResponse ? $response->toArray() : (array) json_decode($response->text, true))['facts'] ?? []);
@@ -84,6 +86,11 @@ final class MemoryConsolidator
             }
 
             $personal = ($fact['kind'] ?? 'work') === AgentMemory::PERSONAL;
+
+            // Facts for the whole company also go to the company memory, for a person to approve (12.10.2026).
+            if (! $personal && ($fact['company'] ?? false) === true) {
+                $this->company->propose($agent, CompanySection::tryFrom((string) ($fact['section'] ?? '')) ?? CompanySection::Rules, $content, task: $task);
+            }
 
             AgentMemory::query()->create([
                 'agent_id' => $agent->id,
@@ -179,6 +186,13 @@ final class MemoryConsolidator
     private function known(Agent $agent, ?int $person): string
     {
         $facts = $this->memoryOf($agent, $person)->latest('id')->limit(60)->pluck('content');
+
+        return $facts->isEmpty() ? '(nada ainda)' : $facts->map(fn (string $fact) => "- {$fact}")->implode("\n");
+    }
+
+    private function companyFacts(Agent $agent): string
+    {
+        $facts = $this->company->visibleTo($agent)->latest('id')->limit(80)->pluck('content');
 
         return $facts->isEmpty() ? '(nada ainda)' : $facts->map(fn (string $fact) => "- {$fact}")->implode("\n");
     }

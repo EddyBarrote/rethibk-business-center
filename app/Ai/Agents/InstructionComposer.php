@@ -2,17 +2,16 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Memory\CompanyMemory;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Skills\AgentSkills;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
-use App\Enums\KnowledgeType;
 use App\Erp\ErpDialect;
 use App\Erp\ErpGateway;
 use App\Erp\Perfex\PerfexToolMap;
 use App\Models\Agent;
 use App\Models\AgentRun;
-use App\Models\KnowledgeItem;
 use App\Models\Skill;
 use App\Models\Tenant;
 use Illuminate\Support\Str;
@@ -41,7 +40,8 @@ final class InstructionComposer
             // The agent's own consolidated memory (realinhamento L7).
             app(MemoryConsolidator::class)->forPrompt($agent, $run?->task?->user) ?: null,
             $this->chiefOfStaff($agent),
-            $this->decisions(),
+            // What the whole company knows, curated by people (12.10.2026).
+            app(CompanyMemory::class)->forPrompt($agent),
             "## Autonomia\nO teu nível é {$level->code()} ({$level->label()}). ".$this->autonomyRule($level),
             <<<'TXT'
             ## Regras da plataforma
@@ -50,6 +50,7 @@ final class InstructionComposer
             - Quando uma acção fica pendente de aprovação, não a repitas: continua o resto do trabalho e diz no fim o que ficou à espera.
             - Não inventes dados do ERP: consulta as ferramentas e diz quando não encontraste algo.
             - Antes de responder sobre políticas, procedimentos, clientes ou histórico, procura na base de conhecimento (memory.search). Quando aprenderes algo que vale a pena guardar e tiveres knowledge.save, guarda-o no domínio certo.
+            - Quando souberes de um facto duradouro que vale para toda a empresa (uma regra, condições de um cliente, um preço, quem decide o quê), propõe-o à memória da empresa com company.propose_fact.
             - Quando te pedirem um documento, apresentação, folha de cálculo ou PDF e tiveres documents.generate, gera o ficheiro e dá a ligação.
             TXT,
             'Data e hora actuais: '.now()->setTimezone((string) config('app.timezone'))->format('Y-m-d H:i').'.',
@@ -176,24 +177,6 @@ final class InstructionComposer
      * Decisions recorded with RememberDecision reach every agent (E04), so
      * the Chief of Staff's "we decided X" changes how the others work.
      */
-    private function decisions(): ?string
-    {
-        $decisions = KnowledgeItem::query()
-            ->where('type', KnowledgeType::Decision)
-            ->where('created_at', '>=', now()->subDays(90))
-            ->latest()
-            ->limit(8)
-            ->get(['title', 'summary', 'content', 'created_at']);
-
-        if ($decisions->isEmpty()) {
-            return null;
-        }
-
-        return "## Decisões em vigor\nA organização decidiu (mais recente primeiro); segue-as:\n".$decisions
-            ->map(fn (KnowledgeItem $d) => '- '.$d->created_at->format('d/m/Y').' '.$d->title.': '.Str::limit((string) ($d->summary ?: $d->content), 300))
-            ->implode("\n");
-    }
-
     private function autonomyRule(AutonomyLevel $level): string
     {
         return match ($level) {
