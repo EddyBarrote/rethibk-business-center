@@ -53,7 +53,7 @@ const switches: { key: PrefKey; label: string; description: string; icon: typeof
     },
 ];
 
-/** A minha conta › Memória: the switches, and what each agent remembers of the person (12.10.2026). */
+/** Definições › Memória › A minha memória: the switches, and what each agent remembers of the person (12.10.2026). */
 export default function MemorySettings({ prefs, sections, agents, entries }: Props) {
     const [state, setState] = useState(prefs);
     const [agentId, setAgentId] = useState<number | null>(agents[0]?.id ?? null);
@@ -68,9 +68,9 @@ export default function MemorySettings({ prefs, sections, agents, entries }: Pro
 
     return (
         <SettingsLayout>
-            <Head title="Memória" />
+            <Head title="A minha memória" />
             <PageHeader
-                title="Memória"
+                title="A minha memória"
                 description="O que os agentes lembram de si, e como o usam. Só a sua memória com cada agente: os colegas não a vêem."
             />
 

@@ -55,7 +55,7 @@ final class SearchPastChats extends LocalCapability
         }
 
         if (! MemoryPreferences::allows($person, 'search_chats')) {
-            return CapabilityResult::error("{$person->name} desligou a pesquisa nas conversas anteriores (A minha conta › Memória).");
+            return CapabilityResult::error("{$person->name} desligou a pesquisa nas conversas anteriores (Definições › Memória › A minha memória).");
         }
 
         $messages = TaskMessage::query()

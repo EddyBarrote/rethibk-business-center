@@ -8,7 +8,6 @@ use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Runs\AgentNow;
 use App\Ai\Runs\AgentRunner;
 use App\Enums\AgentStatus;
-use App\Enums\MemorySection;
 use App\Enums\Permission;
 use App\Enums\TaskStatus;
 use App\Enums\TriggerType;
@@ -107,8 +106,8 @@ class AgentController extends Controller
             'runs' => $agent->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
             // What the agent is doing right now, at the top of its page (docs/DECISOES.md, "Agente: o que está a fazer").
             'now' => fn () => app(AgentNow::class)->for($agent, $user),
-            'memories' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->with(['user:id,name', 'aboutUser:id,name', 'task:id,number,title,tenant_id', 'task.tenant:id,slug'])->orderByDesc('updated_at')->limit(300)->get()->map(fn (AgentMemory $memory) => Present::memory($memory)) : null,
-            'memory_sections' => MemorySection::options(),
+            // The memory itself lives in Definições › Memória dos agentes (12.10.2026).
+            'memory_count' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->count() : null,
             // The tasks between this person and the agent, inside the agent's page (09.10.2026).
             'tasks' => fn () => $this->tasks($agent, $user),
             // Other people's conversations with it, read-only, for whoever may read them all (docs/DECISOES.md, "Conversas a partir dos agentes").

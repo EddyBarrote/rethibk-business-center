@@ -5,7 +5,7 @@ namespace App\Support;
 use App\Models\User;
 
 /**
- * A person's memory switches (A minha conta › Memória, 12.10.2026), the same
+ * A person's memory switches (Definições › Memória › A minha memória, 12.10.2026), the same
  * three as claude.ai. All on until the person turns one off.
  *
  * - search_chats: the agent may search the person's past conversations with it (memory.search_chats).

@@ -17,7 +17,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * A minha conta › Memória (docs/DECISOES.md, "Memória em entradas",
+ * Definições › Memória › A minha memória (docs/DECISOES.md, "Memória em entradas",
  * 12.10.2026), like claude.ai: the three switches, and what each agent
  * remembers of the person, in entries by section, to read, correct or delete.
  * Only the person's own memory; administrators keep theirs on the agent's page.

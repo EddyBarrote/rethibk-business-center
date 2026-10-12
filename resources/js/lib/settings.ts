@@ -4,6 +4,7 @@ import {
     BellRing,
     BookOpen,
     Brain,
+    BrainCog,
     Building2,
     CalendarClock,
     ChartColumn,
@@ -158,6 +159,19 @@ export const settingsGroups: SettingsGroup[] = [
         ],
     },
     {
+        label: 'Memória',
+        items: [
+            { label: 'A minha memória', href: '/settings/memory', icon: Brain, description: 'O que os agentes lembram de si, e como o usam.' },
+            {
+                label: 'Memória dos agentes',
+                href: '/settings/agent-memory',
+                icon: BrainCog,
+                description: 'O que cada agente lembra de cada pessoa, para corrigir.',
+                permissions: ['agents.memory'],
+            },
+        ],
+    },
+    {
         label: 'A minha conta',
         items: [
             { label: 'Perfil', href: '/settings/profile', icon: UserRound, description: 'O seu nome e a sua palavra-passe.' },
@@ -168,7 +182,6 @@ export const settingsGroups: SettingsGroup[] = [
                 icon: BellRing,
                 description: 'O que lhe chega no centro, no ecrã e por email.',
             },
-            { label: 'Memória', href: '/settings/memory', icon: Brain, description: 'O que os agentes lembram de si, e como o usam.' },
         ],
     },
 ];
