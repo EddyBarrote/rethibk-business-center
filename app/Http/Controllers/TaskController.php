@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Runs\AgentNow;
 use App\Attachments\AttachmentLimits;
 use App\Attachments\AttachmentStore;
 use App\Enums\AgentStatus;
@@ -9,7 +10,6 @@ use App\Enums\ApprovalStatus;
 use App\Enums\GoalStatus;
 use App\Enums\Permission;
 use App\Enums\ProjectStatus;
-use App\Enums\RunStatus;
 use App\Enums\StepType;
 use App\Enums\TaskKind;
 use App\Enums\TaskMessageKind;
@@ -117,7 +117,7 @@ class TaskController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $running = AgentRun::query()->whereIn('task_id', $page->getCollection()->modelKeys())->whereIn('status', [RunStatus::Queued, RunStatus::Running])->pluck('task_id')->flip();
+        $running = AgentRun::query()->whereIn('task_id', $page->getCollection()->modelKeys())->working()->pluck('task_id')->flip();
         $byStatus = $base($view)->reorder()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $open = fn () => $this->visible(Task::query(), $user)->tap($this->listed(...))->open();
 
@@ -405,7 +405,7 @@ class TaskController extends Controller
         $user = $this->user($request);
         $task->load(['assigneeAgent', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'parent:id,number,title,tenant_id', 'tenant:id,slug']);
 
-        $active = $task->runs()->whereIn('status', [RunStatus::Queued, RunStatus::Running])->latest('id')->first();
+        $active = $task->runs()->working()->latest('id')->first();
         $mine = $task->chat_key !== null && $task->user_id === $user->id;
 
         if ($mine) {
@@ -473,6 +473,9 @@ class TaskController extends Controller
             'journey' => Inertia::optional(fn () => app(TaskJourney::class)->for($task, fn (Task $node) => $user->can('view', $node))),
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
             // In a conversation, the side panel's "Tarefas": the person's work with this agent and its approvals.
+            // In a conversation, what the agent is busy with elsewhere (a task, a routine, a flow), so the
+            // sidebar's "a trabalhar" is explained here too (docs/DECISOES.md, "Agente ocupado noutro sítio").
+            'agent_elsewhere' => $task->kind === TaskKind::Chat && $task->assigneeAgent !== null ? app(AgentNow::class)->for($task->assigneeAgent, $user, exceptTask: $task, withLast: false)['active'] : [],
             'agent_work' => fn () => $mine && $task->assigneeAgent !== null ? $this->agentWork($task->assigneeAgent, $user) : null,
             'can' => [
                 'reply' => $user->can('reply', $task),

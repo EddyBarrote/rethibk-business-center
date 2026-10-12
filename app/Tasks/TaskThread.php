@@ -519,7 +519,7 @@ final class TaskThread
 
     private function activeRun(Task $task): ?AgentRun
     {
-        return $task->runs()->whereIn('status', [RunStatus::Queued, RunStatus::Running])->latest('id')->first();
+        return $task->runs()->working()->latest('id')->first();
     }
 
     /**

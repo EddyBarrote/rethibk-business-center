@@ -3,6 +3,7 @@ import { CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, Pencil, Rout
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { ElsewherePanel, type NowRun } from '@/Components/agents/AgentNow';
 import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
 import { ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
@@ -52,6 +53,8 @@ interface Props extends TaskFormOptions {
     can: { reply: boolean; update: boolean; manage_agent: boolean };
     /** In the person's own conversation: their tasks with this agent and its approvals (side panel "Tarefas"). */
     agent_work: AgentWork | null;
+    /** In a conversation, the agent's live work outside it (App\\Ai\\Runs\\AgentNow). */
+    agent_elsewhere: NowRun[];
 }
 
 /** The flow this task follows, or the decision of a flow's step it asks of a person (docs/DECISOES.md, "Fluxos de trabalho"). */
@@ -86,6 +89,7 @@ const reloadProps = [
     'workflow',
     'has_journey',
     'agent_work',
+    'agent_elsewhere',
     'sidebar_agents',
 ];
 const PANEL_KEY = 'micomoc.conversa.painel';
@@ -152,6 +156,7 @@ export default function TaskShow({
     tool_calls: toolCalls,
     panel_run: panelRun,
     agent_work: agentWork,
+    agent_elsewhere: elsewhere,
     tool_names: toolNames,
     approvals,
     workflow,
@@ -256,7 +261,11 @@ export default function TaskShow({
             bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
     }, [stream?.text]); // eslint-disable-line react-hooks/exhaustive-deps
-    useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished'], reload);
+    // Its runs elsewhere starting or ending refresh "A fazer agora"; polled too while there are some, so it never sticks.
+    useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished'], reload, {
+        only: live,
+        poll: elsewhere.length > 0,
+    });
 
     useEffect(() => {
         if (messages.length > seen.current) {
@@ -394,6 +403,8 @@ export default function TaskShow({
                                     {task.agent?.title ?? 'Assistente'}
                                     {working ? (
                                         <span className="text-status-running"> · a trabalhar</span>
+                                    ) : elsewhere.length > 0 ? (
+                                        <span className="text-status-running"> · a trabalhar noutro sítio</span>
                                     ) : (
                                         ' · uma só conversa contínua, com todo o histórico'
                                     )}
@@ -551,6 +562,9 @@ export default function TaskShow({
                                             calls={toolCalls[working?.id ?? stream?.run_id ?? 0] ?? []}
                                             onOpenRun={openRun}
                                         />
+                                    )}
+                                    {task.is_conversation && !working && !stream && (
+                                        <ElsewherePanel agent={agentName} active={elsewhere} reload={['agent_elsewhere', 'sidebar_agents']} />
                                     )}
                                     <div ref={bottom} className="h-px" />
                                 </div>
