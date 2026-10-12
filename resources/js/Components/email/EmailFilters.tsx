@@ -325,7 +325,7 @@ export function EmailFilters({
                         </Section>
                         {triage && (
                             <Section title="Triagem">
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid gap-2">
                                     <NativeSelect
                                         aria-label="Estado da triagem"
                                         className="h-8 w-full"
