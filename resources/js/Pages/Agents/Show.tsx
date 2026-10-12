@@ -7,7 +7,6 @@ import { NowPanel, type NowRun } from '@/Components/agents/AgentNow';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
-import { type MemoryEntry, MemoryEntries, type MemorySectionOption } from '@/Components/memory/MemoryEntries';
 import { InputError } from '@/Components/InputError';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge, StatusDot } from '@/Components/Status';
@@ -36,8 +35,7 @@ interface Props {
     runs: RunSummary[];
     users: { id: number; name: string }[];
     can: { run: boolean; request_work: boolean; manage: boolean; manage_access: boolean; view_memory: boolean };
-    memories: MemoryEntry[] | null;
-    memory_sections: MemorySectionOption[];
+    memory_count: number | null;
     tasks: TaskSummary[];
     /** Other people's conversations with the agent, read-only, for whoever may read them all. */
     conversations: TeamConversation[] | null;
@@ -53,20 +51,7 @@ interface TeamConversation {
     last_activity_at: string | null;
 }
 
-export default function AgentShow({
-    agent,
-    capabilities,
-    skills,
-    routines,
-    runs,
-    users,
-    memories,
-    memory_sections,
-    tasks,
-    conversations,
-    can,
-    now,
-}: Props) {
+export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memory_count, tasks, conversations, can, now }: Props) {
     const { tenant, auth } = usePage<SharedProps>().props;
     const form = useForm({ message: '', mode: 'message' as 'message' | 'action' });
     const [reason, setReason] = useState('');
@@ -161,12 +146,6 @@ export default function AgentShow({
                             <TabsTrigger value="conversations" className="flex-none">
                                 Conversas da equipa
                                 <span className="font-mono text-xs text-muted-foreground tabular-nums">{conversations.length}</span>
-                            </TabsTrigger>
-                        )}
-                        {memories !== null && (
-                            <TabsTrigger value="memory" className="flex-none">
-                                Memória
-                                <span className="font-mono text-xs text-muted-foreground tabular-nums">{memories.length}</span>
                             </TabsTrigger>
                         )}
                         <TabsTrigger value="config" className="flex-none">
@@ -285,12 +264,6 @@ export default function AgentShow({
                                     ))}
                                 </ListPanel>
                             )}
-                        </TabsContent>
-                    )}
-
-                    {memories !== null && (
-                        <TabsContent value="memory">
-                            <MemoryList memories={memories} sections={memory_sections} />
                         </TabsContent>
                     )}
 
@@ -513,6 +486,13 @@ export default function AgentShow({
                     <Property label="Capacidades">
                         <span className="tabular-nums">{capabilities.length}</span>
                     </Property>
+                    {memory_count !== null && (
+                        <Property label="Memória">
+                            <Link href={`/settings/agent-memory?agente=${agent.id}`} className="tabular-nums hover:underline">
+                                {memory_count === 1 ? '1 entrada' : `${memory_count} entradas`}
+                            </Link>
+                        </Property>
+                    )}
                     <Property label="Gasto recente">
                         <span className="tabular-nums" title={`Soma das últimas ${runs.length} execuções`}>
                             {usd(spent)}
@@ -567,46 +547,5 @@ function ChatAction({ agent }: { agent: AgentSummary }) {
                 Conversar
             </Link>
         </Button>
-    );
-}
-
-/** What the agent remembers of each person, for the administrators to correct (09.10.2026; entries since 12.10.2026). */
-function MemoryList({ memories, sections }: { memories: MemoryEntry[]; sections: MemorySectionOption[] }) {
-    const [person, setPerson] = useState<string>('all');
-
-    if (memories.length === 0) {
-        return (
-            <EmptyState
-                icon={Brain}
-                title="Ainda sem memória"
-                description="No fim de cada tarefa, a cada 30 mensagens de uma conversa e todas as noites, o agente arruma aqui o que aprendeu, em entradas com nome."
-            />
-        );
-    }
-
-    const people = [...new Map(memories.filter((m) => m.person).map((m) => [m.person!.id, m.person!.name])).entries()].sort((a, b) =>
-        a[1].localeCompare(b[1]),
-    );
-    const shown = memories.filter((m) => person === 'all' || (person === 'agent' ? m.person === null : String(m.person?.id) === person));
-
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3">
-                <p className="text-xs text-muted-foreground">
-                    Cada pessoa tem a sua memória com o agente, em entradas por secção, e vê-a em A minha conta › Memória. As entradas partilhadas
-                    também vão para a base de conhecimento (pasta Memória dos agentes), e é assim que servem os outros. As outras nunca saem dali.
-                </p>
-                <NativeSelect aria-label="Memória de quem" className="sm:w-64" value={person} onChange={(e) => setPerson(e.target.value)}>
-                    <option value="all">Todas as pessoas</option>
-                    {people.map(([id, name]) => (
-                        <option key={id} value={String(id)}>
-                            {name}
-                        </option>
-                    ))}
-                    {memories.some((m) => m.person === null) && <option value="agent">Só do agente (sem pessoa)</option>}
-                </NativeSelect>
-            </div>
-            <MemoryEntries entries={shown} sections={sections} url={(e) => `/agents/${e.agent_id}/memories/${e.id}`} showPerson={person === 'all'} />
-        </div>
     );
 }

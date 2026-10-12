@@ -200,7 +200,7 @@ it('folds the old loose facts into two entries, then sorts them into entries by 
     $this->artisan('agents:organise-memory')->assertSuccessful();
 });
 
-it('lets only the administrators see, correct or forget an entry on the agent\'s page, not the agent\'s chefia', function () {
+it('lets only the administrators see, correct or forget any agent\'s entries in the settings, not the agent\'s chefia', function () {
     [$chefia, $agent] = asTenant($this->tenant, function () {
         $chefia = User::factory()->create(['name' => 'Chefia']);
 
@@ -210,13 +210,17 @@ it('lets only the administrators see, correct or forget an entry on the agent\'s
     $entry = ['section' => 'topics', 'title' => 'Certo', 'description' => 'Corrigido.', 'content' => 'Facto certo.', 'kind' => 'work'];
 
     $this->actingAs($this->ana)->get(tenantUrl($this->tenant, "agents/{$this->agent->id}"))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('memories', null));
+        ->assertInertia(fn (Assert $page) => $page->where('memory_count', null));
+    $this->actingAs($this->ana)->get(tenantUrl($this->tenant, 'settings/agent-memory'))->assertForbidden();
     $this->actingAs($this->ana)->delete(tenantUrl($this->tenant, "agents/{$this->agent->id}/memories/{$memory->id}"))->assertForbidden();
     $this->actingAs($chefia)->get(tenantUrl($this->tenant, "agents/{$agent->id}"))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('memories', null));
+        ->assertInertia(fn (Assert $page) => $page->where('memory_count', null));
 
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "agents/{$this->agent->id}"))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('memories.0.title', 'Errado')->where('memories.0.person.name', 'Ana Mondlane')->has('memory_sections', 6));
+        ->assertInertia(fn (Assert $page) => $page->where('memory_count', 1));
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "settings/agent-memory?agente={$this->agent->id}"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Settings/AgentMemory')->where('agent_id', $this->agent->id)
+            ->where('entries.0.title', 'Errado')->where('entries.0.person.name', 'Ana Mondlane')->has('sections', 6));
 
     $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "agents/{$this->agent->id}/memories/{$memory->id}"), $entry)->assertRedirect();
     asTenant($this->tenant, fn () => expect($memory->fresh()->content)->toBe('Facto certo.')

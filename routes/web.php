@@ -29,6 +29,7 @@ use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\Settings\AccessRoleController;
+use App\Http\Controllers\Settings\AgentMemoryController;
 use App\Http\Controllers\Settings\AttachmentSettingsController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\DepartmentController;
@@ -253,6 +254,7 @@ Route::middleware('auth')->group(function () {
         Route::get('notifications', [NotificationPreferencesController::class, 'show'])->name('settings.notifications.show');
         Route::put('notifications', [NotificationPreferencesController::class, 'update'])->name('settings.notifications.update');
         Route::get('memory', [MemoryController::class, 'show'])->name('settings.memory.show');
+        Route::get('agent-memory', [AgentMemoryController::class, 'index'])->name('settings.agent-memory.index');
         Route::put('memory/preferences', [MemoryController::class, 'preference'])->name('settings.memory.preference');
         Route::put('memory/{memory}', [MemoryController::class, 'update'])->name('settings.memory.update');
         Route::delete('memory/{memory}', [MemoryController::class, 'destroy'])->name('settings.memory.destroy');
