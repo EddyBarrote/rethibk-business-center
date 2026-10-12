@@ -89,6 +89,36 @@ class Mailbox extends Model
     }
 
     /**
+     * The mailboxes a person reads in the client: their own, and the agents'
+     * (triage) if the matrix lets them. Never someone else's.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function inClientOf(Builder $query, User $user): void
+    {
+        $query->where(fn (Builder $q) => $q->ownedBy($user)
+            ->when($user->hasPermission(Permission::ReadTriageEmails), fn (Builder $w) => $w->orWhere('kind', self::AGENT)));
+    }
+
+    /**
+     * How much a person has to read: the unread in the Entrada of each mailbox
+     * they read in the client, as the menu of mailboxes shows them, and the
+     * triage email routed to them when they do not read the triage itself.
+     */
+    public static function unreadFor(User $user): int
+    {
+        $inboxes = (int) EmailFolder::query()->where('role', EmailFolder::INBOX)
+            ->whereIn('mailbox_id', self::query()->inClientOf($user)->select('id'))
+            ->sum('unread');
+
+        $routed = $user->hasPermission(Permission::ReadTriageEmails) ? 0 : EmailMessage::query()->triage()
+            ->where('routed_to_user_id', $user->id)->where('direction', 'inbound')->whereNull('removed_at')->whereNull('read_at')->count();
+
+        return $inboxes + $routed;
+    }
+
+    /**
      * Mailboxes an agent reads: the agents' mailboxes, which are the company's
      * triage, and the personal ones whose owners let it read them.
      *
