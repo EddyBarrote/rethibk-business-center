@@ -591,12 +591,12 @@ function MemoryList({ memories, sections }: { memories: MemoryEntry[]; sections:
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <p className="flex-1 text-xs text-muted-foreground">
+            <div className="flex flex-col gap-3">
+                <p className="text-xs text-muted-foreground">
                     Cada pessoa tem a sua memória com o agente, em entradas por secção, e vê-a em A minha conta › Memória. As entradas partilhadas
                     também vão para a base de conhecimento (pasta Memória dos agentes), e é assim que servem os outros. As outras nunca saem dali.
                 </p>
-                <NativeSelect aria-label="Memória de quem" className="sm:w-56" value={person} onChange={(e) => setPerson(e.target.value)}>
+                <NativeSelect aria-label="Memória de quem" className="sm:w-64" value={person} onChange={(e) => setPerson(e.target.value)}>
                     <option value="all">Todas as pessoas</option>
                     {people.map(([id, name]) => (
                         <option key={id} value={String(id)}>
