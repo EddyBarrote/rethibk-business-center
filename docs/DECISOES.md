@@ -739,3 +739,15 @@ O Barrote reparou que o item Email da barra lateral não mostrava quantos emails
 | **Actualiza-se em directo como os outros contadores:** quando o número de por ler de uma pasta muda (email novo na sincronização, ler ou marcar como não lido), sai `MailboxUpdated` no canal `tenant.{id}.mail`, só com o id da caixa; cada ecrã recarrega a sua contagem. Sem ligação ao Reverb, a barra recarrega o contador de 30 em 30 segundos. | `App\Events\MailboxUpdated`, `MailboxSync`, `MailClient::recount()`, `Layouts/AppLayout.tsx` |
 
 Testes: `tests/Feature/Email/EmailClientTest.php`.
+
+## Email: pesquisa e filtros (12.10.2026)
+
+O Barrote pediu filtro e pesquisa nas páginas de Email. Já havia uma caixa de pesquisa (Enter, sempre em todas as pastas) e o botão «Não lidos»; ficam agora como nas outras listas (/tasks, /notifications, /approvals).
+
+| Decisão | Onde |
+|---|---|
+| **A pesquisa procura enquanto se escreve** (350 ms depois de parar), no assunto, remetente (nome e endereço), destinatários, texto e resumo da triagem. **Procura na pasta aberta da caixa escolhida no menu**; «Procurar em: Todas as pastas» (`em=todas`) alarga à caixa inteira, e uma pesquisa sem resultados oferece esse botão. Antes, pesquisar ia sempre a todas as pastas. | `InboxController::listing()`, `Components/email/EmailFilters.tsx` |
+| **Filtros num botão «Filtros»** com o número dos que estão ligados: leitura (`leitura=nao_lidos|lidos`; o antigo `unread=1` continua a abrir os não lidos), com anexos (`anexos=1`), com estrela (`estrela=1`), data (`periodo=hoje|7d|30d|90d`, ou `de`/`ate` em AAAA-MM-DD; datas trocadas valem como o intervalo entre elas) e, só nas caixas com triagem e nos encaminhados, o estado da triagem (`triagem=por_triar|triado|falhou`, pelo `status` do email) e a categoria. Cada filtro ligado aparece como etiqueta que o retira; «Limpar» retira todos. A data é a do email (recebido, enviado, ou a da última alteração de um rascunho). | `InboxController::PERIODS`, `TRIAGE_STATES`, `period()` |
+| **Tudo vai no endereço**, sem os valores por omissão, por isso um filtro sobrevive a recarregar, abrir um email e voltar, e paginar. Mudar de pasta ou de caixa começa sem filtros. | `filterParams()` |
+
+Testes: `tests/Feature/Email/EmailClientTest.php`.

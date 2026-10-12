@@ -10,6 +10,7 @@ use App\Jobs\ProcessInboundEmail;
 use App\Jobs\PushDraftToServer;
 use App\Mail\AgentMessage;
 use App\Models\Agent;
+use App\Models\EmailAttachment;
 use App\Models\EmailFolder;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
@@ -317,4 +318,64 @@ it('shows the images an email embeds from its own files, not as attachments', fu
     $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$message->id}"))
         ->assertInertia(fn ($page) => $page->where('open.messages.0.html', fn ($html) => str_contains($html, "src=\"/attachments/{$file->id}\""))
             ->where('open.messages.0.attachments', fn ($files) => count($files) === 0));
+});
+
+it('searches the open folder by subject, sender or text, and every folder when asked', function () {
+    $this->imap->deliver('INBOX', rawEmail('a@fora', 'Cotação de cimento', 'joao@fornecedor.test'));
+    $this->imap->deliver('INBOX', rawEmail('b@fora', 'Reunião de sexta'));
+    $this->imap->deliver('Clientes', rawEmail('c@fora', 'Cotação antiga'));
+    syncAna($this);
+    asTenant($this->tenant, fn () => app(MailboxSync::class)->run($this->mailbox->fresh(), EmailFolder::query()->where('path', 'Clientes')->first()));
+
+    $subjects = fn (string $query) => collect($this->actingAs($this->ana)->get(tenantUrl($this->tenant, "inbox?mailbox={$this->mailbox->id}&{$query}"))
+        ->assertOk()->viewData('page')['props']['messages']['data'])->pluck('subject')->sort()->values()->all();
+
+    expect($subjects('q=cotação'))->toBe(['Cotação de cimento'])
+        ->and($subjects('q=fornecedor'))->toBe(['Cotação de cimento'])
+        ->and($subjects('q='.urlencode('Texto de Reunião')))->toBe(['Reunião de sexta'])
+        ->and($subjects('q=cotação&em=todas'))->toBe(['Cotação antiga', 'Cotação de cimento']);
+});
+
+it('filters the list by reading, files, star, dates and triage state, and keeps them in the address', function () {
+    syncAna($this);
+    [$read, $files, $starred, $old, $failed] = asTenant($this->tenant, function () {
+        $inbox = EmailFolder::query()->where('mailbox_id', $this->mailbox->id)->where('role', EmailFolder::INBOX)->firstOrFail();
+        $make = fn (string $subject, array $extra = []) => EmailMessage::factory()->create([
+            'mailbox_id' => $this->mailbox->id, 'email_folder_id' => $inbox->id, 'subject' => $subject, 'read_at' => null, ...$extra,
+        ]);
+
+        $files = $make('Com ficheiro');
+        EmailAttachment::factory()->create(['email_message_id' => $files->id, 'filename' => 'fatura.pdf', 'path' => 'x/fatura.pdf']);
+
+        return [
+            $make('Já lido', ['read_at' => now()]),
+            $files,
+            $make('Com estrela', ['is_flagged' => true]),
+            $make('Antigo', ['received_at' => now()->subDays(40)]),
+            $make('Falhou', ['status' => EmailStatus::Failed]),
+        ];
+    });
+
+    $list = fn (string $query) => $this->actingAs($this->ana)->get(tenantUrl($this->tenant, "inbox?mailbox={$this->mailbox->id}&{$query}"))->assertOk()->viewData('page')['props'];
+    $ids = fn (string $query) => collect($list($query)['messages']['data'])->pluck('id')->sort()->values()->all();
+
+    expect($ids('leitura=lidos'))->toBe([$read->id])
+        ->and($ids('leitura=nao_lidos'))->not->toContain($read->id)
+        ->and($ids('unread=1'))->not->toContain($read->id)
+        ->and($ids('anexos=1'))->toBe([$files->id])
+        ->and($ids('estrela=1'))->toBe([$starred->id])
+        ->and($ids('periodo=30d'))->not->toContain($old->id)
+        ->and($ids('de='.now()->subDays(45)->format('Y-m-d').'&ate='.now()->subDays(35)->format('Y-m-d')))->toBe([$old->id])
+        // A personal mailbox that does not send to triage has no triage filter.
+        ->and($ids('triagem=falhou'))->toHaveCount(5);
+
+    // One that sends its email to triage has it.
+    $this->mailbox->forceFill(['sends_to_triage' => true])->save();
+    $props = $list('triagem=falhou&anexos=0');
+
+    expect(collect($props['messages']['data'])->pluck('id')->all())->toBe([$failed->id])
+        ->and($props['current']['triagem'])->toBe('falhou')
+        ->and($props['triage_states'])->not->toBeEmpty();
+
+    $this->actingAs($this->ana)->get(tenantUrl($this->tenant, "inbox?mailbox={$this->mailbox->id}&periodo=ontem"))->assertSessionHasErrors('periodo');
 });

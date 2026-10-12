@@ -22,7 +22,6 @@ import {
     RefreshCw,
     Reply,
     ReplyAll,
-    Search,
     Send,
     Settings,
     ShieldAlert,
@@ -30,7 +29,7 @@ import {
     Trash2,
     UserRound,
 } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Monogram } from '@/Components/Blocks';
@@ -38,6 +37,7 @@ import { CategoryBadge, PriorityDot } from '@/Components/CategoryBadge';
 import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmailBody } from '@/Components/email/EmailBody';
 import { EmailComposer } from '@/Components/email/EmailComposer';
+import { EmailFilters, type EmailListFilters, filterParams, narrowed } from '@/Components/email/EmailFilters';
 import { TriagePanel } from '@/Components/email/TriagePanel';
 import { EmptyState } from '@/Components/EmptyState';
 import { StatusBadge } from '@/Components/Status';
@@ -83,9 +83,10 @@ interface Props {
         category: string | null;
         unread: boolean;
         triage: boolean;
-    };
+    } & Omit<EmailListFilters, 'mailbox' | 'folder' | 'q' | 'category'>;
     messages: { data: EmailSummary[]; next: string | null; prev: string | null; from: number; to: number; total: number };
     categories: (Option & { count: number })[];
+    triage_states: Option[];
     open: OpenConversation | null;
     attachment_limits: AttachmentLimits;
     can_connect: boolean;
@@ -293,7 +294,7 @@ function MailboxNav({
                         <FolderButton
                             key={folder.id}
                             folder={folder}
-                            active={current.folder === folder.id && current.q === '' && !current.category}
+                            active={current.folder === folder.id && !current.em}
                             onClick={() => go({ mailbox: mailbox.id, folder: folder.id })}
                         />
                     ))}
@@ -668,27 +669,33 @@ function ReadingPane({
     );
 }
 
-export default function EmailIndex({ mailboxes, routed, current, messages, categories, open, attachment_limits, can_connect }: Props) {
+export default function EmailIndex({ mailboxes, routed, current, messages, categories, triage_states, open, attachment_limits, can_connect }: Props) {
     const [composing, setComposing] = useState<Composition | null>(null);
-    const [search, setSearch] = useState(current.q);
     const [syncing, setSyncing] = useState(false);
     // The row clicked shows as open at once, while the email loads.
     const [opening, setOpening] = useState<number | null>(null);
     const mailbox = mailboxes.find((m) => m.id === current.mailbox);
     const folder = mailbox?.folders.find((f) => f.id === current.folder);
     const writable = mailboxes.filter((m) => m.can_write);
-    const base = useMemo(
+    const filters: EmailListFilters = useMemo(
         () => ({
-            mailbox: current.mailbox ?? undefined,
-            folder: current.folder ?? undefined,
-            q: current.q || undefined,
-            category: current.category ?? undefined,
-            unread: current.unread ? 1 : undefined,
+            mailbox: current.mailbox,
+            folder: current.folder,
+            q: current.q,
+            category: current.category,
+            em: current.em,
+            leitura: current.leitura,
+            anexos: current.anexos,
+            estrela: current.estrela,
+            periodo: current.periodo,
+            de: current.de,
+            ate: current.ate,
+            triagem: current.triagem,
         }),
         [current],
     );
-
-    useEffect(() => setSearch(current.q), [current.q]);
+    const base = useMemo(() => filterParams(filters), [filters]);
+    const filtering = current.q !== '' || narrowed(filters);
 
     const openMessage = (summary: EmailSummary) => {
         setComposing(null);
@@ -718,11 +725,6 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
         }
 
         router.get('/inbox', { ...base, message: summary.id }, { ...visitOptions, ...done, only: ['open', 'mailboxes', 'messages'] });
-    };
-
-    const submitSearch = (event: FormEvent) => {
-        event.preventDefault();
-        router.get('/inbox', { mailbox: current.mailbox ?? undefined, folder: current.folder ?? undefined, q: search || undefined }, visitOptions);
     };
 
     const refresh = () => {
@@ -847,34 +849,26 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
                                 <PenLine />
                             </Button>
                         </div>
-                        <form onSubmit={submitSearch} className="relative">
-                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                                type="search"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder={mailbox ? `Pesquisar em ${mailbox.personal ? mailbox.address : mailbox.name}` : 'Pesquisar'}
-                                className="h-9 w-full rounded-lg border bg-background pr-3 pl-8 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                                aria-label="Pesquisar emails"
-                            />
-                        </form>
+                        <EmailFilters
+                            filters={filters}
+                            folderName={folder?.name ?? null}
+                            placeholder={
+                                current.em || !folder
+                                    ? `Pesquisar em ${mailbox ? (mailbox.personal ? mailbox.address : mailbox.name) : 'Encaminhados'}`
+                                    : `Pesquisar em ${folder.name}`
+                            }
+                            categories={categories}
+                            triageStates={triage_states}
+                        />
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <span className="min-w-0 flex-1 truncate">
                                 {current.q
                                     ? `Resultados para «${current.q}»`
-                                    : (folder?.name ?? (current.mailbox === 'routed' ? 'Encaminhados para mim' : ''))}
+                                    : current.em
+                                      ? 'Todas as pastas'
+                                      : (folder?.name ?? (current.mailbox === 'routed' ? 'Encaminhados para mim' : ''))}
                                 {messages.total > 0 && ` · ${messages.from}–${messages.to} de ${messages.total}`}
                             </span>
-                            <button
-                                type="button"
-                                onClick={() => router.get('/inbox', { ...base, unread: current.unread ? undefined : 1 }, visitOptions)}
-                                className={cn(
-                                    'rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground',
-                                    current.unread && 'bg-accent font-medium text-foreground',
-                                )}
-                            >
-                                Não lidos
-                            </button>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -923,7 +917,28 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
                         {messages.data.length === 0 ? (
                             <div className="flex flex-col items-center gap-2 px-6 py-16 text-center text-sm text-muted-foreground">
                                 <MailOpen className="size-6" />
-                                {current.q ? 'Nenhum email encontrado.' : 'Esta pasta está vazia.'}
+                                {filtering ? (
+                                    <>
+                                        <p className="font-medium text-foreground">Nenhum email encontrado</p>
+                                        <p className="text-xs">
+                                            {current.em
+                                                ? 'Experimente outra palavra ou retire filtros.'
+                                                : 'Experimente outra palavra, retire filtros ou procure em todas as pastas.'}
+                                        </p>
+                                        {!current.em && typeof current.mailbox === 'number' && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="mt-1"
+                                                onClick={() => router.get('/inbox', { ...base, em: 'todas' }, visitOptions)}
+                                            >
+                                                Procurar em todas as pastas
+                                            </Button>
+                                        )}
+                                    </>
+                                ) : (
+                                    'Esta pasta está vazia.'
+                                )}
                             </div>
                         ) : (
                             <ul>
@@ -932,13 +947,13 @@ export default function EmailIndex({ mailboxes, routed, current, messages, categ
                                         key={m.id}
                                         message={m}
                                         active={(opening ?? open?.id) === m.id}
-                                        showFolder={current.q !== ''}
+                                        showFolder={Boolean(current.em) || current.mailbox === 'routed'}
                                         onOpen={() => openMessage(m)}
                                     />
                                 ))}
                             </ul>
                         )}
-                        {folder?.has_older && !messages.next && !current.q && (
+                        {folder?.has_older && !messages.next && !filtering && (
                             <div className="p-3">
                                 <Button
                                     variant="outline"

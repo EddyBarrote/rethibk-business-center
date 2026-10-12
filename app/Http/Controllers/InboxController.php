@@ -22,6 +22,7 @@ use App\Models\Mailbox;
 use App\Models\Task;
 use App\Models\User;
 use App\Tenancy\TenantRule;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -45,6 +46,21 @@ use Throwable;
  */
 class InboxController extends Controller
 {
+    /** The presets of the date filter: from that many days ago until now. */
+    private const PERIODS = [
+        'hoje' => ['days' => 0],
+        '7d' => ['days' => 7],
+        '30d' => ['days' => 30],
+        '90d' => ['days' => 90],
+    ];
+
+    /** Where the triage of an email is, by its status. */
+    private const TRIAGE_STATES = [
+        'por_triar' => ['label' => 'Por triar', 'statuses' => [EmailStatus::Received, EmailStatus::Processing]],
+        'triado' => ['label' => 'Triado', 'statuses' => [EmailStatus::Processed]],
+        'falhou' => ['label' => 'Falhou', 'statuses' => [EmailStatus::Failed]],
+    ];
+
     public function index(Request $request, MailboxSync $sync): Response
     {
         return $this->client($request, $sync, null);
@@ -264,7 +280,18 @@ class InboxController extends Controller
             'q' => ['nullable', 'string', 'max:200'],
             'unread' => ['nullable', 'boolean'],
             'message' => ['nullable', 'integer'],
+            // Filters of the list (docs/DECISOES.md, "Email: pesquisa e filtros").
+            'em' => ['nullable', Rule::in(['todas'])],
+            'leitura' => ['nullable', Rule::in(['nao_lidos', 'lidos'])],
+            'anexos' => ['nullable', 'boolean'],
+            'estrela' => ['nullable', 'boolean'],
+            'periodo' => ['nullable', Rule::in(array_keys(self::PERIODS))],
+            'de' => ['nullable', 'date_format:Y-m-d'],
+            'ate' => ['nullable', 'date_format:Y-m-d'],
+            'triagem' => ['nullable', Rule::in(array_keys(self::TRIAGE_STATES))],
         ]);
+        // The old "Não lidos" switch still opens the same list.
+        $filters['leitura'] ??= ($filters['unread'] ?? false) ? 'nao_lidos' : null;
 
         if ($open === null && isset($filters['message'])) {
             $open = EmailMessage::query()->visibleTo($user)->find($filters['message']);
@@ -313,10 +340,23 @@ class InboxController extends Controller
             default => $mailboxFolders->firstWhere('role', EmailFolder::INBOX) ?? $mailboxFolders->first(),
         };
         $search = trim((string) ($filters['q'] ?? ''));
-
-        $messages = $this->listing($user, $selectedMailbox, $folder, $search, $filters['category'] ?? null, (bool) ($filters['unread'] ?? false));
-
         $selected = is_int($selectedMailbox) ? $mailboxes->firstWhere('id', $selectedMailbox) : null;
+        $triage = $selectedMailbox === 'routed' || ($selected !== null && (! $selected->isPersonal() || $selected->sendsToTriage()));
+
+        [$from, $until] = $this->period($filters);
+        $list = [
+            'q' => $search,
+            'everywhere' => ($filters['em'] ?? null) === 'todas',
+            'category' => $filters['category'] ?? null,
+            'reading' => $filters['leitura'],
+            'attachments' => (bool) ($filters['anexos'] ?? false),
+            'flagged' => (bool) ($filters['estrela'] ?? false),
+            'from' => $from,
+            'until' => $until,
+            'triage' => $triage ? ($filters['triagem'] ?? null) : null,
+        ];
+
+        $messages = $this->listing($user, $selectedMailbox, $folder, $list);
 
         return Inertia::render('Email/Index', [
             'mailboxes' => $mailboxes->map(fn (Mailbox $m) => [
@@ -342,9 +382,18 @@ class InboxController extends Controller
                 'folder_role' => $folder?->role,
                 'q' => $search,
                 'category' => $filters['category'] ?? null,
-                'unread' => (bool) ($filters['unread'] ?? false),
-                'triage' => $selected !== null && (! $selected->isPersonal() || $selected->sendsToTriage()),
+                'unread' => $filters['leitura'] === 'nao_lidos',
+                'triage' => $triage,
+                'em' => $list['everywhere'] ? 'todas' : null,
+                'leitura' => $filters['leitura'],
+                'anexos' => $list['attachments'],
+                'estrela' => $list['flagged'],
+                'periodo' => $filters['periodo'] ?? null,
+                'de' => isset($filters['periodo']) ? null : ($filters['de'] ?? null),
+                'ate' => isset($filters['periodo']) ? null : ($filters['ate'] ?? null),
+                'triagem' => $list['triage'],
             ],
+            'triage_states' => $triage ? collect(self::TRIAGE_STATES)->map(fn (array $s, string $value) => ['value' => $value, 'label' => $s['label']])->values() : [],
             'messages' => $messages,
             'categories' => $selected !== null && (! $selected->isPersonal() || $selected->sendsToTriage()) ? $this->categories($selected) : [],
             'open' => $conversation,
@@ -373,18 +422,42 @@ class InboxController extends Controller
     }
 
     /**
+     * The start and end of the dates asked for: a preset, or the two dates.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array{0: ?CarbonImmutable, 1: ?CarbonImmutable}
+     */
+    private function period(array $filters): array
+    {
+        if (isset($filters['periodo'])) {
+            $days = self::PERIODS[$filters['periodo']]['days'];
+
+            return [CarbonImmutable::today()->subDays($days), null];
+        }
+
+        $from = isset($filters['de']) ? CarbonImmutable::createFromFormat('Y-m-d', $filters['de'])?->startOfDay() : null;
+        $until = isset($filters['ate']) ? CarbonImmutable::createFromFormat('Y-m-d', $filters['ate'])?->endOfDay() : null;
+
+        // Dates given the wrong way round still mean the days between them.
+        return $from !== null && $until !== null && $from->greaterThan($until) ? [$until->startOfDay(), $from->endOfDay()] : [$from ?: null, $until ?: null];
+    }
+
+    /**
+     * @param  array{q: string, everywhere: bool, category: ?string, reading: ?string, attachments: bool, flagged: bool, from: ?CarbonImmutable, until: ?CarbonImmutable, triage: ?string}  $filters
      * @return array<string, mixed>
      */
-    private function listing(User $user, int|string|null $mailbox, ?EmailFolder $folder, string $search, ?string $category, bool $unread): array
+    private function listing(User $user, int|string|null $mailbox, ?EmailFolder $folder, array $filters): array
     {
+        $search = $filters['q'];
+
         if ($mailbox === null) {
             return ['data' => [], 'next' => null, 'prev' => null, 'from' => 0, 'to' => 0, 'total' => 0];
         }
 
         $query = match (true) {
             $mailbox === 'routed' => EmailMessage::query()->triage()->where('routed_to_user_id', $user->id)->whereNull('removed_at'),
-            // A search looks in every folder of the mailbox.
-            $search !== '' => EmailMessage::query()->where('mailbox_id', $mailbox)->whereNull('removed_at'),
+            // Asked to look in every folder of the mailbox.
+            $filters['everywhere'] => EmailMessage::query()->where('mailbox_id', $mailbox)->whereNull('removed_at'),
             $folder !== null => $folder->messages(),
             default => EmailMessage::query()->whereRaw('1 = 0'),
         };
@@ -399,8 +472,15 @@ class InboxController extends Controller
                 ->orWhere('to', 'like', "%{$search}%")
                 ->orWhere('text_body', 'like', "%{$search}%")
                 ->orWhere('summary', 'like', "%{$search}%")))
-            ->when($category, fn (Builder $q, string $c) => $c === 'none' ? $q->whereNull('classification') : $q->where('classification', $c))
-            ->when($unread, fn (Builder $q) => $q->whereNull('read_at'))
+            ->when($filters['category'], fn (Builder $q, string $c) => $c === 'none' ? $q->whereNull('classification') : $q->where('classification', $c))
+            // A draft is never unread, and never counts as read either.
+            ->when($filters['reading'] === 'nao_lidos', fn (Builder $q) => $q->whereNull('read_at')->where('status', '!=', EmailStatus::Draft))
+            ->when($filters['reading'] === 'lidos', fn (Builder $q) => $q->whereNotNull('read_at'))
+            ->when($filters['attachments'], fn (Builder $q) => $q->whereHas('attachments'))
+            ->when($filters['flagged'], fn (Builder $q) => $q->where('is_flagged', true))
+            ->when($filters['from'], fn (Builder $q, CarbonImmutable $d) => $q->whereRaw('coalesce(received_at, sent_at, updated_at) >= ?', [$d]))
+            ->when($filters['until'], fn (Builder $q, CarbonImmutable $d) => $q->whereRaw('coalesce(received_at, sent_at, updated_at) <= ?', [$d]))
+            ->when($filters['triage'], fn (Builder $q, string $t) => $q->whereIn('status', self::TRIAGE_STATES[$t]['statuses']))
             ->orderByRaw('coalesce(received_at, sent_at, updated_at) desc')
             ->orderByDesc('id');
 
