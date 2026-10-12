@@ -3,6 +3,7 @@ import { Activity, BookOpen, Brain, Clock, ExternalLink, ListTodo, Lock, Message
 import { type FormEvent, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { NowPanel, type NowRun } from '@/Components/agents/AgentNow';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
@@ -51,13 +52,6 @@ interface TeamConversation {
     status_label: string;
     last_activity_at: string | null;
 }
-
-/** A run on the agent's page with its conversation and the step it is on (AgentController::now). */
-type NowRun = RunSummary & {
-    started_at: string | null;
-    task: { id: number | null; ref: string | null; title: string | null; kind: 'task' | 'chat'; visible: boolean } | null;
-    step: { type: string; tool_name: string | null; at: string } | null;
-};
 
 export default function AgentShow({
     agent,
@@ -527,129 +521,6 @@ export default function AgentShow({
                 </Properties>
             </div>
         </AppLayout>
-    );
-}
-
-/** Where a run is followed: its conversation with the run open in the side panel, or the run on its own. */
-const runHref = (run: NowRun) => (run.task?.id ? `/tasks/${run.task.id}?execucao=${run.id}` : `/settings/runs/${run.id}`);
-
-/** The step a run is on, in words. */
-function stepLabel(run: NowRun, toolNames: Record<string, string> | undefined) {
-    if (run.status === 'queued') {
-        return 'Na fila';
-    }
-
-    switch (run.step?.type) {
-        case 'tool_call':
-            return `A usar ${(run.step.tool_name && toolNames?.[run.step.tool_name]) ?? run.step.tool_name ?? 'uma ferramenta'}`;
-        case 'message':
-            return 'A escrever a resposta';
-        case 'approval':
-            return 'À espera de aprovação';
-        default:
-            return 'A pensar';
-    }
-}
-
-/** What the run is about: the conversation or task, else the request. */
-function workTitle(run: NowRun, toolNames: Record<string, string> | undefined) {
-    if (run.task && !run.task.visible) {
-        return run.task.kind === 'chat' ? 'Numa conversa privada' : 'Numa tarefa a que não tem acesso';
-    }
-
-    if (run.task?.title) {
-        return run.task.kind === 'chat' ? run.task.title : `${run.task.ref} · ${run.task.title}`;
-    }
-
-    return run.title ?? runTitle(run.input, toolNames);
-}
-
-/**
- * What the agent is doing right now, at the top of its page: each queued or
- * running piece of work with its conversation and current step, live, and a
- * link that opens the run inside the conversation. Idle, one line with its
- * last activity.
- */
-function NowPanel({ active, last }: { active: NowRun[]; last: NowRun | null }) {
-    const toolNames = useToolNames();
-
-    if (active.length === 0) {
-        return (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
-                <StatusDot tone="idle" />
-                <span className="text-foreground">Sem trabalho em curso.</span>
-                {last ? (
-                    <span className="min-w-0 truncate">
-                        Última actividade {ago(last.finished_at ?? last.created_at)}:{' '}
-                        {last.task && !last.task.visible ? (
-                            workTitle(last, toolNames)
-                        ) : (
-                            <Link href={runHref(last)} className="text-foreground underline-offset-4 hover:underline">
-                                {workTitle(last, toolNames)}
-                            </Link>
-                        )}
-                    </span>
-                ) : (
-                    <span>Ainda não trabalhou.</span>
-                )}
-            </div>
-        );
-    }
-
-    return (
-        <section
-            aria-label="A fazer agora"
-            className="flex flex-col gap-2 rounded-xl border border-status-running/30 bg-[color-mix(in_oklch,var(--status-running)_6%,var(--card))] p-4"
-        >
-            <h2 className="flex items-center gap-2 text-xs font-medium tracking-wide text-status-running uppercase">
-                <StatusDot tone="running" />A fazer agora
-            </h2>
-            <ul className="flex flex-col divide-y divide-status-running/15">
-                {active.map((run) => (
-                    <NowRow key={run.id} run={run} toolNames={toolNames} />
-                ))}
-            </ul>
-        </section>
-    );
-}
-
-function NowRow({ run, toolNames }: { run: NowRun; toolNames: Record<string, string> | undefined }) {
-    const { tenant } = usePage<SharedProps>().props;
-    const hidden = run.task !== null && !run.task.visible;
-
-    // Each step the run takes refreshes the line, so the current step follows the run live.
-    useLive(tenant && !hidden ? `tenant.${tenant.id}.run.${run.id}` : null, ['AgentRunStepAdded'], () => router.reload({ only: ['now'] }));
-
-    return (
-        <li className="flex flex-col gap-2 py-2 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-4">
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{workTitle(run, toolNames)}</p>
-                <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 text-foreground/80">
-                        {run.step?.type === 'tool_call' && <Wrench className="size-3" />}
-                        {stepLabel(run, toolNames)}
-                    </span>
-                    <span aria-hidden>·</span>
-                    <span title={dateTime(run.started_at ?? run.created_at)}>
-                        {run.status === 'queued' ? 'pedido' : 'começou'} {ago(run.started_at ?? run.created_at)}
-                    </span>
-                    {run.requested_by && (
-                        <>
-                            <span aria-hidden>·</span>
-                            <span>a pedido de {run.requested_by}</span>
-                        </>
-                    )}
-                </p>
-            </div>
-            {!hidden && (
-                <Button variant="outline" size="sm" asChild className="self-start sm:self-auto">
-                    <Link href={runHref(run)}>
-                        <ExternalLink />
-                        {run.task ? (run.task.kind === 'chat' ? 'Abrir conversa' : 'Abrir tarefa') : 'Ver execução'}
-                    </Link>
-                </Button>
-            )}
-        </li>
     );
 }
 

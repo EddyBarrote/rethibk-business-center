@@ -159,3 +159,57 @@ it('shows on the agent page what it is doing now, with its conversation and step
     $this->actingAs($this->boss)->get(tenantUrl($this->a, "agents/{$this->agent->id}"))
         ->assertInertia(fn (Assert $page) => $page->has('now.active', 0)->where('now.last.task.id', null)->where('now.last.task.visible', false));
 });
+
+it('shows in the conversation what the agent is doing elsewhere, and not its own run there', function () {
+    [$chat, $work] = asTenant($this->a, function () {
+        $chat = Task::factory()->chat()->create(['user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->boss->id.':'.$this->agent->id]);
+        $work = Task::factory()->create(['title' => 'Seguir a proposta da Cimentos', 'user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $work->id, 'status' => RunStatus::Running, 'started_at' => now()]);
+
+        return [$chat, $work];
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}"))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('working', null)
+            ->has('agent_elsewhere', 1)
+            ->where('agent_elsewhere.0.task.id', $work->id)
+            ->where('agent_elsewhere.0.task.title', 'Seguir a proposta da Cimentos')
+            ->where('sidebar_agents.0.running', 1));
+
+    // Its run in this very conversation is the "a trabalhar" bubble, not "elsewhere".
+    asTenant($this->a, fn () => AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id, 'status' => RunStatus::Queued]));
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}"))
+        ->assertInertia(fn (Assert $page) => $page->whereNot('working', null)->has('agent_elsewhere', 1));
+});
+
+it('stops showing a run that lost its worker as working, and closes it as failed', function () {
+    $chat = asTenant($this->a, function () {
+        $chat = Task::factory()->chat()->create(['user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->boss->id.':'.$this->agent->id]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id, 'status' => RunStatus::Running, 'started_at' => now()->subMinutes(30), 'updated_at' => now()->subMinutes(30)]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'status' => RunStatus::Queued, 'created_at' => now()->subHours(3), 'updated_at' => now()->subHours(3)]);
+
+        return $chat;
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}"))
+        ->assertInertia(fn (Assert $page) => $page->where('working', null)->has('agent_elsewhere', 0)->where('sidebar_agents.0.running', 0));
+
+    $this->artisan('agents:close-stale-runs')->assertSuccessful();
+
+    asTenant($this->a, function () use ($chat) {
+        expect(AgentRun::query()->pluck('status')->all())->each->toBe(RunStatus::Failed);
+        expect($chat->messages()->latest('id')->first()->body)->toContain('parou a meio sem terminar');
+    });
+});
+
+it('closes the run when its job fails, instead of leaving it running', function () {
+    $run = asTenant($this->a, fn () => AgentRun::factory()->create(['agent_id' => $this->agent->id, 'status' => RunStatus::Running, 'started_at' => now()]));
+
+    (new RunAgent($this->a->id, $run->id))->failed(new RuntimeException('killed'));
+
+    asTenant($this->a, fn () => expect($run->refresh()->status)->toBe(RunStatus::Failed)
+        ->and($run->error)->toBe('A execução foi interrompida antes de terminar.'));
+});

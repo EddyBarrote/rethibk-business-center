@@ -155,6 +155,24 @@ it('lets an agent read a personal mailbox only when its owners chose it, and dra
         ->assertSessionHas('success');
 });
 
+it('keeps removed email out of an agent\'s reach', function () {
+    [$kept, $removed] = asTenant($this->tenant, function () {
+        $mailbox = Mailbox::factory()->create();
+
+        return [
+            EmailMessage::factory()->create(['mailbox_id' => $mailbox->id, 'subject' => 'Cotação actual']),
+            EmailMessage::factory()->create(['mailbox_id' => $mailbox->id, 'subject' => 'Cotação removida', 'removed_at' => now()]),
+        ];
+    });
+
+    asTenant($this->tenant, function () use ($kept, $removed) {
+        $found = json_decode(runCapability($this->finance, 'email.search', ['query' => 'Cotação'])->content, true)['emails'];
+
+        expect(array_column($found, 'id'))->toBe([$kept->id])
+            ->and(runCapability($this->finance, 'email.read', ['email_id' => $removed->id])->ok)->toBeFalse();
+    });
+});
+
 it('never sends from a person mailbox except for one of its owners', function () {
     asTenant($this->tenant, function () {
         $mailbox = MailboxOwner::factory()->create(['user_id' => $this->ana->id])->mailbox;

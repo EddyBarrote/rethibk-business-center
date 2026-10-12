@@ -20,6 +20,16 @@ return [
     'timeout' => 120,
 
     /*
+    | A run still "running" this long after its last update lost its worker
+    | (the job is killed at 300 s), and one "queued" this long never got one:
+    | both stop showing as working and are closed as failed.
+    */
+
+    'stale_running_minutes' => (int) env('AGENTS_STALE_RUNNING_MINUTES', 10),
+
+    'stale_queued_minutes' => (int) env('AGENTS_STALE_QUEUED_MINUTES', 60),
+
+    /*
     | Routine cron expressions are read in this timezone (Mozambique, CAT).
     */
 

@@ -3,7 +3,6 @@
 namespace App\Http\Middleware;
 
 use App\Enums\AgentStatus;
-use App\Enums\RunStatus;
 use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\AgentRun;
@@ -105,7 +104,7 @@ class HandleInertiaRequests extends Middleware
             ->pluck('total', 'task_messages.task_id');
 
         $running = AgentRun::query()
-            ->whereIn('status', [RunStatus::Queued, RunStatus::Running])
+            ->working()
             ->selectRaw('agent_id, count(*) as total')
             ->groupBy('agent_id')
             ->pluck('total', 'agent_id');

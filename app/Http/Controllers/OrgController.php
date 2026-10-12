@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Enums\AgentStatus;
 use App\Enums\Permission;
-use App\Enums\RunStatus;
 use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\AgentRun;
@@ -34,7 +33,7 @@ class OrgController extends Controller
         $openByAgent = Task::query()->open()->whereNotNull('assignee_agent_id')->selectRaw('assignee_agent_id, count(*) as total')->groupBy('assignee_agent_id')->pluck('total', 'assignee_agent_id');
         $openByUser = Task::query()->open()->whereNotNull('assignee_user_id')->selectRaw('assignee_user_id, count(*) as total')->groupBy('assignee_user_id')->pluck('total', 'assignee_user_id');
         $waiting = Task::query()->where('status', TaskStatus::WaitingHuman)->selectRaw('assignee_agent_id, count(*) as total')->groupBy('assignee_agent_id')->pluck('total', 'assignee_agent_id');
-        $running = AgentRun::query()->whereIn('status', [RunStatus::Queued, RunStatus::Running])->pluck('agent_id')->flip();
+        $running = AgentRun::query()->working()->pluck('agent_id')->flip();
 
         $members = $agents->map(fn (Agent $agent) => [
             'key' => OrgChart::key($agent),

@@ -97,13 +97,14 @@ class EmailMessage extends Model
     /**
      * What an agent reads: the triage email (with what a person's mailbox
      * sent to triage), and the personal mailboxes whose owners let it read them.
+     * Never what was removed (gone from the server, or archived as test data).
      *
      * @param  Builder<self>  $query
      */
     #[Scope]
     protected function readableBy(Builder $query, Agent $agent): void
     {
-        $query->where(fn (Builder $q) => $q
+        $query->whereNull('removed_at')->where(fn (Builder $q) => $q
             ->whereIn('mailbox_id', Mailbox::query()->readableBy($agent)->select('id'))
             ->orWhereNotNull('sent_to_triage_at'));
     }

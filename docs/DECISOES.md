@@ -523,10 +523,10 @@ A barra lateral dizia que um agente estava a trabalhar, mas a página dele só m
 
 | Decisão | Onde |
 |---|---|
-| **Cartão «A fazer agora» no topo da página do agente**, uma linha por execução na fila ou a correr (a mesma regra da barra lateral): a conversa ou tarefa, o passo em que vai (a pensar, a usar uma ferramenta pelo nome em Capacidades, a escrever a resposta, à espera de aprovação), quando começou e a pedido de quem. | `AgentController::now()`, `Pages/Agents/Show.tsx` (`NowPanel`) |
+| **Cartão «A fazer agora» no topo da página do agente**, uma linha por execução na fila ou a correr (a mesma regra da barra lateral): a conversa ou tarefa, o passo em que vai (a pensar, a usar uma ferramenta pelo nome em Capacidades, a escrever a resposta, à espera de aprovação), quando começou e a pedido de quem. | `App\Ai\Runs\AgentNow`, `Components/agents/AgentNow.tsx` (`NowPanel`) |
 | **Ao vivo:** cada passo novo da execução actualiza a linha; o início e o fim de execuções actualizam o cartão, a lista e a barra lateral. Sem Reverb, recarrega a cada 3 segundos enquanto houver trabalho. | `useLive` em `Pages/Agents/Show.tsx` |
 | **«Abrir conversa» / «Abrir tarefa»** leva a `/tasks/{id}?execucao={run}`, com a execução aberta no painel lateral; sem tarefa, «Ver execução» abre `/runs/{id}`. | `runHref()` |
-| **A conversa privada de outra pessoa aparece como «Numa conversa privada»**, sem título nem botão (a regra de `TaskPolicy::view`). | `AgentController::runTask()` |
+| **A conversa privada de outra pessoa aparece como «Numa conversa privada»**, sem título nem botão (a regra de `TaskPolicy::view`). | `AgentNow::runTask()` |
 | **Parado, uma linha:** «Sem trabalho em curso. Última actividade há X: …», com a última execução terminada. | `NowPanel` |
 | O distintivo «A trabalhar» no cabeçalho passa a vir dos dados da própria página, por isso nunca contradiz o cartão. | `Pages/Agents/Show.tsx` |
 
@@ -764,6 +764,16 @@ O Barrote pediu filtro e pesquisa nas páginas de Email. Já havia uma caixa de 
 | **Tudo vai no endereço**, sem os valores por omissão, por isso um filtro sobrevive a recarregar, abrir um email e voltar, e paginar. Mudar de pasta ou de caixa começa sem filtros. | `filterParams()` |
 
 Testes: `tests/Feature/Email/EmailClientTest.php`.
+
+## Agente ocupado noutro sítio (12.10.2026)
+
+A barra lateral mostrava o Gestor de Clientes «a trabalhar», mas a conversa com ele (tarefa 10) não mostrava nada. O estado não estava preso: o agente corria um batimento na tarefa 15, e a conversa só olhava para as execuções dela própria. Ao mesmo tempo, nada fechava uma execução cujo processo morreu, e essa ficaria «a trabalhar» para sempre (e impedia o agente de responder nessa conversa).
+
+| Decisão | Onde |
+|---|---|
+| **Na conversa, «A fazer agora, fora desta conversa»**: quando o agente tem execuções vivas noutro sítio (tarefa, rotina, fluxo, outra conversa), um cartão no fim da conversa diz o quê, em que passo e quando começou, com «Abrir tarefa»/«Abrir conversa». É o mesmo `NowRow` da página do agente; a conversa privada de outra pessoa aparece sem título nem botão. O cabeçalho diz «a trabalhar noutro sítio». A execução da própria conversa continua a ser a bolha «a trabalhar», não o cartão. | `AgentNow::for(exceptTask:)`, prop `agent_elsewhere` em `TaskController::show`, `ElsewherePanel` |
+| **«A trabalhar» só conta execuções vivas** (`AgentRun::working()`): na fila há menos de 60 min, ou a correr com última actualização há menos de 10 min (o job morre aos 300 s). Usado na barra lateral, na página do agente, no organigrama, na lista de tarefas, na bolha da conversa e na regra que impede duas execuções na mesma tarefa. | `config/agents.php` (`stale_running_minutes`, `stale_queued_minutes`) |
+| **Execuções presas fecham-se sozinhas como falhadas**, com nota na conversa («parou a meio sem terminar» / «ficou na fila sem nunca começar») e o evento de fim, para a barra lateral se actualizar: de imediato quando o job falha ou é morto por tempo (`RunAgent::failed`), e de 5 em 5 minutos pelo `agents:close-stale-runs`. | `App\Ai\Runs\StaleRuns`, `routes/console.php` |
 
 ## Memória em entradas, como no claude.ai (12.10.2026)
 

@@ -7,6 +7,8 @@ use App\Enums\RunStatus;
 use App\Enums\TriggerType;
 use Database\Factories\AgentRunFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -95,6 +97,21 @@ class AgentRun extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class);
+    }
+
+    /**
+     * Queued or running, and still alive: a run its worker lost (killed at the
+     * job timeout, a crash) stops counting as working at once, before
+     * StaleRuns closes it (docs/DECISOES.md, "Agente ocupado noutro sítio").
+     *
+     * @param  Builder<AgentRun>  $query
+     */
+    #[Scope]
+    protected function working(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q
+            ->where(fn (Builder $q) => $q->where('status', RunStatus::Queued)->where('updated_at', '>=', now()->subMinutes((int) config('agents.stale_queued_minutes'))))
+            ->orWhere(fn (Builder $q) => $q->where('status', RunStatus::Running)->where('updated_at', '>=', now()->subMinutes((int) config('agents.stale_running_minutes')))));
     }
 
     protected function casts(): array
