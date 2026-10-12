@@ -715,3 +715,16 @@ Pedido do Barrote: uma memória geral da empresa. Antes, só as decisões (as 8 
 | Fica como estava: a memória de cada agente com cada pessoa e os artigos «Memória de {agente}». | — |
 
 Testes: `tests/Feature/Knowledge/CompanyMemoryTest.php`.
+
+## Contexto dos agentes ao longo de dias (12.10.2026)
+
+Pergunta do Barrote: como gerimos o contexto de um agente que corre dias a fio, com várias conversas com a mesma pessoa. O agente lê as últimas 40 mensagens do fio, a sua memória com essa pessoa e a memória da empresa; não havia resumo, as mensagens não tinham data e as conversas só passavam à memória às 21:00. Ele aprovou as três correcções abaixo.
+
+| Decisão | Onde |
+|---|---|
+| **Consolidar quando há mensagens novas suficientes:** no fim de cada resposta do agente, uma conversa ou tarefa com `memory_every_messages` mensagens ainda por consolidar (30 por omissão, no super admin; 0 deixa só as 21:00) passa logo à memória, antes de essas mensagens saírem do histórico de 40. Uma consolidação de cada vez por fio. As 21:00 e a entrega da tarefa continuam. | `TaskThread::consolidateIfDue()`, `ConsolidateAgentMemory` (único), `config/business.php` |
+| **Data e hora em cada mensagem do histórico:** as mensagens de pessoas, outros agentes e notas levam `[Nome · AAAA-MM-DD HH:MM]`; as respostas do próprio agente não, para ele não copiar o prefixo. O prompt diz-lhe que repare no tempo que passou. | `TaskThread::history()`, `speaker()`, `InstructionComposer::task()` |
+| **Resumo rolante por fio:** cada consolidação também reescreve `tasks.summary` (onde está o assunto, o que ficou combinado, o que falta e quem o deve; até 2000 caracteres), partindo do resumo anterior. Entra no bloco «Tarefa em curso», como «O que veio antes», só quando o fio já tem mais mensagens do que o histórico mostra. | migração `2026_10_12_180001`, `MemoryExtractor`, `MemoryConsolidator::consolidate()`, `InstructionComposer::summary()` |
+| Ficam por decidir (propostas no fio): cortar o histórico por tamanho em vez de por número; factos que substituem ou apagam outros na memória; consolidar o trabalho sem pessoa; a mesma regra de pessoa ao gravar e ao ler a memória de uma tarefa. | — |
+
+Testes: `tests/Feature/Agents/AgentMemoryTest.php`.

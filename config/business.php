@@ -30,4 +30,9 @@ return [
     // Characters of the company memory that reach every agent's prompt
     // (docs/DECISOES.md, 12.10.2026). Past this, the oldest facts are left out.
     'company_memory_chars' => 8000,
+
+    // A conversation or task with this many messages not yet turned into the
+    // agent's memory is consolidated straight away, before they leave its
+    // history (TaskThread::HISTORY_MESSAGES), not only at 21:00.
+    'memory_every_messages' => 30,
 ];

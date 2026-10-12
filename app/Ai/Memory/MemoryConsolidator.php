@@ -24,8 +24,9 @@ use Illuminate\Support\Str;
 use Laravel\Ai\Responses\StructuredAgentResponse;
 
 /**
- * Consolidated memory (docs/DECISOES.md, realinhamento L7): after a task, and
- * once a day for conversations, the agent keeps the facts worth remembering.
+ * Consolidated memory (docs/DECISOES.md, realinhamento L7): after a task, once
+ * a day for conversations, and whenever a thread has enough new messages, the
+ * agent keeps the facts worth remembering and a summary of where the thread stands.
  * Each person has their own memory with the agent (09.10.2026); work facts
  * also reach the knowledge base automatically (one article per agent), which
  * is how what one person taught the agent serves the others.
@@ -36,6 +37,9 @@ final class MemoryConsolidator
     public const PROMPT_PERSON_FACTS = 40;
 
     public const PROMPT_AGENT_FACTS = 20;
+
+    /** Longest rolling summary of a thread. */
+    public const SUMMARY_CHARS = 2000;
 
     public function __construct(
         private readonly BudgetGuard $budget,
@@ -71,10 +75,12 @@ final class MemoryConsolidator
 
         $owner = $task->user_id ?? $task->created_by_user_id;
         $transcript = $messages->map(fn (TaskMessage $m) => '['.$m->authorName().'] '.Str::limit($m->body, 1500))->implode("\n\n");
-        $response = (new MemoryExtractor($agent->name, $this->known($agent, $owner), $this->companyFacts($agent)))
+        $response = (new MemoryExtractor($agent->name, $this->known($agent, $owner), $this->companyFacts($agent), $task->summary ?: '(nada ainda)'))
             ->prompt("Excerto de {$task->identifier()} «{$task->title}»:\n\n{$transcript}", provider: $agent->provider ?: config('ai.default'), model: $agent->model ?: (config('agents.model') ?: null));
 
-        $facts = (array) (($response instanceof StructuredAgentResponse ? $response->toArray() : (array) json_decode($response->text, true))['facts'] ?? []);
+        $output = $response instanceof StructuredAgentResponse ? $response->toArray() : (array) json_decode($response->text, true);
+        $facts = (array) ($output['facts'] ?? []);
+        $summary = Str::limit(trim((string) ($output['summary'] ?? '')), self::SUMMARY_CHARS, '…');
         $people = $this->people($task);
         $saved = 0;
 
@@ -103,7 +109,8 @@ final class MemoryConsolidator
             $saved++;
         }
 
-        $task->forceFill(['memory_message_id' => $messages->last()->id])->save();
+        // The rolling summary of the thread, for when its start leaves the agent's history.
+        $task->forceFill(['memory_message_id' => $messages->last()->id, 'summary' => $summary !== '' ? $summary : $task->summary])->save();
 
         if ($saved > 0) {
             $this->publish($agent);

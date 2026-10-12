@@ -15,7 +15,7 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
 {
     use Promptable;
 
-    public function __construct(private readonly string $agentName, private readonly string $known, private readonly string $company = '(nada ainda)') {}
+    public function __construct(private readonly string $agentName, private readonly string $known, private readonly string $company = '(nada ainda)', private readonly string $summary = '(nada ainda)') {}
 
     public function instructions(): string
     {
@@ -30,7 +30,12 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
         about: o nome da pessoa a quem um facto pessoal diz respeito; vazio nos factos de trabalho.
         company: true só para factos de trabalho que valem para toda a empresa e para todos os agentes (quem somos, condições de um cliente ou parceiro, uma regra ou política, um preço, quem decide o quê, uma decisão da direcção) e que ainda não estão na memória da empresa (abaixo). Uma pessoa aprova-os antes de chegarem a todos.
         section: a secção desses factos: about, clients, rules, pricing, people ou decisions.
-        Se nada vale a pena, devolve uma lista vazia.
+        Se nada vale a pena, devolve uma lista vazia de factos.
+
+        summary: onde está esta conversa ou tarefa, para o agente retomar quando as mensagens antigas já não estiverem à vista. Parte do resumo anterior (abaixo) e actualiza-o com o excerto, em 3 a 10 frases curtas: o que se está a tratar, o que ficou decidido ou combinado (com datas), o que falta e quem o deve. Tira o que ficou resolvido e já não interessa. Não repitas os factos da memória.
+
+        O resumo anterior:
+        {$this->summary}
 
         O que o agente já sabe:
         {$this->known}
@@ -50,6 +55,7 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
                 'company' => $schema->boolean(),
                 'section' => $schema->string()->enum(['about', 'clients', 'rules', 'pricing', 'people', 'decisions']),
             ]))->required(),
+            'summary' => $schema->string(),
         ];
     }
 }

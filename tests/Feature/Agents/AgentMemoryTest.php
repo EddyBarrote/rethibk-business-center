@@ -1,8 +1,10 @@
 <?php
 
+use App\Ai\Agents\GenericAgent;
 use App\Ai\Agents\InstructionComposer;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Memory\MemoryExtractor;
+use App\Ai\Runs\AgentRunner;
 use App\Enums\TaskStatus;
 use App\Jobs\ConsolidateAgentMemory;
 use App\Models\Agent;
@@ -127,4 +129,65 @@ it('lets only the administrators see, correct or forget a fact, not the agent\'s
 
     $this->actingAs($this->owner)->delete(tenantUrl($this->tenant, "agents/{$this->agent->id}/memories/{$memory->id}"))->assertRedirect();
     asTenant($this->tenant, fn () => expect(AgentMemory::query()->count())->toBe(0));
+});
+
+// Context over days (docs/DECISOES.md, "Contexto dos agentes", 12.10.2026).
+
+it('consolidates a busy thread before its messages leave the history, not only at 21:00', function () {
+    config(['business.memory_every_messages' => 4]);
+    GenericAgent::fake(['Primeira.', 'Segunda.']);
+
+    asTenant($this->tenant, function () {
+        $threads = app(TaskThread::class);
+        $chat = $threads->conversation($this->ana, $this->agent);
+        $threads->post($chat, $this->ana, 'Olá.');
+        app(AgentRunner::class)->run(AgentRun::query()->sole());
+        Queue::assertNotPushed(ConsolidateAgentMemory::class);
+
+        $threads->post($chat->refresh(), $this->ana, 'E a cotação?');
+        app(AgentRunner::class)->run(AgentRun::query()->latest('id')->first());
+        Queue::assertPushed(ConsolidateAgentMemory::class, fn (ConsolidateAgentMemory $job) => $job->taskId === $chat->id);
+    });
+});
+
+it('dates each message in the history, so the agent sees the days that passed', function () {
+    asTenant($this->tenant, function () {
+        $this->travelTo(now()->setDate(2026, 10, 9)->setTime(10, 15));
+        $chat = chatWithAna();
+        $this->travelBack();
+
+        $run = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id]);
+        $history = app(TaskThread::class)->history($run);
+
+        expect($history[0]->content)->toStartWith('[Ana Mondlane · 2026-10-09 ')
+            ->and($history[1]->content)->toBe('Anotado.')
+            ->and(app(InstructionComposer::class)->for($this->agent, $run))->toContain('a data e hora');
+    });
+});
+
+it('keeps a rolling summary of the thread and shows it once the start leaves the history', function () {
+    MemoryExtractor::fake([
+        ['facts' => [], 'summary' => 'A Ana pediu a cotação da Segurança Total; falta o preço das botas.'],
+        ['facts' => []],
+    ]);
+
+    asTenant($this->tenant, function () {
+        $chat = chatWithAna();
+        app(MemoryConsolidator::class)->consolidate($chat);
+        $run = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id]);
+
+        expect($chat->fresh()->summary)->toContain('falta o preço das botas')
+            // Short thread: the history has it all, the summary stays out.
+            ->and(app(InstructionComposer::class)->for($this->agent, $run->fresh()))->not->toContain('O que veio antes');
+
+        foreach (range(1, TaskThread::HISTORY_MESSAGES) as $i) {
+            app(TaskThread::class)->post($chat, $this->ana, "Mensagem {$i}.", wake: false);
+        }
+
+        expect(app(InstructionComposer::class)->for($this->agent, $run->fresh()))->toContain('O que veio antes')->toContain('falta o preço das botas');
+
+        // A pass with no new summary keeps the one there was.
+        app(MemoryConsolidator::class)->consolidate($chat->fresh());
+        expect($chat->fresh()->summary)->toContain('falta o preço das botas');
+    });
 });

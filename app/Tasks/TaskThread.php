@@ -29,6 +29,7 @@ use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
 use App\Support\Notifier;
+use App\Support\TenantSettings;
 use App\Workflows\WorkflowEngine;
 use Closure;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -52,6 +53,9 @@ final class TaskThread
 {
     /** Delegation stops here, so agents cannot hand work around forever. */
     public const MAX_DEPTH = 3;
+
+    /** How many of the thread's latest messages the agent reads as history. */
+    public const HISTORY_MESSAGES = 40;
 
     public function __construct(private readonly Notifier $notifier) {}
 
@@ -321,6 +325,7 @@ final class TaskThread
             ]);
             app(AttachmentStore::class)->attachToMessage($files, $reply);
             $task->forceFill(['last_activity_at' => now()])->save();
+            $this->consolidateIfDue($task);
 
             // The agent's questions show as a card on this reply (docs/DECISOES.md, "Perguntas dos agentes").
             AgentQuestion::query()->where('agent_run_id', $run->id)->where('task_id', $task->id)->whereNull('task_message_id')->update(['task_message_id' => $reply->id]);
@@ -371,7 +376,7 @@ final class TaskThread
             ->where(fn ($q) => $q->whereNull('agent_run_id')->orWhere('agent_run_id', '!=', $run->id))
             ->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name'])
             ->orderByDesc('id')
-            ->limit(40)
+            ->limit(self::HISTORY_MESSAGES)
             ->get()
             ->reverse()
             ->values();
@@ -406,7 +411,7 @@ final class TaskThread
             $built = $input->build($provider, $files, budgetBytes: (int) config('attachments.inline_max_mb', 18) * 1024 * 1024 / 2);
             $list = $named !== [] ? "\n\n[Anexos: ".implode('; ', $named).'. Lê-os com files.read se precisares.]' : '';
 
-            return new UserMessage($this->speaker($message).$message->body.$built['text'].$list, $built['files']);
+            return new UserMessage($this->speaker($message, dated: true).$message->body.$built['text'].$list, $built['files']);
         })->all();
     }
 
@@ -475,13 +480,36 @@ final class TaskThread
         };
     }
 
-    private function speaker(TaskMessage $message): string
+    /**
+     * Who wrote, and in the history also when, so the agent knows a message
+     * from three days ago is not from a minute ago.
+     */
+    private function speaker(TaskMessage $message, bool $dated = false): string
     {
-        return match ($message->author_type) {
-            ActorType::User => '['.($message->authorUser->name ?? 'Pessoa').'] ',
-            ActorType::Agent => '[Agente '.($message->authorAgent->name ?? '').'] ',
-            default => '[Nota da plataforma] ',
+        $who = match ($message->author_type) {
+            ActorType::User => $message->authorUser->name ?? 'Pessoa',
+            ActorType::Agent => 'Agente '.($message->authorAgent->name ?? ''),
+            default => 'Nota da plataforma',
         };
+
+        return '['.$who.($dated ? ' · '.$message->created_at->setTimezone((string) config('app.timezone'))->format('Y-m-d H:i') : '').'] ';
+    }
+
+    /**
+     * Turn the thread into memory as soon as enough is new, before those
+     * messages leave the agent's history (docs/DECISOES.md, "Contexto dos agentes").
+     */
+    private function consolidateIfDue(Task $task): void
+    {
+        $every = TenantSettings::int('memory_every_messages');
+
+        if ($every <= 0 || $task->assignee_agent_id === null) {
+            return;
+        }
+
+        if ($task->messages()->where('id', '>', (int) $task->memory_message_id)->count() >= $every) {
+            ConsolidateAgentMemory::dispatch($task->tenant_id, $task->id);
+        }
     }
 
     private function activeRun(Task $task): ?AgentRun

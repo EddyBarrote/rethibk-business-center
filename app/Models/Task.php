@@ -48,6 +48,8 @@ use Illuminate\Support\Str;
  * @property Carbon|null $completed_at
  * @property Carbon|null $last_activity_at
  * @property Carbon|null $chat_read_at
+ * @property int|null $memory_message_id
+ * @property string|null $summary
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */

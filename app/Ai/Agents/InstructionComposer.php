@@ -13,7 +13,9 @@ use App\Erp\Perfex\PerfexToolMap;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Skill;
+use App\Models\Task;
 use App\Models\Tenant;
+use App\Tasks\TaskThread;
 use Illuminate\Support\Str;
 
 /**
@@ -170,7 +172,21 @@ final class InstructionComposer
             .($task->description ? "\nDescrição: ".Str::limit($task->description, 1500) : '')
             .($task->goal ? "\nServe o objectivo da empresa: {$task->goal->title}." : '')
             .($task->parent ? "\nFoi delegada a partir de {$task->parent->identifier()} «{$task->parent->title}»." : '')
-            ."\nAs mensagens anteriores desta conversa vêm no histórico, cada uma com o autor entre parênteses rectos. Responde directamente a quem escreveu.";
+            ."\nAs mensagens anteriores desta conversa vêm no histórico, cada uma com o autor e a data e hora entre parênteses rectos. Repara no tempo que passou desde a última. Responde directamente a quem escreveu."
+            .$this->summary($task);
+    }
+
+    /**
+     * Once the thread is longer than the history, where it stood before the
+     * messages the agent can see (docs/DECISOES.md, "Contexto dos agentes").
+     */
+    private function summary(Task $task): string
+    {
+        if (blank($task->summary) || $task->messages()->count() <= TaskThread::HISTORY_MESSAGES) {
+            return '';
+        }
+
+        return "\n\n### O que veio antes\nO histórico só traz as últimas ".TaskThread::HISTORY_MESSAGES." mensagens. Resumo do que se passou nesta conversa até aqui:\n{$task->summary}";
     }
 
     /**

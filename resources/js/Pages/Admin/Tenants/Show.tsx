@@ -70,6 +70,7 @@ const businessFields: [string, string, string][] = [
     ['budget_alert_pct', 'Alerta de orçamento consumido (%)', 'Por projecto.'],
     ['unreconciled_days', 'Banco por reconciliar (dias)', 'Depois disto é um bloqueio.'],
     ['company_memory_chars', 'Memória da empresa no prompt (caracteres)', 'Acima disto, os factos mais antigos ficam de fora.'],
+    ['memory_every_messages', 'Consolidar a memória a cada (mensagens)', 'Mensagens novas numa conversa antes de o agente as passar à memória; 0 só às 21:00.'],
 ];
 
 const scopeLabel: Record<string, string> = { tenant: 'Organização', agent: 'Agente', run: 'Execução' };
