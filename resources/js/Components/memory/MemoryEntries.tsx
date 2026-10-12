@@ -85,7 +85,7 @@ export function MemoryEntries({
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
                                             <span className="truncate text-sm font-medium">{entry.title}</span>
-                                            {group.key === 'about' && (
+                                            {group.key === 'about' && entry.title !== sections.find((s) => s.value === entry.section)?.label && (
                                                 <span className="shrink-0 text-xs text-muted-foreground">
                                                     {sections.find((s) => s.value === entry.section)?.label}
                                                 </span>
@@ -213,7 +213,7 @@ function EntrySheet({
                                         value={form.data.content}
                                         maxLength={4000}
                                         onChange={(e) => form.setData('content', e.target.value)}
-                                        className="font-mono text-[13px]"
+                                        className="min-h-56 font-mono text-[13px]"
                                     />
                                 </Field>
                                 <label htmlFor="memory-kind" className="flex items-start justify-between gap-4 rounded-lg border p-3">
@@ -285,7 +285,7 @@ function EntrySheet({
                         <SheetFooter className={cn('flex-row items-center justify-between gap-2 border-t px-6 py-4')}>
                             {editing ? (
                                 <>
-                                    <Button type="button" variant="ghost" onClick={() => setEditing(false)} disabled={form.processing}>
+                                    <Button key="cancel" type="button" variant="ghost" onClick={() => setEditing(false)} disabled={form.processing}>
                                         Cancelar
                                     </Button>
                                     <Button
@@ -299,6 +299,7 @@ function EntrySheet({
                             ) : (
                                 <>
                                     <Button
+                                        key="forget"
                                         type="button"
                                         variant="ghost"
                                         className="text-destructive hover:text-destructive"
