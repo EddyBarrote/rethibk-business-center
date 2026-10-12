@@ -23,3 +23,5 @@ Broadcast::channel('tenant.{tenantId}.tasks', fn (User $user, int $tenantId) => 
 
 Broadcast::channel('tenant.{tenantId}.task.{taskId}', fn (User $user, int $tenantId, int $taskId) => $user->tenant_id === $tenantId
     && ($task = Task::query()->find($taskId)) !== null && $user->can('view', $task));
+
+Broadcast::channel('tenant.{tenantId}.mail', fn (User $user, int $tenantId) => $user->tenant_id === $tenantId);

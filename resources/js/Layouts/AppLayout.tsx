@@ -59,6 +59,7 @@ import {
 } from '@/Components/ui/sidebar';
 import { Toaster } from '@/Components/ui/sonner';
 import { TooltipProvider } from '@/Components/ui/tooltip';
+import { useLive } from '@/hooks/useLive';
 import { type Appearance, useAppearance } from '@/lib/appearance';
 import { cn } from '@/lib/utils';
 import type { SharedProps } from '@/types';
@@ -75,13 +76,13 @@ interface NavItem {
     icon: LucideIcon;
     /** Shown only to people with one of these permissions (the server checks them too). */
     permissions?: string[];
-    badge?: 'approvals' | 'notifications' | 'waiting';
+    badge?: 'approvals' | 'notifications' | 'waiting' | 'emails';
 }
 
 // Coming in opens the person's latest conversation: the agents below are the conversations (DECISOES, "Conversas a partir dos agentes").
 const topNav: NavItem[] = [
     { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
-    { label: 'Email', href: '/inbox', icon: Mail, permissions: ['emails.own_mailboxes', 'emails.triage', 'emails.manage_mailboxes'] },
+    { label: 'Email', href: '/inbox', icon: Mail, badge: 'emails', permissions: ['emails.own_mailboxes', 'emails.triage', 'emails.manage_mailboxes'] },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
     { label: 'Notificações', href: '/notifications', icon: Bell, badge: 'notifications' },
 ];
@@ -366,7 +367,14 @@ export default function AppLayout({
         return url === href || url.startsWith(`${href}/`);
     };
     const allowed = (item: NavItem) => !item.permissions || item.permissions.some((p) => user?.permissions.includes(p));
-    const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks };
+    const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks, emails: auth.unread_emails };
+
+    // New email, or email read elsewhere, moves the Email counter; without the socket it catches up every half minute.
+    useLive(tenant && user ? `tenant.${tenant.id}.mail` : null, ['MailboxUpdated'], () => router.reload({ only: ['auth'] }), {
+        only: ['auth'],
+        poll: user !== null,
+        intervalMs: 30000,
+    });
     const allNav = [...topNav, ...workNav, settingsNav];
     const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
     const trail: Crumb[] = breadcrumbs ?? (current ? [{ label: current.label }] : url.startsWith('/agents') ? [{ label: 'Agentes' }] : []);

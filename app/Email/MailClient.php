@@ -5,6 +5,7 @@ namespace App\Email;
 use App\Email\Imap\ImapGateway;
 use App\Email\Imap\ImapSession;
 use App\Enums\EmailStatus;
+use App\Events\MailboxUpdated;
 use App\Models\EmailAttachment;
 use App\Models\EmailFolder;
 use App\Models\EmailMessage;
@@ -379,6 +380,10 @@ final class MailClient
     private function recount(?EmailFolder $folder): void
     {
         $folder?->forceFill(['unread' => $folder->messages()->whereNull('read_at')->where('status', '!=', 'draft')->count()])->save();
+
+        if ($folder?->wasChanged('unread')) {
+            MailboxUpdated::live($folder->tenant_id, $folder->mailbox_id);
+        }
     }
 
     /**

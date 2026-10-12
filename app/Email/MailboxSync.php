@@ -5,6 +5,7 @@ namespace App\Email;
 use App\Email\Imap\ImapGateway;
 use App\Email\Imap\ImapSession;
 use App\Enums\EmailStatus;
+use App\Events\MailboxUpdated;
 use App\Models\EmailFolder;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
@@ -316,6 +317,10 @@ final class MailboxSync
             'unread' => (clone $filed)->whereNull('read_at')->count(),
             'synced_at' => now(),
         ])->save();
+
+        if ($folder->wasChanged('unread')) {
+            MailboxUpdated::live($mailbox->tenant_id, $mailbox->id);
+        }
 
         if ($watched) {
             $mailbox->forceFill(['imap_last_uid' => $folder->last_uid])->save();

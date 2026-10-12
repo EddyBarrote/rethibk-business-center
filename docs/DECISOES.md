@@ -728,3 +728,14 @@ Pergunta do Barrote: como gerimos o contexto de um agente que corre dias a fio, 
 | Ficam por decidir (propostas no fio): cortar o histórico por tamanho em vez de por número; factos que substituem ou apagam outros na memória; consolidar o trabalho sem pessoa; a mesma regra de pessoa ao gravar e ao ler a memória de uma tarefa. | — |
 
 Testes: `tests/Feature/Agents/AgentMemoryTest.php`.
+
+## Contador de email por ler na barra lateral (12.10.2026)
+
+O Barrote reparou que o item Email da barra lateral não mostrava quantos emails havia por ler, mesmo com email novo a chegar (a geral@rethink.co.mz tinha 39 na Entrada). O item nunca tinha tido contador.
+
+| Decisão | Onde |
+|---|---|
+| **O contador soma o que está por ler na Entrada de cada caixa que a pessoa lê no cliente de email** (as suas e, com «Ler a triagem», as dos agentes), os mesmos números do menu das caixas; quem não lê a triagem soma também o email de triagem encaminhado para si e ainda por ler. As outras pastas (Spam, pastas próprias) não contam. Nunca conta a caixa pessoal de outra pessoa. | `Mailbox::unreadFor()`, scope `Mailbox::inClientOf()`, `auth.unread_emails` |
+| **Actualiza-se em directo como os outros contadores:** quando o número de por ler de uma pasta muda (email novo na sincronização, ler ou marcar como não lido), sai `MailboxUpdated` no canal `tenant.{id}.mail`, só com o id da caixa; cada ecrã recarrega a sua contagem. Sem ligação ao Reverb, a barra recarrega o contador de 30 em 30 segundos. | `App\Events\MailboxUpdated`, `MailboxSync`, `MailClient::recount()`, `Layouts/AppLayout.tsx` |
+
+Testes: `tests/Feature/Email/EmailClientTest.php`.

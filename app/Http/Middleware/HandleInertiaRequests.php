@@ -8,6 +8,7 @@ use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
+use App\Models\Mailbox;
 use App\Models\PlatformAdmin;
 use App\Models\Task;
 use App\Models\TaskMessage;
@@ -64,6 +65,7 @@ class HandleInertiaRequests extends Middleware
                 'unread_notifications' => fn () => $user instanceof User && $tenant !== null ? $user->unreadNotifications()->count() : 0,
                 'waiting_tasks' => fn () => $user instanceof User && $tenant !== null ? Task::query()->where('user_id', $user->id)->where('status', TaskStatus::WaitingHuman)->count() : 0,
                 'pending_approvals' => fn () => $user instanceof User && $tenant !== null ? Approval::query()->visibleTo($user)->pending()->count() : 0,
+                'unread_emails' => fn () => $user instanceof User && $tenant !== null ? Mailbox::unreadFor($user) : 0,
             ],
             // Agents listed in the sidebar with a live "running" marker (Paperclip-style navigation).
             'sidebar_agents' => fn () => $user instanceof User && $tenant !== null ? $this->sidebarAgents($user) : [],
