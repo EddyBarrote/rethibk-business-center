@@ -791,3 +791,19 @@ O Barrote enviou as definições de memória do claude.ai e pediu que a memória
 | **Fora deste trabalho:** a Memória da empresa fica como está (seis secções fixas, curada por pessoas); importar memória de outros fornecedores de IA não existe. | — |
 
 Testes: `tests/Feature/Agents/AgentMemoryTest.php`, `tests/Feature/Knowledge/CompanyMemoryTest.php`.
+
+## Página dos fluxos de trabalho (12.10.2026)
+
+Pedido do Barrote: melhorar Definições › Agentes de IA › Fluxos de trabalho, sem mudar o comportamento dos fluxos. Antes, a lista dos 12 tipos de email misturava os que têm fluxo com os que não têm, o detalhe ficava apertado entre a lista e uma terceira coluna que só aparecia em ecrãs muito largos (as propriedades caíam para baixo dos passos), e no telemóvel o fluxo escolhido aparecia depois de toda a lista, fora da vista.
+
+| Decisão | Onde |
+|---|---|
+| **Números no topo**, como nas Rotinas: tipos de email com fluxo (de 12), fluxos activos (rascunhos e em pausa por baixo), lacunas (um clique abre a vista Lacunas) e execuções em 30 dias. | `Pages/Workflows/Index.tsx` (`Metric`) |
+| **A lista à esquerda agrupa por situação:** Email com fluxo, Por agenda, Rascunhos e em pausa, Email sem fluxo (em tom mais discreto). Cada linha diz quem trata e, quando há lacunas, o número a vermelho em vez do número de passos. Pesquisa no tipo, no fluxo e no agente. A lista fica fixa ao descer pelos passos. | `PickRow`, `StepCount` |
+| **O detalhe é uma só coluna:** nome, estado, descrição e acções (Editar; no menu, Pausar ou Activar e as regras de email ou as rotinas), o caminho do email, quatro factos (quem trata, nível, se não conseguir, 30 dias), a barra de passos com a contagem de cada estado (substitui a legenda solta), os passos e as execuções recentes, com quando começaram. Pausar e Activar usam o endpoint que já existia (`PUT /settings/workflows/{id}/status`), com as mesmas regras. | `FlowDetail`, `NoFlow` |
+| **No telemóvel e em ecrãs estreitos (abaixo de 1024 px) o detalhe abre num painel por cima da lista**, com «‹ Fluxos» para voltar; os passos mostram o estado por baixo do nome. | `Sheet`, `Components/workflows/Readiness.tsx` |
+| **Vista, escolha e pesquisa no endereço** (`?vista=agentes|lacunas&tipo=client_rfq&fluxo=3&q=`); o `?w=` antigo (Regras de email, cartão do fluxo na tarefa) continua a abrir o fluxo. | `readUrl()` |
+| **Novo fluxo** pergunta logo como começa: para um tipo de email ou por agenda. | `PageHeader` |
+| **Por agente** passa a cartões, os que entram em fluxos primeiro, com Recebe, Conduz e Ajuda em; cada um abre o fluxo. **Lacunas** agrupa por fluxo, com as soluções em fichas e «Abrir o passo». | `AgentsView` |
+
+Sem mudanças no servidor nem nos dados que a página recebe. Testes: `tests/Feature/Workflows/WorkflowScreensTest.php` (inalterado).

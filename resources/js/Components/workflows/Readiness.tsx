@@ -178,9 +178,11 @@ export function FlowSteps({
                                 {ready?.state === 'missing' && ready.reasons[0] && (
                                     <p className="mt-1 text-xs text-status-danger">{ready.reasons[0]}</p>
                                 )}
+                                {/* On a phone the badge goes under the step, so the name keeps the width. */}
+                                {work && <ReadinessBadge state={ready.state} className="mt-1.5 sm:hidden" />}
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
-                                {work && <ReadinessBadge state={ready.state} />}
+                                {work && <ReadinessBadge state={ready.state} className="hidden sm:inline-flex" />}
                                 {actions?.(row)}
                             </div>
                         </div>
