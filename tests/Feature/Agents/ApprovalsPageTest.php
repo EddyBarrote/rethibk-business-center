@@ -1,9 +1,12 @@
 <?php
 
+use App\Ai\Tools\GatedTool;
 use App\Enums\ApprovalArea;
 use App\Enums\ApprovalStatus;
+use App\Enums\StepType;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\AgentRunStep;
 use App\Models\Approval;
 use App\Models\Task;
 use App\Models\Tenant;
@@ -137,6 +140,41 @@ it('opens one approval on the side with the conversation and run it came from', 
             ->where('open.task.id', $task->id)
             ->where('open.can_decide', true)
             ->where('approvals.data.0.task_id', $task->id));
+});
+
+it('shows each email recipient as the ERP contact the agent read in the run, or warns when none carries it', function () {
+    $run = asTenant($this->tenant, fn () => AgentRun::factory()->create(['agent_id' => $this->mine->id]));
+    $contacts = ['total' => 2, 'items' => [
+        ['customer' => 'Loop Experience, Lda', 'firstname' => 'Felicio', 'lastname' => 'Guelume', 'email' => 'Felicio.Guelume@coralflng.com', 'title' => 'Contracts Manager', 'is_primary' => '1'],
+        ['customer' => 'Loop Experience, Lda', 'firstname' => 'Eduardo', 'lastname' => 'Barrote', 'email' => 'ebarrote@rethink.co.mz', 'title' => null, 'is_primary' => '0'],
+    ]];
+
+    asTenant($this->tenant, fn () => AgentRunStep::factory()->create([
+        'agent_run_id' => $run->id,
+        'type' => StepType::ToolResult,
+        'tool_name' => 'erp.list_contacts',
+        'payload' => ['ok' => true, 'content' => json_encode($contacts)],
+    ]));
+
+    $approval = ($this->approval)($this->mine, [
+        'agent_run_id' => $run->id,
+        'action_type' => 'comms.send_email',
+        'payload' => ['to' => ['felicio.guelume@coralflng.com', 'alguem@inventado.co.mz'], 'subject' => 'Facturas', 'body' => 'Exmo. Sr. Felício Guelume'],
+    ]);
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->tenant, "approvals?vista=todas&aprovacao={$approval->id}"))
+        ->assertInertia(fn ($page) => $page
+            ->where('open.recipients.0.found', true)
+            ->where('open.recipients.0.name', 'Felicio Guelume')
+            ->where('open.recipients.0.customer', 'Loop Experience, Lda')
+            ->where('open.recipients.0.title', 'Contracts Manager')
+            ->where('open.recipients.0.primary', true)
+            ->where('open.recipients.1.email', 'alguem@inventado.co.mz')
+            ->where('open.recipients.1.found', false));
+});
+
+it('keeps what a tool returned in full in the run trace', function () {
+    expect(GatedTool::TRACE_LIMIT)->toBeGreaterThanOrEqual(100_000);
 });
 
 it('rejects several with one reason, the absolute ceiling included, and only what the person decides', function () {

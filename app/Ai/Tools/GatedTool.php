@@ -31,6 +31,9 @@ use Throwable;
  */
 final class GatedTool implements Tool
 {
+    /** Characters of a tool result kept in the run's trace. */
+    public const TRACE_LIMIT = 200_000;
+
     public function __construct(
         private readonly Capability $capability,
         private readonly CapabilityContext $context,
@@ -119,9 +122,11 @@ final class GatedTool implements Tool
             ], $result->ok ? AuditResult::Ok : AuditResult::Error);
         }
 
+        // The trace keeps what the agent read in full, so every name and value
+        // it writes can be traced back to the ERP (docs/DECISOES.md).
         $recorder->step($run, $result->ok ? StepType::ToolResult : StepType::Error, [
             'ok' => $result->ok,
-            'content' => Str::limit($result->content, 4000),
+            'content' => Str::limit($result->content, self::TRACE_LIMIT),
         ], $this->capability->key, $duration);
 
         return $result->content;

@@ -728,3 +728,16 @@ Pergunta do Barrote: como gerimos o contexto de um agente que corre dias a fio, 
 | Ficam por decidir (propostas no fio): cortar o histórico por tamanho em vez de por número; factos que substituem ou apagam outros na memória; consolidar o trabalho sem pessoa; a mesma regra de pessoa ao gravar e ao ler a memória de uma tarefa. | — |
 
 Testes: `tests/Feature/Agents/AgentMemoryTest.php`.
+
+## Nomes nos emails de cobrança vêm do ERP (12.10.2026)
+
+Queixa do Barrote: na aprovação 16 o Agente de Finanças escrevia a «Felício Guelume» da Loop Experience e parecia um nome inventado. Comparado com o ERP real: o contacto existe (Felicio Guelume, Contracts Manager, contacto principal da Loop Experience, Lda), e as três facturas e valores batem. O agente só acrescentou o acento. O que fazia parecer inventado era o registo da execução: guardava só os primeiros 4000 caracteres de cada resposta do ERP, e o contacto vinha depois do corte, por isso não se via de onde vinha.
+
+| Decisão | Onde |
+|---|---|
+| **O registo da execução guarda a resposta completa de cada ferramenta** (até 200 000 caracteres). O agente sempre recebeu a resposta inteira; agora quem revê vê o mesmo. | `GatedTool::TRACE_LIMIT` |
+| **A aprovação de um email mostra cada destinatário como o ERP o tem** (secção «Destinatário no ERP»: nome, cargo, cliente, contacto principal), procurado no que o agente leu do ERP nessa execução. Quando nenhum resultado do ERP da execução traz esse email, aparece um aviso para confirmar o contacto antes de aprovar. Execuções antigas, gravadas com o corte, podem mostrar o aviso mesmo com o contacto certo. | `App\Ai\Runs\RecipientSources`, `ApprovalController::open()`, `ApprovalPanel.tsx` |
+| **Regra no prompt:** nomes, emails, números e valores copiam-se tal como o ERP os devolve, sem acentos nem correcções; sem contacto no ERP, não se adivinha. | `InstructionComposer` |
+| O ERP continua só de leitura para os agentes; nada mudou nas capacidades do ERP. | — |
+
+Testes: `tests/Feature/Agents/ApprovalsPageTest.php`.
