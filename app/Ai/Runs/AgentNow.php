@@ -20,20 +20,39 @@ use App\Models\User;
  */
 class AgentNow
 {
+    /** How long a run that ended elsewhere stays in the conversation, with its result. */
+    public const RECENT_MINUTES = 30;
+
     /**
      * The live runs and, when idle, the last finished one. Runs on
-     * $exceptTask (the conversation already on screen) are left out.
+     * $exceptTask (the conversation already on screen) are left out. With
+     * $withRecent, also the runs that ended in the last RECENT_MINUTES, so
+     * work seen running in the conversation does not vanish when it ends
+     * (docs/DECISOES.md, "Trabalho noutro sítio que terminou").
      *
-     * @return array{active: list<array<string, mixed>>, last: array<string, mixed>|null}
+     * @return array{active: list<array<string, mixed>>, last: array<string, mixed>|null, recent: list<array<string, mixed>>}
      */
-    public function for(Agent $agent, User $user, ?Task $exceptTask = null, bool $withLast = true): array
+    public function for(Agent $agent, User $user, ?Task $exceptTask = null, bool $withLast = true, bool $withRecent = false): array
     {
+        $elsewhere = fn ($q) => $q->when($exceptTask !== null, fn ($q) => $q->where(fn ($q) => $q->whereNull('task_id')->orWhere('task_id', '!=', $exceptTask->id)));
+
         $active = $agent->runs()
             ->working()
-            ->when($exceptTask !== null, fn ($q) => $q->where(fn ($q) => $q->whereNull('task_id')->orWhere('task_id', '!=', $exceptTask->id)))
+            ->tap($elsewhere)
             ->with(['agent:id,name', 'requestedBy:id,name', 'task'])
             ->oldest('id')
             ->get();
+
+        $recent = $withRecent
+            ? $agent->runs()
+                ->whereIn('status', [RunStatus::Completed, RunStatus::Failed, RunStatus::Cancelled])
+                ->where('finished_at', '>=', now()->subMinutes(self::RECENT_MINUTES))
+                ->tap($elsewhere)
+                ->with(['agent:id,name', 'requestedBy:id,name', 'task'])
+                ->latest('finished_at')
+                ->limit(5)
+                ->get()
+            : collect();
 
         $last = $withLast && $active->isEmpty()
             ? $agent->runs()->whereNotIn('status', [RunStatus::Queued, RunStatus::Running])->with(['agent:id,name', 'requestedBy:id,name', 'task'])->latest('id')->first()
@@ -61,6 +80,7 @@ class AgentNow
         return [
             'active' => $active->map($present)->values()->all(),
             'last' => $last ? $present($last) : null,
+            'recent' => $recent->map($present)->values()->all(),
         ];
     }
 

@@ -406,6 +406,9 @@ class TaskController extends Controller
         $task->load(['assigneeAgent', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'parent:id,number,title,tenant_id', 'tenant:id,slug']);
 
         $active = $task->runs()->working()->latest('id')->first();
+        $elsewhere = $task->kind === TaskKind::Chat && $task->assigneeAgent !== null
+            ? app(AgentNow::class)->for($task->assigneeAgent, $user, exceptTask: $task, withLast: false, withRecent: true)
+            : ['active' => [], 'recent' => []];
         $mine = $task->chat_key !== null && $task->user_id === $user->id;
 
         if ($mine) {
@@ -475,7 +478,9 @@ class TaskController extends Controller
             // In a conversation, the side panel's "Tarefas": the person's work with this agent and its approvals.
             // In a conversation, what the agent is busy with elsewhere (a task, a routine, a flow), so the
             // sidebar's "a trabalhar" is explained here too (docs/DECISOES.md, "Agente ocupado noutro sítio").
-            'agent_elsewhere' => $task->kind === TaskKind::Chat && $task->assigneeAgent !== null ? app(AgentNow::class)->for($task->assigneeAgent, $user, exceptTask: $task, withLast: false)['active'] : [],
+            'agent_elsewhere' => $elsewhere['active'],
+            // What it finished there in the last half hour, with the result, so the card does not just vanish.
+            'agent_elsewhere_done' => $elsewhere['recent'],
             'agent_work' => fn () => $mine && $task->assigneeAgent !== null ? $this->agentWork($task->assigneeAgent, $user) : null,
             'can' => [
                 'reply' => $user->can('reply', $task),

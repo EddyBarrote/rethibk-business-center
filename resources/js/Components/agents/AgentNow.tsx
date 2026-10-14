@@ -1,11 +1,11 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { ExternalLink, Wrench } from 'lucide-react';
 
-import { StatusDot } from '@/Components/Status';
+import { StatusBadge, StatusDot, runTone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { useLive } from '@/hooks/useLive';
 import { useToolNames } from '@/hooks/useToolNames';
-import { ago, dateTime, runTitle } from '@/lib/format';
+import { ago, dateTime, plainText, runTitle } from '@/lib/format';
 import type { RunSummary, SharedProps } from '@/types';
 
 /** A live run with its conversation and the step it is on (App\\Ai\\Runs\\AgentNow). */
@@ -138,35 +138,84 @@ export function NowRow({ run, toolNames, reload = ['now'] }: { run: NowRun; tool
     );
 }
 
+/** A run that ended elsewhere: what it was, how it ended and what it answered, with the link to it. */
+function DoneRow({ run, toolNames }: { run: NowRun; toolNames: Record<string, string> | undefined }) {
+    const hidden = run.task !== null && !run.task.visible;
+    const result = run.status === 'failed' ? run.error : plainText(run.output);
+
+    return (
+        <li className="flex flex-col gap-2 py-2 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4">
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{workTitle(run, toolNames)}</p>
+                <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                    <StatusBadge tone={runTone(run.status)}>{run.status_label}</StatusBadge>
+                    <span title={dateTime(run.finished_at)}>terminou {ago(run.finished_at)}</span>
+                    {run.requested_by && (
+                        <>
+                            <span aria-hidden>·</span>
+                            <span>a pedido de {run.requested_by}</span>
+                        </>
+                    )}
+                </p>
+                {!hidden && result && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{result}</p>}
+            </div>
+            {!hidden && (
+                <Button variant="outline" size="sm" asChild className="self-start">
+                    <Link href={runHref(run)}>
+                        <ExternalLink />
+                        {run.task ? (run.task.kind === 'chat' ? 'Abrir conversa' : 'Abrir tarefa') : 'Ver execução'}
+                    </Link>
+                </Button>
+            )}
+        </li>
+    );
+}
+
 /**
  * In a conversation, what the agent is busy with somewhere else (a task, a
  * routine, a flow), so "a trabalhar" in the sidebar is explained where the
  * person is looking, with a link to follow it (docs/DECISOES.md, "Agente
- * ocupado noutro sítio").
+ * ocupado noutro sítio"). What it finished there in the last half hour stays,
+ * with how it ended and its answer, so the card does not just vanish when the
+ * work ends (docs/DECISOES.md, "Trabalho noutro sítio que terminou").
  */
-export function ElsewherePanel({ agent, active, reload }: { agent: string; active: NowRun[]; reload: string[] }) {
+export function ElsewherePanel({ agent, active, done = [], reload }: { agent: string; active: NowRun[]; done?: NowRun[]; reload: string[] }) {
     const toolNames = useToolNames();
 
-    if (active.length === 0) {
+    if (active.length === 0 && done.length === 0) {
         return null;
     }
 
     return (
-        <section
-            aria-label="A fazer agora"
-            className="my-3 flex flex-col gap-2 rounded-xl border border-status-running/30 bg-[color-mix(in_oklch,var(--status-running)_6%,var(--card))] px-4 py-3"
-        >
-            <h2 className="flex items-center gap-2 text-xs font-medium tracking-wide text-status-running uppercase">
-                <StatusDot tone="running" />A fazer agora, fora desta conversa
-            </h2>
-            <p className="text-xs text-muted-foreground">
-                {agent} está ocupado {active.length === 1 ? 'com outro trabalho' : `com ${active.length} trabalhos`}. Pode escrever-lhe na mesma.
-            </p>
-            <ul className="flex flex-col divide-y divide-status-running/15">
-                {active.map((run) => (
-                    <NowRow key={run.id} run={run} toolNames={toolNames} reload={reload} />
-                ))}
-            </ul>
-        </section>
+        <div className="my-3 flex flex-col gap-3">
+            {active.length > 0 && (
+                <section
+                    aria-label="A fazer agora"
+                    className="flex flex-col gap-2 rounded-xl border border-status-running/30 bg-[color-mix(in_oklch,var(--status-running)_6%,var(--card))] px-4 py-3"
+                >
+                    <h2 className="flex items-center gap-2 text-xs font-medium tracking-wide text-status-running uppercase">
+                        <StatusDot tone="running" />A fazer agora, fora desta conversa
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        {agent} está ocupado {active.length === 1 ? 'com outro trabalho' : `com ${active.length} trabalhos`}. Pode escrever-lhe na mesma.
+                    </p>
+                    <ul className="flex flex-col divide-y divide-status-running/15">
+                        {active.map((run) => (
+                            <NowRow key={run.id} run={run} toolNames={toolNames} reload={reload} />
+                        ))}
+                    </ul>
+                </section>
+            )}
+            {done.length > 0 && (
+                <section aria-label="Terminou há pouco" className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3">
+                    <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Terminou há pouco, fora desta conversa</h2>
+                    <ul className="flex flex-col divide-y">
+                        {done.map((run) => (
+                            <DoneRow key={run.id} run={run} toolNames={toolNames} />
+                        ))}
+                    </ul>
+                </section>
+            )}
+        </div>
     );
 }

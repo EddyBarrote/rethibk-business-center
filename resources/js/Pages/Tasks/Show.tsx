@@ -55,6 +55,7 @@ interface Props extends TaskFormOptions {
     agent_work: AgentWork | null;
     /** In a conversation, the agent's live work outside it (App\\Ai\\Runs\\AgentNow). */
     agent_elsewhere: NowRun[];
+    agent_elsewhere_done: NowRun[];
 }
 
 /** The flow this task follows, or the decision of a flow's step it asks of a person (docs/DECISOES.md, "Fluxos de trabalho"). */
@@ -90,6 +91,7 @@ const reloadProps = [
     'has_journey',
     'agent_work',
     'agent_elsewhere',
+    'agent_elsewhere_done',
     'sidebar_agents',
 ];
 const PANEL_KEY = 'micomoc.conversa.painel';
@@ -157,6 +159,7 @@ export default function TaskShow({
     panel_run: panelRun,
     agent_work: agentWork,
     agent_elsewhere: elsewhere,
+    agent_elsewhere_done: elsewhereDone,
     tool_names: toolNames,
     approvals,
     workflow,
@@ -564,7 +567,12 @@ export default function TaskShow({
                                         />
                                     )}
                                     {task.is_conversation && !working && !stream && (
-                                        <ElsewherePanel agent={agentName} active={elsewhere} reload={['agent_elsewhere', 'sidebar_agents']} />
+                                        <ElsewherePanel
+                                            agent={agentName}
+                                            active={elsewhere}
+                                            done={elsewhereDone}
+                                            reload={['agent_elsewhere', 'agent_elsewhere_done', 'sidebar_agents']}
+                                        />
                                     )}
                                     <div ref={bottom} className="h-px" />
                                 </div>

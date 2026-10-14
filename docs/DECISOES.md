@@ -775,6 +775,14 @@ A barra lateral mostrava o Gestor de Clientes «a trabalhar», mas a conversa co
 | **«A trabalhar» só conta execuções vivas** (`AgentRun::working()`): na fila há menos de 60 min, ou a correr com última actualização há menos de 10 min (o job morre aos 300 s). Usado na barra lateral, na página do agente, no organigrama, na lista de tarefas, na bolha da conversa e na regra que impede duas execuções na mesma tarefa. | `config/agents.php` (`stale_running_minutes`, `stale_queued_minutes`) |
 | **Execuções presas fecham-se sozinhas como falhadas**, com nota na conversa («parou a meio sem terminar» / «ficou na fila sem nunca começar») e o evento de fim, para a barra lateral se actualizar: de imediato quando o job falha ou é morto por tempo (`RunAgent::failed`), e de 5 em 5 minutos pelo `agents:close-stale-runs`. | `App\Ai\Runs\StaleRuns`, `routes/console.php` |
 
+## Trabalho noutro sítio que terminou (14.10.2026)
+
+O Barrote viu na conversa com o Agente de Triagem (tarefa 6) o cartão «A fazer agora, fora desta conversa» com a triagem de um email, e quando a triagem acabou o cartão desapareceu sem deixar nada. A execução tinha terminado bem (classificou o email como lead e avisou a Ana Sitoe), mas a triagem de um email não pertence a nenhuma conversa, e o cartão só mostrava execuções vivas.
+
+| Decisão | Onde |
+|---|---|
+| **«Terminou há pouco, fora desta conversa»**: por baixo do cartão do que está a fazer, a conversa mostra até 5 execuções do agente noutro sítio que terminaram nos últimos 30 minutos, com o estado (concluída, falhada, cancelada), quando terminou, a primeira parte da resposta ou o erro, e «Ver execução»/«Abrir tarefa». A execução da própria conversa continua a ser só a resposta na conversa. | `AgentNow::for(withRecent:)`, `AgentNow::RECENT_MINUTES`, prop `agent_elsewhere_done`, `ElsewherePanel` |
+
 ## Memória em entradas, como no claude.ai (12.10.2026)
 
 O Barrote enviou as definições de memória do claude.ai e pediu que a memória dos agentes funcione assim: três interruptores por pessoa e a memória organizada em entradas com nome (título, uma linha de descrição, «Actualizada a»), agrupadas em Sobre si (Preferências, Perfil), Temas, Áreas, Pessoas e Projectos. Antes, cada pessoa tinha com cada agente uma lista de factos soltos (os 40 mais recentes e 20 sem pessoa entravam em todos os prompts).

@@ -185,6 +185,27 @@ it('shows in the conversation what the agent is doing elsewhere, and not its own
         ->assertInertia(fn (Assert $page) => $page->whereNot('working', null)->has('agent_elsewhere', 1));
 });
 
+it('keeps in the conversation, with its result, what the agent just finished elsewhere', function () {
+    $chat = asTenant($this->a, function () {
+        $chat = Task::factory()->chat()->create(['user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->boss->id.':'.$this->agent->id]);
+        // An email triaged outside any task, as the triage agent does.
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => null, 'status' => RunStatus::Completed, 'output' => ['text' => 'Triagem do email feita.'], 'started_at' => now()->subMinutes(2), 'finished_at' => now()->subMinute()]);
+        // Long done, and its own run in this conversation: neither belongs there.
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'status' => RunStatus::Completed, 'finished_at' => now()->subHours(2)]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id, 'status' => RunStatus::Completed, 'finished_at' => now()]);
+
+        return $chat;
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}"))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('agent_elsewhere', 0)
+            ->has('agent_elsewhere_done', 1)
+            ->where('agent_elsewhere_done.0.status', 'completed')
+            ->where('agent_elsewhere_done.0.output', 'Triagem do email feita.')
+            ->where('agent_elsewhere_done.0.task', null));
+});
+
 it('stops showing a run that lost its worker as working, and closes it as failed', function () {
     $chat = asTenant($this->a, function () {
         $chat = Task::factory()->chat()->create(['user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->boss->id.':'.$this->agent->id]);
