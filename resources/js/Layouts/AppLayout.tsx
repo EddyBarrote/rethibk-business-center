@@ -41,6 +41,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/Components/ui/dropdown-menu';
+import { Button } from '@/Components/ui/button';
 import { Separator } from '@/Components/ui/separator';
 import {
     Sidebar,
@@ -60,7 +61,7 @@ import {
     useSidebar,
 } from '@/Components/ui/sidebar';
 import { Toaster } from '@/Components/ui/sonner';
-import { TooltipProvider } from '@/Components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/Components/ui/tooltip';
 import { useLive } from '@/hooks/useLive';
 import { type Appearance, useAppearance } from '@/lib/appearance';
 import { cn } from '@/lib/utils';
@@ -279,6 +280,28 @@ function AgentsGroup({ url, lite }: { url: string; lite: boolean }) {
     );
 }
 
+const switchMode = (lite: boolean) => router.put('/settings/profile/mode', { mode: lite ? 'full' : 'lite' }, { preserveScroll: true });
+
+/** Beside the bell: lite or full in one click (the person's menu has it too). */
+function ModeSwitch({ lite }: { lite: boolean }) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => switchMode(lite)}
+                >
+                    <Workflow className="size-4" />
+                    <span className="hidden sm:inline">{lite ? 'Modo lite' : 'Modo completo'}</span>
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>{lite ? 'Mudar para o modo completo' : 'Mudar para o modo lite'}</TooltipContent>
+        </Tooltip>
+    );
+}
+
 function UserMenu() {
     const { auth } = usePage<SharedProps>().props;
     const { appearance, resolved } = useAppearance();
@@ -331,9 +354,7 @@ function UserMenu() {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {/* Only what the sidebar shows changes; what the person may do stays the same. */}
-                        <DropdownMenuItem
-                            onSelect={() => router.put('/settings/profile/mode', { mode: user.lite ? 'full' : 'lite' }, { preserveScroll: true })}
-                        >
+                        <DropdownMenuItem onSelect={() => switchMode(user.lite)}>
                             <Workflow />
                             {user.lite ? 'Mudar para o modo completo' : 'Mudar para o modo lite'}
                         </DropdownMenuItem>
@@ -499,6 +520,7 @@ export default function AppLayout({
                             </BreadcrumbList>
                         </Breadcrumb>
                         <div className="ml-auto flex items-center gap-1">
+                            {user && <ModeSwitch lite={lite} />}
                             <NotificationBell />
                         </div>
                     </header>
