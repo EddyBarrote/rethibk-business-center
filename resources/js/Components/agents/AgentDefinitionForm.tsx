@@ -1,5 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
-import { BookOpen, Bot, Brain, Cpu, Puzzle, Search } from 'lucide-react';
+import { BookOpen, Bot, Brain, Cpu, Lightbulb, Puzzle, Search } from 'lucide-react';
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
@@ -73,6 +73,10 @@ export interface AgentData {
     capabilities: number[];
     skills: number[];
     avatar_url: string | null;
+    /** Written on the agent for the entry screen; empty shows `suggested`. */
+    suggestions?: string[];
+    /** What its capabilities suggest until someone writes them. */
+    suggested?: string[];
 }
 
 /** What the assistant proposes; the same fields, nothing saved yet. */
@@ -153,6 +157,7 @@ export default function AgentDefinitionForm({
         max_steps: str(agent?.max_steps),
         capabilities: seed?.capabilities ?? [],
         skills: seed?.skills ?? [],
+        suggestions: Array.from({ length: 4 }, (_, index) => agent?.suggestions?.[index] ?? ''),
     });
     const errors = form.errors as Record<string, string | undefined>;
     const [filter, setFilter] = useState('');
@@ -191,6 +196,7 @@ export default function AgentDefinitionForm({
         ...extraSections.filter((section) => section.id === 'assistente'),
         { id: 'identidade', label: 'Identidade', icon: Bot },
         { id: 'personalidade', label: 'Personalidade e instruções', icon: Brain },
+        { id: 'sugestoes', label: 'Sugestões', icon: Lightbulb },
         { id: 'modelo', label: 'Autonomia e modelo', icon: Cpu },
         { id: 'capacidades', label: 'Capacidades', icon: Puzzle, count: form.data.capabilities.length },
         { id: 'skills', label: 'Skills', icon: BookOpen, count: form.data.skills.length },
@@ -211,10 +217,22 @@ export default function AgentDefinitionForm({
                             <div className="grid gap-4">
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <Field id="name" label="Nome" error={errors.name}>
-                                        <Input id="name" placeholder="Amélia" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} required />
+                                        <Input
+                                            id="name"
+                                            placeholder="Amélia"
+                                            value={form.data.name}
+                                            onChange={(e) => form.setData('name', e.target.value)}
+                                            required
+                                        />
                                     </Field>
                                     <Field id="key" label="Chave" error={errors.key} hint="Identificador único: comercial, apoio-cliente…">
-                                        <Input id="key" className="font-mono" value={form.data.key} onChange={(e) => form.setData('key', e.target.value)} required />
+                                        <Input
+                                            id="key"
+                                            className="font-mono"
+                                            value={form.data.key}
+                                            onChange={(e) => form.setData('key', e.target.value)}
+                                            required
+                                        />
                                     </Field>
                                 </div>
                                 <Field id="title" label="Função" error={errors.title}>
@@ -226,11 +244,20 @@ export default function AgentDefinitionForm({
                                     />
                                 </Field>
                                 <Field id="description" label="Descrição" error={errors.description}>
-                                    <Textarea id="description" rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
+                                    <Textarea
+                                        id="description"
+                                        rows={2}
+                                        value={form.data.description}
+                                        onChange={(e) => form.setData('description', e.target.value)}
+                                    />
                                 </Field>
                                 <div className="grid gap-4 sm:grid-cols-3">
                                     <Field id="department_id" label="Departamento" error={errors.department_id}>
-                                        <NativeSelect id="department_id" value={form.data.department_id} onChange={(e) => form.setData('department_id', e.target.value)}>
+                                        <NativeSelect
+                                            id="department_id"
+                                            value={form.data.department_id}
+                                            onChange={(e) => form.setData('department_id', e.target.value)}
+                                        >
                                             <option value="">—</option>
                                             {departments.map((department) => (
                                                 <option key={department.id} value={department.id}>
@@ -281,9 +308,19 @@ export default function AgentDefinitionForm({
                     >
                         <div className="grid gap-4">
                             <Field id="personality" label="Personalidade" error={errors.personality} hint="Como fala e se comporta, em 2 a 4 frases.">
-                                <Textarea id="personality" rows={3} value={form.data.personality} onChange={(e) => form.setData('personality', e.target.value)} />
+                                <Textarea
+                                    id="personality"
+                                    rows={3}
+                                    value={form.data.personality}
+                                    onChange={(e) => form.setData('personality', e.target.value)}
+                                />
                             </Field>
-                            <Field id="instructions" label="Instruções" error={errors.instructions} hint="Markdown: o que faz, como faz, o que nunca faz.">
+                            <Field
+                                id="instructions"
+                                label="Instruções"
+                                error={errors.instructions}
+                                hint="Markdown: o que faz, como faz, o que nunca faz."
+                            >
                                 <Textarea
                                     id="instructions"
                                     rows={14}
@@ -296,13 +333,43 @@ export default function AgentDefinitionForm({
                     </FormSection>
 
                     <FormSection
+                        id="sugestoes"
+                        title="Sugestões"
+                        description="O que o ecrã de entrada propõe perguntar a este agente. Em branco, mostra as que as capacidades sugerem (em cinzento)."
+                    >
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {form.data.suggestions.map((suggestion, index) => (
+                                <Field key={index} id={`suggestion-${index}`} label={`Sugestão ${index + 1}`} error={errors[`suggestions.${index}`]}>
+                                    <Input
+                                        id={`suggestion-${index}`}
+                                        maxLength={120}
+                                        placeholder={agent?.suggested?.[index] ?? ''}
+                                        value={suggestion}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'suggestions',
+                                                form.data.suggestions.map((value, position) => (position === index ? e.target.value : value)),
+                                            )
+                                        }
+                                    />
+                                </Field>
+                            ))}
+                        </div>
+                    </FormSection>
+
+                    <FormSection
                         id="modelo"
                         title="Autonomia e modelo"
                         description="O tecto absoluto (pagamentos, facturas, contratos, pessoas, permissões) pede sempre aprovação."
                     >
                         <div className="grid gap-6">
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <Field id="status" label="Estado" error={errors.status} hint="Em rascunho, o agente não trabalha nem aparece na equipa.">
+                                <Field
+                                    id="status"
+                                    label="Estado"
+                                    error={errors.status}
+                                    hint="Em rascunho, o agente não trabalha nem aparece na equipa."
+                                >
                                     <NativeSelect id="status" value={form.data.status} onChange={(e) => form.setData('status', e.target.value)}>
                                         {statuses.map((status) => (
                                             <option key={status.value} value={status.value}>
@@ -312,7 +379,11 @@ export default function AgentDefinitionForm({
                                     </NativeSelect>
                                 </Field>
                                 <Field id="autonomy_level" label="Nível de autonomia" error={errors.autonomy_level}>
-                                    <NativeSelect id="autonomy_level" value={form.data.autonomy_level} onChange={(e) => form.setData('autonomy_level', e.target.value)}>
+                                    <NativeSelect
+                                        id="autonomy_level"
+                                        value={form.data.autonomy_level}
+                                        onChange={(e) => form.setData('autonomy_level', e.target.value)}
+                                    >
                                         {levels.map((option) => (
                                             <option key={option.value} value={option.value}>
                                                 {option.code} · {option.label}
@@ -336,7 +407,12 @@ export default function AgentDefinitionForm({
                                     </NativeSelect>
                                 </Field>
                                 <Field id="model" label="Modelo" error={errors.model} hint="Vazio: o modelo por omissão do provedor.">
-                                    <Input id="model" className="font-mono" value={form.data.model} onChange={(e) => form.setData('model', e.target.value)} />
+                                    <Input
+                                        id="model"
+                                        className="font-mono"
+                                        value={form.data.model}
+                                        onChange={(e) => form.setData('model', e.target.value)}
+                                    />
                                 </Field>
                             </div>
                             <div className="grid gap-4 sm:grid-cols-3">
@@ -383,8 +459,9 @@ export default function AgentDefinitionForm({
                         description={
                             <>
                                 O que o agente consegue <em>fazer</em>: ferramentas da plataforma, do ERP e de conectores.{' '}
-                                <span className="font-mono text-foreground tabular-nums">{form.data.capabilities.length}</span> {form.data.capabilities.length === 1 ? 'seleccionada' : 'seleccionadas'}. Sem aprovação,
-                                só usa uma capacidade de escrita se o seu nível for igual ou superior ao risco dela.
+                                <span className="font-mono text-foreground tabular-nums">{form.data.capabilities.length}</span>{' '}
+                                {form.data.capabilities.length === 1 ? 'seleccionada' : 'seleccionadas'}. Sem aprovação, só usa uma capacidade de
+                                escrita se o seu nível for igual ou superior ao risco dela.
                             </>
                         }
                         action={
@@ -449,7 +526,9 @@ export default function AgentDefinitionForm({
                                                             </StatusBadge>
                                                         )}
                                                     </span>
-                                                    <span className="block truncate font-mono text-[11px] text-muted-foreground">{capability.key}</span>
+                                                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                                                        {capability.key}
+                                                    </span>
                                                     {checked && gated && (
                                                         <span className="mt-0.5 flex items-center gap-1.5 text-xs text-warning-strong">
                                                             <StatusDot tone="warning" pulse={false} className="size-1.5 [&>span]:size-1.5" />
@@ -470,8 +549,8 @@ export default function AgentDefinitionForm({
                         title="Skills"
                         description={
                             <>
-                                O que o agente <em>sabe</em>: instruções da organização para tipos de trabalho. O agente vê o nome e quando se aplica, e lê o
-                                resto só quando precisa.
+                                O que o agente <em>sabe</em>: instruções da organização para tipos de trabalho. O agente vê o nome e quando se aplica,
+                                e lê o resto só quando precisa.
                             </>
                         }
                     >

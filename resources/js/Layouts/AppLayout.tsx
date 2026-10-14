@@ -19,8 +19,10 @@ import {
     Mail,
     Moon,
     Settings,
+    SquarePen,
     Sun,
     UserRound,
+    Workflow,
 } from 'lucide-react';
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -79,10 +81,18 @@ interface NavItem {
     badge?: 'approvals' | 'notifications' | 'waiting' | 'emails';
 }
 
-// Coming in opens the person's latest conversation: the agents below are the conversations (DECISOES, "Conversas a partir dos agentes").
+// Coming in opens the entry screen (DECISOES, "Ecrã de entrada e modo lite"); the agents below are the conversations.
+const newChat: NavItem = { label: 'Nova conversa', href: '/', icon: SquarePen };
+
 const topNav: NavItem[] = [
     { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
-    { label: 'Email', href: '/inbox', icon: Mail, badge: 'emails', permissions: ['emails.own_mailboxes', 'emails.triage', 'emails.manage_mailboxes'] },
+    {
+        label: 'Email',
+        href: '/inbox',
+        icon: Mail,
+        badge: 'emails',
+        permissions: ['emails.own_mailboxes', 'emails.triage', 'emails.manage_mailboxes'],
+    },
     { label: 'Aprovações', href: '/approvals', icon: CheckSquare, badge: 'approvals' },
     { label: 'Notificações', href: '/notifications', icon: Bell, badge: 'notifications' },
 ];
@@ -175,7 +185,7 @@ function NavGroup({
     );
 }
 
-function AgentsGroup({ url }: { url: string }) {
+function AgentsGroup({ url, lite }: { url: string; lite: boolean }) {
     const { sidebar_agents: agents } = usePage<SharedProps>().props;
     const live = agents.filter((agent) => agent.running > 0).length;
     // The agents are the conversations: talked-to first, the most recent on top (the server orders them).
@@ -236,7 +246,7 @@ function AgentsGroup({ url }: { url: string }) {
     return (
         <SidebarGroup className="py-1">
             <SidebarGroupLabel className="h-7 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">
-                Agentes
+                {lite ? 'Conversas' : 'Agentes'}
                 {live > 0 && (
                     <span className="ml-auto font-mono text-[10px] tracking-normal text-status-running normal-case">{live} a trabalhar</span>
                 )}
@@ -249,19 +259,21 @@ function AgentsGroup({ url }: { url: string }) {
                     </li>
                 )}
                 {others.map(item)}
-                <SidebarMenuItem>
-                    <SidebarMenuButton
-                        asChild
-                        isActive={url === '/agents'}
-                        tooltip="Ver todos os agentes"
-                        className="h-8 rounded-lg text-muted-foreground"
-                    >
-                        <Link href="/agents">
-                            <Bot />
-                            <span>Ver todos</span>
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
+                {!lite && (
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            asChild
+                            isActive={url === '/agents'}
+                            tooltip="Ver todos os agentes"
+                            className="h-8 rounded-lg text-muted-foreground"
+                        >
+                            <Link href="/agents">
+                                <Bot />
+                                <span>Ver todos</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                )}
             </SidebarMenu>
         </SidebarGroup>
     );
@@ -318,6 +330,14 @@ function UserMenu() {
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        {/* Only what the sidebar shows changes; what the person may do stays the same. */}
+                        <DropdownMenuItem
+                            onSelect={() => router.put('/settings/profile/mode', { mode: user.lite ? 'full' : 'lite' }, { preserveScroll: true })}
+                        >
+                            <Workflow />
+                            {user.lite ? 'Mudar para o modo completo' : 'Mudar para o modo lite'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onSelect={() => router.post('/logout')}>
                             <LogOut />
                             Terminar sessão
@@ -367,7 +387,12 @@ export default function AppLayout({
         return url === href || url.startsWith(`${href}/`);
     };
     const allowed = (item: NavItem) => !item.permissions || item.permissions.some((p) => user?.permissions.includes(p));
-    const counts = { approvals: auth.pending_approvals, notifications: auth.unread_notifications, waiting: auth.waiting_tasks, emails: auth.unread_emails };
+    const counts = {
+        approvals: auth.pending_approvals,
+        notifications: auth.unread_notifications,
+        waiting: auth.waiting_tasks,
+        emails: auth.unread_emails,
+    };
 
     // New email, or email read elsewhere, moves the Email counter; without the socket it catches up every half minute.
     useLive(tenant && user ? `tenant.${tenant.id}.mail` : null, ['MailboxUpdated'], () => router.reload({ only: ['auth'] }), {
@@ -375,6 +400,7 @@ export default function AppLayout({
         poll: user !== null,
         intervalMs: 30000,
     });
+    const lite = user?.lite ?? false;
     const allNav = [...topNav, ...workNav, settingsNav];
     const current = allNav.filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0];
     const trail: Crumb[] = breadcrumbs ?? (current ? [{ label: current.label }] : url.startsWith('/agents') ? [{ label: 'Agentes' }] : []);
@@ -400,28 +426,31 @@ export default function AppLayout({
                     </SidebarHeader>
 
                     <SidebarContent className="gap-1 px-1">
-                        <NavGroup items={topNav.filter(allowed)} isActive={isActive} counts={counts} />
+                        <NavGroup items={[newChat, ...topNav.filter(allowed)]} isActive={isActive} counts={counts} />
                         {/* The agents are the conversations, so they come right after what needs you. */}
-                        <AgentsGroup url={url} />
-                        <NavGroup label="Trabalho" items={workNav.filter(allowed)} isActive={isActive} counts={counts} />
+                        <AgentsGroup url={url} lite={lite} />
+                        {/* Lite keeps the day-to-day; the rest is still one switch away in the person's menu. */}
+                        {!lite && <NavGroup label="Trabalho" items={workNav.filter(allowed)} isActive={isActive} counts={counts} />}
                     </SidebarContent>
 
                     <SidebarFooter className="gap-1 border-t border-sidebar-border/60 p-2">
-                        <SidebarMenu>
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    asChild
-                                    isActive={isActive(settingsNav.href)}
-                                    tooltip={settingsNav.label}
-                                    className="h-8 rounded-lg font-medium text-sidebar-foreground/85"
-                                >
-                                    <Link href={settingsNav.href}>
-                                        <settingsNav.icon />
-                                        <span>{settingsNav.label}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
+                        {!lite && (
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={isActive(settingsNav.href)}
+                                        tooltip={settingsNav.label}
+                                        className="h-8 rounded-lg font-medium text-sidebar-foreground/85"
+                                    >
+                                        <Link href={settingsNav.href}>
+                                            <settingsNav.icon />
+                                            <span>{settingsNav.label}</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        )}
                         <UserMenu />
                     </SidebarFooter>
                     <SidebarRail />

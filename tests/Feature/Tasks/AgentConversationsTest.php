@@ -36,25 +36,7 @@ function chatWith(User $user, Agent $agent, string $body = 'Olá'): Task
     return $chat->fresh();
 }
 
-it('lands on the most recent conversation, a blank one with the first agent, or the tasks', function () {
-    // No conversation yet: a blank one with the first agent they can talk to.
-    $this->actingAs($this->owner)->get(tenantUrl($this->tenant))
-        ->assertRedirect(tenantUrl($this->tenant, "agents/{$this->finance->id}/chat"));
-
-    [$older, $newer] = asTenant($this->tenant, function () {
-        $older = chatWith($this->owner, $this->finance);
-        $newer = chatWith($this->owner, $this->triage);
-        $older->forceFill(['last_activity_at' => now()->subHour()])->save();
-
-        return [$older, $newer];
-    });
-
-    $this->actingAs($this->owner)->get(tenantUrl($this->tenant))->assertRedirect(tenantUrl($this->tenant, "tasks/{$newer->id}"));
-
-    // Nobody to talk to: the tasks.
-    $lonely = asTenant($this->tenant, fn () => User::factory()->create());
-    $this->actingAs($lonely)->get(tenantUrl($this->tenant))->assertRedirect(tenantUrl($this->tenant, 'tasks'));
-});
+// Coming in now opens the entry screen: tests/Feature/HomeTest.php.
 
 it('lists the agents as conversations, the latest first, with the answers not read yet', function () {
     $chat = asTenant($this->tenant, function () {

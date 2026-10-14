@@ -44,11 +44,12 @@ use Illuminate\Support\Carbon;
  * @property int|null $created_by_user_id
  * @property string|null $avatar_path
  * @property int|null $memory_run_id
+ * @property list<string>|null $suggestions
  * @property Carbon $created_at
  */
 #[Fillable([
     'key', 'name', 'title', 'description', 'personality', 'instructions', 'department_id', 'reports_to_user_id', 'reports_to_agent_id',
-    'status', 'suspended_reason', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps', 'settings', 'avatar_path',
+    'status', 'suspended_reason', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps', 'settings', 'avatar_path', 'suggestions',
 ])]
 class Agent extends Model
 {
@@ -179,6 +180,7 @@ class Agent extends Model
             'max_tokens' => 'integer',
             'max_steps' => 'integer',
             'settings' => 'array',
+            'suggestions' => 'array',
         ];
     }
 }

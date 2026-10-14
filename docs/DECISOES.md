@@ -640,7 +640,7 @@ Pedido do Barrote: a vista `/tasks?view=chats` já não fazia sentido e a conver
 
 | Decisão | Onde |
 |---|---|
-| **Entrar abre a conversa mais recente** da pessoa (a de actividade mais recente com um agente com quem ainda pode falar). Sem nenhuma, abre uma conversa em branco com o primeiro agente a quem pode falar; sem agentes, Tarefas. «A minha caixa» deixa de existir: o que precisa da pessoa está no sino, nos contadores da barra (Tarefas, Aprovações, Notificações) e em Tarefas › Minhas. | `HomeController`; sai `Pages/Home.tsx` |
+| ~~**Entrar abre a conversa mais recente**~~ (desde 14.10, o ecrã de entrada: «Ecrã de entrada e modo lite») da pessoa (a de actividade mais recente com um agente com quem ainda pode falar). Sem nenhuma, abre uma conversa em branco com o primeiro agente a quem pode falar; sem agentes, Tarefas. «A minha caixa» deixa de existir: o que precisa da pessoa está no sino, nos contadores da barra (Tarefas, Aprovações, Notificações) e em Tarefas › Minhas. | `HomeController`; sai `Pages/Home.tsx` |
 | **O grupo «Agentes» da barra é a lista de conversas**, logo abaixo de Tarefas, Email, Aprovações e Notificações: primeiro os agentes com quem a pessoa já falou, a conversa mais recente em cima, e por baixo de «Começar uma conversa» os outros, por nome. Cada um mostra se está a trabalhar, se está à espera da pessoa e quantas respostas estão por ler; com a barra fechada em ícones, um ponto no avatar. O lápis de editar sai da barra (está no topo da conversa). | `HandleInertiaRequests::sidebarAgents()`, `AppLayout` (`AgentsGroup`) |
 | **Por ler:** respostas do agente (mensagens e relatórios) depois da última vez que a pessoa abriu a conversa (`tasks.chat_read_at`, guardado ao abrir). Quem só lê a conversa de outra pessoa não a marca como lida. As conversas que já existiam começam como lidas. | migração `2026_10_09_110001`, `TaskController::show()` |
 | **Sai o item «Conversas» e a vista de conversas em Tarefas:** `/tasks?view=chats` leva à entrada (a conversa mais recente). A lista de tarefas fica só com tarefas. | `TaskController::index()`, `Pages/Tasks/Index.tsx` |
@@ -849,3 +849,18 @@ Pedido do Barrote: um repositório de ficheiros da empresa, com os agentes a ler
 | **Página do ficheiro**: «Original» e «O que os agentes lêem» (o texto, com as páginas lidas por IA indicadas), páginas, versão, de onde veio o texto, aviso quando a leitura falhou ou ficou incompleta. | `Pages/Knowledge/Show.tsx` |
 
 Testes: `tests/Feature/Knowledge/FileRepositoryTest.php` (leitura por páginas com uma página digitalizada, sem modelo, pasta arrastada e repetidos, permissões, versões, guardar anexos por pessoa e agente, pesquisa híbrida, `knowledge.view` e orçamento, ecrã).
+
+## Ecrã de entrada e modo lite (14.10.2026)
+
+Pedido do Barrote: o ecrã de entrada deve ser como o do Claude.ai, onde se escolhe o agente com quem falar, com saudação e sugestões. Haverá um modo lite e um modo mais completo, de administração. Viu o mockup e aprovou-o, com as opções recomendadas. Isto substitui a primeira linha de «Conversas a partir dos agentes» (entrar já não abre a conversa mais recente).
+
+| Decisão | Onde |
+|---|---|
+| **Entrar abre o ecrã de entrada**: «Bom dia / Boa tarde / Boa noite, {nome}», a caixa de escrita com anexos e gravação, o agente a quem vai (por omissão o da conversa mais recente, senão o primeiro por nome) e as sugestões desse agente. Uma sugestão preenche a caixa; enviar entra na conversa com esse agente (a mesma `agents.chat`). Sem agentes com quem falar, Tarefas. | `HomeController`, `Pages/Home.tsx` |
+| **«À sua espera» numa linha**, por cima da caixa: aprovações e tarefas à espera (os contadores da barra) e os agentes com perguntas por responder à pessoa, cada um a abrir onde se resolve. | `HomeController` (`questions`) |
+| **Sugestões por agente**: até 4, escritas na configuração do agente (secção «Sugestões»). Em branco, mostra as que as capacidades activas do agente sugerem (uma lista fixa por capacidade, mais duas gerais), que aparecem em cinzento no formulário. | migração `2026_10_14_190001`, `agents.suggestions`, `App\Support\AgentSuggestions`, `AgentEditor`, `Components/agents/AgentDefinitionForm.tsx` |
+| **Modo lite**: a barra fica com «Nova conversa», Tarefas, Email, Aprovações e Notificações, e as conversas com os agentes (o grupo chama-se «Conversas», sem «Ver todos»). Saem o grupo Trabalho (Painel, Objectivos, Projectos, Briefings, Documentos, Ficheiros, Conhecimento, Organigrama) e Definições da barra; Perfil, Aparência e Definições continuam no menu da pessoa. Só muda o que a barra mostra: as páginas e as permissões são as mesmas. | `AppLayout` |
+| **Modo completo**: a barra de sempre, com «Nova conversa» em cima. | `AppLayout` |
+| **Quem começa em que modo**: quem não administra a empresa começa no lite e os admins (`company.manage`) no completo. Cada pessoa troca no seu menu («Mudar para o modo lite / completo») e a escolha fica guardada. | `users.ui_mode`, `User::prefersLite()`, `ProfileController::mode()`, `auth.user.lite` |
+
+Testes: `tests/Feature/HomeTest.php`; sai o teste de entrada de `AgentConversationsTest.php`.

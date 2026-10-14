@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @property array<string, bool>|null $permission_overrides
  * @property bool $is_active
  * @property Carbon|null $last_seen_at
+ * @property string|null $ui_mode
  */
 #[Fillable(['name', 'job_title', 'email', 'password', 'department_id', 'reports_to_user_id', 'reports_to_agent_id', 'role', 'access_role_id', 'permission_overrides', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
@@ -118,6 +119,18 @@ class User extends Authenticatable
         $this->setRelation('accessRole', $role);
 
         return $role->permissions ?? AccessRoles::defaultsFor($this->role);
+    }
+
+    /**
+     * The simple view (docs/DECISOES.md, "Ecrã de entrada e modo lite"): the
+     * entry screen and the sidebar with only what the person works with. Until
+     * they choose, whoever administers the company sees everything.
+     */
+    public function prefersLite(): bool
+    {
+        $mode = $this->attributes['ui_mode'] ?? null;
+
+        return $mode === null ? ! $this->canManageTenant() : $mode === 'lite';
     }
 
     /**

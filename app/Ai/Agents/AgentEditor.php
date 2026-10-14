@@ -12,6 +12,7 @@ use App\Models\Department;
 use App\Models\PlatformAdmin;
 use App\Models\Skill;
 use App\Models\User;
+use App\Support\AgentSuggestions;
 use App\Tasks\OrgChart;
 use App\Tenancy\TenantRule;
 use Illuminate\Support\Arr;
@@ -58,6 +59,8 @@ final class AgentEditor
             'capabilities.*' => ['integer', TenantRule::exists('capabilities')],
             'skills' => ['array'],
             'skills.*' => ['integer', TenantRule::exists('skills')],
+            'suggestions' => ['sometimes', 'array', 'max:'.AgentSuggestions::MAX],
+            'suggestions.*' => ['nullable', 'string', 'max:120'],
         ];
     }
 
@@ -75,7 +78,12 @@ final class AgentEditor
         $before = $isNew ? null : ['autonomy_level' => $agent->autonomy_level->value, 'status' => $agent->status->value];
 
         DB::transaction(function () use ($agent, $data, $actor, $isNew) {
-            $agent->fill(Arr::except($data, ['capabilities', 'skills']));
+            $agent->fill(Arr::except($data, ['capabilities', 'skills', 'suggestions']));
+
+            if (array_key_exists('suggestions', $data)) {
+                $written = array_values(array_filter(array_map(fn ($text) => trim((string) $text), $data['suggestions'] ?? []), fn (string $text) => $text !== ''));
+                $agent->suggestions = $written === [] ? null : $written;
+            }
 
             if (array_key_exists('reports_to_agent_id', $data)) {
                 $agent->reports_to_agent_id = $data['reports_to_agent_id'];
@@ -122,6 +130,8 @@ final class AgentEditor
             'capabilities' => $agent->capabilities()->wherePivot('enabled', true)->pluck('capabilities.id'),
             'skills' => $agent->skills()->pluck('skills.id'),
             'avatar_url' => $avatarUrl ?? $agent->avatarUrl(),
+            'suggestions' => $agent->suggestions ?? [],
+            'suggested' => AgentSuggestions::fromCapabilities($agent->capabilities()->wherePivot('enabled', true)->pluck('capabilities.key')),
         ];
     }
 

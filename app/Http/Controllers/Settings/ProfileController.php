@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -57,6 +58,20 @@ class ProfileController extends Controller
         $user->forceFill(['email_images_ask' => (bool) $data['ask']])->save();
 
         return back()->with('success', $data['ask'] ? 'Passa a ser perguntado antes de mostrar as imagens.' : 'As imagens dos emails passam a carregar sozinhas.');
+    }
+
+    /**
+     * Lite or full (docs/DECISOES.md, "Ecrã de entrada e modo lite"); only what
+     * the sidebar shows changes, never what the person may do.
+     */
+    public function mode(Request $request): RedirectResponse
+    {
+        $user = $this->user($request);
+        $data = $request->validate(['mode' => ['required', Rule::in(['lite', 'full'])]]);
+
+        $user->forceFill(['ui_mode' => $data['mode']])->save();
+
+        return back();
     }
 
     public function password(Request $request): RedirectResponse

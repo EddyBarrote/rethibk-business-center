@@ -254,6 +254,7 @@ Route::middleware('auth')->group(function () {
         Route::get('profile', [ProfileController::class, 'show'])->name('settings.profile.show');
         Route::put('profile', [ProfileController::class, 'update'])->name('settings.profile.update');
         Route::put('profile/email-images', [ProfileController::class, 'emailImages'])->name('settings.profile.email-images');
+        Route::put('profile/mode', [ProfileController::class, 'mode'])->name('settings.profile.mode');
         Route::get('notifications', [NotificationPreferencesController::class, 'show'])->name('settings.notifications.show');
         Route::put('notifications', [NotificationPreferencesController::class, 'update'])->name('settings.notifications.update');
         Route::get('memory', [MemoryController::class, 'show'])->name('settings.memory.show');
