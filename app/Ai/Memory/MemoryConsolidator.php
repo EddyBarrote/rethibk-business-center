@@ -344,7 +344,9 @@ final class MemoryConsolidator
             $content = Str::limit(trim((string) ($fact['content'] ?? '')), 500, '…');
 
             if ($content !== '') {
-                $this->company->propose($agent, CompanySection::tryFrom((string) ($fact['section'] ?? '')) ?? CompanySection::Rules, $content, task: $task);
+                // The fact it corrects leaves when a person approves the new one, so the two never coexist.
+                $replaces = filled($fact['replaces'] ?? null) ? $this->company->visibleTo($agent)->find((int) $fact['replaces']) : null;
+                $this->company->propose($agent, CompanySection::tryFrom((string) ($fact['section'] ?? '')) ?? CompanySection::Rules, $content, $replaces?->domain, $replaces, $task);
             }
         }
 
@@ -360,7 +362,12 @@ final class MemoryConsolidator
      */
     private function known(Agent $agent, ?User $person): string
     {
-        return $this->describe($this->memoryOf($agent, $person?->id)->orderByDesc('updated_at')->limit(self::PROMPT_INDEX)->get());
+        $entries = $this->memoryOf($agent, $person?->id)->orderByDesc('updated_at')->get();
+        $older = $entries->slice(self::PROMPT_INDEX);
+
+        // The older ones by title only, so a change to one of them updates it instead of adding a contradiction.
+        return $this->describe($entries->take(self::PROMPT_INDEX))
+            .($older->isEmpty() ? '' : "\n\nEntradas mais antigas (só o título e a descrição):\n".$older->map(fn (AgentMemory $m) => "[{$m->section->value}] {$m->title}: {$m->description}")->implode("\n"));
     }
 
     /**
@@ -396,9 +403,9 @@ final class MemoryConsolidator
 
     private function companyFacts(Agent $agent): string
     {
-        $facts = $this->company->visibleTo($agent)->latest('id')->limit(80)->pluck('content');
+        $facts = $this->company->visibleTo($agent)->latest('id')->limit(80)->pluck('content', 'id');
 
-        return $facts->isEmpty() ? '(nada ainda)' : $facts->map(fn (string $fact) => "- {$fact}")->implode("\n");
+        return $facts->isEmpty() ? '(nada ainda)' : $facts->map(fn (string $fact, int $id) => "- #{$id} {$fact}")->implode("\n");
     }
 
     /**

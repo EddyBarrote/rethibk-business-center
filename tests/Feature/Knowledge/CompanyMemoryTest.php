@@ -50,8 +50,8 @@ it('puts the published facts in every agent\'s prompt, by section, and domain fa
         $hr = app(InstructionComposer::class)->for($this->hrAgent);
 
         expect($finance)->toContain('## Memória da empresa')
-            ->toContain("### Quem somos\n- A MicoMoc faz obras")
-            ->toContain("### Preços e condições\n- A margem mínima")
+            ->toMatch("/### Quem somos\n- #\\d+ A MicoMoc faz obras/")
+            ->toMatch("/### Preços e condições\n- #\\d+ A margem mínima/")
             ->not->toContain('dia 25')
             ->not->toContain('Ainda por aprovar')
             ->and(strpos($finance, 'Quem somos'))->toBeLessThan(strpos($finance, 'Preços e condições'))
@@ -157,4 +157,30 @@ it('shows each person the facts they may see, and the proposals only to who can 
     $this->actingAs($this->hrManager, 'web')->post(tenantUrl($this->tenant, 'settings/company-memory'), ['section' => 'people', 'content' => 'Férias marcam-se até Março.', 'knowledge_domain_id' => $this->rh->id])->assertRedirect();
 
     asTenant($this->tenant, fn () => expect(CompanyFact::query()->where('content', 'Férias marcam-se até Março.')->sole()->created_by_user_id)->toBe($this->hrManager->id));
+});
+
+it('proposes a correction that replaces the old fact, so the memory never holds both', function () {
+    asTenant($this->tenant, function () {
+        $old = CompanyFact::factory()->create(['section' => 'pricing', 'content' => 'A Loop Experience paga a 30 dias.']);
+
+        // Agents see the number of each fact, to say which one a correction replaces.
+        expect(app(CompanyMemory::class)->forPrompt($this->financeAgent))->toContain("#{$old->id} A Loop Experience");
+
+        MemoryExtractor::fake([[
+            'entries' => [],
+            'company' => [['content' => 'A Loop Experience passou a pagar a 60 dias.', 'section' => 'pricing', 'replaces' => $old->id]],
+        ]]);
+
+        $thread = app(TaskThread::class);
+        $chat = $thread->conversation($this->member, $this->financeAgent);
+        $thread->post($chat, $this->member, 'A Loop Experience agora paga a 60 dias.', wake: false);
+        app(MemoryConsolidator::class)->consolidate($chat);
+
+        $proposal = CompanyFact::query()->where('status', CompanyFact::PENDING)->sole();
+        expect($proposal->replaces_id)->toBe($old->id);
+
+        app(CompanyMemory::class)->approve($proposal, $this->owner);
+        expect($old->fresh()->status)->toBe(CompanyFact::SUPERSEDED)
+            ->and(app(CompanyMemory::class)->forPrompt($this->financeAgent))->toContain('60 dias')->not->toContain('30 dias');
+    });
 });

@@ -46,6 +46,7 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
         Na memória sem pessoa, não uses preferences nem profile.
 
         Cada entrada: title curto (o nome do cliente, da pessoa, do tema), description com uma linha que diz o que lá está, e body com o texto completo em frases curtas ou tópicos com «- ». Para mudar uma entrada que já existe, usa exactamente o mesmo title e devolve o body inteiro já actualizado (junta o novo ao que lá estava, corrige o que mudou, tira o que deixou de ser verdade). Não cries uma entrada nova para o que cabe numa que já existe.
+        A memória nunca tem contradições. Se o excerto muda ou desmente algo que está numa entrada, mesmo com outro título ou noutra secção, actualiza essa entrada (com o title dela) e tira o que deixou de ser verdade; nunca deixes uma entrada a dizer uma coisa e outra a dizer o contrário. Se a mesma coisa está em duas entradas, junta-as numa e põe a outra em forget.
         Guarda o que é duradouro e útil: decisões, preferências, regras, prazos combinados, contactos, condições de clientes e fornecedores, como uma pessoa gosta de receber o trabalho.
         Não guardes: pedidos pontuais já resolvidos, cumprimentos, números que mudam todos os dias, palavras-passe ou dados bancários.
         {$sensitive}
@@ -54,7 +55,7 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
         forget: os títulos de entradas que deixaram de ser verdade de todo ou que a pessoa pediu para esquecer.
         Se nada muda, devolve listas vazias.
 
-        company: factos de trabalho que valem para toda a empresa e para todos os agentes (quem somos, condições de um cliente ou parceiro, uma regra ou política, um preço, quem decide o quê, uma decisão da direcção) e que ainda não estão na memória da empresa (abaixo), cada um numa frase que se entende sozinha. Uma pessoa aprova-os antes de chegarem a todos. section: about, clients, rules, pricing, people ou decisions.
+        company: factos de trabalho que valem para toda a empresa e para todos os agentes (quem somos, condições de um cliente ou parceiro, uma regra ou política, um preço, quem decide o quê, uma decisão da direcção) e que ainda não estão na memória da empresa (abaixo), cada um numa frase que se entende sozinha. Uma pessoa aprova-os antes de chegarem a todos. section: about, clients, rules, pricing, people ou decisions. replaces: quando o facto corrige ou contradiz um da memória da empresa, o número desse (o #); ao ser aprovado, o antigo sai. Nunca proponhas um facto que contradiz outro sem o indicar em replaces.
         TXT : 'A pessoa desligou a memória: não guardes nada dela (entries, forget e company vazios).';
 
         return <<<TXT
@@ -90,6 +91,7 @@ final class MemoryExtractor implements Agent, HasStructuredOutput
             'company' => $schema->array()->items($schema->object([
                 'content' => $schema->string()->required(),
                 'section' => $schema->string()->enum(['about', 'clients', 'rules', 'pricing', 'people', 'decisions'])->required(),
+                'replaces' => $schema->integer(),
             ])),
             'summary' => $schema->string(),
         ];

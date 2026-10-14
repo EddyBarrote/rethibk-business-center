@@ -75,13 +75,13 @@ final class CompanyMemory
             ->map(fn (CompanySection $section) => [$section, $kept->where('section', $section)->sortBy('id')])
             ->filter(fn (array $pair) => $pair[1]->isNotEmpty())
             ->map(fn (array $pair) => "### {$pair[0]->label()}\n".$pair[1]
-                ->map(fn (CompanyFact $f) => '- '.($pair[0] === CompanySection::Decisions ? $f->created_at->format('d/m/Y').' ' : '').$f->content)
+                ->map(fn (CompanyFact $f) => "- #{$f->id} ".($pair[0] === CompanySection::Decisions ? $f->created_at->format('d/m/Y').' ' : '').$f->content)
                 ->implode("\n"))
             ->implode("\n\n");
 
         $left = $facts->count() - $kept->count();
 
-        return "## Memória da empresa\nFactos aprovados por pessoas, que valem para toda a empresa. Segue-os. Se uma conversa mostrar que um mudou ou falta algum importante, propõe-o com company.propose_fact; não o tomes como certo até ser aprovado.\n\n"
+        return "## Memória da empresa\nFactos aprovados por pessoas, que valem para toda a empresa. Segue-os. Se uma conversa mostrar que um mudou ou falta algum importante, propõe-o com company.propose_fact; não o tomes como certo até ser aprovado. Quando o novo corrige ou contradiz um que já está aqui, indica o número dele em replaces_id, para o antigo sair quando o novo for aprovado: a memória nunca fica com dois factos a dizer coisas diferentes.\n\n"
             .$sections
             .($left > 0 ? "\n\n(Ficaram de fora {$left} factos mais antigos por falta de espaço.)" : '');
     }
