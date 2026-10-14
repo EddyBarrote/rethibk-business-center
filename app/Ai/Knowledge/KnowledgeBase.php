@@ -176,7 +176,7 @@ final class KnowledgeBase
 
     public function embed(KnowledgeItem $item): void
     {
-        $pieces = $this->chunker->splitWithPages($item->title."\n\n".$item->content);
+        $pieces = $this->chunker->splitWithPages($item->content, $item->title);
 
         if ($pieces === [] || ! self::embeddingsConfigured()) {
             $item->forceFill(['embedding_status' => 'skipped'])->save();
@@ -195,7 +195,7 @@ final class KnowledgeBase
                     $rows[] = [
                         'chunk_index' => count($rows),
                         'page' => $batch[$index]['page'],
-                        'chunk_text' => $batch[$index]['text'],
+                        'chunk_text' => $batch[$index]['body'],
                         'vector' => VectorCodec::pack(array_map('floatval', $vector)),
                         'model' => $response->meta->model ?? 'unknown',
                         'dimensions' => count($vector),
@@ -312,7 +312,12 @@ final class KnowledgeBase
             });
 
         uasort($best, fn ($a, $b) => $b['score'] <=> $a['score']);
-        $best = array_slice($best, 0, $limit, true);
+
+        // Every item gets some similarity; only those close to the best one
+        // are about the question (with Gemini at 768, unrelated texts sit
+        // about 0.1 below a real match).
+        $floor = ($best === [] ? 0.0 : (float) reset($best)['score']) - (float) config('knowledge.similarity_window', 0.08);
+        $best = array_slice(array_filter($best, fn (array $hit) => $hit['score'] >= $floor), 0, $limit, true);
         $items = KnowledgeItem::query()->whereIn('id', array_keys($best))->get()->keyBy('id');
         $hits = [];
 

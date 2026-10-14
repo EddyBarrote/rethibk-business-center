@@ -25,6 +25,10 @@ return [
     // the bytes, which is what makes searching every part in PHP affordable.
     'embedding_dimensions' => (int) env('KNOWLEDGE_EMBEDDING_DIMENSIONS', 768),
 
+    // Search: similar parts count only within this distance of the best
+    // match (cosine); the rest is what every text shares with any question.
+    'similarity_window' => 0.08,
+
     // Parts sent to the embeddings API per request.
     'embedding_batch' => 50,
 

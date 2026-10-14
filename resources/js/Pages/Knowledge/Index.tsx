@@ -259,7 +259,7 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
             <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
                 <nav className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start" aria-label="Domínios">
                     <div className="flex flex-col gap-0.5">
-                        <NavRow href="/knowledge" active={!domain && browsing}>
+                        <NavRow href="/knowledge" active={!domain && filters.q === "" && filters.view === null}>
                             <Clock className="size-4 text-muted-foreground" />
                             Recentes
                         </NavRow>

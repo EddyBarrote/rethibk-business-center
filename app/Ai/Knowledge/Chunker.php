@@ -22,35 +22,40 @@ final class Chunker
     }
 
     /**
-     * Chunks with the page each one starts on, read from the [Página N]
-     * lines the repository writes in a file's text (FileReader); null when
-     * the text has no pages.
+     * Chunks of a file's text page by page, read from the [Página N] lines
+     * the repository writes (FileReader): a chunk never spans two pages, so
+     * a match says where it is, and each chunk starts with the document's
+     * title for context. Text without pages is chunked as a whole.
      *
-     * @return list<array{text: string, page: int|null}>
+     * @return list<array{text: string, body: string, page: int|null}> text is what is embedded (with the title), body what is kept
      */
-    public function splitWithPages(string $text): array
+    public function splitWithPages(string $text, string $title = ''): array
     {
-        $text = $this->normalise($text);
-        preg_match_all('/^\[P[áa]gina (\d+)\]/mu', $text, $markers, PREG_OFFSET_CAPTURE);
-        $starts = [];
+        $parts = preg_split('/^\[P[áa]gina (\d+)\]\s*$/mu', $this->normalise($text), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $prefix = trim($title) === '' ? '' : trim($title)."\n\n";
 
-        foreach ($markers[0] as $index => [$marker, $byte]) {
-            $starts[] = [mb_strlen(substr($text, 0, $byte)), (int) $markers[1][$index][0]];
+        if (count($parts) < 3) {
+            $pieces = $this->pieces($this->normalise($text));
+
+            // An item with only a title (a file with no text) is still found by it.
+            return $pieces === [] && trim($title) !== ''
+                ? [['text' => trim($title), 'body' => trim($title), 'page' => null]]
+                : array_map(fn (array $piece) => ['text' => $prefix.$piece[1], 'body' => $piece[1], 'page' => null], $pieces);
         }
 
-        return array_map(function (array $piece) use ($starts) {
-            $page = $starts[0][1] ?? null;
+        $chunks = [];
+        $lead = trim((string) array_shift($parts));
 
-            foreach ($starts as [$offset, $number]) {
-                if ($offset > $piece[0]) {
-                    break;
-                }
+        for ($i = 0; $i + 1 < count($parts); $i += 2) {
+            $page = (int) $parts[$i];
+            $body = trim(($i === 0 && $lead !== '' ? $lead."\n\n" : '').$parts[$i + 1]);
 
-                $page = $number;
+            foreach ($this->pieces($body) as [, $piece]) {
+                $chunks[] = ['text' => "{$prefix}[Página {$page}]\n{$piece}", 'body' => $piece, 'page' => $page];
             }
+        }
 
-            return ['text' => $piece[1], 'page' => $page];
-        }, $this->pieces($text));
+        return $chunks;
     }
 
     private function normalise(string $text): string
