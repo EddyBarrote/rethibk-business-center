@@ -35,4 +35,9 @@ return [
     // agent's memory is consolidated straight away, before they leave its
     // history (TaskThread::HISTORY_MESSAGES), not only at 21:00.
     'memory_every_messages' => 30,
+
+    // Characters of a thread's latest messages the agent reads as history
+    // (docs/DECISOES.md, "Falhas de contexto"): about 15 000 tokens. Never
+    // more than TaskThread::HISTORY_MESSAGES messages; the newest always goes.
+    'history_chars' => 60000,
 ];

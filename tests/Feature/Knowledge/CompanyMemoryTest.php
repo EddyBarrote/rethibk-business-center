@@ -89,10 +89,10 @@ it('lets an agent propose a fact that waits for a person, then a curator approve
     });
 
     // A member cannot approve; a manager cannot approve a fact for the whole company.
-    $this->actingAs($this->member, 'web')->post(tenantUrl($this->tenant, "knowledge/company/{$proposal->id}/approve"), ['section' => 'clients', 'content' => 'x'])->assertForbidden();
-    $this->actingAs($this->hrManager, 'web')->post(tenantUrl($this->tenant, "knowledge/company/{$proposal->id}/approve"), ['section' => 'clients', 'content' => 'x'])->assertForbidden();
+    $this->actingAs($this->member, 'web')->post(tenantUrl($this->tenant, "settings/company-memory/{$proposal->id}/approve"), ['section' => 'clients', 'content' => 'x'])->assertForbidden();
+    $this->actingAs($this->hrManager, 'web')->post(tenantUrl($this->tenant, "settings/company-memory/{$proposal->id}/approve"), ['section' => 'clients', 'content' => 'x'])->assertForbidden();
 
-    $this->actingAs($this->owner, 'web')->post(tenantUrl($this->tenant, "knowledge/company/{$proposal->id}/approve"), [
+    $this->actingAs($this->owner, 'web')->post(tenantUrl($this->tenant, "settings/company-memory/{$proposal->id}/approve"), [
         'section' => 'clients',
         'content' => 'A Mozal paga a 30 dias desde Outubro de 2026.',
     ])->assertRedirect();
@@ -138,20 +138,23 @@ it('shows each person the facts they may see, and the proposals only to who can 
         CompanyFact::factory()->pending()->create(['content' => 'Proposta.', 'proposed_by_agent_id' => $this->financeAgent->id]);
     });
 
-    $this->actingAs($this->member, 'web')->get(tenantUrl($this->tenant, 'knowledge/company'))->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Knowledge/Company')
+    $this->actingAs($this->member, 'web')->get(tenantUrl($this->tenant, 'settings/company-memory'))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Settings/CompanyMemory')
             ->has('facts', 1)
             ->where('facts.0.content', 'Facto de todos.')
             ->where('facts.0.can_edit', false)
             ->has('proposals', 0)
             ->where('can.write', false));
 
-    $this->actingAs($this->owner, 'web')->get(tenantUrl($this->tenant, 'knowledge/company'))->assertOk()
+    $this->actingAs($this->owner, 'web')->get(tenantUrl($this->tenant, 'settings/company-memory'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('facts', 2)->has('proposals', 1)->where('proposals.0.proposed_by', 'Finanças'));
 
+    // It moved from Conhecimento to Definições › Memória; old links still work.
+    $this->actingAs($this->member, 'web')->get(tenantUrl($this->tenant, 'knowledge/company'))->assertRedirect('/settings/company-memory');
+
     // The HR manager writes HR facts, not facts for everyone.
-    $this->actingAs($this->hrManager, 'web')->post(tenantUrl($this->tenant, 'knowledge/company'), ['section' => 'people', 'content' => 'Férias marcam-se até Março.'])->assertForbidden();
-    $this->actingAs($this->hrManager, 'web')->post(tenantUrl($this->tenant, 'knowledge/company'), ['section' => 'people', 'content' => 'Férias marcam-se até Março.', 'knowledge_domain_id' => $this->rh->id])->assertRedirect();
+    $this->actingAs($this->hrManager, 'web')->post(tenantUrl($this->tenant, 'settings/company-memory'), ['section' => 'people', 'content' => 'Férias marcam-se até Março.'])->assertForbidden();
+    $this->actingAs($this->hrManager, 'web')->post(tenantUrl($this->tenant, 'settings/company-memory'), ['section' => 'people', 'content' => 'Férias marcam-se até Março.', 'knowledge_domain_id' => $this->rh->id])->assertRedirect();
 
     asTenant($this->tenant, fn () => expect(CompanyFact::query()->where('content', 'Férias marcam-se até Março.')->sole()->created_by_user_id)->toBe($this->hrManager->id));
 });

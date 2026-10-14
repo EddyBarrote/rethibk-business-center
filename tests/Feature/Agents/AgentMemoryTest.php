@@ -9,6 +9,7 @@ use App\Ai\Memory\MemoryExtractor;
 use App\Ai\Runs\AgentRunner;
 use App\Enums\MemorySection;
 use App\Jobs\ConsolidateAgentMemory;
+use App\Jobs\ConsolidateAgentWork;
 use App\Models\Agent;
 use App\Models\AgentMemory;
 use App\Models\AgentRun;
@@ -316,5 +317,112 @@ it('keeps a rolling summary of the thread and shows it once the start leaves the
         // A pass with no new summary keeps the one there was.
         app(MemoryConsolidator::class)->consolidate($chat->fresh());
         expect($chat->fresh()->summary)->toContain('falta o preço das botas');
+    });
+});
+
+// The gaps left open on 12.10 (docs/DECISOES.md, "Falhas de contexto", 14.10.2026).
+
+it('cuts the history by size, always keeping the newest message, and then shows the summary', function () {
+    config(['business.history_chars' => 2000]);
+
+    asTenant($this->tenant, function () {
+        $threads = app(TaskThread::class);
+        $chat = $threads->conversation($this->ana, $this->agent);
+        $chat->forceFill(['summary' => 'Falta o preço das botas.'])->save();
+
+        foreach (range(1, 3) as $i) {
+            $threads->post($chat, $this->ana, "Mensagem {$i}: ".str_repeat('x', 900), wake: false);
+        }
+
+        $run = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id]);
+        $history = $threads->history($run);
+
+        // Three messages of ~910 characters: only the two newest fit in 2000.
+        expect($history)->toHaveCount(2)
+            ->and($history[0]->content)->toContain('Mensagem 2')
+            ->and($history[1]->content)->toContain('Mensagem 3')
+            ->and(app(InstructionComposer::class)->for($this->agent, $run))->toContain('O que veio antes')->toContain('preço das botas');
+
+        // One message longer than the whole budget still goes, cut.
+        $threads->post($chat, $this->ana, 'Enorme: '.str_repeat('y', 5000), wake: false);
+        $history = $threads->history($run->fresh());
+        expect($history)->toHaveCount(1)->and(mb_strlen($history[0]->content))->toBeLessThan(2100);
+    });
+});
+
+it('consolidates a thread as soon as messages not yet in memory leave the shorter history', function () {
+    config(['business.history_chars' => 2000, 'business.memory_every_messages' => 30]);
+    GenericAgent::fake([str_repeat('Resposta longa. ', 80)]);
+
+    asTenant($this->tenant, function () {
+        $threads = app(TaskThread::class);
+        $chat = $threads->conversation($this->ana, $this->agent);
+        $threads->post($chat, $this->ana, str_repeat('Pergunta longa. ', 80));
+        app(AgentRunner::class)->run(AgentRun::query()->sole());
+
+        Queue::assertPushed(ConsolidateAgentMemory::class, fn (ConsolidateAgentMemory $job) => $job->taskId === $chat->id);
+    });
+});
+
+it('turns work with no person into the agent\'s own memory, every few runs and at 21:00', function () {
+    MemoryExtractor::fake([[
+        'entries' => [['section' => 'topics', 'title' => 'Relatório de cobranças', 'description' => 'O que a rotina de segunda envia.', 'body' => '- Sai às segundas com as facturas vencidas.', 'kind' => 'work']],
+        'summary' => '',
+    ]]);
+
+    asTenant($this->tenant, function () {
+        $runs = AgentRun::factory()->count(MemoryConsolidator::WORK_RUNS)->create([
+            'agent_id' => $this->agent->id, 'trigger_type' => 'schedule', 'output' => ['text' => 'Enviei o relatório de cobranças.'],
+        ]);
+        // Runs a person asked for from the console, or that failed, are not the agent's own work.
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'requested_by_user_id' => $this->ana->id]);
+
+        $this->artisan('agents:consolidate-memory')->assertSuccessful();
+        Queue::assertPushed(ConsolidateAgentWork::class, fn (ConsolidateAgentWork $job) => $job->agentId === $this->agent->id);
+
+        expect(app(MemoryConsolidator::class)->consolidateWork($this->agent))->toBe(1)
+            ->and($this->agent->fresh()->memory_run_id)->toBe($runs->last()->id)
+            ->and(AgentMemory::query()->sole()->user_id)->toBeNull()
+            ->and(app(MemoryConsolidator::class)->forPrompt($this->agent, $this->joao))->toContain('Relatório de cobranças')
+            ->and(app(MemoryConsolidator::class)->workRuns($this->agent->fresh())->exists())->toBeFalse();
+    });
+});
+
+it('starts the pass on work with no person once enough runs have piled up', function () {
+    GenericAgent::fake(['Feito.']);
+
+    asTenant($this->tenant, function () {
+        AgentRun::factory()->count(MemoryConsolidator::WORK_RUNS - 1)->create(['agent_id' => $this->agent->id, 'trigger_type' => 'schedule']);
+        $run = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'trigger_type' => 'schedule', 'status' => 'queued']);
+
+        app(AgentRunner::class)->run($run);
+
+        Queue::assertPushed(ConsolidateAgentWork::class, fn (ConsolidateAgentWork $job) => $job->agentId === $this->agent->id);
+    });
+});
+
+it('saves and reads a task\'s memory under the same person when the task has no user', function () {
+    MemoryExtractor::fake([[
+        'entries' => [['section' => 'areas', 'title' => 'Loop Experience', 'description' => 'Cliente: condições.', 'body' => '- Paga a 30 dias.', 'kind' => 'work']],
+        'summary' => '',
+    ]]);
+
+    asTenant($this->tenant, function () {
+        $task = Task::factory()->create(['assignee_agent_id' => $this->agent->id, 'user_id' => null, 'created_by_user_id' => $this->ana->id]);
+        app(TaskThread::class)->post($task, $this->ana, 'A Loop Experience paga a 30 dias.', wake: false);
+
+        app(MemoryConsolidator::class)->consolidate($task);
+        expect(AgentMemory::query()->sole()->user_id)->toBe($this->ana->id);
+
+        $run = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $task->id]);
+        expect(app(InstructionComposer::class)->for($this->agent, $run))->toContain('Loop Experience');
+    });
+});
+
+it('tells the agent when older entries are left out of the index', function () {
+    asTenant($this->tenant, function () {
+        AgentMemory::factory()->count(MemoryConsolidator::PROMPT_INDEX + 3)->create(['agent_id' => $this->agent->id, 'user_id' => $this->ana->id, 'section' => 'topics']);
+
+        expect(app(MemoryConsolidator::class)->forPrompt($this->agent, $this->ana))->toContain('Há mais 3 entradas');
     });
 });

@@ -71,6 +71,7 @@ const businessFields: [string, string, string][] = [
     ['unreconciled_days', 'Banco por reconciliar (dias)', 'Depois disto é um bloqueio.'],
     ['company_memory_chars', 'Memória da empresa no prompt (caracteres)', 'Acima disto, os factos mais antigos ficam de fora.'],
     ['memory_every_messages', 'Consolidar a memória a cada (mensagens)', 'Mensagens novas numa conversa antes de o agente as passar à memória; 0 só às 21:00.'],
+    ['history_chars', 'Histórico da conversa no prompt (caracteres)', 'As mensagens mais recentes que o agente lê, até 40; a mais recente entra sempre. 60 000 são cerca de 15 000 tokens.'],
 ];
 
 const scopeLabel: Record<string, string> = { tenant: 'Organização', agent: 'Agente', run: 'Execução' };

@@ -43,6 +43,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $created_by_admin_id
  * @property int|null $created_by_user_id
  * @property string|null $avatar_path
+ * @property int|null $memory_run_id
  * @property Carbon $created_at
  */
 #[Fillable([

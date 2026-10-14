@@ -9,6 +9,7 @@ use App\Ai\Budget\BudgetExceeded;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Budget\Pricing;
 use App\Ai\Capabilities\CapabilityContext;
+use App\Ai\Memory\MemoryConsolidator;
 use App\Attachments\ModelInput;
 use App\Enums\AuditResult;
 use App\Enums\QuestionStatus;
@@ -18,12 +19,14 @@ use App\Enums\TriggerType;
 use App\Events\AgentRunFinished;
 use App\Events\AgentRunStarted;
 use App\Events\TaskReplyStreaming;
+use App\Jobs\ConsolidateAgentWork;
 use App\Jobs\RunAgent;
 use App\Models\Agent;
 use App\Models\AgentQuestion;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Support\TenantSettings;
 use App\Tasks\TaskThread;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -206,6 +209,8 @@ final class AgentRunner
 
         if ($run->task_id !== null) {
             $this->threads->recordReply($run);
+        } else {
+            $this->consolidateWorkIfDue($run);
         }
 
         // A routine's result also reaches the admins (docs/DECISOES.md, "Rotinas e fluxos agendados").
@@ -219,6 +224,21 @@ final class AgentRunner
         }
 
         return $run;
+    }
+
+    /**
+     * Work with no person becomes the agent's memory too, every few runs
+     * and at 21:00 (docs/DECISOES.md, "Falhas de contexto").
+     */
+    private function consolidateWorkIfDue(AgentRun $run): void
+    {
+        if ($run->status !== RunStatus::Completed || $run->requested_by_user_id !== null || TenantSettings::int('memory_every_messages') <= 0) {
+            return;
+        }
+
+        if (app(MemoryConsolidator::class)->workRuns($run->agent)->count() >= MemoryConsolidator::WORK_RUNS) {
+            ConsolidateAgentWork::dispatch($run->tenant_id, $run->agent_id);
+        }
     }
 
     /**

@@ -129,7 +129,7 @@ final class CompanyMemory
                 $user,
                 'Para aprovar na memória da empresa: '.Str::limit($content, 80),
                 "{$agent->name} propõe um facto para «{$section->label()}». Os agentes só o sabem depois de aprovado.",
-                '/knowledge/company',
+                '/settings/company-memory',
                 $agent->name,
                 category: NotificationCategory::Document,
             );

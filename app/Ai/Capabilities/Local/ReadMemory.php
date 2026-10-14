@@ -45,7 +45,7 @@ final class ReadMemory extends LocalCapability
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
         $data = Validator::make($arguments, ['entry' => 'required|max:160'])->validate();
-        $entry = $this->memory->entry($context->agent, $context->run->task?->user, ltrim(trim((string) $data['entry']), '#'));
+        $entry = $this->memory->entry($context->agent, $context->run->task?->memoryOwner(), ltrim(trim((string) $data['entry']), '#'));
 
         if (! $entry instanceof AgentMemory) {
             return CapabilityResult::error('não há essa entrada na tua memória com esta pessoa.');

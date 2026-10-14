@@ -40,7 +40,7 @@ final class InstructionComposer
             $this->team($agent),
             $run?->task !== null ? $this->task($run) : null,
             // The agent's own consolidated memory (realinhamento L7).
-            app(MemoryConsolidator::class)->forPrompt($agent, $run?->task?->user) ?: null,
+            app(MemoryConsolidator::class)->forPrompt($agent, $run?->task?->memoryOwner()) ?: null,
             $this->chiefOfStaff($agent),
             // What the whole company knows, curated by people (12.10.2026).
             app(CompanyMemory::class)->forPrompt($agent),
@@ -173,20 +173,22 @@ final class InstructionComposer
             .($task->goal ? "\nServe o objectivo da empresa: {$task->goal->title}." : '')
             .($task->parent ? "\nFoi delegada a partir de {$task->parent->identifier()} «{$task->parent->title}»." : '')
             ."\nAs mensagens anteriores desta conversa vêm no histórico, cada uma com o autor e a data e hora entre parênteses rectos. Repara no tempo que passou desde a última. Responde directamente a quem escreveu."
-            .$this->summary($task);
+            .$this->summary($run);
     }
 
     /**
      * Once the thread is longer than the history, where it stood before the
      * messages the agent can see (docs/DECISOES.md, "Contexto dos agentes").
      */
-    private function summary(Task $task): string
+    private function summary(AgentRun $run): string
     {
-        if (blank($task->summary) || $task->messages()->count() <= TaskThread::HISTORY_MESSAGES) {
+        $summary = (string) $run->task?->summary;
+
+        if (blank($summary) || ! app(TaskThread::class)->trimmed($run)) {
             return '';
         }
 
-        return "\n\n### O que veio antes\nO histórico só traz as últimas ".TaskThread::HISTORY_MESSAGES." mensagens. Resumo do que se passou nesta conversa até aqui:\n{$task->summary}";
+        return "\n\n### O que veio antes\nO histórico só traz as mensagens mais recentes. Resumo do que se passou nesta conversa até aqui:\n{$summary}";
     }
 
     /**

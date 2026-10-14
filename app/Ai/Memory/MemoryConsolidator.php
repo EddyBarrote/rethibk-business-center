@@ -11,9 +11,11 @@ use App\Enums\ActorType;
 use App\Enums\CompanySection;
 use App\Enums\KnowledgeType;
 use App\Enums\MemorySection;
+use App\Enums\RunStatus;
 use App\Jobs\EmbedKnowledgeItem;
 use App\Models\Agent;
 use App\Models\AgentMemory;
+use App\Models\AgentRun;
 use App\Models\KnowledgeDomain;
 use App\Models\KnowledgeItem;
 use App\Models\Task;
@@ -38,6 +40,9 @@ final class MemoryConsolidator
 {
     /** How many entries the index in the agent's prompt lists, and how many the extractor reads in full. */
     public const PROMPT_INDEX = 60;
+
+    /** Runs with no person read in one pass of the agent's work memory. */
+    public const WORK_RUNS = 10;
 
     /** Longest rolling summary of a thread. */
     public const SUMMARY_CHARS = 2000;
@@ -78,7 +83,7 @@ final class MemoryConsolidator
             return 0;
         }
 
-        $owner = User::query()->find($task->user_id ?? $task->created_by_user_id);
+        $owner = $task->memoryOwner();
         $prefs = MemoryPreferences::for($owner);
         $remember = $owner === null || $prefs['generate'];
         $transcript = $messages->map(fn (TaskMessage $m) => '['.$m->authorName().'] '.Str::limit($m->body, 1500))->implode("\n\n");
@@ -90,6 +95,46 @@ final class MemoryConsolidator
         $task->forceFill(['memory_message_id' => $messages->last()->id, 'summary' => $summary !== '' ? $summary : $task->summary])->save();
 
         return $saved;
+    }
+
+    /**
+     * What the agent did with no person (routines with no recipient, email
+     * triage, follow-ups, watchers) becomes its work memory, the one every
+     * conversation reads (docs/DECISOES.md, "Falhas de contexto"). Reads the
+     * runs since the last pass. Returns how many entries changed.
+     */
+    public function consolidateWork(Agent $agent): int
+    {
+        $runs = $this->workRuns($agent)->limit(self::WORK_RUNS * 2)->get();
+
+        if ($runs->isEmpty() || ! $this->canCall()) {
+            return 0;
+        }
+
+        $transcript = $runs->map(fn (AgentRun $run) => "[{$run->trigger_type->label()} · {$run->created_at->setTimezone((string) config('app.timezone'))->format('Y-m-d H:i')}]\nPedido: "
+            .Str::limit($run->input, 1500)."\nO que fizeste: ".Str::limit((string) ($run->output['text'] ?? ''), 1500))->implode("\n\n");
+        $output = $this->extract($agent, null, "O teu trabalho sem pessoa (rotinas, email, seguimentos):\n\n{$transcript}", $this->known($agent, null), '(não se aplica: são execuções soltas, não uma conversa)', true, true);
+        $saved = $this->apply($agent, null, $output, null);
+
+        $agent->forceFill(['memory_run_id' => $runs->last()->id])->save();
+
+        return $saved;
+    }
+
+    /**
+     * Runs with no task and no person not yet in the agent's work memory.
+     *
+     * @return Builder<AgentRun>
+     */
+    public function workRuns(Agent $agent): Builder
+    {
+        return AgentRun::query()
+            ->where('agent_id', $agent->id)
+            ->where('id', '>', (int) $agent->memory_run_id)
+            ->whereNull('task_id')
+            ->whereNull('requested_by_user_id')
+            ->where('status', RunStatus::Completed)
+            ->orderBy('id');
     }
 
     /**
@@ -132,6 +177,8 @@ final class MemoryConsolidator
         $prefs = MemoryPreferences::for($person);
         $own = $person === null || ! $prefs['generate'] ? collect() : $this->memoryOf($agent, $person->id)->orderByDesc('updated_at')->limit(self::PROMPT_INDEX)->get();
         $agentOnly = $this->memoryOf($agent, null)->orderByDesc('updated_at')->limit(self::PROMPT_INDEX)->get();
+        $ownLeft = $own->count() < self::PROMPT_INDEX ? 0 : $this->memoryOf($agent, $person?->id)->count() - self::PROMPT_INDEX;
+        $agentLeft = $agentOnly->count() < self::PROMPT_INDEX ? 0 : $this->memoryOf($agent, null)->count() - self::PROMPT_INDEX;
         $search = $person !== null && $prefs['search_chats'] ? "\nPodes procurar nas conversas anteriores com {$person->name} (memory.search_chats) quando a pessoa falar de algo que já trataram." : '';
 
         if ($own->isEmpty() && $agentOnly->isEmpty()) {
@@ -146,11 +193,11 @@ final class MemoryConsolidator
         }
 
         if ($own->count() > $about->count()) {
-            $text .= "\n\n### O índice da tua memória com {$person?->name}\n".$this->index($own->reject(fn (AgentMemory $m) => $m->section->aboutYou()));
+            $text .= "\n\n### O índice da tua memória com {$person?->name}\n".$this->index($own->reject(fn (AgentMemory $m) => $m->section->aboutYou())).$this->leftOut($ownLeft);
         }
 
         if ($agentOnly->isNotEmpty()) {
-            $text .= "\n\n### Do teu trabalho sem pessoa (rotinas, email)\n".$this->index($agentOnly);
+            $text .= "\n\n### Do teu trabalho sem pessoa (rotinas, email)\n".$this->index($agentOnly).$this->leftOut($agentLeft);
         }
 
         return $text;
@@ -332,6 +379,14 @@ final class MemoryConsolidator
         return $entries->sortBy(fn (AgentMemory $m) => array_search($m->section, MemorySection::cases(), true))
             ->map(fn (AgentMemory $m) => "- #{$m->id} {$m->section->label()} · {$m->title}".($m->description ? " — {$m->description}" : '')." (actualizada {$m->updated_at->format('d.m.Y')})")
             ->implode("\n");
+    }
+
+    /**
+     * Like the company memory: the agent knows when older entries are not in the index.
+     */
+    private function leftOut(int $count): string
+    {
+        return $count <= 0 ? '' : "\n(Há mais {$count} entradas, menos recentes, fora deste índice. Se procuras algo que não está aqui, tenta memory.read pelo título.)";
     }
 
     private function isLoose(AgentMemory $memory): bool

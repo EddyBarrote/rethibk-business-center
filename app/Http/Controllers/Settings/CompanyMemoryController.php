@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Knowledge;
+namespace App\Http\Controllers\Settings;
 
 use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Memory\CompanyMemory;
@@ -40,7 +40,7 @@ class CompanyMemoryController extends Controller
             ->filter(fn (CompanyFact $fact) => $this->memory->canCurate($user, $fact->domain))
             ->values();
 
-        return Inertia::render('Knowledge/Company', [
+        return Inertia::render('Settings/CompanyMemory', [
             'sections' => CompanySection::options(),
             'facts' => $this->memory->visibleTo($user)->with($with)->orderBy('id')->get()->map(fn (CompanyFact $f) => $this->row($f, $user))->values(),
             'proposals' => $proposals->map(fn (CompanyFact $f) => $this->row($f, $user))->values(),

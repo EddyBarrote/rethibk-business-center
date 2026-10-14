@@ -12,7 +12,7 @@ import { Button } from '@/Components/ui/button';
 import { NativeSelect } from '@/Components/ui/native-select';
 import { Progress } from '@/Components/ui/progress';
 import { Textarea } from '@/Components/ui/textarea';
-import AppLayout from '@/Layouts/AppLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago, date, number } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { DomainDot } from '@/Pages/Knowledge/Index';
@@ -103,23 +103,23 @@ export default function CompanyMemory({ sections, facts, proposals, domains, usa
         form.transform((data) => ({ ...data, knowledge_domain_id: data.knowledge_domain_id === '' ? null : Number(data.knowledge_domain_id) }));
 
         if (mode.kind === 'new') {
-            form.post('/knowledge/company', options);
+            form.post('/settings/company-memory', options);
         } else if (mode.kind === 'edit') {
-            form.put(`/knowledge/company/${mode.fact.id}`, options);
+            form.put(`/settings/company-memory/${mode.fact.id}`, options);
         } else {
-            form.post(`/knowledge/company/${mode.fact.id}/approve`, options);
+            form.post(`/settings/company-memory/${mode.fact.id}/approve`, options);
         }
     };
 
     const approve = (fact: Fact) =>
         router.post(
-            `/knowledge/company/${fact.id}/approve`,
+            `/settings/company-memory/${fact.id}/approve`,
             { section: fact.section, content: fact.content, knowledge_domain_id: fact.domain?.id ?? null },
             { preserveScroll: true },
         );
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Conhecimento', href: '/knowledge' }, { label: 'Memória da empresa' }]}>
+        <SettingsLayout>
             <Head title="Memória da empresa" />
             <PageHeader
                 title="Memória da empresa"
@@ -187,7 +187,7 @@ export default function CompanyMemory({ sections, facts, proposals, domains, usa
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => router.post(`/knowledge/company/${fact.id}/reject`, {}, { preserveScroll: true })}
+                                            onClick={() => router.post(`/settings/company-memory/${fact.id}/reject`, {}, { preserveScroll: true })}
                                         >
                                             <X />
                                             Rejeitar
@@ -274,7 +274,7 @@ export default function CompanyMemory({ sections, facts, proposals, domains, usa
                                                             description="Os agentes deixam de o saber a partir da próxima conversa. Fica registado quem o apagou."
                                                             confirmLabel="Apagar facto"
                                                             destructive
-                                                            onConfirm={() => router.delete(`/knowledge/company/${fact.id}`, { preserveScroll: true })}
+                                                            onConfirm={() => router.delete(`/settings/company-memory/${fact.id}`, { preserveScroll: true })}
                                                             trigger={
                                                                 <Button
                                                                     variant="ghost"
@@ -352,6 +352,6 @@ export default function CompanyMemory({ sections, facts, proposals, domains, usa
                     </NativeSelect>
                 </Field>
             </FormDialog>
-        </AppLayout>
+        </SettingsLayout>
     );
 }

@@ -372,19 +372,7 @@ final class TaskThread
             return [];
         }
 
-        $before = $run->trigger_source_type === (new TaskMessage)->getMorphClass() ? (int) $run->trigger_source_id : PHP_INT_MAX;
-
-        $messages = TaskMessage::query()
-            ->where('task_id', $run->task_id)
-            ->where('id', '<', $before)
-            // What this run already wrote (before pausing for questions) goes back in by AgentRunner.
-            ->where(fn ($q) => $q->whereNull('agent_run_id')->orWhere('agent_run_id', '!=', $run->id))
-            ->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name'])
-            ->orderByDesc('id')
-            ->limit(self::HISTORY_MESSAGES)
-            ->get()
-            ->reverse()
-            ->values();
+        $messages = $this->window($run, ['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name']);
 
         // The latest files of the conversation go again as files; older ones are named.
         $recent = $messages->flatMap(fn (TaskMessage $message) => $message->author_type === ActorType::User ? $message->attachments : [])
@@ -418,6 +406,70 @@ final class TaskThread
 
             return new UserMessage($this->speaker($message, dated: true).$message->body.$built['text'].$list, $built['files']);
         })->all();
+    }
+
+    /**
+     * The messages the agent reads as history: the latest ones, up to
+     * HISTORY_MESSAGES and to the tenant's character budget (`history_chars`),
+     * so forty long replies neither cost a fortune nor overflow the model.
+     * The newest message always goes in, cut to the budget if it alone is
+     * longer (docs/DECISOES.md, "Falhas de contexto").
+     *
+     * @param  array<array-key, mixed>  $with
+     * @return Collection<int, TaskMessage>
+     */
+    public function window(AgentRun $run, array $with = []): Collection
+    {
+        if ($run->task_id === null) {
+            return collect();
+        }
+
+        $before = $run->trigger_source_type === (new TaskMessage)->getMorphClass() ? (int) $run->trigger_source_id : PHP_INT_MAX;
+
+        return $this->latest($run->task_id, $before, $run->id, $with);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $with
+     * @return Collection<int, TaskMessage>
+     */
+    private function latest(int $taskId, int $before = PHP_INT_MAX, ?int $exceptRun = null, array $with = []): Collection
+    {
+        $budget = max(2000, TenantSettings::int('history_chars'));
+        $used = 0;
+
+        return TaskMessage::query()
+            ->where('task_id', $taskId)
+            ->where('id', '<', $before)
+            // What this run already wrote (before pausing for questions) goes back in by AgentRunner.
+            ->when($exceptRun !== null, fn ($q) => $q->where(fn ($q) => $q->whereNull('agent_run_id')->orWhere('agent_run_id', '!=', $exceptRun)))
+            ->with($with)
+            ->orderByDesc('id')
+            ->limit(self::HISTORY_MESSAGES)
+            ->get()
+            ->takeWhile(function (TaskMessage $message) use (&$used, $budget) {
+                $first = $used === 0;
+                $used += max(1, mb_strlen($message->body));
+
+                if ($first && $used > $budget) {
+                    $message->body = Str::limit($message->body, $budget, ' […]');
+                }
+
+                return $first || $used <= $budget;
+            })
+            ->reverse()
+            ->values();
+    }
+
+    /**
+     * Whether the thread has older messages than the history shows, so the
+     * agent needs the rolling summary of what came before.
+     */
+    public function trimmed(AgentRun $run): bool
+    {
+        $oldest = $this->window($run)->first();
+
+        return $oldest !== null && TaskMessage::query()->where('task_id', $run->task_id)->where('id', '<', $oldest->id)->exists();
     }
 
     /**
@@ -501,8 +553,9 @@ final class TaskThread
     }
 
     /**
-     * Turn the thread into memory as soon as enough is new, before those
-     * messages leave the agent's history (docs/DECISOES.md, "Contexto dos agentes").
+     * Turn the thread into memory as soon as enough is new, or as soon as
+     * messages not yet in memory leave the agent's history (docs/DECISOES.md,
+     * "Contexto dos agentes" and "Falhas de contexto").
      */
     private function consolidateIfDue(Task $task): void
     {
@@ -512,7 +565,10 @@ final class TaskThread
             return;
         }
 
-        if ($task->messages()->where('id', '>', (int) $task->memory_message_id)->count() >= $every) {
+        $pending = $task->messages()->where('id', '>', (int) $task->memory_message_id);
+
+        // Enough new messages, or some already about to leave the history because they are long.
+        if ((clone $pending)->count() >= $every || (clone $pending)->where('id', '<', (int) $this->latest($task->id)->first()?->id)->exists()) {
             ConsolidateAgentMemory::dispatch($task->tenant_id, $task->id);
         }
     }

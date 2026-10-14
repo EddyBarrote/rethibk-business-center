@@ -163,6 +163,28 @@ class Task extends Model
     }
 
     /**
+     * Whose memory this thread feeds and reads (docs/DECISOES.md, "Falhas de
+     * contexto"): the person it is with, else the person who created it. One
+     * rule for saving and reading, so what a task taught the agent is there
+     * the next time.
+     */
+    public function memoryOwner(): ?User
+    {
+        return $this->user ?? $this->createdByUser;
+    }
+
+    /**
+     * The threads whose memory belongs to this person, by the same rule.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function memoryOf(Builder $query, int $userId): void
+    {
+        $query->where(fn (Builder $q) => $q->where('user_id', $userId)->orWhere(fn (Builder $q) => $q->whereNull('user_id')->where('created_by_user_id', $userId)));
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function createdByUser(): BelongsTo

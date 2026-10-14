@@ -159,7 +159,7 @@ export default function MemorySettings({ prefs, sections, agents, entries }: Pro
 
             <p className="text-xs text-muted-foreground">
                 O que vale para toda a empresa (clientes, regras, preços) vive na{' '}
-                <Link href="/knowledge/company" className="underline-offset-2 hover:underline">
+                <Link href="/settings/company-memory" className="underline-offset-2 hover:underline">
                     Memória da empresa
                 </Link>
                 , curada por pessoas.

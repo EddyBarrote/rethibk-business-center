@@ -4,14 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Knowledge\KnowledgeBase;
-use App\Ai\Memory\CompanyMemory;
 use App\Documents\MarkdownBlocks;
 use App\Enums\KnowledgeType;
 use App\Enums\Permission;
 use App\Jobs\EmbedKnowledgeItem;
 use App\Models\Agent;
 use App\Models\AuditLog;
-use App\Models\CompanyFact;
 use App\Models\GeneratedDocument;
 use App\Models\KnowledgeDomain;
 use App\Models\KnowledgeFolder;
@@ -93,8 +91,6 @@ class KnowledgeController extends Controller
             'filters' => ['q' => $query, 'view' => $review ? 'review' : null],
             'pending' => (clone $visible)->where('status', KnowledgeItem::PENDING_REVIEW)->count(),
             'unfiled' => (clone $visible)->whereNull('knowledge_domain_id')->count(),
-            'company_pending' => CompanyFact::query()->where('status', CompanyFact::PENDING)->with('domain')->get()
-                ->filter(fn (CompanyFact $fact) => app(CompanyMemory::class)->canCurate($user, $fact->domain))->count(),
             'semantic' => KnowledgeBase::embeddingsConfigured(),
             'accept' => '.'.str_replace(',', ',.', self::UPLOAD_TYPES),
             'can' => ['manage_domains' => $user->hasPermission(Permission::ManageKnowledge)],

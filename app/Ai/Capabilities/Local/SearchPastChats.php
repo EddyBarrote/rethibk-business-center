@@ -48,7 +48,7 @@ final class SearchPastChats extends LocalCapability
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
         $data = Validator::make($arguments, ['query' => 'required|string|max:200', 'days' => 'nullable|integer|min:1|max:730'])->validate();
-        $person = $context->run->task?->user;
+        $person = $context->run->task?->memoryOwner();
 
         if ($person === null) {
             return CapabilityResult::error('este trabalho não é com uma pessoa, por isso não há conversas dela a procurar.');
@@ -62,7 +62,7 @@ final class SearchPastChats extends LocalCapability
             ->whereIn('author_type', [ActorType::User, ActorType::Agent])
             ->where('created_at', '>=', now()->subDays((int) ($data['days'] ?? 180)))
             ->where('task_id', '!=', $context->run->task_id)
-            ->whereHas('task', fn (Builder $t) => $t->where('assignee_agent_id', $context->agent->id)->where('user_id', $person->id))
+            ->whereHas('task', fn (Builder $t) => $t->where('assignee_agent_id', $context->agent->id)->memoryOf($person->id))
             ->where(function (Builder $words) use ($data) {
                 foreach (array_slice(preg_split('/\s+/', trim((string) $data['query'])) ?: [], 0, 6) as $word) {
                     $words->where('body', 'like', '%'.$word.'%');
