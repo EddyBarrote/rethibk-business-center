@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Ai\Knowledge\VectorCodec;
 use App\Models\KnowledgeEmbedding;
 use App\Models\KnowledgeItem;
 use App\Models\Tenant;
@@ -19,7 +20,8 @@ class KnowledgeEmbeddingFactory extends Factory
             'knowledge_item_id' => KnowledgeItem::factory(),
             'chunk_index' => 0,
             'chunk_text' => fake()->sentence(),
-            'embedding' => [0.1, 0.2, 0.3],
+            'embedding' => null,
+            'vector' => VectorCodec::pack([0.1, 0.2, 0.3]),
             'model' => 'fake',
             'dimensions' => 3,
         ];

@@ -11,10 +11,12 @@ use App\Enums\AutonomyLevel;
 use App\Events\BudgetThresholdReached;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\AiCharge;
 use App\Models\AuditLog;
 use App\Models\BudgetEvent;
 use App\Models\Capability;
 use App\Tenancy\TenantManager;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 /**
@@ -107,14 +109,47 @@ final class BudgetGuard
         return AiBudget::for($this->tenants->currentOrFail());
     }
 
+    /**
+     * Agent runs plus the model calls made outside them (AiCharge: reading
+     * scanned files, looking at a file's pages).
+     */
     public function tenantSpent(): float
     {
-        return (float) AgentRun::query()->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd');
+        return (float) AgentRun::query()->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd')
+            + (float) AiCharge::query()->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd');
     }
 
     public function agentSpent(Agent $agent): float
     {
-        return (float) $agent->runs()->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd');
+        return (float) $agent->runs()->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd')
+            + (float) AiCharge::query()->where('agent_id', $agent->id)->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd');
+    }
+
+    /**
+     * Whether the organisation still has budget this month for a call that
+     * is not an agent run.
+     */
+    public function hasRoom(): bool
+    {
+        return $this->budget()->tenantMonthly === null || $this->tenantSpent() < $this->tenantCap();
+    }
+
+    /**
+     * Records the cost of a model call made outside an agent run.
+     */
+    public function charge(string $purpose, ?string $provider, ?string $model, int $inputTokens, int $outputTokens, ?Model $subject = null, ?Agent $agent = null): AiCharge
+    {
+        return AiCharge::query()->create([
+            'agent_id' => $agent?->id,
+            'purpose' => $purpose,
+            'subject_type' => $subject?->getMorphClass(),
+            'subject_id' => $subject?->getKey(),
+            'provider' => $provider,
+            'model' => $model,
+            'input_tokens' => $inputTokens,
+            'output_tokens' => $outputTokens,
+            'cost_usd' => app(Pricing::class)->cost($provider, $model, $inputTokens, $outputTokens),
+        ]);
     }
 
     /**

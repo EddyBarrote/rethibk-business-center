@@ -12,7 +12,18 @@ export interface KnowledgeRow {
     embedding_status: string;
     domain: { name: string; slug: string; color: string | null } | null;
     folder: { id: number; name: string } | null;
-    file: { name: string; size: number | null; extension: string } | null;
+    file: {
+        name: string;
+        size: number | null;
+        extension: string;
+        pages: number | null;
+        version: number;
+        reading: 'pending' | 'reading' | 'done' | 'failed' | null;
+        text_source: 'text' | 'model' | 'mixed' | 'none' | null;
+        thumbnail: string | null;
+    } | null;
+    /** In search results: the page the excerpt is on. */
+    page: number | null;
     author: { kind: 'agent' | 'user' | 'system'; name: string; id: number | null };
     created_at: string;
     updated_at: string;

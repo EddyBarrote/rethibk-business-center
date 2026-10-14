@@ -29,7 +29,7 @@ export interface AttachmentLimits {
     chunk_bytes: number;
 }
 
-function xsrf(): Record<string, string> {
+export function xsrf(): Record<string, string> {
     const token = document.cookie
         .split('; ')
         .find((part) => part.startsWith('XSRF-TOKEN='))
@@ -58,7 +58,7 @@ export async function uploadAttachment(
     chunkBytes: number,
     onProgress: (progress: number) => void,
     signal: AbortSignal,
-    source: 'upload' | 'recording' = 'upload',
+    source: 'upload' | 'recording' | 'repository' = 'upload',
 ): Promise<{ id: number; kind: AttachmentKind }> {
     const start = await fetch('/files', {
         method: 'POST',

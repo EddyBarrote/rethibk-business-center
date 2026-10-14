@@ -33,7 +33,7 @@ final class SearchKnowledge extends LocalCapability
 
     public function description(): string
     {
-        return 'Pesquisa a base de conhecimento da organização: artigos, decisões, resumos de reuniões, documentos e ficheiros carregados. Só devolve o que o agente pode ver. Para ler um item inteiro use knowledge.read.';
+        return 'Pesquisa a base de conhecimento da organização: artigos, decisões, resumos de reuniões, documentos e ficheiros carregados. Só devolve o que o agente pode ver. Para ler um item inteiro (ou só umas páginas) use knowledge.read; para ver o original de um PDF, knowledge.view.';
     }
 
     public function schema(JsonSchema $schema): array
@@ -58,7 +58,11 @@ final class SearchKnowledge extends LocalCapability
         // External content enters the prompt fenced and declared untrusted (section 13.3).
         $text = $hits->map(function (array $hit) {
             $item = $hit['item'];
-            $header = "[{$item->type->label()} #{$item->id}] {$item->title} (".$item->created_at->format('Y-m-d').')';
+            $where = array_filter([
+                $item->filename ? "ficheiro {$item->filename}" : null,
+                $hit['page'] ?? null ? "excerto da p. {$hit['page']}" : null,
+            ]);
+            $header = "[{$item->type->label()} #{$item->id}] {$item->title} (".$item->created_at->format('Y-m-d').($where === [] ? '' : ' · '.implode(', ', $where)).')';
 
             return $item->is_external
                 ? "{$header}\n<dados_externos_nao_confiaveis>\n{$hit['excerpt']}\n</dados_externos_nao_confiaveis>"

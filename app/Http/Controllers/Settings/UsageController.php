@@ -7,6 +7,7 @@ use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\AiCharge;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,6 +19,11 @@ use Inertia\Response;
  */
 class UsageController extends Controller
 {
+    private const PURPOSES = [
+        'knowledge.reading' => 'Páginas digitalizadas lidas por IA',
+        'knowledge.view' => 'Agentes a ver o original de ficheiros',
+    ];
+
     public function __invoke(Request $request, BudgetGuard $guard): Response
     {
         abort_unless($this->user($request)->hasPermission(Permission::ViewCosts), 403);
@@ -40,7 +46,9 @@ class UsageController extends Controller
                 ->selectRaw('count(*) as runs, coalesce(sum(cost_usd), 0) as spent')
                 ->first();
 
-            return ['period' => $from->format('Y-m'), 'runs' => (int) $row?->getAttribute('runs'), 'spent' => round((float) $row?->getAttribute('spent'), 4)];
+            $charges = (float) AiCharge::query()->where('created_at', '>=', $from)->where('created_at', '<', $from->copy()->addMonth())->sum('cost_usd');
+
+            return ['period' => $from->format('Y-m'), 'runs' => (int) $row?->getAttribute('runs'), 'spent' => round((float) $row?->getAttribute('spent') + $charges, 4)];
         });
 
         return Inertia::render('Settings/Usage', [
@@ -68,6 +76,19 @@ class UsageController extends Controller
                 ->sortByDesc('spent')
                 ->values(),
             'months' => $months,
+            // Model calls outside agent runs (docs/DECISOES.md, 14.10.2026), also counted in "spent".
+            'other' => AiCharge::query()
+                ->where('created_at', '>=', $start)
+                ->selectRaw('purpose, count(*) as calls, coalesce(sum(cost_usd), 0) as spent')
+                ->groupBy('purpose')
+                ->get()
+                ->map(fn (AiCharge $row) => [
+                    'purpose' => $row->purpose,
+                    'label' => self::PURPOSES[$row->purpose] ?? $row->purpose,
+                    'calls' => (int) $row->getAttribute('calls'),
+                    'spent' => round((float) $row->getAttribute('spent'), 4),
+                ])
+                ->values(),
         ]);
     }
 }

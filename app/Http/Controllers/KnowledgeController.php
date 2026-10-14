@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Knowledge\KnowledgeBase;
+use App\Ai\Knowledge\KnowledgeLocator;
+use App\Ai\Knowledge\KnowledgeRepository;
+use App\Attachments\AttachmentLimits;
+use App\Attachments\AttachmentStore;
 use App\Documents\MarkdownBlocks;
 use App\Enums\KnowledgeType;
 use App\Enums\Permission;
@@ -14,6 +18,8 @@ use App\Models\GeneratedDocument;
 use App\Models\KnowledgeDomain;
 use App\Models\KnowledgeFolder;
 use App\Models\KnowledgeItem;
+use App\Models\KnowledgeItemVersion;
+use App\Models\MessageAttachment;
 use App\Models\User;
 use App\Tenancy\TenantRule;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,9 +41,20 @@ class KnowledgeController extends Controller
 {
     public const UPLOAD_TYPES = 'pdf,docx,xlsx,pptx,txt,md,csv,html,png,jpg,jpeg';
 
+    /** File kinds people filter the repository by, with their extensions. */
+    public const KINDS = [
+        'pdf' => ['pdf'],
+        'office' => ['docx', 'xlsx', 'pptx'],
+        'image' => ['png', 'jpg', 'jpeg', 'webp', 'gif', 'heic', 'heif'],
+        'text' => ['txt', 'md', 'csv', 'html', 'htm', 'json', 'xml'],
+    ];
+
     public function __construct(
         private readonly KnowledgeBase $knowledge,
         private readonly KnowledgeAccess $access,
+        private readonly KnowledgeRepository $repository,
+        private readonly KnowledgeLocator $locator,
+        private readonly AttachmentStore $store,
     ) {}
 
     public function index(Request $request): Response
@@ -53,6 +70,8 @@ class KnowledgeController extends Controller
             : null;
         $query = trim((string) $request->query('q', ''));
         $review = $request->query('view') === 'review';
+        $files = $request->query('view') === 'files';
+        $kind = array_key_exists((string) $request->query('kind'), self::KINDS) ? (string) $request->query('kind') : null;
 
         $visible = $this->access->items($user);
         $counts = (clone $visible)->where('status', KnowledgeItem::PUBLISHED)
@@ -60,14 +79,20 @@ class KnowledgeController extends Controller
 
         if ($query !== '') {
             $hits = $this->knowledge->search($query, 30, $user, $domain?->id);
-            $items = $this->present($hits->pluck('item')->all(), $hits->pluck('excerpt')->all(), $hits->pluck('score')->all());
+            $items = $this->present($hits->pluck('item')->all(), $hits->pluck('excerpt')->all(), $hits->pluck('score')->all(), $hits->pluck('page')->all());
         } else {
             $list = (clone $visible)
                 ->with(['domain:id,name,slug,color', 'folder'])
                 ->when($review, fn (Builder $q) => $q->where('status', KnowledgeItem::PENDING_REVIEW))
-                ->when(! $review && $domain !== null, fn (Builder $q) => $q->where('knowledge_domain_id', $domain?->id)->where('knowledge_folder_id', $folder?->id))
+                ->when($files, fn (Builder $q) => $q->whereNotNull('path'))
+                ->when(! $review && ! $files && $domain !== null, fn (Builder $q) => $q->where('knowledge_domain_id', $domain?->id)->where('knowledge_folder_id', $folder?->id))
+                ->when($kind !== null, fn (Builder $q) => $q->whereNotNull('path')->where(function (Builder $q) use ($kind) {
+                    foreach (self::KINDS[(string) $kind] as $extension) {
+                        $q->orWhere('filename', 'like', "%.{$extension}");
+                    }
+                }))
                 ->latest('updated_at')
-                ->limit(100)
+                ->limit($files || $kind !== null ? 500 : 100)
                 ->get();
             $items = $this->present($list->all());
         }
@@ -88,8 +113,10 @@ class KnowledgeController extends Controller
                 'children' => $f->children_count,
             ])->values(),
             'items' => $items,
-            'filters' => ['q' => $query, 'view' => $review ? 'review' : null],
+            'filters' => ['q' => $query, 'view' => $review ? 'review' : ($files ? 'files' : null), 'kind' => $kind],
             'pending' => (clone $visible)->where('status', KnowledgeItem::PENDING_REVIEW)->count(),
+            'files' => (clone $visible)->whereNotNull('path')->count(),
+            'upload' => [...AttachmentLimits::repository()->forScreen(), 'max_files' => (int) config('knowledge.max_upload_files', 200)],
             'unfiled' => (clone $visible)->whereNull('knowledge_domain_id')->count(),
             'semantic' => KnowledgeBase::embeddingsConfigured(),
             'accept' => '.'.str_replace(',', ',.', self::UPLOAD_TYPES),
@@ -172,31 +199,135 @@ class KnowledgeController extends Controller
         return to_route('knowledge.show', $item)->with('success', 'Guardado.');
     }
 
+    /**
+     * Files into a domain and folder: sent in parts first (source
+     * "repository" in /files), or, from older screens and tests, as one
+     * form. A dragged folder sends each file's path inside it, and its
+     * folders are created. A file already in the repository is not repeated.
+     */
     public function upload(Request $request): RedirectResponse
     {
         $user = $this->user($request);
         abort_unless($user->hasPermission(Permission::WriteKnowledge), 403);
         $data = $request->validate([
-            'files' => ['required', 'array', 'min:1', 'max:20'],
+            'files' => ['required_without:uploads', 'array', 'max:20'],
             'files.*' => ['file', 'max:25600', 'mimes:'.self::UPLOAD_TYPES],
+            'uploads' => ['required_without:files', 'array', 'max:'.(int) config('knowledge.max_upload_files', 200)],
+            'uploads.*.id' => ['required', 'integer'],
+            'uploads.*.path' => ['nullable', 'string', 'max:500'],
             'domain_id' => ['required', 'integer', TenantRule::exists('knowledge_domains')],
             'folder_id' => ['nullable', 'integer', TenantRule::exists('knowledge_folders')],
         ], ['files.*.mimes' => 'Formato não suportado. Use PDF, Word, Excel, PowerPoint, texto ou imagem.']);
 
         [$domain, $folder] = $this->placement($user, (int) $data['domain_id'], $data['folder_id'] ?? null);
         $saved = 0;
+        $repeated = [];
+        $place = fn (?string $relative) => $this->folderFor($domain, $folder, $relative);
 
-        foreach ($request->file('files') as $file) {
+        foreach ($request->file('files') ?? [] as $file) {
             $name = $file->getClientOriginalName();
-            $item = $this->knowledge->rememberFile((string) $file->getRealPath(), $name, $file->getMimeType(), pathinfo($name, PATHINFO_FILENAME) ?: $name, $user, [
-                'knowledge_domain_id' => $domain->id,
-                'knowledge_folder_id' => $folder?->id,
-            ]);
-            AuditLog::record($user, 'knowledge.uploaded', ['filename' => $name], subject: $item);
+            $existing = $this->repository->duplicateOf(hash_file('sha256', (string) $file->getRealPath()) ?: '', $user);
+
+            if ($existing !== null) {
+                $repeated[] = $existing->title;
+
+                continue;
+            }
+
+            $this->fileUpload((string) $file->getRealPath(), $name, $file->getMimeType(), $user, $domain, $folder);
             $saved++;
         }
 
-        return back()->with('success', $saved === 1 ? 'Ficheiro carregado.' : "{$saved} ficheiros carregados.");
+        /** @var array<int, string|null> $paths */
+        $paths = [];
+
+        foreach ((array) ($data['uploads'] ?? []) as $upload) {
+            $paths[(int) $upload['id']] = $upload['path'] ?? null;
+        }
+
+        $staged = $paths === [] ? [] : $this->store->claimForRepository($user, array_keys($paths));
+
+        foreach ($staged as $upload) {
+            $local = Storage::disk($upload->disk)->path($upload->path);
+            $existing = $this->repository->duplicateOf(hash_file('sha256', $local) ?: '', $user);
+
+            if ($existing !== null) {
+                $repeated[] = $existing->title;
+            } else {
+                $this->fileUpload($local, $upload->filename, $upload->mime_type, $user, $domain, $place($paths[$upload->id] ?? null));
+                $saved++;
+            }
+
+            $this->store->delete($upload);
+        }
+
+        $message = match (true) {
+            $saved === 0 => 'Nada carregado.',
+            $saved === 1 => 'Ficheiro carregado. O texto é lido em segundo plano.',
+            default => "{$saved} ficheiros carregados. O texto é lido em segundo plano.",
+        };
+
+        if ($repeated !== []) {
+            $message .= ' '.(count($repeated) === 1 ? 'Um já existia' : count($repeated).' já existiam').' no repositório: '.Str::limit(implode(', ', array_unique($repeated)), 160).'.';
+        }
+
+        return back()->with($saved === 0 && $repeated !== [] ? 'error' : 'success', $message);
+    }
+
+    /**
+     * A new version of a file, uploaded in parts; the current one goes to its history.
+     */
+    public function version(Request $request, KnowledgeItem $item): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($item->isFile() && $this->canEdit($user, $item), 403);
+        $data = $request->validate(['upload_id' => ['required', 'integer']]);
+        $upload = $this->store->claimForRepository($user, [(int) $data['upload_id']])->first();
+        abort_unless($upload instanceof MessageAttachment, 422);
+
+        $this->knowledge->replaceFile($item, Storage::disk($upload->disk)->path($upload->path), $upload->filename, $upload->mime_type, $user);
+        $this->store->delete($upload);
+        AuditLog::record($user, 'knowledge.versioned', ['title' => $item->title, 'version' => $item->version, 'filename' => $item->filename], subject: $item);
+
+        return back()->with('success', "Versão {$item->version} carregada. O texto é lido em segundo plano.");
+    }
+
+    /**
+     * An earlier version of a file.
+     */
+    public function versionFile(Request $request, KnowledgeItem $item, KnowledgeItemVersion $version): StreamedResponse
+    {
+        abort_unless($version->knowledge_item_id === $item->id && $this->access->canRead($this->user($request), $item), 404);
+        $disk = Storage::disk($version->disk);
+        abort_unless($disk->exists($version->path), 404);
+
+        return $disk->download($version->path, $version->filename, ['Content-Type' => $version->mime_type ?: 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
+    /**
+     * Read a file again: after a failure, or a scan read before there was a model.
+     */
+    public function reread(Request $request, KnowledgeItem $item): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($item->isFile() && $this->canEdit($user, $item), 403);
+        $this->knowledge->reread($item);
+
+        return back()->with('success', 'A ler outra vez, em segundo plano.');
+    }
+
+    /**
+     * The picture of a file in the grid: the first page of a PDF, or the image itself.
+     */
+    public function thumbnail(Request $request, KnowledgeItem $item): StreamedResponse
+    {
+        abort_unless($item->isFile() && $this->access->canRead($this->user($request), $item), 404);
+        $disk = Storage::disk($item->disk ?: KnowledgeBase::DISK);
+        $path = $item->thumbnail_path ?? ($item->isImage() ? $item->path : null);
+        abort_unless($path !== null && $disk->exists($path), 404);
+        $mime = $item->thumbnail_path !== null ? 'image/png' : ($item->mime_type ?: 'image/jpeg');
+
+        return $disk->response($path, null, ['Content-Type' => $mime, 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, max-age=86400'], 'inline');
     }
 
     public function show(Request $request, KnowledgeItem $item): Response
@@ -210,10 +341,22 @@ class KnowledgeController extends Controller
                 ...$this->present([$item])[0],
                 'content' => $item->content,
                 'preview' => $this->previewKind($item),
+                'reading_note' => $item->reading_note,
+                'text_source' => $item->text_source,
+                'page_sources' => $item->isPdf() ? $item->pageTexts()->where('source', 'model')->pluck('page') : [],
+                'versions' => $item->versions()->get()->map(fn (KnowledgeItemVersion $v) => [
+                    'id' => $v->id,
+                    'version' => $v->version,
+                    'filename' => $v->filename,
+                    'size' => $v->size_bytes,
+                    'created_at' => $v->created_at->toIso8601String(),
+                ]),
                 'reviewed_by' => $item->reviewer?->name,
                 'reviewed_at' => $item->reviewed_at?->toIso8601String(),
                 'folder_trail' => $item->folder ? $item->folder->trail() : [],
             ],
+            'page' => $request->integer('page') ?: null,
+            'upload' => AttachmentLimits::repository()->forScreen(),
             'can' => [
                 'edit' => $this->canEdit($user, $item),
                 'review' => $item->status !== KnowledgeItem::PUBLISHED && $this->access->canCurate($user, $item->domain),
@@ -321,6 +464,34 @@ class KnowledgeController extends Controller
         return [$domain, $folder];
     }
 
+    private function fileUpload(string $local, string $name, ?string $mime, User $user, KnowledgeDomain $domain, ?KnowledgeFolder $folder): KnowledgeItem
+    {
+        $item = $this->knowledge->rememberFile($local, $name, $mime, pathinfo($name, PATHINFO_FILENAME) ?: $name, $user, [
+            'knowledge_domain_id' => $domain->id,
+            'knowledge_folder_id' => $folder?->id,
+        ]);
+        AuditLog::record($user, 'knowledge.uploaded', ['filename' => $name], subject: $item);
+
+        return $item;
+    }
+
+    /**
+     * The folder a file of a dragged folder goes to: its path inside the
+     * dragged folder, under the folder being browsed, created as needed.
+     */
+    private function folderFor(KnowledgeDomain $domain, ?KnowledgeFolder $base, ?string $relative): ?KnowledgeFolder
+    {
+        $dirs = trim(str_replace('\\', '/', dirname(trim((string) $relative, '/'))), './');
+
+        if ($dirs === '') {
+            return $base;
+        }
+
+        $prefix = $base === null ? '' : collect($base->trail())->pluck('name')->implode('/').'/';
+
+        return $this->locator->folder($domain, $prefix.$dirs, create: true) ?? $base;
+    }
+
     private function canEdit(User $user, KnowledgeItem $item): bool
     {
         if (! $this->access->canRead($user, $item)) {
@@ -379,9 +550,10 @@ class KnowledgeController extends Controller
      * @param  list<KnowledgeItem>  $items
      * @param  list<string>  $excerpts
      * @param  list<float>  $scores
+     * @param  list<int|null>  $pages
      * @return list<array<string, mixed>>
      */
-    private function present(array $items, array $excerpts = [], array $scores = []): array
+    private function present(array $items, array $excerpts = [], array $scores = [], array $pages = []): array
     {
         $collection = new Collection($items);
         $collection->loadMissing(['domain:id,name,slug,color', 'folder']);
@@ -390,7 +562,7 @@ class KnowledgeController extends Controller
         $agents = Agent::query()->whereIn('id', $collection->where('created_by_type', $agentClass)->pluck('created_by_id'))->pluck('name', 'id');
         $users = User::query()->whereIn('id', $collection->where('created_by_type', $userClass)->pluck('created_by_id'))->pluck('name', 'id');
 
-        return array_map(function (KnowledgeItem $item, int $index) use ($excerpts, $scores, $agentClass, $userClass, $agents, $users) {
+        return array_map(function (KnowledgeItem $item, int $index) use ($excerpts, $scores, $pages, $agentClass, $userClass, $agents, $users) {
             $author = match ($item->created_by_type) {
                 $agentClass => ['kind' => 'agent', 'name' => $agents[$item->created_by_id] ?? 'Agente', 'id' => $item->created_by_id],
                 $userClass => ['kind' => 'user', 'name' => $users[$item->created_by_id] ?? 'Pessoa', 'id' => $item->created_by_id],
@@ -409,7 +581,17 @@ class KnowledgeController extends Controller
                 'embedding_status' => $item->embedding_status,
                 'domain' => $item->domain ? ['name' => $item->domain->name, 'slug' => $item->domain->slug, 'color' => $item->domain->color] : null,
                 'folder' => $item->folder ? ['id' => $item->folder->id, 'name' => $item->folder->name] : null,
-                'file' => $item->isFile() ? ['name' => $item->filename, 'size' => $item->size_bytes, 'extension' => Str::lower(pathinfo((string) $item->filename, PATHINFO_EXTENSION))] : null,
+                'file' => $item->isFile() ? [
+                    'name' => $item->filename,
+                    'size' => $item->size_bytes,
+                    'extension' => Str::lower(pathinfo((string) $item->filename, PATHINFO_EXTENSION)),
+                    'pages' => $item->pages,
+                    'version' => $item->version,
+                    'reading' => $item->reading_status,
+                    'text_source' => $item->text_source,
+                    'thumbnail' => $item->thumbnail_path !== null || $item->isImage() ? "/knowledge/{$item->id}/thumbnail?v={$item->version}" : null,
+                ] : null,
+                'page' => $pages[$index] ?? null,
                 'author' => $author,
                 'created_at' => $item->created_at->toIso8601String(),
                 'updated_at' => $item->updated_at->toIso8601String(),

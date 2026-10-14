@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Attachments\AttachmentStore;
 use App\Attachments\ModelInput;
+use App\Enums\Permission;
 use App\Models\Agent;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
@@ -31,7 +32,7 @@ class AttachmentController extends Controller
             'filename' => ['required', 'string', 'max:255'],
             'size' => ['required', 'integer', 'min:1'],
             'mime' => ['nullable', 'string', 'max:120'],
-            'source' => ['nullable', 'in:upload,recording'],
+            'source' => ['nullable', 'in:upload,recording,repository'],
             'task_id' => ['nullable', 'integer', TenantRule::exists('tasks', 'id')],
             'agent_id' => ['nullable', 'integer', TenantRule::exists('agents', 'id')],
             // An email being written in the email client.
@@ -40,7 +41,11 @@ class AttachmentController extends Controller
 
         $task = isset($data['task_id']) ? Task::query()->findOrFail($data['task_id']) : null;
 
-        if ($task !== null) {
+        if (($data['source'] ?? null) === 'repository') {
+            // A file for the repository (Conhecimento), filed when the upload ends.
+            abort_unless($user->hasPermission(Permission::WriteKnowledge), 403);
+            $task = null;
+        } elseif ($task !== null) {
             Gate::authorize('reply', $task);
         } elseif (isset($data['agent_id'])) {
             Gate::authorize('run', Agent::query()->findOrFail($data['agent_id']));

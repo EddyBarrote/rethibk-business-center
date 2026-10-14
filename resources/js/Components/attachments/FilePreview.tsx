@@ -2,6 +2,7 @@ import { Download, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { ExtensionTag } from '@/Components/FileIcon';
+import { SaveToRepository } from '@/Components/knowledge/SaveToRepository';
 import { Markdown } from '@/Components/Markdown';
 import { PdfPreview } from '@/Components/PdfPreview';
 import { Button } from '@/Components/ui/button';
@@ -35,7 +36,8 @@ export function FilePreview({ file, onClose }: { file: MessageAttachment | null;
                         <div className="min-h-0 flex-1 overflow-auto">
                             {file.kind === 'pdf' ? <PdfPreview src={file.url} title={file.name} /> : <Content file={file} />}
                         </div>
-                        <div className="flex justify-end">
+                        <div className="flex flex-wrap justify-end gap-2">
+                            {file.source !== 'knowledge' && <SaveToRepository url={file.url} name={file.name} />}
                             <Button asChild>
                                 <a href={`${file.url}?download=1`}>
                                     <Download />

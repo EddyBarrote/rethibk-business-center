@@ -20,6 +20,7 @@ use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Knowledge\DomainController;
 use App\Http\Controllers\Knowledge\FolderController;
 use App\Http\Controllers\KnowledgeController;
+use App\Http\Controllers\KnowledgeImportController;
 use App\Http\Controllers\MailboxController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgController;
@@ -120,6 +121,8 @@ Route::middleware('auth')->group(function () {
     Route::get('knowledge/new', [KnowledgeController::class, 'create'])->name('knowledge.create');
     Route::post('knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');
     Route::post('knowledge/upload', [KnowledgeController::class, 'upload'])->middleware('throttle:30,1')->name('knowledge.upload');
+    Route::post('knowledge/import', KnowledgeImportController::class)->middleware('throttle:30,1')->name('knowledge.import');
+    Route::get('knowledge/import/options', [KnowledgeImportController::class, 'options'])->name('knowledge.import.options');
     // Moved to Definições › Memória (14.10.2026); before knowledge/{item}, which would catch it.
     Route::redirect('knowledge/company', '/settings/company-memory');
     Route::get('knowledge/domains', [DomainController::class, 'index'])->name('knowledge.domains.index');
@@ -135,6 +138,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('knowledge/{item}', [KnowledgeController::class, 'destroy'])->name('knowledge.destroy');
     Route::post('knowledge/{item}/review', [KnowledgeController::class, 'review'])->name('knowledge.review');
     Route::get('knowledge/{item}/file', [KnowledgeController::class, 'file'])->name('knowledge.file');
+    Route::get('knowledge/{item}/thumbnail', [KnowledgeController::class, 'thumbnail'])->name('knowledge.thumbnail');
+    Route::post('knowledge/{item}/version', [KnowledgeController::class, 'version'])->middleware('throttle:30,1')->name('knowledge.version');
+    Route::get('knowledge/{item}/versions/{version}/file', [KnowledgeController::class, 'versionFile'])->name('knowledge.versions.file');
+    Route::post('knowledge/{item}/reread', [KnowledgeController::class, 'reread'])->middleware('throttle:20,1')->name('knowledge.reread');
 
     Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::post('documents', [DocumentController::class, 'store'])->middleware('throttle:20,1')->name('documents.store');

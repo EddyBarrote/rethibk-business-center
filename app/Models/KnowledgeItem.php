@@ -35,6 +35,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $filename
  * @property string|null $mime_type
  * @property int|null $size_bytes
+ * @property int|null $pages
+ * @property string|null $reading_status
+ * @property string|null $text_source
+ * @property string|null $reading_note
+ * @property string|null $thumbnail_path
+ * @property int $version
+ * @property string|null $content_hash
  * @property int|null $reviewed_by_user_id
  * @property Carbon|null $reviewed_at
  * @property Carbon $created_at
@@ -43,6 +50,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'type', 'title', 'content', 'summary', 'source_type', 'source_id', 'is_external', 'department_id', 'visibility', 'created_by_type', 'created_by_id',
     'embedding_status', 'knowledge_domain_id', 'knowledge_folder_id', 'status', 'disk', 'path', 'filename', 'mime_type', 'size_bytes',
+    'pages', 'reading_status', 'text_source', 'reading_note', 'thumbnail_path', 'version', 'content_hash',
 ])]
 class KnowledgeItem extends Model
 {
@@ -56,6 +64,16 @@ class KnowledgeItem extends Model
     public const PENDING_REVIEW = 'pending_review';
 
     public const REJECTED = 'rejected';
+
+    /** A file waiting to be read on the queue (FileReader). */
+    public const READING_PENDING = 'pending';
+
+    /** A model is reading the pages without text. */
+    public const READING = 'reading';
+
+    public const READING_DONE = 'done';
+
+    public const READING_FAILED = 'failed';
 
     public function isFile(): bool
     {
@@ -94,6 +112,42 @@ class KnowledgeItem extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by_user_id');
+    }
+
+    /**
+     * @return HasMany<KnowledgeItemPage, $this>
+     */
+    public function pageTexts(): HasMany
+    {
+        return $this->hasMany(KnowledgeItemPage::class)->orderBy('page');
+    }
+
+    /**
+     * Earlier versions of the file, newest first.
+     *
+     * @return HasMany<KnowledgeItemVersion, $this>
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(KnowledgeItemVersion::class)->orderByDesc('version');
+    }
+
+    public function isPdf(): bool
+    {
+        return $this->isFile() && ($this->mime_type === 'application/pdf' || strtolower(pathinfo((string) $this->filename, PATHINFO_EXTENSION)) === 'pdf');
+    }
+
+    public function isImage(): bool
+    {
+        return $this->isFile() && in_array(strtolower(pathinfo((string) $this->filename, PATHINFO_EXTENSION)), ['png', 'jpg', 'jpeg', 'webp'], true);
+    }
+
+    /**
+     * Still being read: the text is not complete yet.
+     */
+    public function isReading(): bool
+    {
+        return in_array($this->reading_status, [self::READING_PENDING, self::READING], true);
     }
 
     /**

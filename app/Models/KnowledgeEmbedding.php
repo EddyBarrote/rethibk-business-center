@@ -15,11 +15,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $knowledge_item_id
  * @property int $chunk_index
  * @property string $chunk_text
- * @property list<float> $embedding
+ * @property int|null $page
+ * @property list<float>|null $embedding
+ * @property string|null $vector float32, normalised (VectorCodec)
  * @property string $model
  * @property int $dimensions
  */
-#[Fillable(['knowledge_item_id', 'chunk_index', 'chunk_text', 'embedding', 'model', 'dimensions'])]
+#[Fillable(['knowledge_item_id', 'chunk_index', 'page', 'chunk_text', 'embedding', 'vector', 'model', 'dimensions'])]
 class KnowledgeEmbedding extends Model
 {
     /** @use HasFactory<KnowledgeEmbeddingFactory> */

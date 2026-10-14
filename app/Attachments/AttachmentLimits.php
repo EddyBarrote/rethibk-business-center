@@ -36,6 +36,29 @@ final readonly class AttachmentLimits
         return new self($int('max_mb'), $int('max_files'), $int('audio_max_minutes'), $types);
     }
 
+    /**
+     * What the file repository accepts (docs/DECISOES.md, 14.10.2026):
+     * documents, spreadsheets, presentations, text and images, up to
+     * config('knowledge.max_upload_mb'), many at once.
+     */
+    public static function repository(): self
+    {
+        return new self(
+            max(1, (int) config('knowledge.max_upload_mb', 100)),
+            max(1, (int) config('knowledge.max_upload_files', 200)),
+            0,
+            ['pdf', 'office', 'text', 'image'],
+        );
+    }
+
+    /**
+     * The limits an upload follows, by where it goes.
+     */
+    public static function forSource(string $source): self
+    {
+        return $source === 'repository' ? self::repository() : self::current();
+    }
+
     public function maxBytes(): int
     {
         return $this->maxMb * 1024 * 1024;

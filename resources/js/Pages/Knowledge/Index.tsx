@@ -1,21 +1,24 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Bot, ChevronRight, Clock, Folder, FolderPlus, Inbox, Library, Lock, NotebookPen, Search, Settings2, Upload } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, Clock, Files, Folder, FolderPlus, FolderUp, Inbox, LayoutGrid, Library, List, Lock, NotebookPen, Search, Settings2, Upload } from 'lucide-react';
 import { type DragEvent, type FormEvent, useRef, useState } from 'react';
 
 import { EntityRow, ListPanel, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
 import { FileIcon } from '@/Components/FileIcon';
+import { fromDrop, fromInput, type PickedFile } from '@/Components/knowledge/dropped';
+import { FileCard, ReadingBadge } from '@/Components/knowledge/FileCard';
+import { type RepositoryLimits, UploadDialog } from '@/Components/knowledge/UploadDialog';
 import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { PaginationBar, usePaged } from '@/Components/Pagination';
 import { useCan } from '@/hooks/useCan';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
-import { NativeSelect } from '@/Components/ui/native-select';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, bytes, dateTime } from '@/lib/format';
+import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { type DomainSummary, indexState, type KnowledgeRow, reviewState } from '@/Pages/Knowledge/types';
 
@@ -25,12 +28,34 @@ interface Props {
     folder: { id: number; name: string; parent_id: number | null; path: { id: number; name: string }[] } | null;
     folders: { id: number; name: string; items: number; children: number }[];
     items: KnowledgeRow[];
-    filters: { q: string; view: 'review' | null };
+    filters: { q: string; view: 'review' | 'files' | null; kind: Kind | null };
     pending: number;
+    files: number;
     unfiled: number;
     semantic: boolean;
     accept: string;
+    upload: RepositoryLimits;
     can: { manage_domains: boolean };
+}
+
+type Kind = 'pdf' | 'office' | 'image' | 'text';
+
+const KINDS: { value: Kind | null; label: string }[] = [
+    { value: null, label: 'Tudo' },
+    { value: 'pdf', label: 'PDF' },
+    { value: 'office', label: 'Word, Excel, PowerPoint' },
+    { value: 'image', label: 'Imagens' },
+    { value: 'text', label: 'Texto' },
+];
+
+const LAYOUT_KEY = 'knowledge.layout';
+
+function savedLayout(): 'list' | 'grid' {
+    try {
+        return window.localStorage.getItem(LAYOUT_KEY) === 'grid' ? 'grid' : 'list';
+    } catch {
+        return 'list';
+    }
 }
 
 export function DomainDot({ color, className }: { color: string | null; className?: string }) {
@@ -73,16 +98,17 @@ function NavRow({
     );
 }
 
-export default function KnowledgeIndex({ domains, domain, folder, folders, items, filters, pending, semantic, accept, can }: Props) {
-    const paged = usePaged(items, 20);
+export default function KnowledgeIndex({ domains, domain, folder, folders, items, filters, pending, files, semantic, accept, upload, can }: Props) {
+    const [layout, setLayout] = useState<'list' | 'grid'>(savedLayout);
+    const paged = usePaged(items, layout === 'grid' ? 24 : 20);
     const canWrite = useCan();
     const [query, setQuery] = useState(filters.q);
-    const [uploading, setUploading] = useState(false);
+    const [picked, setPicked] = useState<PickedFile[]>([]);
     const [creatingFolder, setCreatingFolder] = useState(false);
     const [dragging, setDragging] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
+    const folderInput = useRef<HTMLInputElement>(null);
 
-    const upload = useForm<{ files: File[]; domain_id: string; folder_id: string }>({ files: [], domain_id: '', folder_id: '' });
     const folderForm = useForm({ name: '', domain_id: '', parent_id: '' });
 
     const target = domain ?? domains[0] ?? null;
@@ -92,26 +118,33 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
         router.get('/knowledge', { ...(query ? { q: query } : {}), ...(domain ? { domain: domain.slug } : {}) }, { preserveState: true });
     };
 
-    const startUpload = (files: File[]) => {
-        if (files.length === 0 || target === null) {
+    const startUpload = (chosen: PickedFile[]) => {
+        if (chosen.length === 0 || target === null || !canWrite('knowledge.write')) {
             return;
         }
 
-        upload.setData({ files, domain_id: String(target.id), folder_id: domain && folder ? String(folder.id) : '' });
-        setUploading(true);
+        setPicked(chosen);
     };
 
-    const submitUpload = (event: FormEvent) => {
-        event.preventDefault();
-        upload.transform((data) => ({ ...data, folder_id: data.folder_id || null }));
-        upload.post('/knowledge/upload', {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                setUploading(false);
-                upload.reset();
-            },
-        });
+    const switchLayout = (next: 'list' | 'grid') => {
+        setLayout(next);
+
+        try {
+            window.localStorage.setItem(LAYOUT_KEY, next);
+        } catch {
+            // Private windows: the choice lasts until the page reloads.
+        }
+    };
+
+    const kindHref = (kind: Kind | null) => {
+        const params = new URLSearchParams();
+
+        if (filters.view === 'files') params.set('view', 'files');
+        if (domain && filters.view !== 'files') params.set('domain', domain.slug);
+        if (folder && filters.view !== 'files') params.set('folder', String(folder.id));
+        if (kind) params.set('kind', kind);
+
+        return `/knowledge${params.size ? `?${params.toString()}` : ''}`;
     };
 
     const submitFolder = (event: FormEvent) => {
@@ -128,15 +161,18 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
     const onDrop = (event: DragEvent) => {
         event.preventDefault();
         setDragging(false);
-        startUpload(Array.from(event.dataTransfer.files));
+        void fromDrop(event.dataTransfer).then(startUpload);
     };
 
-    const browsing = filters.q === '' && filters.view === null;
+    const browsing = filters.q === '' && (filters.view === null || filters.view === 'files');
+    const filing = filters.q === '' && filters.view !== 'review';
     const heading = filters.q
         ? `Resultados para “${filters.q}”`
         : filters.view === 'review'
           ? 'Escrito por agentes, à espera de revisão'
-          : domain
+          : filters.view === 'files'
+            ? 'Todos os ficheiros'
+            : domain
             ? folder
                 ? folder.name
                 : 'Neste domínio'
@@ -167,10 +203,25 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         )}
                         {canWrite('knowledge.write') && (
                             <>
-                                <Button variant="outline" onClick={() => fileInput.current?.click()} disabled={target === null}>
-                                    <Upload />
-                                    Carregar
-                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" disabled={target === null}>
+                                            <Upload />
+                                            Carregar
+                                            <ChevronDown className="size-3.5 opacity-60" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onSelect={() => fileInput.current?.click()}>
+                                            <Upload />
+                                            Ficheiros
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => folderInput.current?.click()}>
+                                            <FolderUp />
+                                            Uma pasta inteira
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                                 <Button asChild>
                                     <Link href={newArticle}>
                                         <NotebookPen />
@@ -186,7 +237,18 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                             accept={accept}
                             className="hidden"
                             onChange={(e) => {
-                                startUpload(Array.from(e.target.files ?? []));
+                                startUpload(fromInput(e.target.files));
+                                e.target.value = '';
+                            }}
+                        />
+                        <input
+                            ref={folderInput}
+                            type="file"
+                            multiple
+                            className="hidden"
+                            {...{ webkitdirectory: '', directory: '' }}
+                            onChange={(e) => {
+                                startUpload(fromInput(e.target.files));
                                 e.target.value = '';
                             }}
                         />
@@ -200,6 +262,10 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         <NavRow href="/knowledge" active={!domain && browsing}>
                             <Clock className="size-4 text-muted-foreground" />
                             Recentes
+                        </NavRow>
+                        <NavRow href="/knowledge?view=files" active={filters.view === 'files'} count={files}>
+                            <Files className="size-4 text-muted-foreground" />
+                            Ficheiros
                         </NavRow>
                         <NavRow href="/knowledge?view=review" active={filters.view === 'review'} count={pending} warn>
                             <Inbox className="size-4 text-muted-foreground" />
@@ -245,7 +311,7 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         </Button>
                     </form>
 
-                    {domain && browsing && (
+                    {domain && browsing && filters.view !== 'files' && (
                         <div className="flex flex-col gap-1">
                             <div className="flex flex-wrap items-center gap-1 text-sm">
                                 <Link
@@ -281,7 +347,49 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         </div>
                     )}
 
-                    {browsing && domain && folders.length > 0 && (
+                    {filing && (domain || filters.view === 'files') && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap gap-1">
+                                {KINDS.map((k) => (
+                                    <Link
+                                        key={k.label}
+                                        href={kindHref(k.value)}
+                                        preserveState
+                                        className={cn(
+                                            'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                                            filters.kind === k.value ? 'border-foreground/20 bg-accent font-medium text-foreground' : 'text-muted-foreground hover:bg-accent/60',
+                                        )}
+                                    >
+                                        {k.label}
+                                    </Link>
+                                ))}
+                            </div>
+                            <div className="ml-auto flex rounded-lg border p-0.5" role="group" aria-label="Vista">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn('size-7', layout === 'list' && 'bg-accent')}
+                                    aria-label="Lista"
+                                    aria-pressed={layout === 'list'}
+                                    onClick={() => switchLayout('list')}
+                                >
+                                    <List className="size-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn('size-7', layout === 'grid' && 'bg-accent')}
+                                    aria-label="Grelha"
+                                    aria-pressed={layout === 'grid'}
+                                    onClick={() => switchLayout('grid')}
+                                >
+                                    <LayoutGrid className="size-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {browsing && domain && filters.view !== 'files' && folders.length > 0 && (
                         <Section title="Pastas">
                             <ListPanel>
                                 {folders.map((f) => (
@@ -307,7 +415,7 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         </Section>
                     )}
 
-                    {items.length === 0 && browsing && domain && folders.length > 0 ? null : items.length === 0 ? (
+                    {items.length === 0 && browsing && domain && filters.view !== 'files' && folders.length > 0 ? null : items.length === 0 ? (
                         <EmptyState
                             icon={filters.view === 'review' ? Inbox : Library}
                             title={
@@ -315,16 +423,20 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                                     ? 'Sem resultados'
                                     : filters.view === 'review'
                                       ? 'Nada para rever'
-                                      : domain
-                                        ? 'Pasta vazia'
-                                        : 'Base de conhecimento vazia'
+                                      : filters.kind
+                                        ? 'Nenhum ficheiro deste tipo'
+                                        : filters.view === 'files'
+                                          ? 'Ainda não há ficheiros'
+                                          : domain
+                                            ? 'Pasta vazia'
+                                            : 'Base de conhecimento vazia'
                             }
                             description={
                                 filters.q
                                     ? 'Tente outras palavras ou uma pergunta mais curta.'
                                     : filters.view === 'review'
                                       ? 'Quando um agente com autonomia abaixo de N3 guardar algo, aparece aqui até alguém o aprovar.'
-                                      : 'Escreva um artigo ou arraste para aqui ficheiros PDF, Word, Excel ou PowerPoint. Os agentes passam a consultá-los.'
+                                      : 'Arraste para aqui ficheiros ou pastas inteiras: PDF (também digitalizados), Word, Excel, PowerPoint e imagens. Os agentes passam a consultá-los.'
                             }
                             action={
                                 !filters.q &&
@@ -338,74 +450,33 @@ export default function KnowledgeIndex({ domains, domain, folder, folders, items
                         />
                     ) : (
                         <Section title={heading} action={<span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>}>
-                            <ListPanel>
-                                {paged.items.map((item) => (
-                                    <KnowledgeEntry key={item.id} item={item} showDomain={!domain || !browsing} />
-                                ))}
-                            </ListPanel>
-                            {items.length > 20 && <PaginationBar {...paged.pager} noun={['item', 'itens']} />}
+                            {layout === 'grid' && filing ? (
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                                    {paged.items.map((item) => (
+                                        <FileCard key={item.id} item={item} showDomain={!domain || filters.view === 'files'} />
+                                    ))}
+                                </div>
+                            ) : (
+                                <ListPanel>
+                                    {paged.items.map((item) => (
+                                        <KnowledgeEntry key={item.id} item={item} showDomain={!domain || !browsing || filters.view === 'files'} />
+                                    ))}
+                                </ListPanel>
+                            )}
+                            {items.length > (layout === 'grid' ? 24 : 20) && <PaginationBar {...paged.pager} noun={['item', 'itens']} />}
                         </Section>
                     )}
                 </div>
             </div>
 
-            <Dialog open={uploading} onOpenChange={setUploading}>
-                <DialogContent>
-                    <form onSubmit={submitUpload} className="flex flex-col gap-4">
-                        <DialogHeader>
-                            <DialogTitle>
-                                Carregar {upload.data.files.length === 1 ? 'ficheiro' : `${upload.data.files.length} ficheiros`}
-                            </DialogTitle>
-                            <DialogDescription>
-                                O texto é extraído e indexado para pesquisa. O original fica disponível para descarregar.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <ListPanel>
-                            {upload.data.files.map((file) => (
-                                <EntityRow
-                                    key={file.name}
-                                    leading={<FileIcon extension={file.name.split('.').pop()?.toLowerCase()} />}
-                                    title={file.name}
-                                    trailing={<span className="font-mono text-xs text-muted-foreground">{bytes(file.size)}</span>}
-                                />
-                            ))}
-                        </ListPanel>
-                        <Field id="upload-domain" label="Domínio" error={upload.errors.domain_id}>
-                            <NativeSelect
-                                id="upload-domain"
-                                value={upload.data.domain_id}
-                                onChange={(e) => upload.setData((data) => ({ ...data, domain_id: e.target.value, folder_id: '' }))}
-                            >
-                                {domains.map((d) => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.name}
-                                    </option>
-                                ))}
-                            </NativeSelect>
-                        </Field>
-                        {upload.data.folder_id && folder && String(domain?.id) === upload.data.domain_id && (
-                            <p className="text-sm text-muted-foreground">
-                                Na pasta <span className="font-medium text-foreground">{folder.path.map((f) => f.name).join(' / ')}</span>
-                            </p>
-                        )}
-                        {Object.entries(upload.errors)
-                            .filter(([key]) => key.startsWith('files'))
-                            .map(([key, message]) => (
-                                <p key={key} className="text-sm text-destructive">
-                                    {message}
-                                </p>
-                            ))}
-                        <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => setUploading(false)}>
-                                Cancelar
-                            </Button>
-                            <Button type="submit" disabled={upload.processing}>
-                                {upload.processing ? 'A carregar…' : 'Carregar'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <UploadDialog
+                picked={picked}
+                onClose={() => setPicked([])}
+                domains={domains}
+                domainId={target?.id ?? null}
+                folder={domain && folder ? { id: folder.id, domain_id: domain.id, path: folder.path.map((f) => f.name).join(' / ') } : null}
+                limits={upload}
+            />
 
             <Dialog open={creatingFolder} onOpenChange={setCreatingFolder}>
                 <DialogContent>
@@ -446,13 +517,23 @@ export function KnowledgeEntry({ item, showDomain }: { item: KnowledgeRow; showD
 
     return (
         <EntityRow
-            href={`/knowledge/${item.id}`}
+            href={`/knowledge/${item.id}${item.page ? `?page=${item.page}` : ''}`}
             className="py-3"
             leading={<FileIcon extension={item.file?.extension} />}
             title={item.title}
             subtitle={item.excerpt || (item.file ? item.file.name : '')}
             meta={
                 <>
+                    {item.page !== null && (
+                        <span className="font-mono tabular-nums" title="Página do excerto">
+                            p. {item.page}
+                        </span>
+                    )}
+                    {item.file?.pages && !item.page ? (
+                        <span className="tabular-nums">
+                            {item.file.pages} {item.file.pages === 1 ? 'pág.' : 'págs.'}
+                        </span>
+                    ) : null}
                     {item.score !== null && item.score > 0 && (
                         <span className="font-mono tabular-nums" title="Relevância">
                             {Math.round(item.score * 100)}%
@@ -477,10 +558,11 @@ export function KnowledgeEntry({ item, showDomain }: { item: KnowledgeRow; showD
                 </>
             }
             trailing={
-                (review || index) && (
+                (review || index || item.file?.reading) && (
                     <>
                         {review && <StatusBadge tone={review.tone}>{review.label}</StatusBadge>}
-                        {!review && index && <StatusBadge tone={index.tone}>{index.label}</StatusBadge>}
+                        {!review && <ReadingBadge item={item} />}
+                        {!review && !item.file?.reading && index && <StatusBadge tone={index.tone}>{index.label}</StatusBadge>}
                     </>
                 )
             }

@@ -29,7 +29,7 @@ return [
         'image' => ['label' => 'Imagens', 'extensions' => ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'], 'mimes' => ['image/']],
         'pdf' => ['label' => 'PDF', 'extensions' => ['pdf'], 'mimes' => ['application/pdf']],
         'office' => ['label' => 'Word, Excel e PowerPoint', 'extensions' => ['docx', 'xlsx', 'pptx'], 'mimes' => ['application/vnd.openxmlformats-officedocument', 'application/zip', 'application/octet-stream']],
-        'text' => ['label' => 'Texto (TXT, Markdown, CSV, JSON)', 'extensions' => ['txt', 'md', 'csv', 'json', 'xml'], 'mimes' => ['text/', 'application/json', 'application/xml', 'application/csv']],
+        'text' => ['label' => 'Texto (TXT, Markdown, CSV, JSON)', 'extensions' => ['txt', 'md', 'csv', 'json', 'xml', 'html', 'htm'], 'mimes' => ['text/', 'application/json', 'application/xml', 'application/csv']],
         'audio' => ['label' => 'Áudio (gravado ou ficheiro)', 'extensions' => ['wav', 'mp3', 'm4a', 'aac', 'ogg', 'oga', 'opus', 'flac', 'weba'], 'mimes' => ['audio/', 'video/webm', 'video/mp4', 'application/ogg']],
         'video' => ['label' => 'Vídeo', 'extensions' => ['mp4', 'mov', 'webm'], 'mimes' => ['video/']],
     ],

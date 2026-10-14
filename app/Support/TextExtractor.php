@@ -43,9 +43,27 @@ final class TextExtractor
             return null;
         }
 
-        $text = trim((string) preg_replace("/[ \t]+/u", ' ', (string) preg_replace("/\R{3,}/u", "\n\n", mb_convert_encoding($text, 'UTF-8', 'UTF-8'))));
+        $text = self::clean($text);
 
         return $text === '' ? null : mb_substr($text, 0, self::MAX_CHARS);
+    }
+
+    /**
+     * Valid UTF-8, runs of spaces as one, at most one blank line in a row.
+     */
+    public static function clean(string $text): string
+    {
+        return trim((string) preg_replace("/[ \t]+/u", ' ', (string) preg_replace("/\R{3,}/u", "\n\n", mb_convert_encoding($text, 'UTF-8', 'UTF-8'))));
+    }
+
+    /**
+     * Text from an image with Tesseract, when it is installed.
+     */
+    public function imageText(string $path): ?string
+    {
+        $text = $this->ocr($path);
+
+        return $text === null ? null : (self::clean($text) ?: null);
     }
 
     public static function htmlToText(string $html): string

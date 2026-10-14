@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ChartColumn } from 'lucide-react';
+import { ChartColumn, FileSearch } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { EntityRow, ListHeader, ListPanel, Property, Section } from '@/Components/Blocks';
@@ -29,6 +29,7 @@ interface Props {
     run_cap: number | null;
     agents: AgentUsage[];
     months: { period: string; runs: number; spent: number }[];
+    other: { purpose: string; label: string; calls: number; spent: number }[];
 }
 
 /** Share of a cap, coloured as the budget guard acts: a warning at 80%, a stop at 100%. */
@@ -55,7 +56,7 @@ const percent = (value: number, cap: number) => `${Math.round((value / cap) * 10
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** Definições › Consumo de IA: this month's spend against the caps Rethink sets, per agent and over six months. */
-export default function Usage({ period, day, days, spent, cap, extra, agent_cap, run_cap, agents, months }: Props) {
+export default function Usage({ period, day, days, spent, cap, extra, agent_cap, run_cap, agents, months, other }: Props) {
     const projected = day > 0 ? (spent / day) * days : spent;
     const busiest = Math.max(...months.map((month) => month.spent), 0);
 
@@ -114,7 +115,7 @@ export default function Usage({ period, day, days, spent, cap, extra, agent_cap,
             </div>
 
             <Section title="Por agente, este mês">
-                {agents.length === 0 ? (
+                {agents.length === 0 && other.length === 0 ? (
                     <EmptyState icon={ChartColumn} title="Sem gastos este mês" description="Quando um agente trabalhar, o que gastou aparece aqui." />
                 ) : (
                     <ListPanel>
@@ -142,6 +143,20 @@ export default function Usage({ period, day, days, spent, cap, extra, agent_cap,
                                         {agent.cap !== null && <Meter value={agent.spent} cap={agent.cap} className="h-1.5 w-full" />}
                                     </div>
                                 }
+                            />
+                        ))}
+                        {other.map((row) => (
+                            <EntityRow
+                                key={row.purpose}
+                                leading={
+                                    <span className="inline-flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                        <FileSearch className="size-3.5" />
+                                    </span>
+                                }
+                                title={row.label}
+                                subtitle={<span className="sm:hidden">{plural(row.calls, 'pedido', 'pedidos')}</span>}
+                                meta={<span className="w-24 text-right tabular-nums">{row.calls}</span>}
+                                trailing={<span className="w-28 text-right text-sm tabular-nums sm:w-44">{usd(row.spent)}</span>}
                             />
                         ))}
                     </ListPanel>

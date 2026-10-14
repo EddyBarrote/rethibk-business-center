@@ -29,19 +29,22 @@ final class AttachmentStore
      */
     public function start(User $user, string $filename, int $size, ?string $clientMime, ?Task $task, string $source = 'upload'): MessageAttachment
     {
-        $limits = AttachmentLimits::current();
+        $source = in_array($source, ['upload', 'recording', 'repository'], true) ? $source : 'upload';
+        $limits = AttachmentLimits::forSource($source);
         $filename = $this->cleanName($filename);
         $type = $limits->typeFor($filename);
 
         if ($type === null) {
-            throw ValidationException::withMessages(['file' => "O tipo de «{$filename}» não é aceite. Veja os tipos em Definições › Anexos."]);
+            throw ValidationException::withMessages(['file' => $source === 'repository'
+                ? "O tipo de «{$filename}» não é aceite no repositório: PDF, Word, Excel, PowerPoint, texto ou imagens."
+                : "O tipo de «{$filename}» não é aceite. Veja os tipos em Definições › Anexos."]);
         }
 
         if ($size <= 0 || $size > $limits->maxBytes()) {
             throw ValidationException::withMessages(['file' => "«{$filename}» passa do limite de {$limits->maxMb} MB."]);
         }
 
-        $pending = MessageAttachment::query()->where('uploaded_by_user_id', $user->id)->whereNull('task_message_id')->where('created_at', '>', now()->subHour())->count();
+        $pending = MessageAttachment::query()->where('uploaded_by_user_id', $user->id)->whereNull('task_message_id')->where('source', $source === 'repository' ? '=' : '!=', 'repository')->where('created_at', '>', now()->subHour())->count();
 
         if ($pending >= $limits->maxFiles * 3) {
             throw ValidationException::withMessages(['file' => 'Demasiados ficheiros por enviar. Envie ou retire os que tem antes de juntar mais.']);
@@ -55,7 +58,7 @@ final class AttachmentStore
         return MessageAttachment::query()->create([
             'task_id' => $task?->id,
             'uploaded_by_user_id' => $user->id,
-            'source' => in_array($source, ['upload', 'recording'], true) ? $source : 'upload',
+            'source' => $source,
             'kind' => AttachmentKind::fromMime((string) $clientMime, $filename),
             'filename' => $filename,
             'mime_type' => $clientMime ?: 'application/octet-stream',
@@ -132,6 +135,30 @@ final class AttachmentStore
 
         if ($attachments->count() !== count(array_unique($ids)) || $attachments->contains(fn (MessageAttachment $a) => ! $a->isReady())) {
             throw ValidationException::withMessages(['attachment_ids' => 'Há ficheiros que ainda não acabaram de carregar ou já não existem.']);
+        }
+
+        return $attachments;
+    }
+
+    /**
+     * The person's finished uploads for the repository, removed from the
+     * staging area by the caller once filed.
+     *
+     * @param  list<int>  $ids
+     * @return Collection<int, MessageAttachment>
+     */
+    public function claimForRepository(User $user, array $ids): Collection
+    {
+        $attachments = MessageAttachment::query()
+            ->whereKey($ids)
+            ->where('uploaded_by_user_id', $user->id)
+            ->where('source', 'repository')
+            ->whereNull('task_message_id')
+            ->orderBy('id')
+            ->get();
+
+        if ($attachments->count() !== count(array_unique($ids)) || $attachments->contains(fn (MessageAttachment $a) => ! $a->isReady())) {
+            throw ValidationException::withMessages(['uploads' => 'Há ficheiros que ainda não acabaram de carregar ou já não existem.']);
         }
 
         return $attachments;
@@ -246,7 +273,7 @@ final class AttachmentStore
     {
         $disk = Storage::disk($attachment->disk);
         $sniffed = (string) (mime_content_type($disk->path($attachment->path)) ?: 'application/octet-stream');
-        $type = AttachmentLimits::current()->typeFor($attachment->filename);
+        $type = AttachmentLimits::forSource($attachment->source)->typeFor($attachment->filename);
 
         if ($type === null || ! AttachmentLimits::contentMatches($type, $sniffed)) {
             $name = $attachment->filename;
