@@ -1,8 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     Bell,
+    Check,
     CircleDot,
     Network,
+    PanelLeft,
     Target,
     Bot,
     CheckSquare,
@@ -61,7 +63,7 @@ import {
     useSidebar,
 } from '@/Components/ui/sidebar';
 import { Toaster } from '@/Components/ui/sonner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/Components/ui/tooltip';
+import { TooltipProvider } from '@/Components/ui/tooltip';
 import { useLive } from '@/hooks/useLive';
 import { type Appearance, useAppearance } from '@/lib/appearance';
 import { cn } from '@/lib/utils';
@@ -282,23 +284,37 @@ function AgentsGroup({ url, lite }: { url: string; lite: boolean }) {
 
 const switchMode = (lite: boolean) => router.put('/settings/profile/mode', { mode: lite ? 'full' : 'lite' }, { preserveScroll: true });
 
-/** Beside the bell: lite or full in one click (the person's menu has it too). */
+/** Beside the bell: an icon that opens the two modes (the person's menu has them too). */
 function ModeSwitch({ lite }: { lite: boolean }) {
+    const modes = [
+        { lite: true, label: 'Modo lite', hint: 'Conversas e o dia-a-dia' },
+        { lite: false, label: 'Modo completo', hint: 'Toda a plataforma' },
+    ];
+
     return (
-        <Tooltip>
-            <TooltipTrigger asChild>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
                 <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
-                    onClick={() => switchMode(lite)}
+                    size="icon"
+                    className="size-8 text-muted-foreground hover:text-foreground"
+                    aria-label={lite ? 'Modo lite' : 'Modo completo'}
                 >
-                    <Workflow className="size-4" />
-                    <span className="hidden sm:inline">{lite ? 'Modo lite' : 'Modo completo'}</span>
+                    <PanelLeft className="size-4" />
                 </Button>
-            </TooltipTrigger>
-            <TooltipContent>{lite ? 'Mudar para o modo completo' : 'Mudar para o modo lite'}</TooltipContent>
-        </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+                {modes.map((mode) => (
+                    <DropdownMenuItem key={mode.label} onSelect={() => mode.lite !== lite && switchMode(lite)} className="gap-2">
+                        <span className="grid flex-1 leading-tight">
+                            <span className="text-sm">{mode.label}</span>
+                            <span className="text-xs text-muted-foreground">{mode.hint}</span>
+                        </span>
+                        {mode.lite === lite && <Check className="text-primary" />}
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
 
