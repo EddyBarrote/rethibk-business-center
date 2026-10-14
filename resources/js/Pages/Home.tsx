@@ -113,7 +113,7 @@ export default function Home({
                     )}
                 </div>
 
-                <form onSubmit={submit} {...drop.dropProps} className="relative flex w-full flex-col gap-2 rounded-2xl border bg-card p-3 shadow-sm">
+                <form onSubmit={submit} {...drop.dropProps} className="relative flex w-full flex-col gap-2 rounded-2xl border bg-card p-3">
                     <DropOverlay show={drop.dragging} />
                     <div className="-mx-3 -mt-3">
                         <AttachmentTray items={files.items} onRemove={files.remove} notice={files.notice} onDismissNotice={files.dismissNotice} />

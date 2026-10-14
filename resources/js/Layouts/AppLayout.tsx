@@ -246,7 +246,7 @@ function AgentsGroup({ url, lite }: { url: string; lite: boolean }) {
     return (
         <SidebarGroup className="py-1">
             <SidebarGroupLabel className="h-7 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">
-                {lite ? 'Conversas' : 'Agentes'}
+                Agentes
                 {live > 0 && (
                     <span className="ml-auto font-mono text-[10px] tracking-normal text-status-running normal-case">{live} a trabalhar</span>
                 )}
