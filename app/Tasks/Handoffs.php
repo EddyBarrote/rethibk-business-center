@@ -5,6 +5,7 @@ namespace App\Tasks;
 use App\Enums\ActorType;
 use App\Enums\RunStatus;
 use App\Enums\TaskMessageKind;
+use App\Enums\TriggerType;
 use App\Events\TaskUpdated;
 use App\Models\Agent;
 use App\Models\AgentHandoff;
@@ -13,6 +14,7 @@ use App\Models\AuditLog;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -81,6 +83,18 @@ final class Handoffs
 
         $conversation = $this->threads->conversation($person, $to);
 
+        // All or nothing: a hand-off without its rows would wait forever.
+        $handoff = DB::transaction(fn () => $this->open($run, $from, $to, $person, $task, $conversation, $brief, $depth));
+        $this->threads->wake($conversation, null, $handoff->toMessage, TriggerType::Agent);
+
+        return $handoff->hand;
+    }
+
+    /**
+     * @return object{hand: AgentHandoff, toMessage: TaskMessage}
+     */
+    private function open(AgentRun $run, Agent $from, Agent $to, User $person, Task $task, Task $conversation, string $brief, int $depth): object
+    {
         $handoff = AgentHandoff::query()->create([
             'user_id' => $person->id,
             'from_agent_id' => $from->id,
@@ -95,11 +109,11 @@ final class Handoffs
 
         AuditLog::record($from, 'agent.handoff', ['handoff_id' => $handoff->id, 'to_agent_id' => $to->id, 'user_id' => $person->id, 'from_task_id' => $task->id, 'to_task_id' => $conversation->id], subject: $task);
 
-        // Here: "Mensagem enviada a …". There: "Mensagem de …", which wakes the colleague.
+        // Here: "Mensagem enviada a …". There: "Mensagem de …", which wakes the colleague once all is saved.
         $this->row($task, $brief, $handoff, $run);
-        $this->threads->post($conversation, $from, $brief, TaskMessageKind::Handoff, handoff: $handoff);
+        $message = $this->threads->post($conversation, $from, $brief, TaskMessageKind::Handoff, wake: false, handoff: $handoff);
 
-        return $handoff;
+        return (object) ['hand' => $handoff, 'toMessage' => $message];
     }
 
     /**
