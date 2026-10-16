@@ -43,6 +43,7 @@ use Laravel\Ai\Streaming\Events\ReasoningStart;
 use Laravel\Ai\Streaming\Events\StreamStart;
 use Laravel\Ai\Streaming\Events\TextDelta;
 use Laravel\Ai\Streaming\Events\ToolCall;
+use Laravel\Ai\Streaming\Events\ToolResult;
 use Throwable;
 
 /**
@@ -288,7 +289,8 @@ final class AgentRunner
 
         $live = ['text' => '', 'reasoning' => '', 'thinking' => false, 'thought_ms' => 0, 'tool' => null];
         $block = '';
-        // Thinking starts with the model's step, before the first word of its summary.
+        // The model thinks from the moment its step is requested (the start, or after
+        // the tools ran) until its summary ends, well before the first word arrives.
         $stepStartedAt = microtime(true);
         $sentAt = 0.0;
         $send = function (bool $now = false) use ($run, &$live, &$sentAt): void {
@@ -299,9 +301,9 @@ final class AgentRunner
         };
 
         foreach ($stream as $event) {
-            if ($event instanceof StreamStart) {
+            if ($event instanceof ToolResult) {
                 $stepStartedAt = microtime(true);
-
+            } elseif ($event instanceof StreamStart) {
                 if (trim($live['text']) !== '') {
                     $live['text'] = rtrim($live['text'])."\n\n";
                 }

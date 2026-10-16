@@ -464,7 +464,7 @@ function LiveReasoning({ text }: { text: string }) {
         <div
             ref={box}
             className={cn(
-                'ml-[11px] max-h-28 max-w-xl overflow-hidden border-l pl-3 text-[13px] leading-relaxed text-muted-foreground [&_.prose]:text-[13px] [&_.prose]:text-muted-foreground [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0',
+                'ml-[11px] max-h-28 max-w-xl overflow-hidden border-l pl-3 text-[13px] leading-relaxed text-muted-foreground [&>div]:text-[13px] [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0',
                 overflows && 'thinking-live',
             )}
         >
@@ -495,7 +495,7 @@ function ThoughtToggle({ thought }: { thought: Thought }) {
                 <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} />
             </button>
             {open && (
-                <div className="mt-1 mb-1 ml-[11px] border-l pl-3 text-[13px] leading-relaxed text-muted-foreground [&_.prose]:text-[13px] [&_.prose]:text-muted-foreground [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0">
+                <div className="mt-1 mb-1 ml-[11px] border-l pl-3 text-[13px] leading-relaxed text-muted-foreground [&>div]:text-[13px] [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0">
                     <Markdown>{thought.text}</Markdown>
                 </div>
             )}
