@@ -425,7 +425,8 @@ class TaskController extends Controller
                 'completed_at' => $task->completed_at?->toIso8601String(),
                 'parent' => $task->parent ? ['id' => $task->parent->id, 'ref' => $task->parent->identifier(), 'title' => $task->parent->title] : null,
                 'source' => $this->source($task),
-                'agent' => $task->assigneeAgent ? Present::agent($task->assigneeAgent) : null,
+                // The agent who answers here: the assigned one, or the one that gave a person this task.
+                'agent' => ($agent = app(TaskThread::class)->agentOf($task)) ? Present::agent($agent) : null,
             ],
             'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name'])->get()->map(fn (TaskMessage $m) => [
                 'id' => $m->id,

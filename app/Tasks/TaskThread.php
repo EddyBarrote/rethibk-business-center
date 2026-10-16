@@ -297,7 +297,10 @@ final class TaskThread
             return $task->assigneeAgent;
         }
 
-        return $task->kind === TaskKind::Task && $task->assignee_user_id !== null ? $task->createdByAgent : null;
+        // Loaded whole: pages load the creator with only a few columns.
+        return $task->kind === TaskKind::Task && $task->assignee_user_id !== null && $task->created_by_agent_id !== null
+            ? Agent::query()->find($task->created_by_agent_id)
+            : null;
     }
 
     /**

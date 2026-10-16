@@ -194,6 +194,8 @@ it('gives a colleague outside its area a task from a conversation, for a manager
 
     // She opens the email the task came from, and asking in the thread wakes the agent that gave it.
     $this->actingAs($this->outsider)->get(tenantUrl($this->tenant, "inbox/{$email->id}"))->assertOk();
+    $this->actingAs($this->outsider)->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('task.agent.name', 'Finanças')->where('task.source.label', 'Email: Fim da subscrição'));
     $this->actingAs($this->outsider)->post(tenantUrl($this->tenant, "tasks/{$task->id}/messages"), ['body' => 'Qual é o valor?', 'mode' => 'message'])->assertRedirect();
     Queue::assertPushed(RunAgent::class, 1);
 
