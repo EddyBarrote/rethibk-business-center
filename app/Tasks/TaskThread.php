@@ -239,11 +239,11 @@ final class TaskThread
         }
 
         if ($status === TaskStatus::InReview && $by instanceof Agent && $task->kind === TaskKind::Task) {
-            $this->notifyUser($task, "{$task->identifier()} pronta para rever", $note ?? $task->title, urgent: true, category: NotificationCategory::Waiting);
+            $this->notifyUser($task, '«'.Str::limit($task->title, 80).'» pronta para rever', $note ?? $task->title, urgent: true, category: NotificationCategory::Waiting);
         }
 
         if ($status === TaskStatus::Done && $by instanceof Agent && $task->parent_id === null && $task->kind === TaskKind::Task) {
-            $this->notifyUser($task, "{$by->name} concluiu {$task->identifier()}", $note ?? $task->title);
+            $this->notifyUser($task, "{$by->name} concluiu «".Str::limit($task->title, 80).'»', $note ?? $task->title);
         }
 
         if ($status === TaskStatus::WaitingHuman) {
@@ -356,7 +356,7 @@ final class TaskThread
             return;
         }
 
-        $text = trim((string) ($run->output['text'] ?? ''));
+        $text = $this->withoutAgentKeys(trim((string) ($run->output['text'] ?? '')));
         $files = $this->agentFiles($run);
 
         if ($run->status === RunStatus::Failed) {
@@ -566,7 +566,7 @@ final class TaskThread
     private function input(Task $task, TaskMessage|Task $source): string
     {
         if ($source instanceof Task) {
-            return "Foi-te atribuída a tarefa {$task->identifier()}: {$task->title}\n\n".($task->description ?: 'Sem descrição.')
+            return "Foi-te atribuída a tarefa «{$task->title}» (código {$task->identifier()}).\n\n".($task->description ?: 'Sem descrição.')
                 .$this->origin($task)
                 ."\n\nTrabalha nela com as tuas ferramentas. Quando terminares, marca-a como feita (tasks.update_status) e resume o resultado.";
         }
@@ -695,7 +695,7 @@ final class TaskThread
 
         $last = $task->messages()->whereIn('author_type', [ActorType::Agent, ActorType::User])->reorder('id', 'desc')->first();
         $files = $last?->attachments()->get()->map(fn (MessageAttachment $a) => "{$a->reference()} {$a->filename}")->all() ?? [];
-        $summary = "A tarefa delegada {$task->identifier()} «{$task->title}» foi concluída".($by ? " por {$by->name}" : '').'.'
+        $summary = "A tarefa delegada «{$task->title}» foi concluída".($by ? " por {$by->name}" : '').'.'
             .($last ? "\n\nÚltima resposta:\n".Str::limit($last->body, 1500) : '')
             .($files !== [] ? "\n\nFicheiros nessa resposta: ".implode(', ', $files).'. Podes lê-los (files.read) ou guardá-los no repositório (knowledge.file) pelo número.' : '');
 
@@ -728,12 +728,35 @@ final class TaskThread
         return $task;
     }
 
+    /**
+     * Agents are named, never shown by their internal key: "Gestor de Clientes
+     * (client_manager)" reads "Gestor de Clientes" (docs/DECISOES.md, "Tarefas pelo título").
+     */
+    public function withoutAgentKeys(string $text): string
+    {
+        if ($text === '') {
+            return $text;
+        }
+
+        foreach (Agent::query()->get(['id', 'key', 'name']) as $agent) {
+            if (! str_contains($text, $agent->key)) {
+                continue;
+            }
+
+            $key = preg_quote($agent->key, '/');
+            $text = (string) preg_replace("/[ \\t]*\\(\\s*(?:chave\\s*:?\\s*)?[`'\"]?{$key}[`'\"]?\\s*\\)/u", '', $text);
+            $text = (string) preg_replace("/`{$key}`/u", $agent->name, $text);
+        }
+
+        return $text;
+    }
+
     private function notifyAssignee(Task $task, User|Agent $by): void
     {
         $person = $task->assigneeUser;
 
         if ($person !== null) {
-            $this->notifier->notify($person, "Nova tarefa {$task->identifier()}: {$task->title}", Str::limit((string) ($task->description ?? $task->title), 300), "/tasks/{$task->id}", $by->name, $task->priority->value === 'urgent' ? 'warning' : 'info', NotificationCategory::Task, ['task_id' => $task->id]);
+            $this->notifier->notify($person, "Nova tarefa: {$task->title}", Str::limit((string) ($task->description ?? $task->title), 300), "/tasks/{$task->id}", $by->name, $task->priority->value === 'urgent' ? 'warning' : 'info', NotificationCategory::Task, ['task_id' => $task->id]);
         }
     }
 

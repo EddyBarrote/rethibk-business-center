@@ -1011,3 +1011,17 @@ Na RET-10 (Rethink, run 386) o Gestor de Clientes pôs 25 000 MZN de instalaçã
 Verificado sobre os traços reais: nas últimas 92 chamadas que produzem algo (MICOMOC e Rethink), a verificação recusaria só as da run 386 (RET-10) e da run 374 (RET-6); as cobranças da MICOMOC com totais de facturas passam. Limite conhecido: um valor inventado que coincide com um número de uma fonte (o 25.000 de um serviço de email numa proposta antiga) passa.
 
 Testes: `tests/Feature/Agents/FactCheckTest.php`.
+
+## Tarefas pelo título (16.10.2026)
+
+O Barrote, sobre uma resposta do Chief of Staff («Tarefa criada: RET-13 — …», «Atribuída a: Gestor de Clientes (client_manager)», botão «Abrir RET-13»): as referências têm de dizer alguma coisa; cada tarefa tem título e descrição, e o título comunica melhor do que o código.
+
+| Decisão | Onde |
+|---|---|
+| **Título e descrição obrigatórios** em cada tarefa criada por um agente (já eram); o título é curto e diz o que é e a quem ou ao quê respeita, sem códigos (exemplo na própria ferramenta: «Seguimento da proposta à Fundação AZUL»). | `CreateTask::schema()` |
+| **Os agentes falam das tarefas pelo título e dos colegas pelo nome**: regra da plataforma para todos; códigos (RET-13) e chaves (client_manager) são só para as ferramentas. Na tarefa em curso, o código vem entre parênteses, como referência. `tasks.create` e `escalate.urgent` devolvem `title` e `ref` (já não `task` com o código), e os textos das ferramentas (`tasks.update_status`, `tasks.ask_human`, `followups.schedule`) falam pelo título. | `InstructionComposer`, ferramentas em `App\Ai\Capabilities\Local` |
+| **A chave interna nunca chega à conversa**: na resposta do agente, «Gestor de Clientes (client_manager)» fica «Gestor de Clientes» e `client_manager` entre crases passa ao nome. | `TaskThread::withoutAgentKeys()` |
+| **Botões, avisos e notas pelo título**: «Abrir «título»» depois de criar ou escalar uma tarefa; notificações «Nova tarefa: título», «X concluiu «título»», ««título» pronta para rever»; notas na conversa («deu a tarefa «título» a …»), rotinas, fluxos e percurso. | `TaskController::resultLink()`, `TaskThread`, `RoutineRunner`, `WorkflowEngine`, `TaskJourney`, `Journey.tsx` |
+| **O código fica como texto secundário**, pequeno e cinzento, para pesquisa e unicidade: depois do título no cabeçalho da tarefa, na lista de tarefas, e como dica (title) nas fichas do percurso, da memória e dos passos de fluxo. A migalha e o separador do browser mostram o título. | `Tasks/Show.tsx`, `Tasks/Index.tsx` |
+
+Testes: `tests/Feature/Tasks/TaskTitlesTest.php`.

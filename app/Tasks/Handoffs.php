@@ -263,7 +263,7 @@ final class Handoffs
         $tasks = Task::query()->where('created_by_agent_id', $run->agent_id)
             ->whereBetween('created_at', [$run->started_at ?? $run->created_at, $run->finished_at ?? now()])
             ->with(['assigneeAgent:id,name', 'assigneeUser:id,name'])->get()
-            ->map(fn (Task $t) => "deu {$t->identifier()} «{$t->title}» a ".($t->assigneeAgent->name ?? $t->assigneeUser->name ?? '?'));
+            ->map(fn (Task $t) => "deu a tarefa «{$t->title}» a ".($t->assigneeAgent->name ?? $t->assigneeUser->name ?? '?'));
         $done = $passed->merge($tasks);
 
         return $done->isEmpty()

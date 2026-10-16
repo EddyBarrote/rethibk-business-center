@@ -147,7 +147,7 @@ final class ClassifyEmail extends LocalCapability
         if ($person !== null && $category !== EmailCategory::Spam && (! $personal || $urgent)) {
             $this->notifier->notify(
                 $person,
-                $task !== null ? "Nova tarefa {$task->identifier()}: {$task->title}" : "{$category->label()}: {$message->subject}",
+                $task !== null ? "Nova tarefa: {$task->title}" : "{$category->label()}: {$message->subject}",
                 $data['summary'].($deadline ? ' Prazo: '.$deadline->format('d/m/Y').'.' : ''),
                 $task !== null ? "/tasks/{$task->id}" : "/inbox/{$message->id}",
                 $context->agent->name,
@@ -163,7 +163,7 @@ final class ClassifyEmail extends LocalCapability
             'category' => $data['category'],
             'routed_to' => $notified,
             'handed_to_agent' => $task?->assigneeAgent?->name,
-            'task' => $task?->identifier(),
+            'task' => $task?->title,
             'department' => $department?->name,
             'deadline' => $deadline?->toIso8601String(),
             'warnings' => array_values(array_filter([

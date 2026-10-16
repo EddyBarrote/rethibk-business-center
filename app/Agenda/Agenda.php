@@ -103,7 +103,7 @@ final class Agenda
                         ? ['kind' => 'user', 'id' => $f->user->id, 'name' => $f->user->name]
                         : ($f->agent !== null ? ['kind' => 'agent', 'id' => $f->agent->id, 'name' => $f->agent->name] : null),
                     'by' => $f->agent?->name,
-                    'context' => $f->task?->identifier(),
+                    'context' => $f->task?->title,
                     'link' => match (true) {
                         $f->task !== null => "/tasks/{$f->task->id}",
                         $email => "/inbox/{$f->subject_id}",

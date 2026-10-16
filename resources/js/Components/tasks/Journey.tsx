@@ -19,7 +19,7 @@ export interface Journey {
         doing: string;
         since: string;
         approval_id: number | null;
-        task: { id: number; ref: string } | null;
+        task: { id: number; ref: string; title: string } | null;
     };
     stops: {
         key: string;
@@ -61,7 +61,7 @@ interface Hop {
     quote: boolean;
     chips: string[];
     seconds: number;
-    task: { id: number | null; ref: string } | null;
+    task: { id: number | null; ref: string; title: string } | null;
     status: { value: string; label: string; open: boolean } | null;
     approval_id: number | null;
     counting: boolean;
@@ -227,13 +227,17 @@ function HopRow({ hop, longest }: { hop: Hop; longest: number }) {
                             (hop.task.id ? (
                                 <Link
                                     href={`/tasks/${hop.task.id}`}
-                                    className="rounded-full border bg-background px-2 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                                    title={hop.task.ref}
+                                    className="max-w-full truncate rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
                                 >
-                                    {hop.task.ref}
+                                    {hop.task.title}
                                 </Link>
                             ) : (
-                                <span className="rounded-full border bg-background px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                                    {hop.task.ref}
+                                <span
+                                    title={hop.task.ref}
+                                    className="max-w-full truncate rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground"
+                                >
+                                    {hop.task.title}
                                 </span>
                             ))}
                         {hop.status && hop.type !== 'returned' && (
@@ -289,10 +293,10 @@ export function JourneyView({ journey, taskId }: { journey: Journey; taskId: num
             {!journey.root.is_current && (
                 <p className="text-xs text-muted-foreground">
                     Este caso começou em{' '}
-                    <Link href={`/tasks/${journey.root.id}`} className="font-mono text-foreground hover:underline">
-                        {journey.root.ref}
-                    </Link>{' '}
-                    «{journey.root.title}». A tarefa aberta está destacada.
+                    <Link href={`/tasks/${journey.root.id}`} title={journey.root.ref} className="text-foreground hover:underline">
+                        «{journey.root.title}»
+                    </Link>
+                    . A tarefa aberta está destacada.
                 </p>
             )}
 
@@ -344,8 +348,12 @@ export function JourneyView({ journey, taskId }: { journey: Journey; taskId: num
                         </div>
                     )}
                     {now.task && now.task.id !== taskId && (
-                        <Link href={`/tasks/${now.task.id}`} className="w-fit text-xs text-muted-foreground hover:text-foreground">
-                            Abrir <span className="font-mono">{now.task.ref}</span>
+                        <Link
+                            href={`/tasks/${now.task.id}`}
+                            title={now.task.ref}
+                            className="line-clamp-1 w-fit text-xs text-muted-foreground hover:text-foreground"
+                        >
+                            Abrir «{now.task.title}»
                         </Link>
                     )}
                 </div>

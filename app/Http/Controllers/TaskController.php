@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -565,7 +566,7 @@ class TaskController extends Controller
                     'status_label' => $row->status->label(),
                     'item' => $row->item,
                     'answer' => $row->answer,
-                    'task' => $row->task ? ['id' => $row->task->id, 'ref' => $row->task->identifier()] : null,
+                    'task' => $row->task ? ['id' => $row->task->id, 'ref' => $row->task->identifier(), 'title' => $row->task->title] : null,
                 ])->values(),
             ];
         }
@@ -805,7 +806,7 @@ class TaskController extends Controller
             'followups.schedule' => ($data['scheduled'] ?? false) === true
                 ? ['Ver na Agenda', '/agenda'.(isset($data['due_at']) && is_string($data['due_at']) ? '?data='.substr($data['due_at'], 0, 10) : '')]
                 : [null, null],
-            'tasks.create', 'escalate.urgent' => ['Abrir '.($data['task'] ?? 'tarefa'), $data['link'] ?? null],
+            'tasks.create', 'escalate.urgent' => [isset($data['title']) && is_string($data['title']) ? 'Abrir «'.Str::limit($data['title'], 60).'»' : 'Abrir a tarefa', $data['link'] ?? null],
             'agents.message' => ['Abrir a conversa com '.($data['sent_to'] ?? 'o colega'), $data['conversation'] ?? null],
             'knowledge.save', 'knowledge.file' => ['Abrir no Conhecimento', $data['link'] ?? null],
             default => [null, null],

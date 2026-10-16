@@ -219,7 +219,7 @@ function Body({
                             <ContextLink
                                 href={conversation}
                                 icon={MessagesSquare}
-                                title={full?.task ? `${full.task.ref} · ${full.task.title}` : 'Abrir a conversa'}
+                                title={full?.task ? full.task.title : 'Abrir a conversa'}
                                 meta="A conversa, com esta execução aberta ao lado"
                             />
                         ) : null}

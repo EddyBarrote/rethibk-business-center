@@ -51,13 +51,13 @@ it('does not schedule a second reminder for what a colleague already follows tha
         $result = scheduleAs($this->finance, ['title' => 'Renovar a TVCabo', 'due' => '2026-10-19', 'email_id' => $this->email->id]);
 
         expect($result['scheduled'])->toBeFalse()
-            ->and($result['already_tracked'])->toContain($task->identifier())->toContain('Naira')
+            ->and($result['already_tracked'])->toContain("«{$task->title}»")->toContain('Naira')
             ->and(FollowUp::query()->count())->toBe(0);
 
         // Two days before is a reminder of its own, and it belongs to that task.
         $result = scheduleAs($this->finance, ['title' => 'Lembrar a Naira da TVCabo', 'due' => '2026-10-17 09:00', 'email_id' => $this->email->id]);
 
-        expect($result['scheduled'])->toBeTrue()->and($result['task'])->toBe($task->identifier())
+        expect($result['scheduled'])->toBeTrue()->and($result['task'])->toBe($task->title)
             ->and(FollowUp::query()->sole()->task_id)->toBe($task->id);
 
         // And the same again that day is a duplicate.

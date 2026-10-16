@@ -43,7 +43,7 @@ export function workTitle(run: NowRun, toolNames: Record<string, string> | undef
     }
 
     if (run.task?.title) {
-        return run.task.kind === 'chat' ? run.task.title : `${run.task.ref} · ${run.task.title}`;
+        return run.task.title;
     }
 
     return run.title ?? runTitle(run.input, toolNames);
