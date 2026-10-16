@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     Bell,
+    CalendarDays,
     Check,
     CircleDot,
     Network,
@@ -89,6 +90,7 @@ const newChat: NavItem = { label: 'Nova conversa', href: '/', icon: SquarePen };
 
 const topNav: NavItem[] = [
     { label: 'Tarefas', href: '/tasks', icon: CircleDot, badge: 'waiting' },
+    { label: 'Agenda', href: '/agenda', icon: CalendarDays },
     {
         label: 'Email',
         href: '/inbox',

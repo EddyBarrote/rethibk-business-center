@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToTenant;
+use App\Enums\Permission;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
@@ -119,6 +120,35 @@ class Task extends Model
             ->orWhere('created_by_user_id', $user->id)
             ->orWhere('assignee_user_id', $user->id)
             ->orWhereHas('runs.approvals', fn (Builder $approvals) => $approvals->pending()->visibleTo($user)));
+    }
+
+    /**
+     * What a person may see (TaskPolicy::view as a query): every task with
+     * "Ler todo o trabalho", else the ones they are part of and the work of
+     * the agents they answer for or work with; a conversation only by its
+     * person, or with "Ler as conversas de todos".
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        if (! $user->hasPermission(Permission::ReadAllConversations)) {
+            $query->where(fn (Builder $c) => $c->whereNull('chat_key')->orWhere('user_id', $user->id));
+        }
+
+        if ($user->hasPermission(Permission::ReadAllWork)) {
+            return;
+        }
+
+        $agents = Agent::query()
+            ->where(fn (Builder $q) => $q->where('reports_to_user_id', $user->id)->orWhereHas('assignees', fn (Builder $a) => $a->whereKey($user->id)))
+            ->select('id');
+
+        $query->where(fn (Builder $q) => $q->where('user_id', $user->id)
+            ->orWhere('created_by_user_id', $user->id)
+            ->orWhere('assignee_user_id', $user->id)
+            ->orWhereIn('assignee_agent_id', $agents));
     }
 
     /**

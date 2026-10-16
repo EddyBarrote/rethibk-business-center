@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int|null $agent_id
  * @property int|null $user_id
+ * @property int|null $task_id
  * @property string|null $subject_type
  * @property int|null $subject_id
  * @property string $title
@@ -26,7 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $notified_at
  * @property Carbon|null $done_at
  */
-#[Fillable(['agent_id', 'user_id', 'subject_type', 'subject_id', 'title', 'note', 'due_at', 'notified_at', 'done_at'])]
+#[Fillable(['agent_id', 'user_id', 'task_id', 'subject_type', 'subject_id', 'title', 'note', 'due_at', 'notified_at', 'done_at'])]
 class FollowUp extends Model
 {
     /** @use HasFactory<FollowUpFactory> */
@@ -46,6 +47,16 @@ class FollowUp extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Agent::class);
+    }
+
+    /**
+     * The task this reminder belongs to (docs/DECISOES.md, "Agenda").
+     *
+     * @return BelongsTo<Task, $this>
+     */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
     }
 
     /**

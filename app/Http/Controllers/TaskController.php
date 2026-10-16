@@ -675,22 +675,7 @@ class TaskController extends Controller
      */
     private function visible(Builder $query, User $user): Builder
     {
-        $chats = fn (Builder $q) => $user->hasPermission(Permission::ReadAllConversations)
-            ? $q
-            : $q->where(fn (Builder $c) => $c->whereNull('chat_key')->orWhere('user_id', $user->id));
-
-        if ($user->can('viewAll', Task::class)) {
-            return $chats($query);
-        }
-
-        $agents = Agent::query()
-            ->where(fn (Builder $q) => $q->where('reports_to_user_id', $user->id)->orWhereHas('assignees', fn (Builder $a) => $a->whereKey($user->id)))
-            ->pluck('id');
-
-        return $chats($query)->where(fn (Builder $q) => $q->where('user_id', $user->id)
-            ->orWhere('created_by_user_id', $user->id)
-            ->orWhere('assignee_user_id', $user->id)
-            ->orWhereIn('assignee_agent_id', $agents));
+        return $query->visibleTo($user);
     }
 
     /**

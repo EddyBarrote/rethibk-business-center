@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AgentAvatarController;
 use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AgentDefinitionController;
@@ -62,6 +63,9 @@ Route::middleware('guest')->group(function () {
 // The tenant's logo on the sign-in screens (Definições > Marca); public, like any login page logo.
 Route::get('login/logo', [LoginController::class, 'logo'])->name('login.logo');
 
+// A person's agenda for Google Calendar or Outlook (docs/DECISOES.md, "Agenda"): the private link is the key.
+Route::get('calendar/{token}.ics', [AgendaController::class, 'feed'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:60,1')->name('agenda.feed');
+
 Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
@@ -100,6 +104,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('files/{attachment}', [AttachmentController::class, 'destroy'])->name('files.destroy');
     Route::get('files/{attachment}', [AttachmentController::class, 'show'])->name('files.show');
     Route::get('files/{attachment}/preview', [AttachmentController::class, 'preview'])->middleware('throttle:60,1')->name('files.preview');
+    Route::get('agenda', [AgendaController::class, 'index'])->name('agenda.index');
+    Route::post('agenda/follow-ups', [AgendaController::class, 'store'])->middleware('throttle:30,1')->name('agenda.follow-ups.store');
+    Route::patch('agenda/follow-ups/{followUp}', [AgendaController::class, 'update'])->name('agenda.follow-ups.update');
+    Route::delete('agenda/follow-ups/{followUp}', [AgendaController::class, 'destroy'])->name('agenda.follow-ups.destroy');
+    Route::post('agenda/feed', [AgendaController::class, 'createFeed'])->middleware('throttle:10,1')->name('agenda.feed.create');
+    Route::delete('agenda/feed', [AgendaController::class, 'destroyFeed'])->name('agenda.feed.destroy');
     Route::get('goals', [GoalController::class, 'index'])->name('goals.index');
     Route::post('goals', [GoalController::class, 'store'])->name('goals.store');
     Route::put('goals/{goal}', [GoalController::class, 'update'])->name('goals.update');

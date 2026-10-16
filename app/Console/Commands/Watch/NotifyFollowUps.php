@@ -51,9 +51,10 @@ class NotifyFollowUps extends Command
 
     private function link(FollowUp $followUp): string
     {
-        return match ($followUp->subject_type) {
-            EmailMessage::class => "/inbox/{$followUp->subject_id}",
-            default => '/',
+        return match (true) {
+            $followUp->task_id !== null => "/tasks/{$followUp->task_id}",
+            $followUp->subject_type === EmailMessage::class => "/inbox/{$followUp->subject_id}",
+            default => '/agenda',
         };
     }
 }

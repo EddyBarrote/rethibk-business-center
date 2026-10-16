@@ -904,3 +904,20 @@ Pedido do Barrote: o Chief of Staff avisou que a subscrição da TVCabo acabava 
 | **O agente conhece as pessoas**: o prompt lista as pessoas activas com email, função e departamento (até 60), e diz que pedir algo a um colega da plataforma é dar-lhe a tarefa; um texto para copiar só serve para pessoas de fora. | `InstructionComposer::team()`, `people()` |
 
 `tasks.create` e `tasks.ask_human` já estavam ligadas a todos os agentes (`CapabilityRegistry::ALWAYS_ON`); o que travava era a regra da área (a Naira não tem departamento) e as instruções. Testes: `tests/Feature/Tasks/ColleaguesTest.php`.
+
+## Agenda (16.10.2026)
+
+Pergunta do Barrote: o Agente de Finanças disse «agendei um seguimento para 19/10» sobre a TVCabo, mas não havia onde o ver, e a mesma TVCabo já era a RET-5 da Naira, com prazo a 19/10. Ele propôs ligar ao Google Calendar e ter um calendário interno para pessoas e agentes. Viu a proposta (Agenda primeiro, um link de subscrição em vez de OAuth, Google nos dois sentidos depois) e disse «avança».
+
+| Decisão | Onde |
+|---|---|
+| **Uma página Agenda** (menu, abaixo de Tarefas), mês e semana, feita do que já existe: seguimentos (`follow_ups`), prazos das tarefas (`due_at`) e as próximas execuções das rotinas. Nada é guardado duas vezes. Uma rotina que corra mais de 62 vezes no período aparece uma vez por dia. | `App\Agenda\Agenda`, `AgendaController`, `Pages/Agenda/Index.tsx` |
+| **Quem vê o quê**: «O meu» é o que é para a pessoa e o dos agentes que lhe reportam (seguimentos, prazos, rotinas de que é a pessoa indicada). «Toda a empresa» só com «Ler todo o trabalho» e segue a visibilidade das tarefas (`Task::visibleTo`, agora usado também pela lista de Tarefas). **O lembrete pessoal de outra pessoa nunca aparece a ninguém**, nem a admins; um seguimento de uma tarefa só a quem vê a tarefa; o link para o email só a quem o pode ler. | `Agenda::followUps()` |
+| **Lembretes próprios**: qualquer pessoa cria, marca como feito, adia e apaga os seus. Um seguimento que um agente guarda para si fecha-o a chefia do agente ou um admin, mas não se apaga. Adiar volta a pô-lo por avisar. | `AgendaController` |
+| **Um seguimento pertence à tarefa** (`follow_ups.task_id`): a indicada (`task_id`), a que o agente está a fazer, ou a tarefa aberta sobre o email (de preferência a de uma pessoa). O aviso abre a tarefa. | migração `2026_10_16_120001`, `ScheduleFollowUp`, `NotifyFollowUps` |
+| **Sem duplicados**: se já há uma tarefa aberta sobre o mesmo email (ou a mesma tarefa) com prazo nesse dia, ou um seguimento aberto para o mesmo nesse dia, o agente não agenda outro e recebe quem já acompanha («RET-5 «Pagar a TVCabo» (Naira) já acompanha isto, com prazo 19/10/2026»). Um lembrete noutro dia (dois dias antes, por exemplo) fica, ligado à tarefa. | `ScheduleFollowUp::alreadyTracked()` |
+| **Numa conversa, o seguimento é da pessoa da conversa**, não da chefia do agente: as conversas são privadas. | `ScheduleFollowUp` |
+| **Ver no Google ou no Outlook com um link privado (.ics)**, só de leitura: seguimentos e prazos de «O meu» (sem rotinas), de 60 dias atrás a um ano à frente, com título, quem trata, nota do seguimento e o link de volta; nunca o conteúdo de um email ou de uma conversa. Guarda-se só o hash do link, por isso ele aparece uma vez; gerar outro desliga o anterior, e pode desligar-se. Fica no registo de auditoria. | `IcsFeed`, rota `calendar/{token}.ics`, `users.calendar_token` |
+| **Google Calendar nos dois sentidos fica para depois**: por pessoa, em Definições › Integrações, com o consentimento dela, como o email; um agente nunca escreve na agenda de alguém sem essa pessoa. As credenciais OAuth do Google ficam fora do repositório. | — |
+
+Testes: `tests/Feature/AgendaTest.php`.

@@ -34,9 +34,10 @@ use Illuminate\Support\Carbon;
  * @property bool $is_active
  * @property Carbon|null $last_seen_at
  * @property string|null $ui_mode
+ * @property string|null $calendar_token sha256 of the private agenda link
  */
 #[Fillable(['name', 'job_title', 'email', 'password', 'department_id', 'reports_to_user_id', 'reports_to_agent_id', 'role', 'access_role_id', 'permission_overrides', 'is_active'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'calendar_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
