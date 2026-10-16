@@ -88,6 +88,27 @@ it('refuses an invented commission, email or phone number', function () {
     });
 });
 
+it('refuses questions that offer made-up prices as the answers', function () {
+    GenericAgent::fake([
+        toolCall('q1', 'questions_ask', ['questions' => [[
+            'question' => 'Qual o preço da instalação?', 'header' => 'Instalação',
+            'options' => [['label' => '25 000 MZN', 'description' => 'Valor de mercado.'], ['label' => '30 000 MZN', 'description' => '']], 'multi_select' => false,
+        ]]]),
+        toolCall('q2', 'questions_ask', ['questions' => [[
+            'question' => 'Qual o preço da instalação?', 'header' => 'Instalação',
+            'options' => [['label' => 'Indico o valor', 'description' => 'Escrevo-o na resposta.'], ['label' => 'Ainda não sei', 'description' => '']], 'multi_select' => false,
+        ]]]),
+        'Fico à espera do preço.',
+    ]);
+
+    asTenant($this->tenant, function () {
+        $run = askChat('Faz a cotação do POS.');
+
+        expect($run->steps()->where('type', StepType::Error)->sole()->payload['content'])->toContain('25 000 MZN')->toContain('em aberto')
+            ->and(AgentQuestion::query()->sole()->questions[0]['options'][0]['label'])->toBe('Indico o valor');
+    });
+});
+
 it('counts a total over the records an ERP tool returned as found', function () {
     asTenant($this->tenant, function () {
         $run = app(AgentRunner::class)->create($this->agent, 'Persegue os recebimentos.', TriggerType::Schedule);

@@ -23,7 +23,7 @@ use App\Models\TaskMessage;
  */
 final class FactCheck
 {
-    /** Tools that ask instead of producing: never checked. */
+    /** Tools that ask instead of producing: checked only for values offered as answers. */
     private const ASKING = ['questions.ask', 'tasks.ask_human'];
 
     /** Not mutating, but what they write reaches people. */
@@ -46,8 +46,9 @@ final class FactCheck
      */
     public function blocked(Capability $capability, array $arguments, CapabilityContext $context): ?string
     {
-        if (in_array($capability->key, self::ASKING, true)
-            || (! $capability->is_mutating && ! in_array($capability->key, self::PRODUCING, true))) {
+        $asking = in_array($capability->key, self::ASKING, true);
+
+        if (! $asking && ! $capability->is_mutating && ! in_array($capability->key, self::PRODUCING, true)) {
             return null;
         }
 
@@ -55,6 +56,13 @@ final class FactCheck
 
         if ($missing === []) {
             return null;
+        }
+
+        // Asking is right; offering made-up values as the answers is not.
+        if ($asking) {
+            return 'Não enviado: as perguntas propõem '.$this->describe($missing).', que não '.(count($missing) === 1 ? 'aparece' : 'aparecem')
+                .' em nenhuma fonte desta conversa. Não sugiras preços, taxas, prazos ou contactos que não tens: pergunta-os em aberto, com opções neutras '
+                .'(por exemplo «Indico o valor» e «Ainda não sei»), e a pessoa escreve o valor na resposta. Volta a chamar questions.ask assim.';
         }
 
         return 'Não executado: '.$this->describe($missing).' não '.(count($missing) === 1 ? 'aparece' : 'aparecem')
