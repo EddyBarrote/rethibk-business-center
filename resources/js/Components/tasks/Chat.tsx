@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, FileText, Loader2, Lock, Wrench, X, Zap } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, ExternalLink, FileText, Loader2, Lock, Wrench, X, Zap } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -53,6 +53,8 @@ export interface ToolCall {
     name: string;
     status: 'running' | 'approval' | 'ok' | 'error' | 'rejected';
     duration_ms: number | null;
+    /** Where to see what the tool made (a draft, a report, a task), when it made something. */
+    link?: { label: string; href: string } | null;
 }
 
 /** Opens a run (and optionally one of its steps) in the side panel. */
@@ -212,6 +214,7 @@ function AgentBubble({
                 )}
                 {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} />}
                 {message.question && <QuestionCard question={message.question} />}
+                <ResultLinks calls={tools} />
                 <div className="flex w-full flex-col items-start gap-1">
                     {tools.length > 0 && message.run_id && <ToolCalls runId={message.run_id} calls={tools} onOpenRun={onOpenRun} />}
                     <div className="flex items-center gap-2 px-1">
@@ -493,5 +496,36 @@ function HandoffRow({ message, handoff }: { message: ChatMessage; handoff: Hando
                 )}
             </div>
         </details>
+    );
+}
+
+/**
+ * What the agent made in this turn (a draft, a report, a task, a reminder),
+ * one button each, so what it says it did can be opened (docs/DECISOES.md,
+ * "Ver o que o agente fez").
+ */
+function ResultLinks({ calls }: { calls: ToolCall[] }) {
+    const links = calls
+        .map((call) => call.link)
+        .filter((link): link is { label: string; href: string } => !!link)
+        .filter((link, index, all) => all.findIndex((other) => other.href === link.href && other.label === link.label) === index);
+
+    if (links.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {links.map((link) => (
+                <Link
+                    key={`${link.href}-${link.label}`}
+                    href={link.href}
+                    className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-xs font-medium text-foreground/85 shadow-xs transition-colors hover:bg-accent"
+                >
+                    <ExternalLink className="size-3 text-muted-foreground" />
+                    {link.label}
+                </Link>
+            ))}
+        </div>
     );
 }

@@ -308,6 +308,35 @@ it('lists the tools of each turn and opens one of its runs in the side panel', f
         ->assertInertia(fn (Assert $page) => $page->where('panel_run', null));
 });
 
+it('gives what the agent made in a turn a button to open it', function () {
+    [$task, $run] = asTenant($this->a, function () {
+        $task = app(TaskThread::class)->open(['kind' => TaskKind::Task, 'title' => 'Proposta', 'assignee_agent_id' => $this->chief->id, 'user_id' => $this->boss->id], $this->boss, null, start: false);
+        $run = AgentRun::factory()->create(['agent_id' => $this->chief->id, 'task_id' => $task->id]);
+        $recorder = app(RunRecorder::class);
+
+        foreach ([
+            'email.draft_reply' => ['draft_id' => 89, 'review_at' => '/inbox/81'],
+            'reports.draft' => ['report_id' => 4, 'link' => '/reports/4'],
+            'followups.schedule' => ['scheduled' => true, 'due_at' => '2026-10-20T07:00:00+00:00', 'agenda' => '/agenda'],
+            'tasks.create' => ['task' => 'RET-6', 'link' => '/tasks/38'],
+            'notify.user' => ['notified' => 'Chefe', 'link' => 'https://fora.example'],
+        ] as $key => $result) {
+            $recorder->step($run, StepType::ToolCall, ['arguments' => []], $key);
+            $recorder->step($run, StepType::ToolResult, ['ok' => true, 'content' => json_encode($result)], $key);
+        }
+
+        return [$task, $run];
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$task->id}"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where("tool_calls.{$run->id}.0.link", ['label' => 'Ver rascunho', 'href' => '/inbox/89'])
+            ->where("tool_calls.{$run->id}.1.link", ['label' => 'Abrir relatório #4', 'href' => '/reports/4'])
+            ->where("tool_calls.{$run->id}.2.link", ['label' => 'Ver na Agenda', 'href' => '/agenda?data=2026-10-20'])
+            ->where("tool_calls.{$run->id}.3.link", ['label' => 'Abrir RET-6', 'href' => '/tasks/38'])
+            ->where("tool_calls.{$run->id}.4.link", null));
+});
+
 it('says so in the thread when the agent ends a turn without a word', function () {
     GenericAgent::fake(['']);
 

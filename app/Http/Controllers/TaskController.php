@@ -727,7 +727,7 @@ class TaskController extends Controller
      * ended: a call is "running" until its result, "approval" while a person
      * has to decide, then "ok", "error" or "rejected".
      *
-     * @return array<int, list<array{step_id: int, key: string, name: string, status: string, duration_ms: int|null}>>
+     * @return array<int, list<array{step_id: int, key: string, name: string, status: string, duration_ms: int|null, link: array{label: string, href: string}|null}>>
      */
     private function toolCalls(Task $task): array
     {
@@ -754,7 +754,7 @@ class TaskController extends Controller
             $key = (string) $step->tool_name;
 
             if ($step->type === StepType::ToolCall) {
-                $calls[$run][] = ['step_id' => $step->id, 'key' => $key, 'name' => $names[$key] ?? $key, 'status' => 'running', 'duration_ms' => null];
+                $calls[$run][] = ['step_id' => $step->id, 'key' => $key, 'name' => $names[$key] ?? $key, 'status' => 'running', 'duration_ms' => null, 'link' => null];
                 $open[$run][$key] = array_key_last($calls[$run]);
 
                 continue;
@@ -774,10 +774,42 @@ class TaskController extends Controller
 
             $calls[$run][$index]['status'] = $step->type === StepType::ToolResult ? 'ok' : 'error';
             $calls[$run][$index]['duration_ms'] = $step->duration_ms;
+            $calls[$run][$index]['link'] = $step->type === StepType::ToolResult ? $this->resultLink($key, $step->payload['content'] ?? null) : null;
             unset($open[$run][$key]);
         }
 
         return $calls;
+    }
+
+    /**
+     * Where to see what a tool made, so "fiz um rascunho" comes with a button
+     * to open it (docs/DECISOES.md, "Ver o que o agente fez"). Only paths of
+     * this console that the tool itself returned; the page they open checks
+     * who may see it. Generated files already show as attachments.
+     *
+     * @return array{label: string, href: string}|null
+     */
+    private function resultLink(string $key, mixed $content): ?array
+    {
+        $data = is_string($content) ? json_decode($content, true) : null;
+
+        if (! is_array($data)) {
+            return null;
+        }
+
+        [$label, $href] = match ($key) {
+            'email.draft_reply' => ['Ver rascunho', isset($data['draft_id']) ? "/inbox/{$data['draft_id']}" : null],
+            'reports.draft' => ['Abrir relatório'.(isset($data['report_id']) ? " #{$data['report_id']}" : ''), $data['link'] ?? null],
+            'followups.schedule' => ($data['scheduled'] ?? false) === true
+                ? ['Ver na Agenda', '/agenda'.(isset($data['due_at']) && is_string($data['due_at']) ? '?data='.substr($data['due_at'], 0, 10) : '')]
+                : [null, null],
+            'tasks.create', 'escalate.urgent' => ['Abrir '.($data['task'] ?? 'tarefa'), $data['link'] ?? null],
+            'agents.message' => ['Abrir a conversa com '.($data['sent_to'] ?? 'o colega'), $data['conversation'] ?? null],
+            'knowledge.save', 'knowledge.file' => ['Abrir no Conhecimento', $data['link'] ?? null],
+            default => [null, null],
+        };
+
+        return is_string($label) && is_string($href) && preg_match('#^/[^/]#', $href) === 1 ? ['label' => $label, 'href' => $href] : null;
     }
 
     /**

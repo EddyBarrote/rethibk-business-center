@@ -944,3 +944,14 @@ Pedido do Barrote, com quatro capturas do Grok: os agentes coordenam-se sozinhos
 Teste real na Rethink (16.10, 14:36): o Barrote escreve «Caça leads agora» ao Chief of Staff, que passa o pedido ao Agente de Triagem (o tenant não tem um «Gestor Comercial»); a Triagem lê os emails #81 e #87 na conversa dela com o Barrote, agenda os seguimentos, e a resposta volta ao Chief of Staff, que a resume. Nenhum email saiu.
 
 Testes: `tests/Feature/Tasks/HandoffsTest.php`.
+
+## Ver o que o agente fez (16.10.2026)
+
+O Barrote, na RET-7: o Gestor de Clientes diz que preparou um rascunho de email, agendou um seguimento e registou a lead, mas só o PDF tinha botão; «deveria ter».
+
+| Decisão | Onde |
+|---|---|
+| **Por baixo da resposta, um botão por coisa que o agente fez nesse turno**, tirado do resultado da ferramenta e não do texto dele: «Ver rascunho» (`email.draft_reply`, abre o rascunho na caixa), «Abrir relatório #N» (`reports.draft`), «Ver na Agenda» no dia do seguimento (`followups.schedule`, só se ficou agendado), «Abrir RET-N» (`tasks.create`, `escalate.urgent`), «Abrir a conversa com …» (`agents.message`) e «Abrir no Conhecimento» (`knowledge.save`, `knowledge.file`). Os documentos gerados já aparecem como anexo. | `TaskController::resultLink()`, `Chat.tsx` (`ResultLinks`) |
+| **Só caminhos da própria consola** (`/…`) devolvidos pela ferramenta; a página que abrem verifica quem a pode ver. O que não deixa nada para abrir (avisos, leituras) não tem botão. | `TaskController::resultLink()` |
+
+Testes: `tests/Feature/Tasks/TaskThreadTest.php` («gives what the agent made…»).
