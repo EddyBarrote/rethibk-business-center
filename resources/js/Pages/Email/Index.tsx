@@ -679,6 +679,14 @@ function ReadingPane({
 
 export default function EmailIndex({ mailboxes, routed, current, messages, categories, triage_states, open, attachment_limits, can_connect }: Props) {
     const [composing, setComposing] = useState<Composition | null>(null);
+    // «Rever e enviar» on an email card in a conversation opens the draft straight in the composer.
+    useEffect(() => {
+        const id = Number(new URLSearchParams(window.location.search).get('rever'));
+        const draft = open?.messages.find((m) => m.id === id && m.status === 'draft');
+        if (open && draft) {
+            setComposing(fromDraft(draft, open.mailbox_id, null));
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
     const [syncing, setSyncing] = useState(false);
     // The row clicked shows as open at once, while the email loads.
     const [opening, setOpening] = useState<number | null>(null);

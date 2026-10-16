@@ -10,6 +10,7 @@ import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
 import { type ChatMessage, ChatThread, type LiveReply, type Thought, type ToolCall, WorkingBubble } from '@/Components/tasks/Chat';
+import { type ProposedEmail } from '@/Components/tasks/EmailCard';
 import { type Journey, JourneyView } from '@/Components/tasks/Journey';
 import { type AgentWork, type PanelRun, type PanelTab, SidePanel } from '@/Components/tasks/SidePanel';
 import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
@@ -44,6 +45,7 @@ interface Props extends TaskFormOptions {
     working: RunSummary | null;
     tool_calls: Record<number, ToolCall[]>;
     thinking: Record<number, Thought>;
+    emails: Record<number, ProposedEmail[]>;
     panel_run: PanelRun | null;
     tool_names: Record<string, string>;
     approvals: PendingApproval[];
@@ -88,6 +90,7 @@ const reloadProps = [
     'working',
     'tool_calls',
     'thinking',
+    'emails',
     'approvals',
     'workflow',
     'has_journey',
@@ -159,6 +162,7 @@ export default function TaskShow({
     working,
     tool_calls: toolCalls,
     thinking,
+    emails,
     panel_run: panelRun,
     agent_work: agentWork,
     agent_elsewhere: elsewhere,
@@ -556,7 +560,7 @@ export default function TaskShow({
                                         />
                                     )}
 
-                                    <ChatThread messages={messages} toolCalls={toolCalls} thinking={thinking} viewer={auth.user?.name ?? null} onOpenRun={openRun} />
+                                    <ChatThread messages={messages} toolCalls={toolCalls} thinking={thinking} emails={emails} viewer={auth.user?.name ?? null} onOpenRun={openRun} />
 
                                     {(working || stream) && (
                                         <WorkingBubble

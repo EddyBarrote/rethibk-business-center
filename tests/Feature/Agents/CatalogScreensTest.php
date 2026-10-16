@@ -105,7 +105,7 @@ it('drafts a colleague from a description, keeping only capabilities and skills 
         ->where('draft.status', 'draft')
         ->where('draft.autonomy_level', 2)
         ->where('draft.skills', [$skill->id])
-        ->has('draft.capabilities', 3) // comms.send_email plus the internet, on by default
+        ->has('draft.capabilities', 4) // comms.send_email plus the internet and email.draft, on by default
         ->where('draft.suggested_skills.0.name', 'Tabela de preços'));
 
     AgentDrafter::assertPrompted(fn ($prompt) => str_contains($prompt->prompt, 'propostas comerciais'));

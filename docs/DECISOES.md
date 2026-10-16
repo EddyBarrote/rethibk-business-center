@@ -1041,3 +1041,19 @@ Pedido do Barrote: o «A pensar…» deve mostrar o raciocínio, e ser minimalis
 Limite conhecido: o Gemini escreve os resumos em inglês, mesmo com instruções e pedido em português (testado com o modelo por omissão, `gemini-3.6-flash`). Traduzir exigiria outra chamada ao modelo por bloco.
 
 Testes: `tests/Feature/Tasks/ThinkingTest.php`.
+
+## Email proposto na conversa (16.10.2026)
+
+O Barrote pediu ao Chief of Staff «mostra aqui a proposta do email a enviar»: o Chief of Staff pediu o email ao Gestor de Clientes e mostrou a minuta em tópicos («Destinatário: Dra. Natália Saide (Fundação AZUL)», «Assunto: Seguimento da Proposta RT-PRO-2026-AZUL-01…», o texto). Quando um agente propõe um email, a conversa deve mostrá-lo como email, como o Claude faz.
+
+| Decisão | Onde |
+|---|---|
+| **`email.draft`, «Preparar email»**: um email novo (seguimento, primeiro contacto, envio de proposta) fica como rascunho no Email, para a pessoa rever e enviar; responder a um email recebido continua a ser `email.draft_reply`. Ligada a todos os agentes uma vez (como a internet), desligável por agente; risco N1, por isso corre sem aprovação até em N2 (não sai nada da empresa). | `DraftEmail`, `CapabilityRegistry::ON_BY_DEFAULT` |
+| **Na caixa da pessoa**: o rascunho vai para a caixa da pessoa da conversa (a que envia, se tiver várias), e só sem ela para a caixa do próprio agente. Sem nenhuma, a ferramenta recusa e o agente diz à pessoa que ligue a caixa. Vai também para os Rascunhos do servidor. | `DraftEmail::mailboxFor()` |
+| **Endereços só de uma fonte**: cada endereço em Para e Cc tem de aparecer nas fontes da execução (a mesma verificação de «Perguntar, nunca inventar»); o que não aparece fica de fora e a ferramenta di-lo ao agente. Sem endereço, o rascunho guarda a quem se escreve (`pending_recipient`, «Dra. Natália Saide») e o cartão mostra «Endereço em falta». | `DraftEmail::grounded()`, `FactCheck::ungrounded()`, `2026_10_16_180001` |
+| **O cartão de email**: por baixo da resposta do turno que preparou o email, com a cara e o nome do agente («Rascunho de Gestor de Clientes»), Para, Cc, De, Assunto e o texto formatado, e «Rever e enviar» (abre o rascunho no compositor do Email), «Editar» (muda o próprio rascunho, ali mesmo) e «Copiar». É o mesmo rascunho da caixa: editado lá aparece editado aqui, enviado aparece «Enviado às …», descartado desaparece. O «Ver rascunho» desse rascunho deixa de aparecer como botão. | `TaskController::proposedEmails()`, `EmailCard.tsx`, `Chat.tsx`, `Email/Index.tsx` (`?rever=`) |
+| **Enviar continua com a pessoa**: os botões de rever e editar só aparecem a quem pode escrever dessa caixa; o envio é o do Email (os agentes nunca enviam em nome de uma pessoa; `comms.send_email` com as regras de aprovação de sempre). | `EmailCard.tsx` (`can_edit`), `MailboxMailer` |
+| **Também quando o email vem de um colega**: o turno acordado pela resposta de um colega mostra os rascunhos que o colega deixou nessa resposta. O agente que passou o pedido lê, na linha da plataforma, que rascunhos o colega deixou e que a pessoa os vê como cartão, com a ordem de não copiar o email para a resposta. | `TaskController::proposedEmails()`, `Handoffs::drafted()` |
+| **Regra para todos os agentes**: quando propõem um email, preparam-no com `email.draft` (ou `email.draft_reply`) e dizem numa ou duas linhas o que prepararam, em vez de escrever o email no texto. | `InstructionComposer` (regras da plataforma) |
+
+Testes: `tests/Feature/Email/ProposedEmailTest.php`.

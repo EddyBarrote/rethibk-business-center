@@ -19,6 +19,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Monogram } from '@/Components/Blocks';
+import { EmailCards, type ProposedEmail } from '@/Components/tasks/EmailCard';
 import { type AgentQuestions, QuestionCard } from '@/Components/tasks/QuestionCard';
 import { Markdown } from '@/Components/Markdown';
 import { StatusDot } from '@/Components/Status';
@@ -119,12 +120,15 @@ export function ChatThread({
     messages,
     toolCalls,
     thinking = {},
+    emails = {},
     viewer,
     onOpenRun,
 }: {
     messages: ChatMessage[];
     toolCalls: Record<number, ToolCall[]>;
     thinking?: Record<number, Thought>;
+    /** The emails each turn proposed, shown as email cards (docs/DECISOES.md, "Email proposto na conversa"). */
+    emails?: Record<number, ProposedEmail[]>;
     viewer: string | null;
     onOpenRun: OpenRun;
 }) {
@@ -147,10 +151,12 @@ export function ChatThread({
 
                 let tools: ToolCall[] = [];
                 let thought: Thought | null = null;
+                let proposed: ProposedEmail[] = [];
                 if (message.author_type === 'agent' && message.run_id && !toolsShown.has(message.run_id)) {
                     toolsShown.add(message.run_id);
                     tools = toolCalls[message.run_id] ?? [];
                     thought = thinking[message.run_id] ?? null;
+                    proposed = emails[message.run_id] ?? [];
                 }
 
                 return (
@@ -165,7 +171,7 @@ export function ChatThread({
                         ) : isPerson(message) ? (
                             <PersonBubble message={message} continued={continued} own={viewer === message.author} />
                         ) : (
-                            <AgentBubble message={message} continued={continued} tools={tools} thought={thought} onOpenRun={onOpenRun} />
+                            <AgentBubble message={message} continued={continued} tools={tools} thought={thought} emails={proposed} onOpenRun={onOpenRun} />
                         )}
                     </div>
                 );
@@ -246,12 +252,14 @@ function AgentBubble({
     continued,
     tools,
     thought,
+    emails,
     onOpenRun,
 }: {
     message: ChatMessage;
     continued: boolean;
     tools: ToolCall[];
     thought: Thought | null;
+    emails: ProposedEmail[];
     onOpenRun: OpenRun;
 }) {
     return (
@@ -275,8 +283,9 @@ function AgentBubble({
                     </div>
                 )}
                 {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} />}
+                <EmailCards emails={emails} />
                 {message.question && <QuestionCard question={message.question} />}
-                <ResultLinks calls={tools} />
+                <ResultLinks calls={tools} shown={emails.map((email) => `/inbox/${email.id}`)} />
                 <div className="flex w-full flex-col items-start gap-1">
                     {tools.length > 0 && message.run_id && <ToolCalls runId={message.run_id} calls={tools} onOpenRun={onOpenRun} />}
                     <div className="flex items-center gap-2 px-1">
@@ -619,10 +628,12 @@ function HandoffRow({ message, handoff }: { message: ChatMessage; handoff: Hando
  * one button each, so what it says it did can be opened (docs/DECISOES.md,
  * "Ver o que o agente fez").
  */
-function ResultLinks({ calls }: { calls: ToolCall[] }) {
+function ResultLinks({ calls, shown = [] }: { calls: ToolCall[]; shown?: string[] }) {
     const links = calls
         .map((call) => call.link)
         .filter((link): link is { label: string; href: string } => !!link)
+        // A draft already shown as an email card needs no «Ver rascunho».
+        .filter((link) => !shown.includes(link.href))
         .filter((link, index, all) => all.findIndex((other) => other.href === link.href && other.label === link.label) === index);
 
     if (links.length === 0) {

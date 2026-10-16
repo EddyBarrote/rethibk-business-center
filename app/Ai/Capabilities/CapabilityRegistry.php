@@ -13,6 +13,7 @@ use App\Ai\Capabilities\Local\CompleteWorkflowStep;
 use App\Ai\Capabilities\Local\ConfirmBankMatch;
 use App\Ai\Capabilities\Local\CreateTask;
 use App\Ai\Capabilities\Local\DetectIssues;
+use App\Ai\Capabilities\Local\DraftEmail;
 use App\Ai\Capabilities\Local\DraftEmailReply;
 use App\Ai\Capabilities\Local\DraftReport;
 use App\Ai\Capabilities\Local\EscalateUrgent;
@@ -76,6 +77,8 @@ final class CapabilityRegistry
         ReadAttachment::class,
         ClassifyEmail::class,
         DraftEmailReply::class,
+        // An email proposed in the conversation (docs/DECISOES.md, "Email proposto na conversa").
+        DraftEmail::class,
         NotifyUser::class,
         ScheduleFollowUp::class,
         RecordTender::class,
@@ -150,7 +153,7 @@ final class CapabilityRegistry
      * Switched on for every agent once (existing ones at the next sync, new ones
      * in the form and from templates); admins can turn them off per agent.
      */
-    public const ON_BY_DEFAULT = ['web.search', 'web.read_page'];
+    public const ON_BY_DEFAULT = ['web.search', 'web.read_page', 'email.draft'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];

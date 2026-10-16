@@ -3,6 +3,7 @@
 namespace App\Tasks;
 
 use App\Enums\ActorType;
+use App\Enums\EmailStatus;
 use App\Enums\RunStatus;
 use App\Enums\TaskMessageKind;
 use App\Enums\TriggerType;
@@ -11,6 +12,7 @@ use App\Models\Agent;
 use App\Models\AgentHandoff;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
+use App\Models\EmailMessage;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
@@ -266,9 +268,30 @@ final class Handoffs
             ->map(fn (Task $t) => "deu a tarefa «{$t->title}» a ".($t->assigneeAgent->name ?? $t->assigneeUser->name ?? '?'));
         $done = $passed->merge($tasks);
 
-        return $done->isEmpty()
+        return ($done->isEmpty()
             ? "Segundo os registos, {$name} não passou trabalho a ninguém nesta resposta."
-            : "Segundo os registos, {$name} ".$done->implode('; ').'.';
+            : "Segundo os registos, {$name} ".$done->implode('; ').'.')
+            .$this->drafted($run, $name);
+    }
+
+    /**
+     * The emails the colleague left as drafts while answering: the person sees
+     * them as email cards under the reply (docs/DECISOES.md, "Email proposto
+     * na conversa"), so the agent says what they are and does not paste them.
+     */
+    private function drafted(AgentRun $run, string $name): string
+    {
+        $drafts = EmailMessage::query()->where('agent_run_id', $run->id)->where('status', EmailStatus::Draft)->orderBy('id')->get(['id', 'to', 'subject', 'pending_recipient']);
+
+        if ($drafts->isEmpty()) {
+            return '';
+        }
+
+        $list = $drafts->map(fn (EmailMessage $d) => '«'.($d->subject ?: 'sem assunto').'» ('
+            .($d->to !== null && $d->to !== [] ? 'para '.implode(', ', $d->to) : 'sem endereço do destinatário'.($d->pending_recipient ? ", para {$d->pending_recipient}" : '')).')');
+
+        return " {$name} deixou ".($drafts->count() === 1 ? 'um rascunho de email' : 'rascunhos de email').': '.$list->implode('; ')
+            .'. A pessoa vê '.($drafts->count() === 1 ? 'o rascunho' : 'os rascunhos').' como cartão de email por baixo da tua resposta, com Para, Assunto e texto, e revê e envia daí: não copies o email para a tua resposta. Ninguém o envia sem ordem dela.';
     }
 
     private function row(Task $task, string $body, AgentHandoff $handoff, AgentRun $run): void

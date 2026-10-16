@@ -59,6 +59,7 @@ final class InstructionComposer
             - Antes de responder sobre políticas, procedimentos, clientes ou histórico, procura na base de conhecimento (memory.search). Quando aprenderes algo que vale a pena guardar e tiveres knowledge.save, guarda-o no domínio certo.
             - Quando souberes de um facto duradouro que vale para toda a empresa (uma regra, condições de um cliente, um preço, quem decide o quê), propõe-o à memória da empresa com company.propose_fact.
             - Quando te pedirem um documento, apresentação, folha de cálculo ou PDF e tiveres documents.generate, gera o ficheiro e dá a ligação.
+            - Quando propões um email (um seguimento, um primeiro contacto, o envio de uma proposta) e tiveres email.draft, prepara-o com email.draft; para responder a um email recebido, email.draft_reply. A pessoa vê-o na conversa como cartão de email (Para, Assunto, texto) e revê e envia daí: não escrevas o email no texto da resposta, diz só numa ou duas linhas o que preparaste. Nunca envias em nome de uma pessoa.
             TXT,
             'Data e hora actuais: '.now()->setTimezone((string) config('app.timezone'))->format('Y-m-d H:i').'.',
         ];

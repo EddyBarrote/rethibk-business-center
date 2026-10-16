@@ -7,6 +7,7 @@ use App\Attachments\AttachmentLimits;
 use App\Attachments\AttachmentStore;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
+use App\Enums\EmailStatus;
 use App\Enums\GoalStatus;
 use App\Enums\Permission;
 use App\Enums\ProjectStatus;
@@ -463,6 +464,8 @@ class TaskController extends Controller
             'tool_calls' => $this->toolCalls($task),
             // What each turn thought, folded to «Pensou durante…» above its answer (docs/DECISOES.md, "Raciocínio na conversa").
             'thinking' => $this->thinking($task),
+            // The emails each turn proposed, as email cards (docs/DECISOES.md, "Email proposto na conversa").
+            'emails' => $this->proposedEmails($task, $user),
             // The run open in the side panel (?execucao=), so "Ver execução" never leaves the conversation.
             'panel_run' => fn () => $this->panelRun($request, $task, $user),
             'tool_names' => fn () => Capability::query()->pluck('name', 'key'),
@@ -752,6 +755,90 @@ class TaskController extends Controller
                 'ms' => (int) $steps->sum('duration_ms'),
             ])
             ->all();
+    }
+
+    /**
+     * The emails each turn of this conversation proposed, as drafts in Email:
+     * those its own run wrote and, for a turn woken by a colleague's answer,
+     * those the colleague wrote while answering (docs/DECISOES.md, "Email
+     * proposto na conversa"). Same row as in the inbox: a draft the person
+     * sent shows as sent; one discarded is gone.
+     *
+     * @return array<int, list<array<string, mixed>>>
+     */
+    private function proposedEmails(Task $task, User $user): array
+    {
+        $runs = $task->runs()->latest('id')->limit(50)->get(['id', 'task_id', 'agent_id', 'trigger_source_type', 'trigger_source_id']);
+
+        if ($runs->isEmpty()) {
+            return [];
+        }
+
+        $handoffs = app(Handoffs::class);
+        // Run of this conversation → the runs whose drafts it shows.
+        $sources = [];
+
+        foreach ($runs as $run) {
+            $sources[$run->id] = [$run->id];
+            $incoming = $handoffs->incoming($run);
+
+            if ($incoming !== null && $incoming->from_task_id === $task->id && $incoming->answer_run_id !== null) {
+                $sources[$run->id][] = $incoming->answer_run_id;
+            }
+        }
+
+        $drafts = EmailMessage::query()
+            ->whereIn('agent_run_id', array_merge(...array_values($sources)))
+            ->where('direction', 'outbound')
+            ->whereNull('removed_at')
+            ->with(['run.agent', 'mailbox', 'attachments:id,email_message_id,filename'])
+            ->orderBy('id')
+            ->get();
+
+        if ($drafts->isEmpty()) {
+            return [];
+        }
+
+        $visible = EmailMessage::query()->visibleTo($user)->whereKey($drafts->modelKeys())->pluck('id')->flip();
+        $cards = [];
+
+        foreach ($sources as $runId => $from) {
+            foreach ($drafts->whereIn('agent_run_id', $from) as $draft) {
+                $cards[$runId][] = $this->emailCard($draft, $user, $visible->has($draft->id), $draft->agent_run_id !== $runId);
+            }
+        }
+
+        return $cards;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emailCard(EmailMessage $draft, User $user, bool $canOpen, bool $fromColleague): array
+    {
+        $isDraft = $draft->status === EmailStatus::Draft;
+        $agent = $draft->run?->agent;
+
+        return [
+            'id' => $draft->id,
+            'status' => $isDraft ? 'draft' : ($draft->status === EmailStatus::Sent ? 'sent' : $draft->status->value),
+            // Who wrote it (docs/DECISOES.md, "Quem escreveu o rascunho").
+            'agent' => $agent !== null && $draft->written_by_user_id === null ? ['name' => $agent->name, 'avatar_url' => $agent->avatarUrl()] : null,
+            'from_colleague' => $fromColleague,
+            'mailbox_id' => $draft->mailbox_id,
+            'from' => $draft->from_address,
+            'to' => $draft->to ?? [],
+            'cc' => $draft->cc ?? [],
+            // Who it is for when no source had the address: shown as missing, never guessed.
+            'pending_recipient' => $draft->pending_recipient,
+            'subject' => (string) $draft->subject,
+            'body' => $draft->plainText(),
+            'attachments' => $draft->attachments->map(fn ($a) => ['id' => $a->id, 'name' => $a->filename])->values(),
+            'sent_at' => $draft->sent_at?->toIso8601String(),
+            'can_open' => $canOpen,
+            // Edited and sent only by who may write from that mailbox; agents never send in a person's name.
+            'can_edit' => $isDraft && $canOpen && $draft->mailbox !== null && $draft->mailbox->canBeWrittenFromBy($user),
+        ];
     }
 
     /**
