@@ -157,7 +157,10 @@ final class AgentRunner
             $input = $response->usage->inputTokens;
             $output = $response->usage->outputTokens;
 
-            $this->recorder->step($run, StepType::Message, ['text' => $response->text]);
+            // Amounts and contacts with no source are pointed out (docs/DECISOES.md, "Perguntar, nunca inventar").
+            $text = app(FactCheck::class)->annotate($response->text, $run);
+
+            $this->recorder->step($run, StepType::Message, ['text' => $text]);
 
             $run->forceFill([
                 'status' => match (true) {
@@ -166,7 +169,7 @@ final class AgentRunner
                     $run->approvals()->pending()->exists() => RunStatus::AwaitingApproval,
                     default => RunStatus::Completed,
                 },
-                'output' => ['text' => $response->text],
+                'output' => ['text' => $text],
                 'provider' => $provider,
                 'model' => $model,
                 'input_tokens' => $input + ($before['input'] ?? 0),

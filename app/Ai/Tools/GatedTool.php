@@ -7,6 +7,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityExecutor;
 use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Runs\ApprovalService;
+use App\Ai\Runs\FactCheck;
 use App\Ai\Runs\RunRecorder;
 use App\Enums\AuditResult;
 use App\Enums\CapabilitySource;
@@ -97,6 +98,18 @@ final class GatedTool implements Tool
             $recorder->step($run, StepType::Error, ['ok' => false, 'content' => 'À espera das respostas às perguntas.'], $this->capability->key);
 
             return 'Não executado: estás à espera das respostas às tuas perguntas. Termina a tua resposta agora com uma frase curta; continuas quando a pessoa responder.';
+        }
+
+        // Never an invented price, term or contact (docs/DECISOES.md, "Perguntar, nunca inventar").
+        if (($blocked = app(FactCheck::class)->blocked($this->capability, $arguments, $this->context)) !== null) {
+            $recorder->step($run, StepType::Error, ['ok' => false, 'content' => $blocked], $this->capability->key);
+            AuditLog::record($this->context->agent, $this->capability->key, [
+                'agent_run_id' => $run->id,
+                'arguments' => $arguments,
+                'error' => $blocked,
+            ], AuditResult::Denied);
+
+            return $blocked;
         }
 
         $decision = app(AutonomyGate::class)->evaluate($this->capability, $arguments, $this->context);

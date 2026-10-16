@@ -994,3 +994,19 @@ O Barrote, no email aberto: «poder encaminhar para um agente ou conversar acerc
 | **Partilhar dá acesso só a esse email**: `EmailMessage::readableBy()` passa a incluir os emails partilhados numa conversa do agente, por isso pode ler, responder em rascunho ou criar tarefa a partir dele; o resto da caixa pessoal continua fechado. Fica registado (`email.shared_with_agent`). | `EmailMessage::readableBy()` |
 
 Testes: `tests/Feature/Email/EmailClientTest.php` («takes the open email to a conversation…»).
+
+## Perguntar, nunca inventar (16.10.2026)
+
+Na RET-10 (Rethink, run 386) o Gestor de Clientes pôs 25 000 MZN de instalação e formação e 3 500 MZN/mês de licença e suporte no relatório #5, no PDF #17 e no rascunho #94 como «estimativas de mercado», porque não havia preçário de POS na base de conhecimento nem no ERP, e só depois pediu os preços. Na RET-6 (run 374) tinha feito o mesmo (12 500 MZN de setup, 7 500 MZN e 5% de comissão). Regra do Barrote: se o agente não tem a informação, pergunta; as pessoas dão-lha; nunca inventa.
+
+| Decisão | Onde |
+|---|---|
+| **Regra para todos os agentes**: preços, taxas, comissões, descontos, condições, prazos, datas e contactos só saem de uma fonte (instruções, memória da empresa, base de conhecimento, ERP, emails, mensagens das pessoas, página da internet com endereço). Se falta um, pergunta logo com `questions.ask`, antes de criar relatórios, documentos, rascunhos ou registos; nada de valores provisórios, marcadores ou «valores de mercado». | `InstructionComposer` (regras da plataforma) |
+| **A plataforma recusa o que traz valores sem fonte**: antes de uma ferramenta que altera dados ou produz para pessoas (`reports.draft` incluído; `questions.ask` e `tasks.ask_human` não) correr ou ir para aprovação, cada montante (com moeda, ou no formato 25 000,00), percentagem, email e telefone dos argumentos tem de aparecer nas fontes da execução: o prompt (instruções, tarefa, memória), a entrada, o que as ferramentas devolveram nesta execução e nas anteriores da mesma tarefa, as perguntas e respostas e as mensagens das pessoas na conversa. As respostas do próprio agente não contam. Recusada, a chamada volta ao agente com os valores em falta e a ordem de perguntar; fica no traço como erro e na auditoria como `denied`. | `App\Ai\Runs\FactCheck`, `GatedTool::handle()` |
+| **Contas sobre dados contam como encontradas**: totais de duas a quatro parcelas, parcela × quantidade escrita no texto, IVA e descontos sobre parcelas, e o total de registos de uma lista do ERP (facturas em atraso: soma de parte dos `total`/`balance`). A taxa só conta se a fonte a escrever como taxa (um 50 solto não é 50%); o IVA de 16% é conhecido (`agents.known_rates`). Destinatários (`to`, `cc`, `bcc`) ficam com o gate, que já mostra de onde veio cada endereço. | `FactCheck::derived()`, `FactCheck::totalOf()`, `config/agents.php` |
+| **Na resposta, só uma nota**: montantes e contactos sem fonte na resposta final não a bloqueiam (podem ser contas do agente), mas ganham uma «Nota da plataforma» com os valores que não se encontraram. | `FactCheck::annotate()`, `AgentRunner::run()` |
+| **A resposta da pessoa fica para a próxima vez**: quando uma pessoa dá um preço ou condição que serve para outros casos, o agente propõe-no à memória da empresa (`company.propose_fact`, à espera de aprovação) e diz-lho. | `InstructionComposer` |
+
+Verificado sobre os traços reais: nas últimas 92 chamadas que produzem algo (MICOMOC e Rethink), a verificação recusaria só as da run 386 (RET-10) e da run 374 (RET-6); as cobranças da MICOMOC com totais de facturas passam. Limite conhecido: um valor inventado que coincide com um número de uma fonte (o 25.000 de um serviço de email numa proposta antiga) passa.
+
+Testes: `tests/Feature/Agents/FactCheckTest.php`.

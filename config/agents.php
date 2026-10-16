@@ -98,4 +98,12 @@ return [
 
     'budget_warning_ratio' => 0.8,
 
+    /*
+    | Percentages an agent may apply without a source (docs/DECISOES.md,
+    | "Perguntar, nunca inventar"): the IVA in Mozambique. Any other rate,
+    | commission or discount has to come from a source or a person.
+    */
+
+    'known_rates' => [16],
+
 ];
