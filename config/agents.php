@@ -69,6 +69,24 @@ return [
         'gemini:gemini-3.1-flash-lite' => ['input' => 0.25, 'output' => 1.50],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Searching the internet (docs/DECISOES.md, "Pesquisa na internet")
+    |--------------------------------------------------------------------------
+    |
+    | web.search asks a model with the provider's own search (Google Search on
+    | Gemini). Empty provider or model: the platform's default. fee_usd is what
+    | the provider bills per search on top of tokens (Gemini grounding: about
+    | USD 14 per 1000 queries), charged to the AI budget with the tokens.
+    |
+    */
+
+    'web_search' => [
+        'provider' => env('AI_WEB_SEARCH_PROVIDER', 'gemini'),
+        'model' => env('AI_WEB_SEARCH_MODEL'),
+        'fee_usd' => (float) env('AI_WEB_SEARCH_FEE_USD', 0.014),
+    ],
+
     'fallback_pricing' => [
         'input' => (float) env('AI_FALLBACK_INPUT_USD_PER_MTOK', 15),
         'output' => (float) env('AI_FALLBACK_OUTPUT_USD_PER_MTOK', 75),

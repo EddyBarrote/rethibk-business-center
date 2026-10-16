@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Catalogue of what agents can do (section 7): local tools and the ERP tools
@@ -35,6 +36,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property bool $is_enabled
  * @property int|null $platform_connector_id
  * @property int|null $connector_id
+ * @property Carbon|null $granted_to_agents_at
  */
 #[Fillable(['key', 'name', 'description', 'source', 'scope', 'mcp_tool_name', 'platform_connector_id', 'connector_id', 'input_schema', 'is_mutating', 'risk', 'is_available', 'is_enabled'])]
 class Capability extends Model
@@ -52,6 +54,7 @@ class Capability extends Model
             'is_available' => 'boolean',
             'scope' => Scope::class,
             'is_enabled' => 'boolean',
+            'granted_to_agents_at' => 'datetime',
         ];
     }
 

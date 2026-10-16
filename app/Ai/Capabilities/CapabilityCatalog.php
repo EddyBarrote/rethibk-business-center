@@ -52,6 +52,27 @@ final class CapabilityCatalog
 
             $capability->save();
         }
+
+        $this->grantOnByDefault();
+    }
+
+    /**
+     * Switches the on-by-default capabilities on for every agent, once per
+     * tenant: an admin who turns one off for an agent later keeps it off.
+     */
+    private function grantOnByDefault(): void
+    {
+        $pending = Capability::query()->whereIn('key', CapabilityRegistry::ON_BY_DEFAULT)->whereNull('granted_to_agents_at')->get();
+
+        if ($pending->isEmpty()) {
+            return;
+        }
+
+        Agent::query()->each(fn (Agent $agent) => $agent->capabilities()->syncWithoutDetaching(
+            $pending->mapWithKeys(fn (Capability $capability) => [$capability->id => ['enabled' => true]])->all(),
+        ));
+
+        Capability::query()->whereKey($pending->modelKeys())->update(['granted_to_agents_at' => now()]);
     }
 
     /**

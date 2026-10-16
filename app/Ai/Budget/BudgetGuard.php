@@ -135,9 +135,10 @@ final class BudgetGuard
     }
 
     /**
-     * Records the cost of a model call made outside an agent run.
+     * Records the cost of a model call made outside an agent run. $feeUsd adds
+     * what the provider bills per call on top of tokens (a web search).
      */
-    public function charge(string $purpose, ?string $provider, ?string $model, int $inputTokens, int $outputTokens, ?Model $subject = null, ?Agent $agent = null): AiCharge
+    public function charge(string $purpose, ?string $provider, ?string $model, int $inputTokens, int $outputTokens, ?Model $subject = null, ?Agent $agent = null, float $feeUsd = 0): AiCharge
     {
         return AiCharge::query()->create([
             'agent_id' => $agent?->id,
@@ -148,7 +149,7 @@ final class BudgetGuard
             'model' => $model,
             'input_tokens' => $inputTokens,
             'output_tokens' => $outputTokens,
-            'cost_usd' => app(Pricing::class)->cost($provider, $model, $inputTokens, $outputTokens),
+            'cost_usd' => round(app(Pricing::class)->cost($provider, $model, $inputTokens, $outputTokens) + $feeUsd, 6),
         ]);
     }
 

@@ -38,6 +38,7 @@ final class InstructionComposer
             $agent->instructions ? "## Instruções\n".$agent->instructions : null,
             $this->erpGlossary($agent),
             $this->skills($agent),
+            $this->internet($agent),
             $this->team($agent),
             $run?->task !== null ? $this->task($run) : null,
             // The agent's own consolidated memory (realinhamento L7).
@@ -110,6 +111,28 @@ final class InstructionComposer
 
         return "## Skills\nTens estas skills: instruções da organização para tipos de trabalho concretos. Quando uma se aplicar ao que te pedem, carrega-a primeiro com skills.load (chave entre parênteses) e segue-a.\n"
             .$skills->map(fn (Skill $skill) => "- {$skill->displayName()} ({$skill->key}): ".Str::limit($skill->displayDescription(), 400))->implode("\n");
+    }
+
+    /**
+     * When the agent can search the internet (docs/DECISOES.md, "Pesquisa na
+     * internet"): when to look outside, and how to say it came from there.
+     */
+    private function internet(Agent $agent): ?string
+    {
+        $mine = $agent->capabilities()->wherePivot('enabled', true)->where('is_available', true)->where('is_enabled', true)->pluck('key');
+
+        if (! $mine->contains('web.search')) {
+            return null;
+        }
+
+        return <<<'TXT'
+        ## Internet
+        Tens web.search para pesquisar na internet e web.read_page para ler uma página.
+        - Quando te pedem algo que está fora da empresa (concursos públicos e anúncios, o site ou os contactos de uma empresa, notícias, preços), pesquisa na internet além dos registos, emails e base de conhecimento. Se os registos da empresa não respondem, não pares aí: vai à internet.
+        - Para concursos, procura nos portais e jornais de Moçambique e em sites de entidades, com pesquisas concretas (sector da empresa, local, mês). Abre a página do anúncio com web.read_page para confirmar o objecto, o prazo e como concorrer.
+        - Na resposta, separa o que veio da internet do que veio da empresa e põe o endereço de cada resultado. Nunca dês um prazo ou um contacto da web sem a página de onde o tiraste.
+        - Ler a internet não contacta ninguém. Continuas a não enviar nada para fora (emails, formulários, candidaturas) sem uma pessoa pedir.
+        TXT;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Ai\Templates;
 
 use App\Ai\Capabilities\CapabilityCatalog;
+use App\Ai\Capabilities\CapabilityRegistry;
 use App\Enums\AgentStatus;
 use App\Enums\MailboxStatus;
 use App\Enums\Role;
@@ -65,7 +66,7 @@ final class TemplateInstaller
 
             $this->placeInOrgChart($agent, $template);
 
-            $capabilities = Capability::query()->whereIn('key', $template->capabilities)->pluck('id', 'key');
+            $capabilities = Capability::query()->whereIn('key', [...$template->capabilities, ...CapabilityRegistry::ON_BY_DEFAULT])->pluck('id', 'key');
             $agent->capabilities()->sync(array_fill_keys($capabilities->values()->all(), ['enabled' => true]));
 
             foreach ($template->routines as $routine) {

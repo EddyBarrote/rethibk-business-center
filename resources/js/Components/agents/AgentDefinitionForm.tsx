@@ -105,6 +105,8 @@ export interface AgentFormOptions {
     statuses: Option[];
     providers: string[];
     defaultProvider: string;
+    /** Ticked on a new agent: searching and reading the internet. */
+    defaultCapabilities?: number[];
 }
 
 export default function AgentDefinitionForm({
@@ -155,7 +157,7 @@ export default function AgentDefinitionForm({
         temperature: str(agent?.temperature),
         max_tokens: str(agent?.max_tokens),
         max_steps: str(agent?.max_steps),
-        capabilities: seed?.capabilities ?? [],
+        capabilities: seed?.capabilities ?? options.defaultCapabilities ?? [],
         skills: seed?.skills ?? [],
         suggestions: Array.from({ length: 4 }, (_, index) => agent?.suggestions?.[index] ?? ''),
     });

@@ -46,6 +46,7 @@ use App\Ai\Capabilities\Local\SearchConversations;
 use App\Ai\Capabilities\Local\SearchEmails;
 use App\Ai\Capabilities\Local\SearchKnowledge;
 use App\Ai\Capabilities\Local\SearchPastChats;
+use App\Ai\Capabilities\Local\SearchWeb;
 use App\Ai\Capabilities\Local\SendEmail;
 use App\Ai\Capabilities\Local\SlaStatus;
 use App\Ai\Capabilities\Local\SuggestBankMatch;
@@ -79,6 +80,8 @@ final class CapabilityRegistry
         ScheduleFollowUp::class,
         RecordTender::class,
         ReadWebPage::class,
+        // The internet (docs/DECISOES.md, "Pesquisa na internet").
+        SearchWeb::class,
         InboxSummary::class,
         // E04: Chief of Staff
         OrganisationOverview::class,
@@ -142,6 +145,12 @@ final class CapabilityRegistry
 
     /** Given to every agent, whatever its configuration (section 13.2). */
     public const ALWAYS_ON = ['memory.search', 'memory.read', 'memory.search_chats', 'tasks.create', 'agents.message', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
+
+    /**
+     * Switched on for every agent once (existing ones at the next sync, new ones
+     * in the form and from templates); admins can turn them off per agent.
+     */
+    public const ON_BY_DEFAULT = ['web.search', 'web.read_page'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];

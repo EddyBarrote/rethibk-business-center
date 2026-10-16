@@ -955,3 +955,16 @@ O Barrote, na RET-7: o Gestor de Clientes diz que preparou um rascunho de email,
 | **Só caminhos da própria consola** (`/…`) devolvidos pela ferramenta; a página que abrem verifica quem a pode ver. O que não deixa nada para abrir (avisos, leituras) não tem botão. | `TaskController::resultLink()` |
 
 Testes: `tests/Feature/Tasks/TaskThreadTest.php` («gives what the agent made…»).
+
+## Pesquisa na internet (16.10.2026)
+
+O Barrote pediu «Busca por concursos» ao Gestor de Clientes da Rethink: o agente só tinha os registos, a caixa geral@ e a base de conhecimento, e respondeu que não havia anúncios na caixa. O agente dele no Grok, com a mesma pergunta, encontrou na web um concurso da Associação Ungagodoli (sovagas.co.mz) e um da CFM prorrogado. Os agentes passam a poder pesquisar e ler a internet.
+
+| Decisão | Onde |
+|---|---|
+| **`web.search`, «Pesquisar na internet»**: uma chamada curta a um modelo com a pesquisa do próprio provedor (Google Search no Gemini, já configurado: nenhum segredo novo). Devolve o que encontrou e a lista das fontes, embrulhado em `<resultados_web_nao_confiaveis>`, com a ordem de dizer que veio da internet e pôr os endereços. Ler uma página continua a ser `web.read_page`, que já existia. | `SearchWeb`, `App\Ai\Web\WebSearcher` |
+| **As fontes são os endereços reais**: o Gemini cita por links de redirecção da Google, que expiram; a plataforma segue cada um um salto (HEAD, sem seguir) e guarda o destino, se for público. Repetidos saem. Se a resolução falhar, fica o link da Google. | `App\Ai\Web\WebSources` |
+| **Só leitura**: pesquisar e ler não contactam ninguém (`isMutating` falso). Os agentes continuam a não enviar nada para fora sem uma pessoa pedir; o prompt di-lo. | `SearchWeb`, `InstructionComposer::internet()` |
+| **Ligadas a todos os agentes, desligáveis por agente**: `web.search` e `web.read_page` ficam ligadas uma vez em cada agente que existe (na sincronização seguinte), vêm marcadas no formulário de um agente novo e com o assistente, e entram nos agentes instalados de modelos. Um administrador desliga-as num agente como qualquer outra capacidade e a sincronização não as volta a ligar (`capabilities.granted_to_agents_at` marca que a concessão já foi feita). | `CapabilityRegistry::ON_BY_DEFAULT`, `CapabilityCatalog::grantOnByDefault()`, `AgentEditor::options()`, `TemplateInstaller`, `AgentDrafting` |
+| **O agente sabe quando ir à internet**: com `web.search` ligada, o prompt tem uma secção «Internet»: o que está fora da empresa (concursos, sites e contactos, notícias, preços) procura-se também na web; para concursos, portais e jornais de Moçambique e a página do anúncio aberta com `web.read_page`; na resposta separa o que é da web do que é da empresa, com o endereço de cada coisa. | `InstructionComposer::internet()` |
+| **Custo no orçamento de IA**: cada pesquisa é um `AiCharge` (`web.search`) com os tokens e uma taxa por pesquisa (`agents.web_search.fee_usd`, 0,014 USD: a Google cobra cerca de 14 USD por 1000 pesquisas). Sem chave do provedor ou sem orçamento, a ferramenta diz que não está disponível. Provedor e modelo em `agents.web_search` (por omissão Gemini e o modelo por omissão dele). | `config/agents.php`, `BudgetGuard::charge()` |

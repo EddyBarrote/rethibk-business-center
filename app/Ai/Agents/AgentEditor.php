@@ -173,6 +173,7 @@ final class AgentEditor
             'statuses' => array_map(fn (AgentStatus $status) => ['value' => $status->value, 'label' => $status->label()], AgentStatus::cases()),
             'providers' => array_keys((array) config('ai.providers')),
             'defaultProvider' => config('ai.default'),
+            'defaultCapabilities' => Capability::query()->whereIn('key', CapabilityRegistry::ON_BY_DEFAULT)->pluck('id'),
         ];
     }
 }

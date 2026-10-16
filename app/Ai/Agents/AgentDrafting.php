@@ -49,7 +49,7 @@ final class AgentDrafting
             'instructions' => Str::limit((string) ($draft['instructions'] ?? ''), 20000, ''),
             'autonomy_level' => (AutonomyLevel::tryFrom((int) ($draft['autonomy_level'] ?? 1)) ?? AutonomyLevel::Suggest)->value,
             'status' => AgentStatus::Draft->value,
-            'capabilities' => $capabilities->whereIn('key', (array) ($draft['capabilities'] ?? []))->pluck('id')->values()->all(),
+            'capabilities' => $capabilities->whereIn('key', [...(array) ($draft['capabilities'] ?? []), ...CapabilityRegistry::ON_BY_DEFAULT])->pluck('id')->values()->all(),
             'skills' => $skills->whereIn('key', (array) ($draft['skills'] ?? []))->pluck('id')->values()->all(),
             'suggested_skills' => collect((array) ($draft['suggested_skills'] ?? []))
                 ->filter(fn ($skill) => is_array($skill) && filled($skill['name'] ?? null))
