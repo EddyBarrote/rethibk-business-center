@@ -22,6 +22,9 @@ use Inertia\Response;
  */
 class AgendaController extends Controller
 {
+    /** The «tipo» filter, as the address writes it. */
+    private const KINDS = ['seguimentos' => 'follow_up', 'prazos' => 'task', 'rotinas' => 'routine'];
+
     public function __construct(private readonly Agenda $agenda) {}
 
     public function index(Request $request): Response
@@ -41,8 +44,17 @@ class AgendaController extends Controller
             ? [$day->copy()->startOfWeek(), $day->copy()->endOfWeek()]
             : [$day->copy()->startOfMonth()->startOfWeek(), $day->copy()->endOfMonth()->endOfWeek()];
 
+        $events = $this->agenda->events($user, $from->copy()->utc(), $to->copy()->utc(), $everyone);
+        $filters = [
+            'tipo' => in_array($request->query('tipo'), array_keys(self::KINDS), true) ? (string) $request->query('tipo') : null,
+            'pessoa' => preg_match('/^(user|agent)-\d+$/', (string) $request->query('pessoa')) === 1 ? (string) $request->query('pessoa') : null,
+            'estado' => in_array($request->query('estado'), ['por-fazer', 'em-atraso', 'feitos'], true) ? (string) $request->query('estado') : null,
+        ];
+
         return Inertia::render('Agenda/Index', [
-            'events' => $this->agenda->events($user, $from->copy()->utc(), $to->copy()->utc(), $everyone),
+            'events' => $this->filter($events, $filters),
+            'filters' => $filters,
+            'people' => $this->people($events),
             'view' => $view,
             'date' => $day->toDateString(),
             'from' => $from->toDateString(),
@@ -159,6 +171,39 @@ class AgendaController extends Controller
             'Content-Disposition' => 'inline; filename="agenda.ics"',
             'Cache-Control' => 'private, max-age=900',
         ]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $events
+     * @param  array{tipo: string|null, pessoa: string|null, estado: string|null}  $filters
+     * @return list<array<string, mixed>>
+     */
+    private function filter(array $events, array $filters): array
+    {
+        return array_values(array_filter($events, fn (array $event) => ($filters['tipo'] === null || $event['kind'] === self::KINDS[$filters['tipo']])
+            && ($filters['pessoa'] === null || ($event['who'] !== null && "{$event['who']['kind']}-{$event['who']['id']}" === $filters['pessoa']))
+            && match ($filters['estado']) {
+                'por-fazer' => ! $event['done'] && $event['kind'] !== 'routine',
+                'em-atraso' => $event['overdue'],
+                'feitos' => $event['done'],
+                default => true,
+            }));
+    }
+
+    /**
+     * Who handles something in the period, people first: the «Pessoa ou agente» filter.
+     *
+     * @param  list<array<string, mixed>>  $events
+     * @return list<array{key: string, kind: string, name: string, count: int}>
+     */
+    private function people(array $events): array
+    {
+        return collect($events)->pluck('who')->filter()
+            ->groupBy(fn (array $who) => "{$who['kind']}-{$who['id']}")
+            ->map(fn ($group, string $key) => ['key' => $key, 'kind' => $group[0]['kind'], 'name' => $group[0]['name'], 'count' => $group->count()])
+            ->sortBy([['kind', 'desc'], ['name', 'asc']])
+            ->values()
+            ->all();
     }
 
     private function due(string $date, ?string $time): Carbon

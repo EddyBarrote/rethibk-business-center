@@ -920,4 +920,6 @@ Pergunta do Barrote: o Agente de Finanças disse «agendei um seguimento para 19
 | **Ver no Google ou no Outlook com um link privado (.ics)**, só de leitura: seguimentos e prazos de «O meu» (sem rotinas), de 60 dias atrás a um ano à frente, com título, quem trata, nota do seguimento e o link de volta; nunca o conteúdo de um email ou de uma conversa. Guarda-se só o hash do link, por isso ele aparece uma vez; gerar outro desliga o anterior, e pode desligar-se. Fica no registo de auditoria. | `IcsFeed`, rota `calendar/{token}.ics`, `users.calendar_token` |
 | **Google Calendar nos dois sentidos fica para depois**: por pessoa, em Definições › Integrações, com o consentimento dela, como o email; um agente nunca escreve na agenda de alguém sem essa pessoa. As credenciais OAuth do Google ficam fora do repositório. | — |
 
+| **Filtros** (pedido do Barrote, «faltam filtros»): por tipo (as etiquetas Seguimento, Prazo de tarefa e Rotina ligam e desligam), por quem trata (pessoas primeiro, depois agentes, com quantos têm no período) e por estado (por fazer, em atraso, feitos). Ficam no endereço (`tipo`, `pessoa`, `estado`) e mantêm-se ao mudar de mês ou de vista. A lista de quem trata vem do período inteiro, filtrado ou não. | `AgendaController::filter()`, `people()` |
+
 Testes: `tests/Feature/AgendaTest.php`.

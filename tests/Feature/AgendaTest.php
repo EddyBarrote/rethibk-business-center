@@ -146,3 +146,26 @@ it('gives a private calendar link that Google or Outlook can read, until it is t
     $this->app['auth']->forgetGuards();
     $this->get(tenantUrl($this->tenant, parse_url($url, PHP_URL_PATH)))->assertNotFound();
 });
+
+it('filters by kind, by who handles it and by state', function () {
+    asTenant($this->tenant, function () {
+        FollowUp::factory()->create(['agent_id' => $this->finance->id, 'title' => 'Seguimento atrasado', 'due_at' => now()->subHours(2)]);
+        FollowUp::factory()->create(['agent_id' => $this->finance->id, 'title' => 'Seguimento feito', 'due_at' => now()->addDay(), 'done_at' => now()]);
+        Task::factory()->create(['title' => 'Prazo do agente', 'assignee_agent_id' => $this->finance->id, 'due_at' => now()->addDays(3)]);
+        Task::factory()->create(['title' => 'Prazo da Naira', 'assignee_user_id' => $this->naira->id, 'due_at' => now()->addDays(2)]);
+    });
+
+    $page = fn (string $query) => $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'agenda?quem=todos&'.$query))->assertOk()->viewData('page')['props'];
+    $titles = fn (string $query) => collect($page($query)['events'])->pluck('title')->all();
+
+    expect($titles('tipo=prazos'))->toEqualCanonicalizing(['Prazo do agente', 'Prazo da Naira'])
+        ->and($titles('pessoa=user-'.$this->naira->id))->toBe(['Prazo da Naira'])
+        ->and($titles('estado=em-atraso'))->toBe(['Seguimento atrasado'])
+        ->and($titles('estado=feitos'))->toBe(['Seguimento feito'])
+        ->and($titles('estado=por-fazer&tipo=seguimentos'))->toBe(['Seguimento atrasado'])
+        // Unknown values are ignored.
+        ->and($titles('tipo=x&pessoa=1;drop'))->toHaveCount(4);
+
+    // Who to filter by comes from the whole period, people first, whatever is filtered.
+    expect(collect($page('tipo=prazos&pessoa=user-'.$this->naira->id)['people'])->pluck('name')->all())->toBe(['Naira', 'Agente de Finanças']);
+});

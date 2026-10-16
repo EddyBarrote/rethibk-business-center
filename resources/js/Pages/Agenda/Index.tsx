@@ -13,6 +13,7 @@ import {
     Trash2,
     Undo2,
     User,
+    X,
 } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 
@@ -22,6 +23,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
+import { NativeSelect } from '@/Components/ui/native-select';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
@@ -60,7 +62,18 @@ interface Props {
     timezone: string;
     has_feed: boolean;
     feed_url: string | null;
+    filters: Filters;
+    people: { key: string; kind: 'user' | 'agent'; name: string; count: number }[];
 }
+
+interface Filters {
+    tipo: 'seguimentos' | 'prazos' | 'rotinas' | null;
+    pessoa: string | null;
+    estado: 'por-fazer' | 'em-atraso' | 'feitos' | null;
+}
+
+/** The «tipo» filter, as the address writes it. */
+const kindFilter: Record<Kind, NonNullable<Filters['tipo']>> = { follow_up: 'seguimentos', task: 'prazos', routine: 'rotinas' };
 
 const kinds: Record<Kind, { label: string; chip: string; dot: string }> = {
     follow_up: { label: 'Seguimento', chip: 'bg-status-warning/15 text-foreground hover:bg-status-warning/25', dot: 'bg-status-warning' },
@@ -87,7 +100,7 @@ const addMonths = (day: string, n: number) => {
 };
 
 export default function AgendaIndex(props: Props) {
-    const { events, view, date, from, to, today, everyone, can_see_everyone, timezone } = props;
+    const { events, view, date, from, to, today, everyone, can_see_everyone, timezone, filters, people } = props;
     const { flash } = usePage<SharedProps>().props;
     const [selected, setSelected] = useState<AgendaEvent | null>(null);
     const [creating, setCreating] = useState<string | null>(null);
@@ -116,16 +129,31 @@ export default function AgendaIndex(props: Props) {
         days.push(day);
     }
 
-    const go = (next: Partial<{ vista: string; data: string; quem: string }>) =>
+    const go = (next: Partial<{ vista: string; data: string; quem: string } & Filters>) => {
+        const merged = { ...filters, ...next };
+
         router.get(
             '/agenda',
             {
                 vista: next.vista ?? view,
                 data: next.data ?? date,
                 ...((next.quem ?? (everyone ? 'todos' : 'meu')) === 'todos' ? { quem: 'todos' } : {}),
+                ...(merged.tipo ? { tipo: merged.tipo } : {}),
+                ...(merged.pessoa ? { pessoa: merged.pessoa } : {}),
+                ...(merged.estado ? { estado: merged.estado } : {}),
             },
             { preserveState: true, preserveScroll: true },
         );
+    };
+    const filtered = filters.tipo !== null || filters.pessoa !== null || filters.estado !== null;
+    // The person chosen stays in the list even in a period where they have nothing.
+    const peopleOptions =
+        filters.pessoa && !people.some((p) => p.key === filters.pessoa)
+            ? [
+                  ...people,
+                  { key: filters.pessoa, kind: filters.pessoa.startsWith('agent') ? 'agent' : 'user', name: 'Sem nada neste período', count: 0 },
+              ]
+            : people;
 
     const step = (direction: 1 | -1) => go({ data: view === 'mes' ? addMonths(date, direction) : addDays(date, 7 * direction) });
 
@@ -189,13 +217,76 @@ export default function AgendaIndex(props: Props) {
                 </Tabs>
             </div>
 
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                {(Object.keys(kinds) as Kind[]).map((kind) => (
-                    <span key={kind} className="inline-flex items-center gap-1.5">
-                        <span className={cn('size-2 rounded-full', kinds[kind].dot)} />
-                        {kinds[kind].label}
-                    </span>
-                ))}
+            <div className="flex flex-wrap items-center gap-2">
+                {(Object.keys(kinds) as Kind[]).map((kind) => {
+                    const on = filters.tipo === kindFilter[kind];
+
+                    return (
+                        <button
+                            key={kind}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => go({ tipo: on ? null : kindFilter[kind] })}
+                            className={cn(
+                                'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors',
+                                on ? 'border-foreground/30 bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60',
+                                filters.tipo !== null && !on && 'opacity-60',
+                            )}
+                        >
+                            <span className={cn('size-2 rounded-full', kinds[kind].dot)} />
+                            {kinds[kind].label}
+                        </button>
+                    );
+                })}
+                <NativeSelect
+                    aria-label="Pessoa ou agente"
+                    className="h-8 w-auto min-w-44 text-xs"
+                    value={filters.pessoa ?? ''}
+                    onChange={(e) => go({ pessoa: e.target.value || null })}
+                >
+                    <option value="">Todas as pessoas e agentes</option>
+                    {peopleOptions.some((p) => p.kind === 'user') && (
+                        <optgroup label="Pessoas">
+                            {peopleOptions
+                                .filter((p) => p.kind === 'user')
+                                .map((p) => (
+                                    <option key={p.key} value={p.key}>
+                                        {p.name}
+                                        {p.count > 0 ? ` (${p.count})` : ''}
+                                    </option>
+                                ))}
+                        </optgroup>
+                    )}
+                    {peopleOptions.some((p) => p.kind === 'agent') && (
+                        <optgroup label="Agentes">
+                            {peopleOptions
+                                .filter((p) => p.kind === 'agent')
+                                .map((p) => (
+                                    <option key={p.key} value={p.key}>
+                                        {p.name}
+                                        {p.count > 0 ? ` (${p.count})` : ''}
+                                    </option>
+                                ))}
+                        </optgroup>
+                    )}
+                </NativeSelect>
+                <NativeSelect
+                    aria-label="Estado"
+                    className="h-8 w-auto text-xs"
+                    value={filters.estado ?? ''}
+                    onChange={(e) => go({ estado: (e.target.value || null) as Filters['estado'] })}
+                >
+                    <option value="">Qualquer estado</option>
+                    <option value="por-fazer">Por fazer</option>
+                    <option value="em-atraso">Em atraso</option>
+                    <option value="feitos">Feitos</option>
+                </NativeSelect>
+                {filtered && (
+                    <Button variant="ghost" size="sm" onClick={() => go({ tipo: null, pessoa: null, estado: null })}>
+                        <X />
+                        Limpar filtros
+                    </Button>
+                )}
             </div>
 
             {view === 'mes' ? (
@@ -307,7 +398,9 @@ export default function AgendaIndex(props: Props) {
 
             {events.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                    Nada marcado neste período. Os seguimentos que os agentes agendam e os prazos das tarefas aparecem aqui.
+                    {filtered
+                        ? 'Nada neste período com estes filtros.'
+                        : 'Nada marcado neste período. Os seguimentos que os agentes agendam e os prazos das tarefas aparecem aqui.'}
                 </p>
             )}
 
