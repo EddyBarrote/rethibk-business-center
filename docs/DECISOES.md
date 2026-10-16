@@ -872,3 +872,18 @@ Pedido do Barrote: o ecrã de entrada deve ser como o do Claude.ai, onde se esco
 | **Quem começa em que modo**: quem não administra a empresa começa no lite e os admins (`company.manage`) no completo. Cada pessoa troca no ícone ao lado do sino (abre «Modo lite» e «Modo completo») ou no seu menu e a escolha fica guardada. | `users.ui_mode`, `User::prefersLite()`, `ProfileController::mode()`, `auth.user.lite` |
 
 Testes: `tests/Feature/HomeTest.php`; sai o teste de entrada de `AgentConversationsTest.php`.
+
+## Rethink Technologies como tenant de teste (15–16.10.2026)
+
+Pedido do Barrote: deixar de testar com a empresa inventada (MICOMOC) e testar com a Rethink Technologies, a empresa dele, com o que já se sabe dela. Escolha por omissão (dita na conversa): um tenant novo, `rethink` (<http://rethink.localhost:8000>), em vez de reescrever o `micomoc`, para a demonstração ficar intacta.
+
+| Decisão | Onde |
+|---|---|
+| **Tenant `rethink`**, proprietário Edy Barrote (CEO). Marca dos documentos: azul `#0052CC`, Space Grotesk (nova na lista de letras), logótipo da Rethink. Sem `mail_domain`, por isso os agentes não têm caixas próprias. | `Brand::FONTS`, `settings.brand` |
+| **As integrações reais passam para a Rethink e saem da MICOMOC**: a ligação ao ERP Perfex (rethink.rethinkerp.online) muda de tenant com as credenciais, só na base de dados; a MICOMOC volta ao ERP de demonstração local. A caixa geral@rethink.co.mz muda com o histórico, para o email não ser triado duas vezes. | `erp_connections`, `tenant:move-mailbox` |
+| **`tenant:move-mailbox {endereço} {de} {para} [--active]`**: o endereço é único em toda a plataforma, por isso a caixa muda de dono em vez de ser copiada: pastas, conversas, mensagens e anexos (ficheiros copiados para a pasta do novo tenant), com a posição IMAP, para nada já lido voltar aos agentes. Larga o que só fazia sentido no tenant antigo: donos e leitores, execuções, pessoas e departamentos de cada mensagem, e as tarefas, execuções, seguimentos, fluxos e concursos que apontavam para as mensagens. Muda `tenant_id` com updates em massa, de propósito: os modelos não deixam mudar `tenant_id`. | `Console/Commands/Tenants/MoveMailbox.php` |
+| **Só de fontes reais**: pessoas do ERP (`list_staff`: Edy Barrote, Kleyton Macatange, Naira Sitoe; os dois últimos como membros, sem função, com palavra-passe aleatória e sem convite), um só departamento (Direcção-Geral), porque o ERP não tem departamentos da Rethink e não se inventa estrutura. Os seis agentes dos modelos, com descrições e sugestões da Rethink, todos a reportar ao CEO. As rotinas de RH ficam desligadas (o ERP não tem módulo de RH). | dados |
+| **Agentes só lêem o ERP e não enviam email**: as 75 ferramentas do ERP que escrevem e `comms.send_email` ficam desligadas no catálogo do tenant (`is_enabled`); a sincronização mantém a escolha. O mailer local continua `log`: ninguém real recebe nada. | `capabilities` |
+| **Memória da empresa** com 18 factos aprovados (Quem somos, Pessoas, Clientes, Regras), das propostas ao MTC (2023) e ao FDC (2024), dos emails da caixa geral@ e do ERP. Os três PDFs da empresa que vieram por email ficam no repositório (Geral) e são lidos pela fila. | `company_facts`, `knowledge_items` |
+
+Testes: `tests/Feature/Tenancy/MoveMailboxTest.php`.

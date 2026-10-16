@@ -22,7 +22,7 @@ final readonly class Brand
      */
     public const FONTS = [
         'Calibri' => 'sans', 'Aptos' => 'sans', 'Arial' => 'sans', 'Helvetica' => 'sans', 'Segoe UI' => 'sans',
-        'Verdana' => 'sans', 'Montserrat' => 'sans', 'Open Sans' => 'sans', 'Roboto' => 'sans', 'Poppins' => 'sans',
+        'Verdana' => 'sans', 'Montserrat' => 'sans', 'Open Sans' => 'sans', 'Roboto' => 'sans', 'Poppins' => 'sans', 'Space Grotesk' => 'sans',
         'Georgia' => 'serif', 'Cambria' => 'serif', 'Garamond' => 'serif', 'Times New Roman' => 'serif',
     ];
 
