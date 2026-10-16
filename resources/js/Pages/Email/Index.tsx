@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Monogram } from '@/Components/Blocks';
 import { CategoryBadge, PriorityDot } from '@/Components/CategoryBadge';
@@ -57,6 +58,7 @@ import type { AttachmentLimits, MessageAttachment } from '@/lib/attachments';
 import {
     blank,
     type Composition,
+    draftTitle,
     emailTone,
     type EmailFile,
     type EmailFolder,
@@ -408,9 +410,13 @@ function ThreadItem({
         return (
             <article className="rounded-xl border border-status-warning/40 bg-status-warning/5">
                 <div className="flex items-center gap-3 px-4 py-3">
-                    <PenLine className="size-4 shrink-0 text-status-warning" />
+                    {message.agent ? (
+                        <AgentAvatar name={message.agent.name} url={message.agent.avatar_url} className="size-7" />
+                    ) : (
+                        <PenLine className="size-4 shrink-0 text-status-warning" />
+                    )}
                     <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{message.written_by_agent ? 'Rascunho do agente' : 'Rascunho'}</p>
+                        <p className="text-sm font-medium">{draftTitle(message)}</p>
                         <p className="truncate text-xs text-muted-foreground">
                             Para: {message.to.join(', ') || '—'} · {message.body.split('\n')[0]}
                         </p>

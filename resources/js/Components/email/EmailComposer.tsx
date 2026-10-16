@@ -2,6 +2,7 @@ import { router, usePage } from '@inertiajs/react';
 import { Loader2, Save, Send, Trash2, X } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
+import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AttachButton, AttachmentTray, DropOverlay, useFileDrop } from '@/Components/attachments/Composer';
 import { ConfirmDialog } from '@/Components/Dialogs';
 import { FileIcon } from '@/Components/FileIcon';
@@ -20,7 +21,21 @@ import { cn } from '@/lib/utils';
  * draft in the server's Rascunhos every half minute and on request.
  */
 
-function Recipients({ id, label, value, onChange, error, autoFocus }: { id: string; label: string; value: string; onChange: (v: string) => void; error?: string; autoFocus?: boolean }) {
+function Recipients({
+    id,
+    label,
+    value,
+    onChange,
+    error,
+    autoFocus,
+}: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    error?: string;
+    autoFocus?: boolean;
+}) {
     return (
         <div className="flex flex-col">
             <label htmlFor={id} className="flex items-center gap-2 border-b px-4">
@@ -179,9 +194,22 @@ export function EmailComposer({
             <DropOverlay show={drop.dragging} />
 
             <header className="flex items-center gap-2 border-b px-4 py-2.5">
+                {form.agent && <AgentAvatar name={form.agent.name} url={form.agent.avatar_url} className="size-6" />}
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold">{form.title}</p>
-                {savedAt && <span className="text-xs text-muted-foreground">Guardado às {savedAt.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>}
-                <Button type="button" variant="ghost" size="icon" className="size-8" onClick={close} aria-label="Fechar (fica nos rascunhos)" title="Fechar (fica nos rascunhos)">
+                {savedAt && (
+                    <span className="text-xs text-muted-foreground">
+                        Guardado às {savedAt.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                )}
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    onClick={close}
+                    aria-label="Fechar (fica nos rascunhos)"
+                    title="Fechar (fica nos rascunhos)"
+                >
                     <X />
                 </Button>
             </header>
@@ -207,7 +235,14 @@ export function EmailComposer({
                     </button>
                 )}
             </div>
-            <Recipients id="compose-to" label="Para" value={form.to} onChange={(v) => set('to', v)} error={errors.to ?? errors['to.0']} autoFocus={form.to === ''} />
+            <Recipients
+                id="compose-to"
+                label="Para"
+                value={form.to}
+                onChange={(v) => set('to', v)}
+                error={errors.to ?? errors['to.0']}
+                autoFocus={form.to === ''}
+            />
             {showCopies && (
                 <>
                     <Recipients id="compose-cc" label="Cc" value={form.cc} onChange={(v) => set('cc', v)} error={errors['cc.0']} />
@@ -237,7 +272,10 @@ export function EmailComposer({
             {form.keep.length > 0 && (
                 <ul className="flex flex-wrap gap-2 px-3 pt-3" aria-label="Ficheiros do email">
                     {form.keep.map((file) => (
-                        <li key={file.id} className="relative flex h-14 max-w-60 items-center gap-2 rounded-lg border bg-background pr-8 pl-1.5 text-xs">
+                        <li
+                            key={file.id}
+                            className="relative flex h-14 max-w-60 items-center gap-2 rounded-lg border bg-background pr-8 pl-1.5 text-xs"
+                        >
                             <FileIcon extension={file.extension} className="size-11" />
                             <span className="flex min-w-0 flex-col gap-0.5">
                                 <span className="truncate font-medium">{file.name}</span>
@@ -245,7 +283,12 @@ export function EmailComposer({
                             </span>
                             <button
                                 type="button"
-                                onClick={() => set('keep', form.keep.filter((k) => k.id !== file.id))}
+                                onClick={() =>
+                                    set(
+                                        'keep',
+                                        form.keep.filter((k) => k.id !== file.id),
+                                    )
+                                }
                                 className="absolute top-1 right-1 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                                 aria-label={`Retirar ${file.name}`}
                             >

@@ -10,9 +10,11 @@ use App\Jobs\ProcessInboundEmail;
 use App\Jobs\PushDraftToServer;
 use App\Mail\AgentMessage;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\EmailAttachment;
 use App\Models\EmailFolder;
 use App\Models\EmailMessage;
+use App\Models\EmailThread;
 use App\Models\Mailbox;
 use App\Models\MailboxOwner;
 use App\Models\MailboxReader;
@@ -378,4 +380,24 @@ it('filters the list by reading, files, star, dates and triage state, and keeps 
         ->and($props['triage_states'])->not->toBeEmpty();
 
     $this->actingAs($this->ana)->get(tenantUrl($this->tenant, "inbox?mailbox={$this->mailbox->id}&periodo=ontem"))->assertSessionHasErrors('periodo');
+});
+
+it('names the agent that wrote each draft, with its face, from the run that created it', function () {
+    [$email, $agent] = asTenant($this->tenant, function () {
+        $agent = Agent::factory()->create(['name' => 'Sofia']);
+        $thread = EmailThread::factory()->create();
+        $email = EmailMessage::factory()->create(['mailbox_id' => $this->mailbox->id, 'thread_id' => $thread->id, 'subject' => 'Pedido de cotação']);
+        $run = AgentRun::factory()->create(['agent_id' => $agent->id]);
+        EmailMessage::factory()->create([
+            'mailbox_id' => $this->mailbox->id, 'thread_id' => $email->thread_id, 'direction' => 'outbound', 'status' => EmailStatus::Draft,
+            'agent_run_id' => $run->id, 'written_by_user_id' => null, 'to' => ['cliente@fora.test'],
+        ]);
+
+        return [$email, $agent];
+    });
+
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, "inbox/{$email->id}"))
+        ->assertInertia(fn ($page) => $page->where('open.messages', fn ($messages) => collect($messages)->contains(
+            fn ($m) => $m['status'] === 'draft' && $m['agent'] === ['name' => 'Sofia', 'avatar_url' => $agent->avatarUrl()]
+        ))->where('open.messages', fn ($messages) => collect($messages)->where('status', '!=', 'draft')->every(fn ($m) => $m['agent'] === null)));
 });

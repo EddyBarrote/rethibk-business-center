@@ -79,6 +79,8 @@ export interface ThreadMessage extends EmailSummary {
     erp_lead_id: string | null;
     agent_run_id: number | null;
     written_by_agent: boolean;
+    /** The agent that wrote a draft, when one did. */
+    agent: { name: string; avatar_url: string | null } | null;
     attachments: EmailFile[];
 }
 
@@ -106,6 +108,8 @@ export interface Composition {
     body: string;
     keep: EmailFile[];
     title: string;
+    /** The agent that wrote the draft being reviewed. */
+    agent?: { name: string; avatar_url: string | null } | null;
 }
 
 export const roleOrder = ['inbox', 'drafts', 'sent', 'archive', 'junk', 'trash'];
@@ -197,8 +201,18 @@ export function fromDraft(draft: ThreadMessage, mailboxId: number, replyToId: nu
         subject: draft.subject === '(sem assunto)' ? '' : draft.subject,
         body: draft.body,
         keep: draft.attachments.filter((a) => a.available),
-        title: draft.written_by_agent ? 'Rascunho do agente' : 'Rascunho',
+        title: draftTitle(draft),
+        agent: draft.agent,
     };
+}
+
+/** "Rascunho de Sofia" when an agent wrote it, so the reviewer knows whose work it is. */
+export function draftTitle(draft: ThreadMessage): string {
+    if (draft.agent) {
+        return `Rascunho de ${draft.agent.name}`;
+    }
+
+    return draft.written_by_agent ? 'Rascunho do agente' : 'Rascunho';
 }
 
 export function blank(mailboxId: number): Composition {

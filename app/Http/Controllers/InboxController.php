@@ -523,7 +523,7 @@ class InboxController extends Controller
             }
         }
 
-        $relations = ['attachments', 'mailbox', 'folder:id,name,role', 'routedTo:id,name', 'department:id,name'];
+        $relations = ['attachments', 'mailbox', 'folder:id,name,role', 'routedTo:id,name', 'department:id,name', 'run:id,agent_id', 'run.agent:id,name,avatar_path'];
         $conversation = $message->thread_id
             ? EmailMessage::query()->visibleTo($user)->where('thread_id', $message->thread_id)->whereNull('removed_at')->with($relations)->orderByRaw('coalesce(received_at, sent_at, updated_at)')->orderBy('id')->get()
             : collect([$message->load($relations)]);
@@ -557,6 +557,10 @@ class InboxController extends Controller
                 'erp_lead_id' => $m->erp_lead_id,
                 'agent_run_id' => $m->agent_run_id,
                 'written_by_agent' => $m->status === EmailStatus::Draft && $m->agent_run_id !== null && $m->written_by_user_id === null,
+                // Which agent wrote the draft, from the run that created it.
+                'agent' => $m->status === EmailStatus::Draft && $m->written_by_user_id === null && $m->run?->agent
+                    ? ['name' => $m->run->agent->name, 'avatar_url' => $m->run->agent->avatarUrl()]
+                    : null,
                 // The images shown in the body are not listed again as files.
                 'attachments' => $m->attachments->reject(fn (EmailAttachment $a) => $this->embedded($m, $a))->map(fn (EmailAttachment $a) => $this->file($a))->values(),
             ])->values(),

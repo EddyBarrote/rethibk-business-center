@@ -956,6 +956,16 @@ O Barrote, na RET-7: o Gestor de Clientes diz que preparou um rascunho de email,
 
 Testes: `tests/Feature/Tasks/TaskThreadTest.php` («gives what the agent made…»).
 
+## Quem escreveu o rascunho (16.10.2026)
+
+O Barrote, no email «Pedido de cotação» da Rethink: dois cartões «Rascunho do agente» por baixo do mesmo email, sem dizer qual agente escreveu cada um.
+
+| Decisão | Onde |
+|---|---|
+| **Cada rascunho de agente mostra o nome e a cara do agente** («Rascunho de Gestor de Clientes»), no cartão por baixo do email e no cabeçalho do «Rever e enviar». O autor vem da execução que criou o rascunho (`agent_run_id` → agente), não do texto. Um rascunho que uma pessoa já editou (`written_by_user_id`) deixa de ser do agente e fica só «Rascunho». | `InboxController::conversation()` (`agent`), `email.ts` (`draftTitle`), `Email/Index.tsx`, `EmailComposer.tsx` |
+
+Testes: `tests/Feature/Email/EmailClientTest.php` («names the agent that wrote each draft…»).
+
 ## Pesquisa na internet (16.10.2026)
 
 O Barrote pediu «Busca por concursos» ao Gestor de Clientes da Rethink: o agente só tinha os registos, a caixa geral@ e a base de conhecimento, e respondeu que não havia anúncios na caixa. O agente dele no Grok, com a mesma pergunta, encontrou na web um concurso da Associação Ungagodoli (sovagas.co.mz) e um da CFM prorrogado. Os agentes passam a poder pesquisar e ler a internet.
