@@ -508,3 +508,55 @@
     height: 0.75rem;
     border-left: 1px solid var(--border);
 }
+
+/* The agent thinking, as in Claude: a spark that turns and text with a light running across it. */
+.thinking-spark {
+    animation: thinking-spark 2.4s ease-in-out infinite;
+}
+
+.thinking-text {
+    background: linear-gradient(
+        90deg,
+        var(--muted-foreground) 0%,
+        var(--muted-foreground) 40%,
+        var(--foreground) 50%,
+        var(--muted-foreground) 60%,
+        var(--muted-foreground) 100%
+    );
+    background-size: 250% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: thinking-shimmer 2s linear infinite;
+}
+
+@keyframes thinking-spark {
+    0% {
+        transform: rotate(0deg) scale(1);
+        opacity: 0.7;
+    }
+    50% {
+        transform: rotate(90deg) scale(0.8);
+        opacity: 1;
+    }
+    100% {
+        transform: rotate(180deg) scale(1);
+        opacity: 0.7;
+    }
+}
+
+@keyframes thinking-shimmer {
+    from {
+        background-position: 100% 0;
+    }
+    to {
+        background-position: -50% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .thinking-spark,
+    .thinking-text {
+        animation: none;
+    }
+}

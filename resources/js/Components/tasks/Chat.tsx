@@ -369,28 +369,15 @@ export function WorkingBubble({
             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                 <div className="flex items-center gap-2 px-1">
                     <span className="text-xs font-medium text-foreground/80">{agent}</span>
-                    {tool && (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Wrench className="size-3" />a usar <span className="font-mono">{tool}</span>
-                        </span>
-                    )}
                 </div>
-                <div className="max-w-full min-w-0 rounded-2xl rounded-tl-md border bg-card px-4 py-2.5 text-sm shadow-xs">
-                    {text ? (
-                        <div className="[&>*:first-child]:mt-0 [&>*:last-child]:after:ml-0.5 [&>*:last-child]:after:inline-block [&>*:last-child]:after:h-4 [&>*:last-child]:after:w-1.5 [&>*:last-child]:after:animate-pulse [&>*:last-child]:after:bg-primary [&>*:last-child]:after:align-middle [&>*:last-child]:after:content-['']">
+                {text && (
+                    <div className="max-w-full min-w-0 rounded-2xl rounded-tl-md border bg-card px-4 py-2.5 text-sm shadow-xs">
+                        <div className="[&>*:first-child]:mt-0">
                             <Markdown>{text}</Markdown>
                         </div>
-                    ) : (
-                        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                            <span className="flex gap-0.5">
-                                <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
-                                <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
-                                <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
-                            </span>
-                            A pensar…
-                        </span>
-                    )}
-                </div>
+                    </div>
+                )}
+                <Thinking tool={tool} />
                 {runId && calls.length > 0 && <ToolCalls runId={runId} calls={calls} onOpenRun={onOpenRun} live />}
                 {runId && (
                     <div className="px-1">
@@ -398,6 +385,29 @@ export function WorkingBubble({
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+/** One quiet line while the agent works, as in Claude: a turning spark and a shimmer. */
+function Thinking({ tool }: { tool: string | null }) {
+    return (
+        <div className="flex items-center gap-1.5 px-1 py-0.5 text-sm" role="status" aria-live="polite">
+            <svg viewBox="0 0 24 24" className="thinking-spark size-3.5 shrink-0 text-primary" aria-hidden="true">
+                <path
+                    fill="currentColor"
+                    d="M12 2c.4 3.9 1.3 6.2 2.8 7.2C16.3 10.3 18.6 11 22 12c-3.4 1-5.7 1.7-7.2 2.8-1.5 1-2.4 3.3-2.8 7.2-.4-3.9-1.3-6.2-2.8-7.2C7.7 13.7 5.4 13 2 12c3.4-1 5.7-1.7 7.2-2.8C10.7 8.2 11.6 5.9 12 2Z"
+                />
+            </svg>
+            <span className="thinking-text">
+                {tool ? (
+                    <>
+                        A usar <span className="font-mono text-[13px]">{tool}</span>…
+                    </>
+                ) : (
+                    'A pensar…'
+                )}
+            </span>
         </div>
     );
 }
