@@ -1,4 +1,5 @@
-import { Check, ChevronDown, FileText, Loader2, Lock, Wrench, X, Zap } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, FileText, Loader2, Lock, Wrench, X, Zap } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -22,13 +23,28 @@ export interface ChatMessage {
     author_type: 'user' | 'agent' | 'system' | 'platform_admin';
     author: string;
     author_id: number | null;
-    kind: 'message' | 'action' | 'event' | 'report';
+    kind: 'message' | 'action' | 'event' | 'report' | 'handoff';
     body: string;
     attachments: MessageAttachment[];
     run_id: number | null;
     created_at: string;
     /** The agent's questions on this message, answered on the card. */
     question?: AgentQuestions | null;
+    /** A message between agents (docs/DECISOES.md, "Mensagens entre agentes"). */
+    handoff?: Handoff | null;
+}
+
+export interface Handoff {
+    /** Sent from this conversation, or arrived in it. */
+    direction: 'out' | 'in';
+    /** The request passed to the colleague, or its answer coming back. */
+    role: 'request' | 'answer';
+    /** The agent on the other side. */
+    agent: string | null;
+    agent_id: number | null;
+    status: 'working' | 'answered' | 'failed';
+    /** The other conversation, when the viewer may open it. */
+    other_task_id: number | null;
 }
 
 export interface ToolCall {
@@ -86,6 +102,7 @@ export function ChatThread({
                     !newDay &&
                     previous.kind !== 'event' &&
                     previous.kind !== 'report' &&
+                    previous.kind !== 'handoff' &&
                     previous.author === message.author &&
                     previous.author_type === message.author_type &&
                     new Date(message.created_at).getTime() - new Date(previous.created_at).getTime() < 5 * 60_000;
@@ -99,7 +116,9 @@ export function ChatThread({
                 return (
                     <div key={message.id} className="flex flex-col">
                         {newDay && <DaySeparator label={dayLabel(message.created_at)} />}
-                        {message.kind === 'event' ? (
+                        {message.kind === 'handoff' && message.handoff ? (
+                            <HandoffRow message={message} handoff={message.handoff} />
+                        ) : message.kind === 'event' ? (
                             <EventLine message={message} onOpenRun={onOpenRun} />
                         ) : message.kind === 'report' ? (
                             <ReportCard message={message} onOpenRun={onOpenRun} />
@@ -405,6 +424,72 @@ function ReportCard({ message, onOpenRun }: { message: ChatMessage; onOpenRun: O
                     <div className="mt-2">
                         <RunButton runId={message.run_id} onOpenRun={onOpenRun} />
                     </div>
+                )}
+            </div>
+        </details>
+    );
+}
+
+const handoffStatus: Record<Handoff['status'], string> = {
+    working: 'a trabalhar',
+    answered: 'respondeu',
+    failed: 'não terminou',
+};
+
+/**
+ * One agent messaging another, as an inline row like Grok's "Messaged …" /
+ * "Message from …": who, when and, for a request still with the colleague,
+ * that it is working on it. Open, it shows what was written; the other
+ * conversation opens from the row when the viewer may see it.
+ */
+function HandoffRow({ message, handoff }: { message: ChatMessage; handoff: Handoff }) {
+    const agent = handoff.agent ?? 'Agente';
+    const out = handoff.direction === 'out';
+    const Icon = out ? ArrowUpRight : ArrowDownLeft;
+
+    return (
+        <details className="group my-3 flex flex-col items-center">
+            <summary className="mx-auto flex max-w-full cursor-pointer list-none flex-wrap items-center justify-center gap-x-1.5 gap-y-1 rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground shadow-xs transition-colors hover:bg-accent/50 [&::-webkit-details-marker]:hidden">
+                <Icon className="size-3.5 shrink-0" />
+                <span>{out ? 'Mensagem enviada a' : 'Mensagem de'}</span>
+                <AgentAvatar name={agent} className="size-4 rounded text-[8px]" />
+                <span className="font-medium text-foreground/85">{agent}</span>
+                <span className="opacity-70">·</span>
+                <Time value={message.created_at} />
+                {out && handoff.role === 'request' && (
+                    <>
+                        <span className="opacity-70">·</span>
+                        <span
+                            className={cn(
+                                'inline-flex items-center gap-1',
+                                handoff.status === 'working' && 'text-status-running',
+                                handoff.status === 'failed' && 'text-status-danger',
+                            )}
+                        >
+                            {handoff.status === 'working' ? (
+                                <Loader2 className="size-3 animate-spin" />
+                            ) : handoff.status === 'answered' ? (
+                                <Check className="size-3 text-status-success" />
+                            ) : (
+                                <X className="size-3" />
+                            )}
+                            {handoffStatus[handoff.status]}
+                        </span>
+                    </>
+                )}
+                <ChevronDown className="size-3 shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mx-auto mt-2 w-full max-w-xl rounded-xl border border-dashed bg-card/60 px-4 py-3 text-sm">
+                <div className="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                    {handoff.role === 'request' ? 'Pedido' : 'Resposta'}
+                </div>
+                <div className="[&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0">
+                    <Markdown>{message.body}</Markdown>
+                </div>
+                {handoff.other_task_id && (
+                    <Link href={`/tasks/${handoff.other_task_id}`} className="mt-2 inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                        Abrir a conversa com {agent}
+                    </Link>
                 )}
             </div>
         </details>

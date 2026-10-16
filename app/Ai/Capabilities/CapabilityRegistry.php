@@ -24,6 +24,7 @@ use App\Ai\Capabilities\Local\ListTasks;
 use App\Ai\Capabilities\Local\ListUnreconciled;
 use App\Ai\Capabilities\Local\LoadSkill;
 use App\Ai\Capabilities\Local\MatchCandidate;
+use App\Ai\Capabilities\Local\MessageAgent;
 use App\Ai\Capabilities\Local\MonthSummary;
 use App\Ai\Capabilities\Local\NotifyUser;
 use App\Ai\Capabilities\Local\OrganisationOverview;
@@ -105,6 +106,8 @@ final class CapabilityRegistry
         SlaStatus::class,
         // Tasks and conversations (Paperclip-style collaboration)
         CreateTask::class,
+        // Agents message each other (docs/DECISOES.md, "Mensagens entre agentes").
+        MessageAgent::class,
         AskHuman::class,
         AskQuestions::class,
         UpdateTaskStatus::class,
@@ -138,7 +141,7 @@ final class CapabilityRegistry
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'memory.read', 'memory.search_chats', 'tasks.create', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
+    public const ALWAYS_ON = ['memory.search', 'memory.read', 'memory.search_chats', 'tasks.create', 'agents.message', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];

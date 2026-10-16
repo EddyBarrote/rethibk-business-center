@@ -98,7 +98,7 @@ class HandleInertiaRequests extends Middleware
             ->join('tasks', 'tasks.id', '=', 'task_messages.task_id')
             ->whereIn('task_messages.task_id', $chats->pluck('id'))
             ->where('task_messages.author_type', 'agent')
-            ->whereIn('task_messages.kind', ['message', 'report'])
+            ->whereIn('task_messages.kind', ['message', 'report', 'handoff'])
             ->where(fn ($q) => $q->whereNull('tasks.chat_read_at')->orWhereColumn('task_messages.created_at', '>', 'tasks.chat_read_at'))
             ->selectRaw('task_messages.task_id, count(*) as total')
             ->groupBy('task_messages.task_id')

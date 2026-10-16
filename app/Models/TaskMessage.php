@@ -27,9 +27,10 @@ use Illuminate\Support\Carbon;
  * @property TaskMessageKind $kind
  * @property string $body
  * @property int|null $agent_run_id
+ * @property int|null $handoff_id
  * @property Carbon $created_at
  */
-#[Fillable(['task_id', 'author_type', 'author_user_id', 'author_agent_id', 'kind', 'body', 'agent_run_id'])]
+#[Fillable(['task_id', 'author_type', 'author_user_id', 'author_agent_id', 'kind', 'body', 'agent_run_id', 'handoff_id'])]
 class TaskMessage extends Model
 {
     /** @use HasFactory<TaskMessageFactory> */
@@ -65,6 +66,16 @@ class TaskMessage extends Model
     public function run(): BelongsTo
     {
         return $this->belongsTo(AgentRun::class, 'agent_run_id');
+    }
+
+    /**
+     * The hand-off between agents this row shows (docs/DECISOES.md, "Mensagens entre agentes").
+     *
+     * @return BelongsTo<AgentHandoff, $this>
+     */
+    public function handoff(): BelongsTo
+    {
+        return $this->belongsTo(AgentHandoff::class, 'handoff_id');
     }
 
     /**

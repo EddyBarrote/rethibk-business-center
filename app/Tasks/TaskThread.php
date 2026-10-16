@@ -18,6 +18,7 @@ use App\Enums\TriggerType;
 use App\Events\TaskUpdated;
 use App\Jobs\ConsolidateAgentMemory;
 use App\Models\Agent;
+use App\Models\AgentHandoff;
 use App\Models\AgentQuestion;
 use App\Models\AgentRun;
 use App\Models\Approval;
@@ -138,7 +139,7 @@ final class TaskThread
      *
      * @param  iterable<MessageAttachment>  $attachments
      */
-    public function post(Task $task, User|Agent $author, string $body, TaskMessageKind $kind = TaskMessageKind::Message, bool $wake = true, bool $notify = true, iterable $attachments = []): TaskMessage
+    public function post(Task $task, User|Agent $author, string $body, TaskMessageKind $kind = TaskMessageKind::Message, bool $wake = true, bool $notify = true, iterable $attachments = [], ?AgentHandoff $handoff = null): TaskMessage
     {
         $message = $task->messages()->create([
             'author_type' => $author instanceof User ? ActorType::User : ActorType::Agent,
@@ -146,6 +147,7 @@ final class TaskThread
             'author_agent_id' => $author instanceof Agent ? $author->id : null,
             'kind' => $kind,
             'body' => $body,
+            'handoff_id' => $handoff?->id,
         ]);
 
         $attachments = collect($attachments);
@@ -395,6 +397,9 @@ final class TaskThread
         // A flow's step the agent left unfinished goes back to it, or to a person (docs/DECISOES.md, "Fluxos de trabalho").
         app(WorkflowEngine::class)->runEnded($run);
 
+        // A request a colleague passed here: the answer goes back to it (docs/DECISOES.md, "Mensagens entre agentes").
+        app(Handoffs::class)->settle($run);
+
         TaskUpdated::live($task);
 
         // Paused on questions, the run itself carries on once they are answered.
@@ -415,7 +420,8 @@ final class TaskThread
             return [];
         }
 
-        $messages = $this->window($run, ['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name']);
+        $messages = $this->window($run, ['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name', 'handoff.user:id,name', 'handoff.fromAgent:id,name', 'handoff.toAgent:id,name']);
+        $task = $run->task;
 
         // The latest files of the conversation go again as files; older ones are named.
         $recent = $messages->flatMap(fn (TaskMessage $message) => $message->author_type === ActorType::User ? $message->attachments : [])
@@ -423,7 +429,7 @@ final class TaskThread
         $input = app(ModelInput::class);
         $provider = $run->agent->provider ?? null;
 
-        return $messages->map(function (TaskMessage $message) use ($run, $recent, $input, $provider) {
+        return $messages->map(function (TaskMessage $message) use ($run, $task, $recent, $input, $provider) {
             if ($message->author_type === ActorType::Agent && $message->author_agent_id === $run->agent_id) {
                 $sent = $message->attachments->map(fn (MessageAttachment $a) => "{$a->reference()}: {$a->filename}")->implode('; ');
                 $asked = $message->question !== null
@@ -447,7 +453,9 @@ final class TaskThread
             $built = $input->build($provider, $files, budgetBytes: (int) config('attachments.inline_max_mb', 18) * 1024 * 1024 / 2);
             $list = $named !== [] ? "\n\n[Anexos: ".implode('; ', $named).'. Lê-os com files.read se precisares.]' : '';
 
-            return new UserMessage($this->speaker($message, dated: true).$message->body.$built['text'].$list, $built['files']);
+            $body = $message->kind === TaskMessageKind::Handoff && $task !== null ? app(Handoffs::class)->forModel($message, $task) : $message->body;
+
+            return new UserMessage($this->speaker($message, dated: true).$body.$built['text'].$list, $built['files']);
         })->all();
     }
 
@@ -563,6 +571,10 @@ final class TaskThread
             return $this->speaker($source)."Acção directa: {$source->body}\n\nExecuta agora com as tuas ferramentas e reporta o resultado em poucas linhas.";
         }
 
+        if ($source->kind === TaskMessageKind::Handoff) {
+            return $this->speaker($source).app(Handoffs::class)->forModel($source, $task, now: true);
+        }
+
         return $this->speaker($source).($source->body !== '' ? $source->body : '(enviou só anexos)');
     }
 
@@ -631,9 +643,12 @@ final class TaskThread
 
         $waiting = $task->messages()
             ->where('id', '>', $seen)
-            ->whereIn('kind', [TaskMessageKind::Message, TaskMessageKind::Action, TaskMessageKind::Report])
-            ->where(fn ($q) => $q->whereIn('author_type', [ActorType::User, ActorType::System])
-                ->orWhere(fn ($q) => $q->where('author_type', ActorType::Agent)->where('author_agent_id', '!=', $run->agent_id)))
+            ->where(fn ($q) => $q
+                ->where(fn ($q) => $q->whereIn('kind', [TaskMessageKind::Message, TaskMessageKind::Action, TaskMessageKind::Report])
+                    ->where(fn ($q) => $q->whereIn('author_type', [ActorType::User, ActorType::System])
+                        ->orWhere(fn ($q) => $q->where('author_type', ActorType::Agent)->where('author_agent_id', '!=', $run->agent_id))))
+                // A colleague's message (a request passed here, or its answer); never our own hand-off rows.
+                ->orWhere(fn ($q) => $q->where('kind', TaskMessageKind::Handoff)->where('author_type', ActorType::Agent)->where('author_agent_id', '!=', $run->agent_id)))
             ->reorder('id', 'desc')
             ->first();
 

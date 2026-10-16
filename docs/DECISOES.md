@@ -923,3 +923,19 @@ Pergunta do Barrote: o Agente de Finanças disse «agendei um seguimento para 19
 | **Filtros** (pedido do Barrote, «faltam filtros»): por tipo (as etiquetas Seguimento, Prazo de tarefa e Rotina ligam e desligam), por quem trata (pessoas primeiro, depois agentes, com quantos têm no período) e por estado (por fazer, em atraso, feitos). Ficam no endereço (`tipo`, `pessoa`, `estado`) e mantêm-se ao mudar de mês ou de vista. A lista de quem trata vem do período inteiro, filtrado ou não. | `AgendaController::filter()`, `people()` |
 
 Testes: `tests/Feature/AgendaTest.php`.
+
+## Mensagens entre agentes (16.10.2026)
+
+Pedido do Barrote, com quatro capturas do Grok: os agentes coordenam-se sozinhos. Ele pergunta ao Chief of Staff «O que há para hoje?», responde «Caça leads agora», e o Chief of Staff passa o pedido ao Gestor Comercial («Messaged Gestor Comercial»). Na conversa dele com o Gestor Comercial aparece «Message from Chief of Staff», o Gestor Comercial fala-lhe ali enquanto trabalha e, no fim, manda o resultado a ele e ao Chief of Staff («Messaged Chief of Staff»), que o transmite. Construído de ponta a ponta com as escolhas por omissão abaixo.
+
+| Decisão | Onde |
+|---|---|
+| **`agents.message`, dada a todos os agentes**: passa um pedido da pessoa da conversa a um colega agente. É uma mensagem, não uma tarefa: o colega trata já. Para trabalho longo, com prazo e acompanhamento, continua `tasks.create`. | `MessageAgent`, `CapabilityRegistry::ALWAYS_ON` |
+| **O colega trabalha na conversa dessa pessoa com ele** (a conversa única pessoa–agente), onde lhe fala; a pessoa vê-o «a trabalhar» lá e na barra lateral. **Só recebe o pedido**, nunca a conversa de onde veio (as conversas são privadas). | `Handoffs::send()`, `forModel()` |
+| **A resposta volta sozinha**: quando a execução do colega nessa conversa termina, a resposta final segue para o agente que passou o pedido, que acorda e diz à pessoa o que importa. Se falhar, segue «Não consegui terminar» com o erro. Uma execução que pára sem resposta deixa o pedido aberto. O colega não precisa (nem pode) mandar mensagem de volta. | `Handoffs::settle()`, chamado em `TaskThread::recordReply()` |
+| **As duas conversas mostram a passagem numa linha**, como no Grok: «Mensagem enviada a [avatar] Gestor Comercial · a trabalhar / respondeu / não terminou» e «Mensagem de [avatar] Chief of Staff». Aberta, mostra o pedido ou a resposta e leva à outra conversa, se quem vê a pode abrir. Contam como por ler na barra lateral. | `TaskMessageKind::Handoff`, `agent_handoffs`, `Chat.tsx` (`HandoffRow`) |
+| **Quem pode passar a quem**: as regras do organigrama de sempre (para baixo, ou à chefia directa; fora do organigrama, a qualquer um). Entre áreas passa-se pelo Chief of Staff (decisão 12 do realinhamento). E só a um agente com quem a pessoa pode conversar, porque é com ela que ele vai falar. | `Handoffs::send()` |
+| **Sem pingue-pongue**: no máximo 3 agentes por pedido, 3 pedidos abertos por agente e conversa, e as linhas da própria passagem nunca acordam ninguém. | `Handoffs::MAX_DEPTH`, `MAX_OPEN`, `TaskThread::pickUpWaitingMessages()` |
+| **Nada sai para fora por causa de uma passagem**: o colega é lembrado de que não contacta ninguém nem envia emails sem ordem da pessoa, e o agente que passa diz-lho. As aprovações e o tecto absoluto (pagamentos, contratos, contratações) não mudam. | `Handoffs::forModel()`, `MessageAgent`, `AutonomyGate` (inalterado) |
+
+O caso do Barrote com a Rethink usa o Gestor de Clientes: o tenant não tem um «Gestor Comercial». Testes: `tests/Feature/Tasks/HandoffsTest.php`.

@@ -12,4 +12,6 @@ enum TaskMessageKind: string
     case Event = 'event';
     /** The result of delegated work, which wakes the delegating agent. */
     case Report = 'report';
+    /** One agent passing a person's request to another, or the answer coming back (docs/DECISOES.md, "Mensagens entre agentes"). */
+    case Handoff = 'handoff';
 }

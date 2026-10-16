@@ -30,6 +30,7 @@ use App\Models\TaskMessage;
 use App\Models\User;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowStep;
+use App\Tasks\Handoffs;
 use App\Tasks\TaskJourney;
 use App\Tasks\TaskThread;
 use App\Tenancy\TenantRule;
@@ -410,6 +411,7 @@ class TaskController extends Controller
             ? app(AgentNow::class)->for($task->assigneeAgent, $user, exceptTask: $task, withLast: false, withRecent: true)
             : ['active' => [], 'recent' => []];
         $mine = $task->chat_key !== null && $task->user_id === $user->id;
+        $handoffs = app(Handoffs::class);
 
         if ($mine) {
             // Read up to now: the sidebar stops counting its answers as unread.
@@ -428,7 +430,9 @@ class TaskController extends Controller
                 // The agent who answers here: the assigned one, or the one that gave a person this task.
                 'agent' => ($agent = app(TaskThread::class)->agentOf($task)) ? Present::agent($agent) : null,
             ],
-            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name'])->get()->map(fn (TaskMessage $m) => [
+            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name', 'handoff.fromAgent:id,name', 'handoff.toAgent:id,name', 'handoff.fromTask', 'handoff.toTask'])->get()->map(fn (TaskMessage $m) => [
+                // A message between agents, shown as a row (docs/DECISOES.md, "Mensagens entre agentes").
+                'handoff' => $handoffs->present($m, $task, $user),
                 'id' => $m->id,
                 // The agent's questions, as a card on its message (docs/DECISOES.md, "Perguntas dos agentes").
                 'question' => $m->question ? [

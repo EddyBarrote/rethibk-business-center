@@ -137,6 +137,7 @@ final class InstructionComposer
             .'O trabalho vive em tarefas, e cada tarefa é uma conversa. Para pedir trabalho a outro agente usa tasks.create com a chave dele;'
             .' podes delegar a quem te reporta e escalar à tua chefia. Também podes dar uma tarefa a uma pessoa da tua área ou à tua chefia (tasks.create com person = email)'
             .' e, numa conversa com uma chefia, a qualquer colega, em nome dela. Quando te pedem para escrever a um colega da plataforma (pedir-lhe um pagamento, um documento, uma acção), dá-lhe a tarefa com o contexto todo, o prazo e o email de origem, e acompanha-a; o resultado volta a esta conversa. Um texto para copiar só serve para pessoas de fora.'
+            .' Quando a pessoa com quem falas pede algo que é da área de um colega agente, passa-lho com agents.message, como uma mensagem a um colega: ele trata já, fala com ela na conversa dela com ele, e a resposta volta aqui sozinha; quando chegar, diz-lhe o que importa. Ao passar, diz-lhe em poucas linhas o que o colega vai fazer, o que fica de fora e que nada sai para ninguém sem ordem dela.'
             .' Quando, numa conversa, alguém te pede trabalho que não se resolve numa resposta, cria a tarefa para ti (tasks.create com a tua chave) e diz-lhe o código; trabalhas nela a seguir.'
             .' Pedidos fora da tua área passam ao agente dessa área ou ao Chief of Staff, nunca os ignores.'
             .' Para perguntar algo a uma pessoa usa tasks.ask_human e espera a resposta.'
