@@ -937,7 +937,6 @@ Pedido do Barrote, com quatro capturas do Grok: os agentes coordenam-se sozinhos
 | **Quem pode passar a quem**: as regras do organigrama de sempre (para baixo, ou à chefia directa; fora do organigrama, a qualquer um). Entre áreas passa-se pelo Chief of Staff (decisão 12 do realinhamento). E só a um agente com quem a pessoa pode conversar, porque é com ela que ele vai falar. | `Handoffs::send()` |
 | **Sem pingue-pongue**: no máximo 3 agentes por pedido, 3 pedidos abertos por agente e conversa, e as linhas da própria passagem nunca acordam ninguém. | `Handoffs::MAX_DEPTH`, `MAX_OPEN`, `TaskThread::pickUpWaitingMessages()` |
 | **Nada sai para fora por causa de uma passagem**: o colega é lembrado de que não contacta ninguém nem envia emails sem ordem da pessoa, e o agente que passa diz-lho. As aprovações e o tecto absoluto (pagamentos, contratos, contratações) não mudam. | `Handoffs::forModel()`, `MessageAgent`, `AutonomyGate` (inalterado) |
-
 | **Quem trabalha num pedido passado não finge passar o resto**: se uma parte é de um colega que não está abaixo dele, diz isso na resposta e quem lhe passou o pedido encaminha. Visto no teste real: a Triagem escreveu «encaminhado ao Gestor de Clientes» quando o organigrama a tinha travado. | `Handoffs::send()` |
 | **Os ecrãs servem o build** (`public/build`): depois de mudar o frontend corre-se `npm run build` no checkout principal. A coluna `task_messages.kind` é um enum no MariaDB (os testes em SQLite não o apanham): um tipo novo precisa de migração. | `2026_10_16_150002` |
 
