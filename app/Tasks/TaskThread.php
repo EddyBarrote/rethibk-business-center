@@ -2,6 +2,7 @@
 
 namespace App\Tasks;
 
+use App\Ai\Capabilities\Local\ReadEmail;
 use App\Ai\Runs\AgentRunner;
 use App\Ai\Runs\QuestionService;
 use App\Attachments\AttachmentStore;
@@ -139,7 +140,7 @@ final class TaskThread
      *
      * @param  iterable<MessageAttachment>  $attachments
      */
-    public function post(Task $task, User|Agent $author, string $body, TaskMessageKind $kind = TaskMessageKind::Message, bool $wake = true, bool $notify = true, iterable $attachments = [], ?AgentHandoff $handoff = null): TaskMessage
+    public function post(Task $task, User|Agent $author, string $body, TaskMessageKind $kind = TaskMessageKind::Message, bool $wake = true, bool $notify = true, iterable $attachments = [], ?AgentHandoff $handoff = null, ?EmailMessage $email = null): TaskMessage
     {
         $message = $task->messages()->create([
             'author_type' => $author instanceof User ? ActorType::User : ActorType::Agent,
@@ -148,6 +149,7 @@ final class TaskThread
             'kind' => $kind,
             'body' => $body,
             'handoff_id' => $handoff?->id,
+            'email_message_id' => $email?->id,
         ]);
 
         $attachments = collect($attachments);
@@ -455,6 +457,8 @@ final class TaskThread
 
             $body = $message->kind === TaskMessageKind::Handoff && $task !== null ? app(Handoffs::class)->forModel($message, $task) : $message->body;
 
+            $body .= $this->sharedEmail($message);
+
             return new UserMessage($this->speaker($message, dated: true).$body.$built['text'].$list, $built['files']);
         })->all();
     }
@@ -575,7 +579,18 @@ final class TaskThread
             return $this->speaker($source).app(Handoffs::class)->forModel($source, $task, now: true);
         }
 
-        return $this->speaker($source).($source->body !== '' ? $source->body : '(enviou só anexos)');
+        return $this->speaker($source).($source->body !== '' ? $source->body : '(enviou só anexos)').$this->sharedEmail($source);
+    }
+
+    /**
+     * The email the person brought into the conversation, for the agent
+     * (docs/DECISOES.md, "Falar com um agente sobre um email").
+     */
+    private function sharedEmail(TaskMessage $message): string
+    {
+        $email = $message->email()->with('attachments')->first();
+
+        return $email === null ? '' : "\n\n[Partilhou contigo este email; usa o número #{$email->id} com as ferramentas de email:]\n".ReadEmail::render($email, 6000);
     }
 
     /**

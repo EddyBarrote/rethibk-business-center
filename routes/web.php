@@ -177,6 +177,7 @@ Route::middleware('auth')->group(function () {
     Route::post('inbox/{message}/archive', [InboxController::class, 'archive'])->name('inbox.archive');
     Route::delete('inbox/{message}', [InboxController::class, 'destroy'])->name('inbox.destroy');
     Route::put('inbox/{message}/category', [InboxController::class, 'reclassify'])->name('inbox.reclassify');
+    Route::post('inbox/{message}/agent', [InboxController::class, 'talk'])->middleware('throttle:20,1')->name('inbox.agent');
     Route::post('inbox/{message}/retriage', [InboxController::class, 'retriage'])->middleware('throttle:20,1')->name('inbox.retriage');
     Route::get('attachments/{attachment}', [InboxController::class, 'attachment'])->name('attachments.download');
     Route::get('attachments/{attachment}/preview', [InboxController::class, 'attachmentPreview'])->middleware('throttle:60,1')->name('attachments.preview');

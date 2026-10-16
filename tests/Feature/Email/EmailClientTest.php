@@ -19,6 +19,7 @@ use App\Models\Mailbox;
 use App\Models\MailboxOwner;
 use App\Models\MailboxReader;
 use App\Models\MessageAttachment;
+use App\Models\TaskMessage;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
@@ -400,4 +401,33 @@ it('names the agent that wrote each draft, with its face, from the run that crea
         ->assertInertia(fn ($page) => $page->where('open.messages', fn ($messages) => collect($messages)->contains(
             fn ($m) => $m['status'] === 'draft' && $m['agent'] === ['name' => 'Sofia', 'avatar_url' => $agent->avatarUrl()]
         ))->where('open.messages', fn ($messages) => collect($messages)->where('status', '!=', 'draft')->every(fn ($m) => $m['agent'] === null)));
+});
+
+it('takes the open email to a conversation with an agent, which can then read it', function () {
+    Queue::fake();
+    [$email, $agent, $other] = asTenant($this->tenant, function () {
+        $email = EmailMessage::factory()->create(['mailbox_id' => $this->mailbox->id, 'subject' => 'Pedido de cotação', 'text_body' => 'Peço uma cotação de software para loja de calçados.']);
+
+        return [$email, Agent::factory()->create(['name' => 'Gestor de Clientes']), Agent::factory()->create()];
+    });
+    $this->ana->forceFill(['role' => 'owner'])->save();
+
+    asTenant($this->tenant, fn () => expect(EmailMessage::query()->readableBy($agent)->whereKey($email->id)->exists())->toBeFalse());
+
+    $this->actingAs($this->ana->fresh())->post(tenantUrl($this->tenant, "inbox/{$email->id}/agent"), ['agent_id' => $agent->id, 'message' => 'Prepara uma proposta.'])
+        ->assertRedirect();
+
+    asTenant($this->tenant, function () use ($email, $agent, $other) {
+        $message = TaskMessage::query()->where('email_message_id', $email->id)->sole();
+        expect($message->body)->toBe('Prepara uma proposta.')
+            ->and($message->task->assignee_agent_id)->toBe($agent->id)
+            ->and(EmailMessage::query()->readableBy($agent)->whereKey($email->id)->exists())->toBeTrue()
+            ->and(EmailMessage::query()->readableBy($other)->whereKey($email->id)->exists())->toBeFalse();
+
+        $run = AgentRun::query()->where('agent_id', $agent->id)->latest('id')->first();
+        expect($run?->input)->toContain('Prepara uma proposta.')->toContain("#{$email->id}")->toContain('loja de calçados');
+    });
+
+    $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, 'tasks/'.asTenant($this->tenant, fn () => TaskMessage::query()->where('email_message_id', $email->id)->value('task_id'))))
+        ->assertInertia(fn ($page) => $page->where('messages.0.email.subject', 'Pedido de cotação'));
 });

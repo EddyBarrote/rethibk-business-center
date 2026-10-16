@@ -982,3 +982,15 @@ O Barrote pediu «Busca por concursos» ao Gestor de Clientes da Rethink: o agen
 Teste real na Rethink (16.10, 18:09): «Busca por concursos» ao Gestor de Clientes. O agente fez quatro pesquisas (software e TI, websites, equipamento, manifestações de interesse) e trouxe, cada um com a sua página: Ministério das Finanças/ASFPM (TI, biblioteca virtual e cloud, 27/10 09:15, diarioeconomico.co.mz), ChildFund (gestão documental, 29/10, concursos.co.mz), MTGAS/INAS (consultoria de transformação digital, 27/10 15:30, PDF em bcl.org.mz), EMME (equipamento, 26/10 10:00, b2b.co.mz) e CFM (storage e processamento de dados, 27/10 23:59, diarioeconomico.co.mz), separados do que veio dos registos (certificado UFSA, propostas anteriores). Custo: 0,22 USD nas quatro pesquisas mais 0,05 USD da execução. Na primeira tentativa fez uma só pesquisa e um resultado levava o link de outro: daí a regra de duas a quatro pesquisas e o endereço da própria fonte em cada resultado. Os concursos que o Grok achou (Ungagodoli em sovagas.co.mz, CFM gestão documental) não apareceram nesta pesquisa.
 
 Testes: `tests/Feature/Agents/WebSearchTest.php`.
+
+## Falar com um agente sobre um email (16.10.2026)
+
+O Barrote, no email aberto: «poder encaminhar para um agente ou conversar acerca».
+
+| Decisão | Onde |
+|---|---|
+| **«Falar com agente» na barra do email aberto**: escolhe-se o agente (os que a pessoa pode usar), escreve-se o que se quer (ou nada) e o email entra na conversa única da pessoa com esse agente, que abre. Não é reencaminhar por SMTP: o email não sai da empresa. | `InboxController::talk()`, `TalkToAgent.tsx` |
+| **A mensagem leva o email** (`task_messages.email_message_id`); na conversa aparece como cartão que abre o email. O agente recebe-o como texto não confiável, com o número para as ferramentas de email, no turno e no histórico. | `TaskThread::sharedEmail()`, `Chat.tsx` |
+| **Partilhar dá acesso só a esse email**: `EmailMessage::readableBy()` passa a incluir os emails partilhados numa conversa do agente, por isso pode ler, responder em rascunho ou criar tarefa a partir dele; o resto da caixa pessoal continua fechado. Fica registado (`email.shared_with_agent`). | `EmailMessage::readableBy()` |
+
+Testes: `tests/Feature/Email/EmailClientTest.php` («takes the open email to a conversation…»).

@@ -21,6 +21,7 @@ use App\Models\FollowUp;
 use App\Models\Mailbox;
 use App\Models\Task;
 use App\Models\User;
+use App\Tasks\TaskThread;
 use App\Tenancy\TenantRule;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -268,6 +270,31 @@ class InboxController extends Controller
         $runner->dispatch($agent, "Volta a triar o email #{$message->id} (pedido de {$this->user($request)->name}). Lê-o com email.read e classifica-o.", TriggerType::Manual, $this->user($request), $message);
 
         return back()->with('success', 'Enviado de novo para triagem.');
+    }
+
+    /**
+     * Brings the open email into the person's conversation with an agent, to
+     * talk about it or hand it over (docs/DECISOES.md, "Falar com um agente
+     * sobre um email"). The agent can then read it with its email tools.
+     */
+    public function talk(Request $request, EmailMessage $message, TaskThread $threads): RedirectResponse
+    {
+        $this->authorizeView($request, $message);
+        $user = $this->user($request);
+        $data = $request->validate([
+            'agent_id' => ['required', 'integer', TenantRule::exists('agents')],
+            'message' => ['nullable', 'string', 'max:10000'],
+        ]);
+
+        $agent = Agent::query()->findOrFail($data['agent_id']);
+        Gate::authorize('run', $agent);
+
+        $chat = $threads->conversation($user, $agent);
+        $body = trim((string) ($data['message'] ?? '')) ?: "Veja este email: «{$message->subject}».";
+        $threads->post($chat, $user, $body, email: $message);
+        AuditLog::record($user, 'email.shared_with_agent', ['email_id' => $message->id, 'agent_id' => $agent->id, 'task_id' => $chat->id], subject: $message);
+
+        return to_route('tasks.show', $chat);
     }
 
     private function client(Request $request, MailboxSync $sync, ?EmailMessage $open): Response

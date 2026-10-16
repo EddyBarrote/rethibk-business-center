@@ -28,9 +28,10 @@ use Illuminate\Support\Carbon;
  * @property string $body
  * @property int|null $agent_run_id
  * @property int|null $handoff_id
+ * @property int|null $email_message_id
  * @property Carbon $created_at
  */
-#[Fillable(['task_id', 'author_type', 'author_user_id', 'author_agent_id', 'kind', 'body', 'agent_run_id', 'handoff_id'])]
+#[Fillable(['task_id', 'author_type', 'author_user_id', 'author_agent_id', 'kind', 'body', 'agent_run_id', 'handoff_id', 'email_message_id'])]
 class TaskMessage extends Model
 {
     /** @use HasFactory<TaskMessageFactory> */
@@ -42,6 +43,16 @@ class TaskMessage extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class);
+    }
+
+    /**
+     * The email a person brought into the conversation.
+     *
+     * @return BelongsTo<EmailMessage, $this>
+     */
+    public function email(): BelongsTo
+    {
+        return $this->belongsTo(EmailMessage::class, 'email_message_id');
     }
 
     /**

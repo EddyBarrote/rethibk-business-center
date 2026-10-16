@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, ExternalLink, FileText, Loader2, Lock, Wrench, X, Zap } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, ExternalLink, FileText, Loader2, Lock, Mail, Wrench, X, Zap } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -32,6 +32,8 @@ export interface ChatMessage {
     question?: AgentQuestions | null;
     /** A message between agents (docs/DECISOES.md, "Mensagens entre agentes"). */
     handoff?: Handoff | null;
+    /** The email the person brought in from the inbox (docs/DECISOES.md, "Falar com um agente sobre um email"). */
+    email?: { id: number; subject: string; from: string | null } | null;
 }
 
 export interface Handoff {
@@ -178,28 +180,39 @@ function PersonBubble({ message, continued, own }: { message: ChatMessage; conti
                         <Markdown>{message.body}</Markdown>
                     </div>
                 )}
+                {message.email && (
+                    <Link
+                        href={`/inbox/${message.email.id}`}
+                        className="flex max-w-xs items-center gap-2 rounded-lg border bg-card px-3 py-2 text-left text-xs hover:bg-accent"
+                        title="Abrir o email"
+                    >
+                        <Mail className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0">
+                            <span className="block truncate font-medium">{message.email.subject}</span>
+                            {message.email.from && <span className="block truncate text-muted-foreground">{message.email.from}</span>}
+                        </span>
+                    </Link>
+                )}
                 {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} className="justify-end" />}
                 <Time value={message.created_at} className="px-1" />
             </div>
-            {!continued ? <Monogram name={message.author} className="mt-0.5 size-7 shrink-0 rounded-full text-[10px]" /> : <span className="w-7 shrink-0" />}
+            {!continued ? (
+                <Monogram name={message.author} className="mt-0.5 size-7 shrink-0 rounded-full text-[10px]" />
+            ) : (
+                <span className="w-7 shrink-0" />
+            )}
         </div>
     );
 }
 
-function AgentBubble({
-    message,
-    continued,
-    tools,
-    onOpenRun,
-}: {
-    message: ChatMessage;
-    continued: boolean;
-    tools: ToolCall[];
-    onOpenRun: OpenRun;
-}) {
+function AgentBubble({ message, continued, tools, onOpenRun }: { message: ChatMessage; continued: boolean; tools: ToolCall[]; onOpenRun: OpenRun }) {
     return (
         <div className={cn('flex gap-2.5 pr-6 sm:pr-16', continued ? 'mt-1' : 'mt-4')}>
-            {!continued ? <AgentAvatar name={message.author} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" /> : <span className="w-7 shrink-0" />}
+            {!continued ? (
+                <AgentAvatar name={message.author} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" />
+            ) : (
+                <span className="w-7 shrink-0" />
+            )}
             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                 {!continued && (
                     <div className="flex items-center gap-2 px-1">
@@ -490,7 +503,10 @@ function HandoffRow({ message, handoff }: { message: ChatMessage; handoff: Hando
                     <Markdown>{message.body}</Markdown>
                 </div>
                 {handoff.other_task_id && (
-                    <Link href={`/tasks/${handoff.other_task_id}`} className="mt-2 inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                    <Link
+                        href={`/tasks/${handoff.other_task_id}`}
+                        className="mt-2 inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    >
                         Abrir a conversa com {agent}
                     </Link>
                 )}

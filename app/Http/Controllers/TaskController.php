@@ -430,7 +430,7 @@ class TaskController extends Controller
                 // The agent who answers here: the assigned one, or the one that gave a person this task.
                 'agent' => ($agent = app(TaskThread::class)->agentOf($task)) ? Present::agent($agent) : null,
             ],
-            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name', 'handoff.fromAgent:id,name', 'handoff.toAgent:id,name', 'handoff.fromTask', 'handoff.toTask'])->get()->map(fn (TaskMessage $m) => [
+            'messages' => $task->messages()->with(['authorUser:id,name', 'authorAgent:id,name', 'attachments' => fn ($q) => $q->ready(), 'question.answeredBy:id,name', 'handoff.fromAgent:id,name', 'handoff.toAgent:id,name', 'handoff.fromTask', 'handoff.toTask', 'email:id,subject,from_name,from_address'])->get()->map(fn (TaskMessage $m) => [
                 // A message between agents, shown as a row (docs/DECISOES.md, "Mensagens entre agentes").
                 'handoff' => $handoffs->present($m, $task, $user),
                 'id' => $m->id,
@@ -445,6 +445,8 @@ class TaskController extends Controller
                     'can_answer' => $m->question->isPending() && ($user->id === $m->question->asked_user_id || $user->can('reply', $task)),
                 ] : null,
                 'attachments' => $m->attachments->map(fn (MessageAttachment $a) => Present::attachment($a))->values(),
+                // The email the person brought in from the inbox.
+                'email' => $m->email ? ['id' => $m->email->id, 'subject' => $m->email->subject ?: '(sem assunto)', 'from' => $m->email->from_name ?: $m->email->from_address] : null,
                 'author_type' => $m->author_type->value,
                 'author' => $m->authorName(),
                 'author_id' => $m->author_user_id ?? $m->author_agent_id,

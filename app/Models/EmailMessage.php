@@ -109,7 +109,11 @@ class EmailMessage extends Model
     {
         $query->whereNull('removed_at')->where(fn (Builder $q) => $q
             ->whereIn('mailbox_id', Mailbox::query()->readableBy($agent)->select('id'))
-            ->orWhereNotNull('sent_to_triage_at'));
+            ->orWhereNotNull('sent_to_triage_at')
+            // An email a person shared with the agent in their conversation.
+            ->orWhereIn('id', TaskMessage::query()->whereNotNull('email_message_id')
+                ->whereIn('task_id', Task::query()->where('assignee_agent_id', $agent->id)->select('id'))
+                ->select('email_message_id')));
     }
 
     /**

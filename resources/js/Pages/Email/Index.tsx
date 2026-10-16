@@ -39,6 +39,7 @@ import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmailBody } from '@/Components/email/EmailBody';
 import { EmailComposer } from '@/Components/email/EmailComposer';
 import { EmailFilters, type EmailListFilters, filterParams, narrowed } from '@/Components/email/EmailFilters';
+import { TalkToAgent } from '@/Components/email/TalkToAgent';
 import { TriagePanel } from '@/Components/email/TriagePanel';
 import { EmptyState } from '@/Components/EmptyState';
 import { StatusBadge } from '@/Components/Status';
@@ -532,6 +533,7 @@ function ReadingPane({
                         </Button>
                     </>
                 )}
+                <TalkToAgent emailId={target.id} subject={open.subject} />
                 <span className="flex-1" />
                 {open.can_file && (
                     <>
