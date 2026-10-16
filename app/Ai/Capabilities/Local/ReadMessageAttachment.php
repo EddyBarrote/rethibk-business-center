@@ -7,6 +7,7 @@ use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Attachments\ModelInput;
 use App\Models\MessageAttachment;
+use App\Tasks\TaskThread;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Validator;
 
@@ -50,7 +51,7 @@ final class ReadMessageAttachment extends LocalCapability
 
         $attachment = $context->run->task_id === null ? null : MessageAttachment::query()
             ->ready()
-            ->where('task_id', $context->run->task_id)
+            ->whereIn('task_id', app(TaskThread::class)->readableTaskIds($context->run))
             ->whereNotNull('task_message_id')
             ->find($data['attachment_id']);
 

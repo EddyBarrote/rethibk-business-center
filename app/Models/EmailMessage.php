@@ -80,8 +80,9 @@ class EmailMessage extends Model
     /**
      * What a person reads (docs/DECISOES.md, "Caixas de email por pessoa"):
      * the mailboxes they own; the email of the agents' mailboxes (triage)
-     * if the matrix lets them; and a triage email routed to them. Nobody
-     * reads someone else's personal mailbox, not even administrators.
+     * if the matrix lets them; a triage email routed to them; and the one
+     * email a task given to them came from. Nobody else reads someone else's
+     * personal mailbox, not even administrators.
      *
      * @param  Builder<self>  $query
      */
@@ -91,6 +92,8 @@ class EmailMessage extends Model
         $query->where(fn (Builder $q) => $q
             ->whereIn('mailbox_id', Mailbox::query()->ownedBy($user)->select('id'))
             ->orWhere(fn (Builder $w) => $w->where('routed_to_user_id', $user->id)->triage())
+            // The email a task given to the person came from (docs/DECISOES.md, "Passar trabalho a um colega").
+            ->orWhereIn('id', Task::query()->where('assignee_user_id', $user->id)->where('source_type', (new self)->getMorphClass())->select('source_id'))
             ->when($user->hasPermission(Permission::ReadTriageEmails), fn (Builder $w) => $w->orWhere(fn (Builder $t) => $t->triage())));
     }
 

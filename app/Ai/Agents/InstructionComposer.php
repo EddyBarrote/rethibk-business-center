@@ -15,6 +15,7 @@ use App\Models\AgentRun;
 use App\Models\Skill;
 use App\Models\Task;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Tasks\TaskThread;
 use Illuminate\Support\Str;
 
@@ -134,13 +135,15 @@ final class InstructionComposer
         return "## Equipa e tarefas\n"
             .($agent->reportsToAgent !== null ? "No organigrama reportas ao agente {$agent->reportsToAgent->name}.\n" : '')
             .'O trabalho vive em tarefas, e cada tarefa é uma conversa. Para pedir trabalho a outro agente usa tasks.create com a chave dele;'
-            .' podes delegar a quem te reporta e escalar à tua chefia. Também podes dar uma tarefa a uma pessoa da tua área ou à tua chefia (tasks.create com person = email).'
+            .' podes delegar a quem te reporta e escalar à tua chefia. Também podes dar uma tarefa a uma pessoa da tua área ou à tua chefia (tasks.create com person = email)'
+            .' e, numa conversa com uma chefia, a qualquer colega, em nome dela. Quando te pedem para escrever a um colega da plataforma (pedir-lhe um pagamento, um documento, uma acção), dá-lhe a tarefa com o contexto todo, o prazo e o email de origem, e acompanha-a; o resultado volta a esta conversa. Um texto para copiar só serve para pessoas de fora.'
             .' Quando, numa conversa, alguém te pede trabalho que não se resolve numa resposta, cria a tarefa para ti (tasks.create com a tua chave) e diz-lhe o código; trabalhas nela a seguir.'
             .' Pedidos fora da tua área passam ao agente dessa área ou ao Chief of Staff, nunca os ignores.'
             .' Para perguntar algo a uma pessoa usa tasks.ask_human e espera a resposta.'
             .' Quando precisas que a pessoa escolha (uma decisão, uma preferência, um pedido ambíguo), usa questions.ask com 1 a 4 perguntas de escolha: a execução pausa até ela responder e continua com as respostas.'
             ." Usa tasks.update_status para marcar a tua tarefa como feita, em revisão ou bloqueada; o trabalho pedido por uma pessoa fica em revisão até ela o aceitar.\n"
-            .($lines !== '' ? "Agentes activos:\n{$lines}" : 'Não há outros agentes activos.');
+            .($lines !== '' ? "Agentes activos:\n{$lines}" : 'Não há outros agentes activos.')
+            .$this->people();
     }
 
     /**
@@ -161,6 +164,17 @@ final class InstructionComposer
     }
 
     /**
+     * The people of the organisation, so the agent can give one of them a task by email.
+     */
+    private function people(): string
+    {
+        $people = User::query()->where('is_active', true)->with('department:id,name')->orderBy('name')->limit(60)->get(['id', 'name', 'email', 'job_title', 'department_id']);
+
+        return $people->isEmpty() ? '' : "\nPessoas:\n".$people->map(fn (User $person) => sprintf('- %s (%s)%s%s', $person->name, $person->email,
+            $person->job_title ? ", {$person->job_title}" : '', $person->department ? " — {$person->department->name}" : ''))->implode("\n");
+    }
+
+    /**
      * The task this run belongs to.
      */
     private function task(AgentRun $run): string
@@ -172,6 +186,10 @@ final class InstructionComposer
             .($task->description ? "\nDescrição: ".Str::limit($task->description, 1500) : '')
             .($task->goal ? "\nServe o objectivo da empresa: {$task->goal->title}." : '')
             .($task->parent ? "\nFoi delegada a partir de {$task->parent->identifier()} «{$task->parent->title}»." : '')
+            .($task->assigneeUser !== null && $task->assignee_agent_id === null && $task->created_by_agent_id === $run->agent_id
+                ? "\nA tarefa é de {$task->assigneeUser->name}: deste-lha e acompanhas. Responde às dúvidas e ajuda com o que precisar, mas o trabalho e o fecho são dessa pessoa: não a marcas como feita e não fazes pagamentos."
+                : '')
+            .($task->due_at ? "\nPrazo: {$task->due_at->format('d/m/Y H:i')}." : '')
             ."\nAs mensagens anteriores desta conversa vêm no histórico, cada uma com o autor e a data e hora entre parênteses rectos. Repara no tempo que passou desde a última. Responde directamente a quem escreveu."
             .$this->summary($run);
     }

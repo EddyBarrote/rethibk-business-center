@@ -8,6 +8,7 @@ use App\Ai\Capabilities\LocalCapability;
 use App\Enums\AutonomyLevel;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
+use App\Models\EmailMessage;
 use App\Models\Goal;
 use App\Models\Project;
 use App\Models\User;
@@ -37,7 +38,7 @@ final class CreateTask extends LocalCapability
 
     public function description(): string
     {
-        return 'Cria uma tarefa e põe-na a andar. Para outro agente (pela chave): delega a quem te reporta ou escala à tua chefia. Para ti (a tua chave): numa conversa, transforma um pedido em trabalho. Para uma pessoa da tua área ou a tua chefia (person = email). Recebes o resultado quando a tarefa delegada ficar feita.';
+        return 'Cria uma tarefa e põe-na a andar. Para outro agente (pela chave): delega a quem te reporta ou escala à tua chefia. Para ti (a tua chave): numa conversa, transforma um pedido em trabalho. Para uma pessoa (person = email): da tua área ou a tua chefia ou, numa conversa, qualquer colega a quem a pessoa da conversa pode dar trabalho, em nome dela. Quando te pedem algo para um colega da plataforma, dá-lhe a tarefa em vez de escreveres uma mensagem para copiar. Recebes o resultado quando a tarefa ficar feita.';
     }
 
     public function isMutating(): bool
@@ -56,10 +57,12 @@ final class CreateTask extends LocalCapability
             'agent' => $schema->string()->description('Chave (ou nome) do agente que fica com a tarefa; a tua chave para a criares para ti. Vazio se for para uma pessoa.'),
             'person' => $schema->string()->description('Email da pessoa que fica com a tarefa, em vez de um agente.'),
             'title' => $schema->string()->required(),
-            'description' => $schema->string()->description('O que fazer, com o contexto todo: o outro agente não vê a tua conversa.')->required(),
+            'description' => $schema->string()->description('O que fazer, com o contexto todo (valores, referências, datas): quem recebe não vê a tua conversa.')->required(),
             'priority' => $schema->string()->enum(array_column(TaskPriority::cases(), 'value')),
             'goal_id' => $schema->integer()->description('Objectivo da empresa que a tarefa serve, se houver.'),
             'project_id' => $schema->integer()->description('Projecto a que a tarefa pertence, se houver (tasks.list mostra os projectos).'),
+            'due_at' => $schema->string()->description('Prazo, AAAA-MM-DD (ou com hora), se houver.'),
+            'email_id' => $schema->integer()->description('Email de onde vem o trabalho, se houver: fica ligado à tarefa e quem a recebe pode abri-lo.'),
         ];
     }
 
@@ -73,6 +76,8 @@ final class CreateTask extends LocalCapability
             'priority' => ['nullable', Rule::enum(TaskPriority::class)],
             'goal_id' => 'nullable|integer',
             'project_id' => 'nullable|integer',
+            'due_at' => 'nullable|date',
+            'email_id' => 'nullable|integer',
         ])->validate();
 
         $parent = $context->run->task;
@@ -83,8 +88,14 @@ final class CreateTask extends LocalCapability
         if (filled($data['person'] ?? null)) {
             $person = User::query()->where('email', mb_strtolower(trim($data['person'])))->first();
 
-            if ($person === null || ! $this->chart->canAssignTo($context->agent, $person)) {
-                return CapabilityResult::error("só podes dar tarefas a pessoas da tua área ou à tua chefia; «{$data['person']}» não é.");
+            // In a conversation the agent may also act for its person, who could give
+            // that colleague the task themselves (docs/DECISOES.md, "Passar trabalho a um colega").
+            $onBehalf = $fromChat && $parent->user !== null && $parent->user->isManager();
+
+            if ($person === null || ! ($this->chart->canAssignTo($context->agent, $person) || ($onBehalf && $person->is_active))) {
+                return CapabilityResult::error($fromChat
+                    ? "só podes dar tarefas a pessoas da tua área, à tua chefia ou, em nome de quem fala contigo, a quem essa pessoa pode dar trabalho; «{$data['person']}» não é."
+                    : "só podes dar tarefas a pessoas da tua área ou à tua chefia; «{$data['person']}» não é.");
             }
         } else {
             $target = $this->chart->find((string) $data['agent']);
@@ -109,6 +120,11 @@ final class CreateTask extends LocalCapability
         }
 
         $project = isset($data['project_id']) ? Project::query()->find($data['project_id']) : null;
+        $email = isset($data['email_id']) ? EmailMessage::query()->readableBy($context->agent)->find($data['email_id']) : null;
+
+        if (isset($data['email_id']) && $email === null) {
+            return CapabilityResult::error("não encontro o email {$data['email_id']} entre os que podes ler.");
+        }
 
         $task = $this->threads->open([
             'kind' => TaskKind::Task,
@@ -122,7 +138,14 @@ final class CreateTask extends LocalCapability
             'project_id' => $project->id ?? $parent?->project_id,
             // A conversation is not a parent: the work it asks for is a task of its own.
             'parent_id' => $fromChat ? null : $parent?->id,
+            'due_at' => $data['due_at'] ?? null,
+            'source_type' => $email?->getMorphClass(),
+            'source_id' => $email?->id,
         ], $context->agent);
+
+        if ($person !== null && $fromChat && $parent->user !== null) {
+            $this->threads->note($task, "Pedido por {$parent->user->name}, na conversa com {$context->agent->name}. {$context->agent->name} acompanha: escreva aqui se tiver dúvidas e marque a tarefa como feita quando estiver.");
+        }
 
         $owner = $target->name ?? $person->name ?? '';
 

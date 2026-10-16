@@ -10,6 +10,8 @@ use App\Jobs\RunAgent;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Department;
+use App\Models\EmailMessage;
+use App\Models\Mailbox;
 use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
@@ -153,5 +155,67 @@ it('lists an agent its tasks without loading the tenant once per task', function
 
         expect($result->ok)->toBeTrue()
             ->and(json_decode($result->content, true)['mine'])->toHaveCount(3);
+    });
+});
+
+it('gives a colleague outside its area a task from a conversation, for a manager, and brings the result back there', function () {
+    $email = asTenant($this->tenant, function () {
+        $mailbox = Mailbox::factory()->create(['kind' => Mailbox::AGENT]);
+
+        return EmailMessage::factory()->create(['mailbox_id' => $mailbox->id, 'subject' => 'Fim da subscrição']);
+    });
+
+    $task = asTenant($this->tenant, function () use ($email) {
+        $chat = app(TaskThread::class)->conversation($this->boss, $this->agent);
+
+        $result = runInTask($this->agent, $chat, 'tasks.create', [
+            'person' => 'fora@micomoc.test', 'title' => 'Pagar a TVCabo', 'description' => 'Contrato 2026164132, até 19/10.',
+            'priority' => 'high', 'due_at' => '2026-10-19', 'email_id' => $email->id,
+        ]);
+        $task = Task::query()->where('assignee_user_id', $this->outsider->id)->sole();
+
+        expect($result->ok)->toBeTrue()
+            ->and($task->user_id)->toBe($this->boss->id)
+            ->and($task->parent_id)->toBeNull()
+            ->and($task->due_at->toDateString())->toBe('2026-10-19')
+            ->and($task->source_id)->toBe($email->id)
+            ->and($task->messages()->value('body'))->toContain('Pedido por Chefe')
+            ->and($this->outsider->notifications()->count())->toBe(1);
+
+        // Nobody is put to work when the task opens: it is the person's.
+        Queue::assertNothingPushed();
+
+        // From someone else's work, not a conversation, only the area counts.
+        $other = Task::factory()->create(['assignee_agent_id' => $this->agent->id, 'user_id' => $this->boss->id]);
+        expect(runInTask($this->agent, $other, 'tasks.create', ['person' => 'fora@micomoc.test', 'title' => 'x', 'description' => 'y'])->ok)->toBeFalse();
+
+        return $task;
+    });
+
+    // She opens the email the task came from, and asking in the thread wakes the agent that gave it.
+    $this->actingAs($this->outsider)->get(tenantUrl($this->tenant, "inbox/{$email->id}"))->assertOk();
+    $this->actingAs($this->outsider)->post(tenantUrl($this->tenant, "tasks/{$task->id}/messages"), ['body' => 'Qual é o valor?', 'mode' => 'message'])->assertRedirect();
+    Queue::assertPushed(RunAgent::class, 1);
+
+    asTenant($this->tenant, function () use ($task) {
+        // The run that gave the task is over.
+        AgentRun::query()->update(['status' => 'completed']);
+        app(TaskThread::class)->post($task, $this->outsider, 'Pago, segue o comprovativo.', wake: false);
+        app(TaskThread::class)->setStatus($task, TaskStatus::Done, $this->outsider);
+
+        $chat = app(TaskThread::class)->conversation($this->boss, $this->agent);
+        expect($chat->messages()->where('kind', 'report')->value('body'))->toContain('Pago, segue o comprovativo')
+            ->and(app(TaskThread::class)->readableTaskIds(AgentRun::query()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id, 'trigger_type' => TriggerType::Manual, 'status' => 'queued', 'input' => 'x'])))->toContain($task->id);
+    });
+
+    Queue::assertPushed(RunAgent::class, 2);
+});
+
+it('does not let an agent give a colleague outside its area a task for a person who is not a manager', function () {
+    asTenant($this->tenant, function () {
+        $this->agent->assignees()->attach($this->clerk->id, ['role' => 'work']);
+        $chat = app(TaskThread::class)->conversation($this->clerk, $this->agent);
+
+        expect(runInTask($this->agent, $chat, 'tasks.create', ['person' => 'fora@micomoc.test', 'title' => 'x', 'description' => 'y'])->ok)->toBeFalse();
     });
 });

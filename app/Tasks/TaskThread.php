@@ -116,7 +116,7 @@ final class TaskThread
 
         if (filled($message) || collect($attachments)->isNotEmpty()) {
             $this->post($task, $author, (string) $message, TaskMessageKind::Message, $start, notify: ! $agentOpensWithPerson, attachments: $attachments);
-        } elseif ($start && $task->kind === TaskKind::Task) {
+        } elseif ($start && $task->kind === TaskKind::Task && $task->assignee_agent_id !== null) {
             $this->wake($task, $author instanceof User ? $author : null, $task, $author instanceof Agent ? TriggerType::Agent : TriggerType::Manual);
         }
 
@@ -263,7 +263,7 @@ final class TaskThread
      */
     public function wake(Task $task, ?User $requestedBy, TaskMessage|Task $source, TriggerType $trigger = TriggerType::Manual, ?Closure $created = null): ?AgentRun
     {
-        $agent = $task->assigneeAgent;
+        $agent = $this->agentOf($task);
 
         if ($agent === null || $task->status->isClosed() && $task->kind === TaskKind::Task) {
             return null;
@@ -284,6 +284,46 @@ final class TaskThread
         }
 
         return $this->runner()->dispatch($agent, $this->input($task, $source), $trigger, $requestedBy, $source, $task->id, $created);
+    }
+
+    /**
+     * The agent who answers in the thread: the one it is assigned to or, when an
+     * agent gave the task to a person, that agent, who stays to help
+     * (docs/DECISOES.md, "Passar trabalho a um colega").
+     */
+    public function agentOf(Task $task): ?Agent
+    {
+        if ($task->assigneeAgent !== null) {
+            return $task->assigneeAgent;
+        }
+
+        return $task->kind === TaskKind::Task && $task->assignee_user_id !== null ? $task->createdByAgent : null;
+    }
+
+    /**
+     * The threads whose files the agent of this run may read: its own, the
+     * tasks delegated from it and, in a conversation, the tasks it gave people
+     * from it, whose results come back here.
+     *
+     * @return list<int>
+     */
+    public function readableTaskIds(AgentRun $run): array
+    {
+        $task = $run->task;
+
+        if ($task === null) {
+            return [];
+        }
+
+        $ids = Task::query()->where('parent_id', $task->id)->pluck('id');
+
+        if ($task->kind === TaskKind::Chat && $task->user_id !== null) {
+            $ids = $ids->merge(Task::query()->where('kind', TaskKind::Task)->whereNull('parent_id')
+                ->where('created_by_agent_id', $run->agent_id)->where('user_id', $task->user_id)
+                ->whereNotNull('assignee_user_id')->pluck('id'));
+        }
+
+        return [$task->id, ...$ids->map(fn ($id) => (int) $id)->all()];
     }
 
     /**
@@ -607,13 +647,24 @@ final class TaskThread
         $parent = $task->parent;
 
         // A flow's sub-task: the flow, not the parent's agent, picks up what comes next.
-        if ($parent === null || app(WorkflowEngine::class)->ownsTask($task)) {
+        if (app(WorkflowEngine::class)->ownsTask($task)) {
+            return;
+        }
+
+        // Work an agent gave a person from a conversation goes back to that conversation.
+        $parent ??= $task->kind === TaskKind::Task && $task->assignee_user_id !== null && $task->createdByAgent !== null && $task->user !== null
+            ? $this->conversation($task->user, $task->createdByAgent)
+            : null;
+
+        if ($parent === null) {
             return;
         }
 
         $last = $task->messages()->whereIn('author_type', [ActorType::Agent, ActorType::User])->reorder('id', 'desc')->first();
+        $files = $last?->attachments()->get()->map(fn (MessageAttachment $a) => "{$a->reference()} {$a->filename}")->all() ?? [];
         $summary = "A tarefa delegada {$task->identifier()} «{$task->title}» foi concluída".($by ? " por {$by->name}" : '').'.'
-            .($last ? "\n\nÚltima resposta:\n".Str::limit($last->body, 1500) : '');
+            .($last ? "\n\nÚltima resposta:\n".Str::limit($last->body, 1500) : '')
+            .($files !== [] ? "\n\nFicheiros nessa resposta: ".implode(', ', $files).'. Podes lê-los (files.read) ou guardá-los no repositório (knowledge.file) pelo número.' : '');
 
         $note = $this->note($parent, $summary, kind: TaskMessageKind::Report);
 

@@ -13,6 +13,7 @@ use App\Enums\AutonomyLevel;
 use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
 use App\Models\MessageAttachment;
+use App\Tasks\TaskThread;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Validator;
 
@@ -125,7 +126,7 @@ final class FileToKnowledge extends LocalCapability
     {
         return $context->run->task_id === null ? null : MessageAttachment::query()
             ->ready()
-            ->where('task_id', $context->run->task_id)
+            ->whereIn('task_id', app(TaskThread::class)->readableTaskIds($context->run))
             ->whereNotNull('task_message_id')
             ->find($id);
     }

@@ -887,3 +887,18 @@ Pedido do Barrote: deixar de testar com a empresa inventada (MICOMOC) e testar c
 | **Memória da empresa** com 22 factos aprovados (Quem somos, Pessoas, Clientes, Regras), das propostas ao MTC (2023) e ao FDC (2024), das certidões nos «Documentos da empresa», dos emails da caixa geral@ e do ERP. Os três PDFs da empresa que vieram por email ficam no repositório (Geral) e são lidos pela fila. | `company_facts`, `knowledge_items` |
 
 Testes: `tests/Feature/Tenancy/MoveMailboxTest.php`.
+
+## Passar trabalho a um colega (16.10.2026)
+
+Pedido do Barrote: o Chief of Staff avisou que a subscrição da TVCabo acabava e, quando ele pediu «escreve uma mensagem para a Naira para procedermos ao pagamento», o agente só redigiu um texto para copiar. Ele quer que o agente colabore com a Naira dentro da plataforma. Viu a proposta e disse «avança».
+
+| Decisão | Onde |
+|---|---|
+| **Numa conversa, o agente dá trabalho em nome de quem fala com ele**: além das pessoas da sua área e da sua chefia, pode dar uma tarefa a qualquer colega activo quando a pessoa da conversa é uma chefia (`work.manage`, quem já pode criar uma tarefa para uma pessoa directamente). Fora de uma conversa, ou para quem não é chefia, a regra da área mantém-se. Não é preciso dar departamentos às pessoas para isto funcionar. | `CreateTask` |
+| **A tarefa leva o prazo e o email de origem** (`due_at`, `email_id`, só emails que o agente pode ler) e fica com a pessoa da conversa como «quem pediu» (`user_id`). Abre com a nota «Pedido por {pessoa}, na conversa com {agente}». | `CreateTask` |
+| **Quem recebe a tarefa abre o email de onde ela veio** (só esse), também na caixa. | `EmailMessage::visibleTo()` |
+| **O agente que deu a tarefa acompanha-a**: o que a pessoa escreve no fio acorda-o, e ele responde às dúvidas; não a marca como feita nem faz o trabalho dela (os pagamentos ficam sempre com pessoas). Abrir a tarefa não põe ninguém a trabalhar. | `TaskThread::agentOf()`, `open()`, `InstructionComposer::task()` |
+| **O resultado volta à conversa**: quando a pessoa marca a tarefa como feita, a última mensagem (e os ficheiros, por número) chegam à conversa de onde veio o pedido e o agente avisa quem pediu. Pode ler esses ficheiros e guardá-los no repositório (`files.read`, `knowledge.file` aceitam os das tarefas que deu a partir da conversa). | `TaskThread::reportToParent()`, `readableTaskIds()` |
+| **O agente conhece as pessoas**: o prompt lista as pessoas activas com email, função e departamento (até 60), e diz que pedir algo a um colega da plataforma é dar-lhe a tarefa; um texto para copiar só serve para pessoas de fora. | `InstructionComposer::team()`, `people()` |
+
+`tasks.create` e `tasks.ask_human` já estavam ligadas a todos os agentes (`CapabilityRegistry::ALWAYS_ON`); o que travava era a regra da área (a Naira não tem departamento) e as instruções. Testes: `tests/Feature/Tasks/ColleaguesTest.php`.
