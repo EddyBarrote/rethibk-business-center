@@ -1,5 +1,19 @@
 import { Link } from '@inertiajs/react';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, ChevronRight, ExternalLink, FileText, Loader2, Lock, Mail, Wrench, X, Zap } from 'lucide-react';
+import {
+    ArrowDownLeft,
+    ArrowUpRight,
+    Check,
+    ChevronDown,
+    ChevronRight,
+    ExternalLink,
+    FileText,
+    Loader2,
+    Lock,
+    Mail,
+    Wrench,
+    X,
+    Zap,
+} from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -267,7 +281,6 @@ function AgentBubble({
                     {tools.length > 0 && message.run_id && <ToolCalls runId={message.run_id} calls={tools} onOpenRun={onOpenRun} />}
                     <div className="flex items-center gap-2 px-1">
                         <Time value={message.created_at} />
-                        {message.run_id && tools.length === 0 && <RunButton runId={message.run_id} onOpenRun={onOpenRun} />}
                     </div>
                 </div>
             </div>
@@ -280,9 +293,9 @@ export function RunButton({ runId, onOpenRun, children }: { runId: number; onOpe
         <button
             type="button"
             onClick={() => onOpenRun(runId)}
-            className="font-mono text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         >
-            {children ?? `ver execução #${runId}`}
+            {children ?? 'Ver o passo a passo'}
         </button>
     );
 }
@@ -422,11 +435,6 @@ export function WorkingBubble({
                 <Working label={live?.tool ?? null} />
                 {thinking && <LiveReasoning text={reasoning} />}
                 {runId && calls.length > 0 && <ToolCalls runId={runId} calls={calls} onOpenRun={onOpenRun} live />}
-                {runId && calls.length === 0 && (
-                    <div className="px-1">
-                        <RunButton runId={runId} onOpenRun={onOpenRun} />
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -512,11 +520,6 @@ function EventLine({ message, onOpenRun }: { message: ChatMessage; onOpenRun: Op
                 <span className="ml-1.5 opacity-80">
                     · <Time value={message.created_at} />
                 </span>
-                {message.run_id && (
-                    <span className="ml-1.5">
-                        · <RunButton runId={message.run_id} onOpenRun={onOpenRun} />
-                    </span>
-                )}
             </span>
             <span className="h-px flex-1 bg-border" />
         </div>
@@ -537,11 +540,6 @@ function ReportCard({ message, onOpenRun }: { message: ChatMessage; onOpenRun: O
             </summary>
             <div className="mt-2 border-t pt-2 text-sm text-foreground">
                 <Markdown>{message.body}</Markdown>
-                {message.run_id && (
-                    <div className="mt-2">
-                        <RunButton runId={message.run_id} onOpenRun={onOpenRun} />
-                    </div>
-                )}
             </div>
         </details>
     );
