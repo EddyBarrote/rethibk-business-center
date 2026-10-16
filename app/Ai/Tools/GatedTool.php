@@ -48,6 +48,14 @@ final class GatedTool implements Tool
         return Str::limit((string) preg_replace('/[^a-zA-Z0-9_-]/', '_', $this->capability->key), 64, '');
     }
 
+    /**
+     * The capability's name in Portuguese, as people see it.
+     */
+    public function label(): string
+    {
+        return $this->capability->name;
+    }
+
     public function description(): string
     {
         $description = $this->capability->description ?: $this->capability->name;

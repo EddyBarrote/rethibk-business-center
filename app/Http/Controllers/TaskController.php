@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -460,6 +461,8 @@ class TaskController extends Controller
             'working' => $active ? Present::run($active->load('agent:id,name')) : null,
             // The tools each turn called, shown under the agent's answer (docs/DECISOES.md, "Página de conversa").
             'tool_calls' => $this->toolCalls($task),
+            // What each turn thought, folded to «Pensou durante…» above its answer (docs/DECISOES.md, "Raciocínio na conversa").
+            'thinking' => $this->thinking($task),
             // The run open in the side panel (?execucao=), so "Ver execução" never leaves the conversation.
             'panel_run' => fn () => $this->panelRun($request, $task, $user),
             'tool_names' => fn () => Capability::query()->pluck('name', 'key'),
@@ -722,6 +725,33 @@ class TaskController extends Controller
             $source instanceof EmailMessage => ['label' => "Email: {$source->subject}", 'href' => "/inbox/{$source->id}"],
             default => null,
         };
+    }
+
+    /**
+     * The reasoning summaries of the conversation's latest runs, per run.
+     *
+     * @return array<int, array{text: string, ms: int}>
+     */
+    private function thinking(Task $task): array
+    {
+        $runIds = $task->runs()->latest('id')->limit(50)->pluck('id');
+
+        if ($runIds->isEmpty()) {
+            return [];
+        }
+
+        return AgentRunStep::query()
+            ->whereIn('agent_run_id', $runIds)
+            ->where('type', StepType::Reasoning)
+            ->orderBy('agent_run_id')
+            ->orderBy('seq')
+            ->get(['agent_run_id', 'payload', 'duration_ms'])
+            ->groupBy('agent_run_id')
+            ->map(fn ($steps) => [
+                'text' => Str::limit($steps->map(fn (AgentRunStep $step) => trim((string) ($step->payload['text'] ?? '')))->filter()->join("\n\n"), 20_000),
+                'ms' => (int) $steps->sum('duration_ms'),
+            ])
+            ->all();
     }
 
     /**

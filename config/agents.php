@@ -20,6 +20,14 @@ return [
     'timeout' => 120,
 
     /*
+    | Ask the model for a summary of its reasoning (Gemini thought summaries),
+    | shown live in the chat and folded to «Pensou durante…» afterwards. Its
+    | tokens are output tokens, so they count in the AI budget.
+    */
+
+    'thought_summaries' => (bool) env('AGENTS_THOUGHT_SUMMARIES', true),
+
+    /*
     | A run still "running" this long after its last update lost its worker
     | (the job is killed at 300 s), and one "queued" this long never got one:
     | both stop showing as working and are closed as failed.

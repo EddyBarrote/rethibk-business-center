@@ -1011,3 +1011,19 @@ Na RET-10 (Rethink, run 386) o Gestor de Clientes pôs 25 000 MZN de instalaçã
 Verificado sobre os traços reais: nas últimas 92 chamadas que produzem algo (MICOMOC e Rethink), a verificação recusaria só as da run 386 (RET-10) e da run 374 (RET-6); as cobranças da MICOMOC com totais de facturas passam. Limite conhecido: um valor inventado que coincide com um número de uma fonte (o 25.000 de um serviço de email numa proposta antiga) passa.
 
 Testes: `tests/Feature/Agents/FactCheckTest.php`.
+
+## Raciocínio na conversa (16.10.2026)
+
+Pedido do Barrote: o «A pensar…» deve mostrar o raciocínio, e ser minimalista como no Claude (uma faísca que roda e texto com brilho, sem balão, já feito antes). O ecrã tinha um balão com três pontos, «🔧 a usar web_search» em monospace e «ver execução #392» por baixo.
+
+| Decisão | Onde |
+|---|---|
+| **O Gemini envia um resumo do raciocínio** (`generation_config.thinking_summaries = auto`, Interactions API). Desliga-se com `AGENTS_THOUGHT_SUMMARIES=false`. Outros provedores não pedem nada (o Claude exigiria orçamento de pensamento e temperatura 1). Os tokens de pensamento já entram em `output_tokens` (a laravel/ai soma `total_thought_tokens`), por isso contam no orçamento e no custo. | `GenericAgent::providerOptions()`, `config/agents.php` |
+| **Ao vivo**: enquanto pensa, o raciocínio aparece por baixo de «A pensar…», em texto pequeno e esbatido, umas cinco linhas que seguem o mais recente. Quando responde ou usa uma ferramenta, recolhe-se em «Pensou durante 12 s», que se abre para ler. | `AgentRunner::streamToThread()`, `TaskReplyStreaming`, `Chat.tsx` (`WorkingBubble`, `ThoughtToggle`) |
+| **Fica guardado por passo**: cada bloco de raciocínio é um passo `reasoning` da execução, com o texto e a duração (do início do passo do modelo ao fim do resumo). Na conversa, a resposta final mostra «Pensou durante…» com a soma dos blocos; na execução aparece como «Raciocínio». | `RunRecorder`, `TaskController::thinking()` |
+| **A ferramenta em português**: «A pesquisar na internet…» em vez de `web_search`. O nome da capacidade passa a frase: infinitivo vira «A pesquisar…», substantivo vira «A consultar contratos…». | `ToolActivity`, `GatedTool::label()` |
+| **Menos ruído**: «ver execução #…» só aparece enquanto não há ferramentas (com ferramentas, está dentro da linha das ferramentas). | `Chat.tsx` |
+
+Limite conhecido: o Gemini escreve os resumos em inglês, mesmo com instruções e pedido em português (testado com o modelo por omissão, `gemini-3.6-flash`). Traduzir exigiria outra chamada ao modelo por bloco.
+
+Testes: `tests/Feature/Tasks/ThinkingTest.php`.

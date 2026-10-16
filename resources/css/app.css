@@ -530,6 +530,11 @@
     animation: thinking-shimmer 2s linear infinite;
 }
 
+/* The live reasoning fades out at the top as it scrolls. */
+.thinking-live {
+    mask-image: linear-gradient(to bottom, transparent 0, black 1.5rem);
+}
+
 @keyframes thinking-spark {
     0% {
         transform: rotate(0deg) scale(1);

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, ExternalLink, FileText, Loader2, Lock, Mail, Wrench, X, Zap } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, ChevronRight, ExternalLink, FileText, Loader2, Lock, Mail, Wrench, X, Zap } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -59,6 +59,24 @@ export interface ToolCall {
     link?: { label: string; href: string } | null;
 }
 
+/** A turn's reasoning summary and how long the model thought (docs/DECISOES.md, "Raciocínio na conversa"). */
+export interface Thought {
+    text: string;
+    ms: number;
+}
+
+/** The agent's turn as it streams in (TaskReplyStreaming). */
+export interface LiveReply {
+    run_id: number;
+    text: string;
+    /** What it is doing, in Portuguese («A pesquisar na internet»), while a tool runs. */
+    tool: string | null;
+    reasoning: string;
+    /** Still thinking: the reasoning shows live under «A pensar…». */
+    thinking: boolean;
+    thought_ms: number;
+}
+
 /** Opens a run (and optionally one of its steps) in the side panel. */
 export type OpenRun = (runId: number, stepId?: number) => void;
 
@@ -86,11 +104,13 @@ const isPerson = (message: ChatMessage) => message.author_type === 'user' || mes
 export function ChatThread({
     messages,
     toolCalls,
+    thinking = {},
     viewer,
     onOpenRun,
 }: {
     messages: ChatMessage[];
     toolCalls: Record<number, ToolCall[]>;
+    thinking?: Record<number, Thought>;
     viewer: string | null;
     onOpenRun: OpenRun;
 }) {
@@ -112,9 +132,11 @@ export function ChatThread({
                     new Date(message.created_at).getTime() - new Date(previous.created_at).getTime() < 5 * 60_000;
 
                 let tools: ToolCall[] = [];
+                let thought: Thought | null = null;
                 if (message.author_type === 'agent' && message.run_id && !toolsShown.has(message.run_id)) {
                     toolsShown.add(message.run_id);
                     tools = toolCalls[message.run_id] ?? [];
+                    thought = thinking[message.run_id] ?? null;
                 }
 
                 return (
@@ -129,7 +151,7 @@ export function ChatThread({
                         ) : isPerson(message) ? (
                             <PersonBubble message={message} continued={continued} own={viewer === message.author} />
                         ) : (
-                            <AgentBubble message={message} continued={continued} tools={tools} onOpenRun={onOpenRun} />
+                            <AgentBubble message={message} continued={continued} tools={tools} thought={thought} onOpenRun={onOpenRun} />
                         )}
                     </div>
                 );
@@ -205,7 +227,19 @@ function PersonBubble({ message, continued, own }: { message: ChatMessage; conti
     );
 }
 
-function AgentBubble({ message, continued, tools, onOpenRun }: { message: ChatMessage; continued: boolean; tools: ToolCall[]; onOpenRun: OpenRun }) {
+function AgentBubble({
+    message,
+    continued,
+    tools,
+    thought,
+    onOpenRun,
+}: {
+    message: ChatMessage;
+    continued: boolean;
+    tools: ToolCall[];
+    thought: Thought | null;
+    onOpenRun: OpenRun;
+}) {
     return (
         <div className={cn('flex gap-2.5 pr-6 sm:pr-16', continued ? 'mt-1' : 'mt-4')}>
             {!continued ? (
@@ -220,6 +254,7 @@ function AgentBubble({ message, continued, tools, onOpenRun }: { message: ChatMe
                         {message.kind === 'action' && <ActionBadge />}
                     </div>
                 )}
+                {thought && thought.text !== '' && <ThoughtToggle thought={thought} />}
                 {message.body !== '' && (
                     <div className="max-w-full min-w-0 rounded-2xl rounded-tl-md border bg-card px-4 py-2.5 text-sm break-words shadow-xs [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0">
                         <Markdown>{message.body}</Markdown>
@@ -344,22 +379,28 @@ export function ToolCalls({ runId, calls, onOpenRun, live = false }: { runId: nu
     );
 }
 
-/** The agent working on this turn: what it is writing as it writes it, and the tools it has called so far. */
+/**
+ * The agent working on this turn, as in Claude: its reasoning live while it
+ * thinks, folded to «Pensou durante…» once it answers or uses a tool, what it
+ * has written so far, and one quiet line saying what it is doing.
+ */
 export function WorkingBubble({
     agent,
     runId,
-    text,
-    tool,
+    live,
     calls,
     onOpenRun,
 }: {
     agent: string;
     runId: number | null;
-    text: string | null;
-    tool: string | null;
+    live: LiveReply | null;
     calls: ToolCall[];
     onOpenRun: OpenRun;
 }) {
+    const text = live?.text.trim() ? live.text : null;
+    const reasoning = live?.reasoning.trim() ? live.reasoning : null;
+    const thinking = !!live?.thinking && reasoning !== null;
+
     return (
         <div className="mt-4 flex gap-2.5 pr-6 sm:pr-16">
             <span className="relative mt-0.5 h-fit shrink-0">
@@ -370,6 +411,7 @@ export function WorkingBubble({
                 <div className="flex items-center gap-2 px-1">
                     <span className="text-xs font-medium text-foreground/80">{agent}</span>
                 </div>
+                {reasoning && !thinking && <ThoughtToggle thought={{ text: reasoning, ms: live?.thought_ms ?? 0 }} />}
                 {text && (
                     <div className="max-w-full min-w-0 rounded-2xl rounded-tl-md border bg-card px-4 py-2.5 text-sm shadow-xs">
                         <div className="[&>*:first-child]:mt-0">
@@ -377,9 +419,10 @@ export function WorkingBubble({
                         </div>
                     </div>
                 )}
-                <Thinking tool={tool} />
+                <Working label={live?.tool ?? null} />
+                {thinking && <LiveReasoning text={reasoning} />}
                 {runId && calls.length > 0 && <ToolCalls runId={runId} calls={calls} onOpenRun={onOpenRun} live />}
-                {runId && (
+                {runId && calls.length === 0 && (
                     <div className="px-1">
                         <RunButton runId={runId} onOpenRun={onOpenRun} />
                     </div>
@@ -390,7 +433,7 @@ export function WorkingBubble({
 }
 
 /** One quiet line while the agent works, as in Claude: a turning spark and a shimmer. */
-function Thinking({ tool }: { tool: string | null }) {
+function Working({ label }: { label: string | null }) {
     return (
         <div className="flex items-center gap-1.5 px-1 py-0.5 text-sm" role="status" aria-live="polite">
             <svg viewBox="0 0 24 24" className="thinking-spark size-3.5 shrink-0 text-primary" aria-hidden="true">
@@ -399,15 +442,63 @@ function Thinking({ tool }: { tool: string | null }) {
                     d="M12 2c.4 3.9 1.3 6.2 2.8 7.2C16.3 10.3 18.6 11 22 12c-3.4 1-5.7 1.7-7.2 2.8-1.5 1-2.4 3.3-2.8 7.2-.4-3.9-1.3-6.2-2.8-7.2C7.7 13.7 5.4 13 2 12c3.4-1 5.7-1.7 7.2-2.8C10.7 8.2 11.6 5.9 12 2Z"
                 />
             </svg>
-            <span className="thinking-text">
-                {tool ? (
-                    <>
-                        A usar <span className="font-mono text-[13px]">{tool}</span>…
-                    </>
-                ) : (
-                    'A pensar…'
-                )}
-            </span>
+            <span className="thinking-text">{label ? `${label}…` : 'A pensar…'}</span>
+        </div>
+    );
+}
+
+/** The reasoning as it arrives: a few muted lines that follow the newest. */
+function LiveReasoning({ text }: { text: string }) {
+    const box = useRef<HTMLDivElement>(null);
+    const [overflows, setOverflows] = useState(false);
+
+    useEffect(() => {
+        const element = box.current;
+        if (element) {
+            element.scrollTo({ top: element.scrollHeight });
+            setOverflows(element.scrollHeight > element.clientHeight);
+        }
+    }, [text]);
+
+    return (
+        <div
+            ref={box}
+            className={cn(
+                'ml-[11px] max-h-28 max-w-xl overflow-hidden border-l pl-3 text-[13px] leading-relaxed text-muted-foreground [&_.prose]:text-[13px] [&_.prose]:text-muted-foreground [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0',
+                overflows && 'thinking-live',
+            )}
+        >
+            <Markdown>{text}</Markdown>
+        </div>
+    );
+}
+
+function thoughtFor(ms: number) {
+    const seconds = Math.max(1, Math.round(ms / 1000));
+
+    return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
+}
+
+/** «Pensou durante 12 s», opened to read what the model reasoned. */
+function ThoughtToggle({ thought }: { thought: Thought }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className="flex max-w-xl flex-col items-start">
+            <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                aria-expanded={open}
+                className="inline-flex items-center gap-1 px-1 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+                {thought.ms > 0 ? `Pensou durante ${thoughtFor(thought.ms)}` : 'Raciocínio'}
+                <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} />
+            </button>
+            {open && (
+                <div className="mt-1 mb-1 ml-[11px] border-l pl-3 text-[13px] leading-relaxed text-muted-foreground [&_.prose]:text-[13px] [&_.prose]:text-muted-foreground [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0">
+                    <Markdown>{thought.text}</Markdown>
+                </div>
+            )}
         </div>
     );
 }

@@ -9,7 +9,7 @@ import { ListPanel, Monogram, Properties, Property, Section } from '@/Components
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
-import { type ChatMessage, ChatThread, type ToolCall, WorkingBubble } from '@/Components/tasks/Chat';
+import { type ChatMessage, ChatThread, type LiveReply, type Thought, type ToolCall, WorkingBubble } from '@/Components/tasks/Chat';
 import { type Journey, JourneyView } from '@/Components/tasks/Journey';
 import { type AgentWork, type PanelRun, type PanelTab, SidePanel } from '@/Components/tasks/SidePanel';
 import { StatusBadge, StatusDot, type Tone } from '@/Components/Status';
@@ -43,6 +43,7 @@ interface Props extends TaskFormOptions {
     runs: RunSummary[];
     working: RunSummary | null;
     tool_calls: Record<number, ToolCall[]>;
+    thinking: Record<number, Thought>;
     panel_run: PanelRun | null;
     tool_names: Record<string, string>;
     approvals: PendingApproval[];
@@ -86,6 +87,7 @@ const reloadProps = [
     'runs',
     'working',
     'tool_calls',
+    'thinking',
     'approvals',
     'workflow',
     'has_journey',
@@ -156,6 +158,7 @@ export default function TaskShow({
     runs,
     working,
     tool_calls: toolCalls,
+    thinking,
     panel_run: panelRun,
     agent_work: agentWork,
     agent_elsewhere: elsewhere,
@@ -240,9 +243,9 @@ export default function TaskShow({
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // The answer as the agent writes it (TaskReplyStreaming), until the final message lands.
-    const [stream, setStream] = useState<{ run_id: number; text: string; tool: string | null } | null>(null);
+    const [stream, setStream] = useState<LiveReply | null>(null);
 
-    useLive<{ run_id: number; text: string; tool: string | null }>(
+    useLive<LiveReply>(
         tenant ? `tenant.${tenant.id}.task.${task.id}` : null,
         ['TaskUpdated', 'TaskReplyStreaming'],
         (event, payload) => (event === 'TaskReplyStreaming' ? setStream(payload) : reload()),
@@ -263,7 +266,7 @@ export default function TaskShow({
         if (stream) {
             bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
-    }, [stream?.text]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [stream?.text, stream?.reasoning]); // eslint-disable-line react-hooks/exhaustive-deps
     // Its runs elsewhere starting or ending refresh "A fazer agora"; polled too while there are some, so it never sticks.
     useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished'], reload, {
         only: live,
@@ -554,14 +557,13 @@ export default function TaskShow({
                                         />
                                     )}
 
-                                    <ChatThread messages={messages} toolCalls={toolCalls} viewer={auth.user?.name ?? null} onOpenRun={openRun} />
+                                    <ChatThread messages={messages} toolCalls={toolCalls} thinking={thinking} viewer={auth.user?.name ?? null} onOpenRun={openRun} />
 
                                     {(working || stream) && (
                                         <WorkingBubble
                                             agent={working?.agent.name ?? agentName}
                                             runId={working?.id ?? stream?.run_id ?? null}
-                                            text={stream?.text || null}
-                                            tool={stream?.tool ?? null}
+                                            live={stream}
                                             calls={toolCalls[working?.id ?? stream?.run_id ?? 0] ?? []}
                                             onOpenRun={openRun}
                                         />

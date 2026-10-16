@@ -7,8 +7,10 @@ use App\Models\AgentRun;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasMiddleware;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\PendingStep;
 use Laravel\Ai\Promptable;
@@ -18,7 +20,7 @@ use Laravel\Ai\ToolChoice;
  * The one agent class (docs/DECISOES.md): personality, instructions, model,
  * limits and tools all come from the agents row. Only AgentRunner builds it.
  */
-final class GenericAgent implements Agent, Conversational, HasMiddleware, HasTools
+final class GenericAgent implements Agent, Conversational, HasMiddleware, HasProviderOptions, HasTools
 {
     use Promptable;
 
@@ -101,6 +103,21 @@ final class GenericAgent implements Agent, Conversational, HasMiddleware, HasToo
                 ? $next($step->withToolChoice(ToolChoice::none)->withInstructions(trim($step->instructions."\n\n".self::LAST_STEP)))
                 : $next($step),
         ];
+    }
+
+    /**
+     * Gemini sends a summary of its reasoning, shown in the chat while it thinks
+     * (docs/DECISOES.md, "Raciocínio na conversa").
+     *
+     * @return array<string, mixed>
+     */
+    public function providerOptions(Lab|string $provider): array
+    {
+        $provider = $provider instanceof Lab ? $provider->value : $provider;
+
+        return $provider === 'gemini' && config('agents.thought_summaries')
+            ? ['thinking_summaries' => 'auto']
+            : [];
     }
 
     public function timeout(): int

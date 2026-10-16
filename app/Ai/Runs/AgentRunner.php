@@ -10,6 +10,7 @@ use App\Ai\Budget\BudgetGuard;
 use App\Ai\Budget\Pricing;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Memory\MemoryConsolidator;
+use App\Ai\Tools\GatedTool;
 use App\Attachments\ModelInput;
 use App\Enums\AuditResult;
 use App\Enums\QuestionStatus;
@@ -36,6 +37,9 @@ use Laravel\Ai\Files\File;
 use Laravel\Ai\Messages\AssistantMessage;
 use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Responses\StreamedAgentResponse;
+use Laravel\Ai\Streaming\Events\ReasoningDelta;
+use Laravel\Ai\Streaming\Events\ReasoningEnd;
+use Laravel\Ai\Streaming\Events\ReasoningStart;
 use Laravel\Ai\Streaming\Events\StreamStart;
 use Laravel\Ai\Streaming\Events\TextDelta;
 use Laravel\Ai\Streaming\Events\ToolCall;
@@ -265,7 +269,8 @@ final class AgentRunner
 
     /**
      * Stream the model's answer and broadcast it to the task thread a few times
-     * a second, with the tool in use in between, so people see it being written.
+     * a second, with what it is doing in between: its reasoning while it thinks
+     * and the tool it is using, in Portuguese (docs/DECISOES.md, "Raciocínio na conversa").
      *
      * @param  list<File>  $files
      */
@@ -277,26 +282,64 @@ final class AgentRunner
             $final = $response;
         });
 
-        $text = '';
+        $labels = collect($generic->tools())
+            ->filter(fn ($tool) => $tool instanceof GatedTool)
+            ->mapWithKeys(fn (GatedTool $tool) => [$tool->name() => $tool->label()]);
+
+        $live = ['text' => '', 'reasoning' => '', 'thinking' => false, 'thought_ms' => 0, 'tool' => null];
+        $block = '';
+        // Thinking starts with the model's step, before the first word of its summary.
+        $stepStartedAt = microtime(true);
         $sentAt = 0.0;
+        $send = function (bool $now = false) use ($run, &$live, &$sentAt): void {
+            if ($now || microtime(true) - $sentAt >= 0.2) {
+                TaskReplyStreaming::live($run, $live['text'], $live['tool'], $live['reasoning'], $live['thinking'], $live['thought_ms']);
+                $sentAt = microtime(true);
+            }
+        };
 
         foreach ($stream as $event) {
-            if ($event instanceof StreamStart && trim($text) !== '') {
-                $text = rtrim($text)."\n\n";
-            } elseif ($event instanceof TextDelta) {
-                $text .= $event->delta;
+            if ($event instanceof StreamStart) {
+                $stepStartedAt = microtime(true);
 
-                if (microtime(true) - $sentAt >= 0.2) {
-                    TaskReplyStreaming::live($run, $text);
-                    $sentAt = microtime(true);
+                if (trim($live['text']) !== '') {
+                    $live['text'] = rtrim($live['text'])."\n\n";
                 }
+            } elseif ($event instanceof ReasoningStart) {
+                $block = '';
+                $live['thinking'] = true;
+                $live['tool'] = null;
+
+                if (trim($live['reasoning']) !== '') {
+                    $live['reasoning'] = rtrim($live['reasoning'])."\n\n";
+                }
+                $send(true);
+            } elseif ($event instanceof ReasoningDelta) {
+                $block .= $event->delta;
+                $live['reasoning'] .= $event->delta;
+                $send();
+            } elseif ($event instanceof ReasoningEnd) {
+                $ms = (int) round((microtime(true) - $stepStartedAt) * 1000);
+                $live['thinking'] = false;
+                $live['thought_ms'] += $ms;
+
+                if (trim($block) !== '') {
+                    $this->recorder->step($run, StepType::Reasoning, ['text' => trim($block)], durationMs: $ms);
+                }
+                $send(true);
+            } elseif ($event instanceof TextDelta) {
+                $live['text'] .= $event->delta;
+                $live['tool'] = null;
+                $send();
             } elseif ($event instanceof ToolCall) {
-                TaskReplyStreaming::live($run, $text, $event->toolCall->name);
-                $sentAt = microtime(true);
+                $live['tool'] = ToolActivity::phrase($labels[$event->toolCall->name] ?? $event->toolCall->name);
+                $send(true);
             }
         }
 
-        TaskReplyStreaming::live($run, $text);
+        $live['tool'] = null;
+        $live['thinking'] = false;
+        $send(true);
 
         return $final ?? throw new \RuntimeException('O modelo terminou sem resposta.');
     }
