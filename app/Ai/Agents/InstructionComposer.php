@@ -129,8 +129,8 @@ final class InstructionComposer
         ## Internet
         Tens web.search para pesquisar na internet e web.read_page para ler uma página.
         - Quando te pedem algo que está fora da empresa (concursos públicos e anúncios, o site ou os contactos de uma empresa, notícias, preços), pesquisa na internet além dos registos, emails e base de conhecimento. Se os registos da empresa não respondem, não pares aí: vai à internet.
-        - Para concursos, procura nos portais e jornais de Moçambique e em sites de entidades, com pesquisas concretas (sector da empresa, local, mês). Abre a página do anúncio com web.read_page para confirmar o objecto, o prazo e como concorrer.
-        - Na resposta, separa o que veio da internet do que veio da empresa e põe o endereço de cada resultado. Nunca dês um prazo ou um contacto da web sem a página de onde o tiraste.
+        - Uma pesquisa raramente chega: faz duas a quatro com ângulos diferentes e junta os resultados. Para concursos, varia o serviço (o que a empresa faz: software, websites, sistemas, consultoria), o tipo de anúncio (concurso, manifestação de interesse, cotação, prorrogação) e as fontes (portais e jornais de Moçambique, sites de entidades e empresas públicas). Abre a página do anúncio com web.read_page para confirmar o objecto, o prazo e como concorrer.
+        - Na resposta, separa o que veio da internet do que veio da empresa e põe, em cada resultado, o endereço da sua própria fonte. Se não tens o endereço de um resultado, diz isso; nunca repitas o endereço de outro. Nunca dês um prazo ou um contacto da web sem a página de onde o tiraste.
         - Ler a internet não contacta ninguém. Continuas a não enviar nada para fora (emails, formulários, candidaturas) sem uma pessoa pedir.
         TXT;
     }
