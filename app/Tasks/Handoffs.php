@@ -184,6 +184,7 @@ final class Handoffs
      */
     public function forModel(TaskMessage $message, Task $task, bool $now = false): string
     {
+        $message->loadMissing(['handoff.user:id,name', 'handoff.fromAgent:id,name', 'handoff.toAgent:id,name']);
         $handoff = $message->handoff;
 
         if ($handoff === null) {
@@ -202,6 +203,8 @@ final class Handoffs
 
         if ($here) {
             return "{$handoff->toAgent?->name} respondeu ao pedido que lhe passaste:\n\n{$message->body}"
+                ."\n\n[Plataforma] ".$this->passedOn($handoff)
+                .($now ? " Se a resposta diz que uma parte é de outro colega, ou diz que encaminhou algo que a plataforma não confirma, passa-a tu agora (agents.message, ou tasks.create para trabalho longo) e diz a {$person} a quem passaste. Nunca digas que algo foi encaminhado se não foi." : '')
                 .($now ? "\n\n{$handoff->toAgent?->name} já escreveu a {$person} na conversa com ele. Diz a {$person} o que importa, em poucas linhas, sem repetir tudo; se houver uma decisão a tomar, pergunta-lhe." : '');
         }
 
@@ -239,6 +242,33 @@ final class Handoffs
             'status' => $handoff->status,
             'other_task_id' => $otherTask !== null && $viewer->can('view', $otherTask) ? $otherTask->id : null,
         ];
+    }
+
+    /**
+     * What the colleague actually passed on while answering, from the
+     * platform's records, so the agent that asked never relays a claim of
+     * forwarding that did not happen.
+     */
+    private function passedOn(AgentHandoff $handoff): string
+    {
+        $run = $handoff->answer_run_id !== null ? AgentRun::query()->find($handoff->answer_run_id) : null;
+        $name = $handoff->toAgent->name ?? 'O colega';
+
+        if ($run === null) {
+            return "Não há registo do que {$name} fez.";
+        }
+
+        $passed = AgentHandoff::query()->where('from_run_id', $run->id)->with('toAgent:id,name')->get()
+            ->map(fn (AgentHandoff $h) => "passou um pedido a {$h->toAgent?->name}");
+        $tasks = Task::query()->where('created_by_agent_id', $run->agent_id)
+            ->whereBetween('created_at', [$run->started_at ?? $run->created_at, $run->finished_at ?? now()])
+            ->with(['assigneeAgent:id,name', 'assigneeUser:id,name'])->get()
+            ->map(fn (Task $t) => "deu {$t->identifier()} «{$t->title}» a ".($t->assigneeAgent->name ?? $t->assigneeUser->name ?? '?'));
+        $done = $passed->merge($tasks);
+
+        return $done->isEmpty()
+            ? "Segundo os registos, {$name} não passou trabalho a ninguém nesta resposta."
+            : "Segundo os registos, {$name} ".$done->implode('; ').'.';
     }
 
     private function row(Task $task, string $body, AgentHandoff $handoff, AgentRun $run): void

@@ -102,7 +102,10 @@ it('passes a request to a colleague, who works on it in the person\'s conversati
 
         expect($relay->id)->not->toBe($cosRun->id)
             ->and($relay->input)->toContain('Gestor Comercial respondeu ao pedido que lhe passaste')
-            ->and($relay->input)->toContain('Ungagodoli');
+            ->and($relay->input)->toContain('Ungagodoli')
+            // What the colleague really passed on comes from the records, not from its words.
+            ->and($relay->input)->toContain('Gestor Comercial não passou trabalho a ninguém')
+            ->and($relay->input)->toContain('Nunca digas que algo foi encaminhado se não foi');
         Queue::assertPushed(RunAgent::class, 3);
 
         return [$cosChat, $salesChat, $handoff];
