@@ -175,6 +175,10 @@ it('only passes requests along the chart, to agents the person may talk to, and 
         sendTo(runningIn($cosChat), 'gestor_comercial', 'Procura leads.');
         $back = sendTo(runningIn(Task::query()->where('chat_key', TaskThread::chatKey($this->edy, $this->sales))->sole()), 'chief_of_staff', 'Já está.');
 
+        // Nor does it pretend to pass a part to a sibling: it says so, and the Chief of Staff routes it.
+        $sibling = sendTo(AgentRun::query()->where('task_id', Task::query()->where('chat_key', TaskThread::chatKey($this->edy, $this->sales))->value('id'))->latest('id')->first(), 'finance', 'x');
+        expect($sibling->content)->toContain('Não digas que lhe passaste')->and($sibling->content)->toContain('Chief of Staff passa-lha');
+
         expect($back->ok)->toBeFalse()->and($back->content)->toContain('segue sozinha')
             ->and(AgentHandoff::query()->count())->toBe(1)
             ->and(TaskMessage::query()->where('kind', TaskMessageKind::Handoff)->count())->toBe(2);

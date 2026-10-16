@@ -57,15 +57,18 @@ final class Handoffs
             return "{$to->name} está {$to->status->label()} e não pode trabalhar agora.";
         }
 
+        $incoming = $this->incoming($run);
+
         if (! $this->chart->canDelegate($from, $to)) {
-            return "{$to->name} não está abaixo de ti nem é a tua chefia no organigrama; passa o pedido ao Chief of Staff.";
+            // Working on a request passed here: the agent that passed it routes the rest.
+            return $incoming !== null
+                ? "{$to->name} não está abaixo de ti. Não digas que lhe passaste: escreve na tua resposta que esta parte é para {$to->name}, e {$incoming->fromAgent?->name} passa-lha."
+                : "{$to->name} não está abaixo de ti nem é a tua chefia no organigrama; passa o pedido ao Chief of Staff.";
         }
 
         if (! $person->can('run', $to)) {
             return "{$person->name} não tem acesso a {$to->name}, por isso {$to->name} não lhe pode responder. Diz-lhe que peça acesso à chefia, ou dá a tarefa com tasks.create.";
         }
-
-        $incoming = $this->incoming($run);
 
         if ($incoming !== null && $incoming->from_agent_id === $to->id && $incoming->isOpen()) {
             return "não precisas: a tua resposta segue sozinha para {$to->name} quando terminares.";
