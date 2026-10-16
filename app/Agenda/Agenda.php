@@ -215,12 +215,15 @@ final class Agenda
         return $events;
     }
 
-    /** A time at midnight (or the end of the day) in Maputo is a date without an hour. */
+    /**
+     * A time at midnight (or the end of the day) in Maputo is a date without
+     * an hour; so is midnight UTC, how a task keeps a due date given as a day.
+     */
     private function allDay(Carbon $at, string $timezone): bool
     {
         $local = $at->copy()->setTimezone($timezone)->format('H:i');
 
-        return $local === '00:00' || $local === '23:59';
+        return in_array($local, ['00:00', '23:59'], true) || $at->copy()->utc()->format('H:i') === '00:00';
     }
 
     private function timezone(): string
