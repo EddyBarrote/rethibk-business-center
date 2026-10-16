@@ -1012,6 +1012,20 @@ Verificado sobre os traços reais: nas últimas 92 chamadas que produzem algo (M
 
 Testes: `tests/Feature/Agents/FactCheckTest.php`.
 
+## Tarefas pelo título (16.10.2026)
+
+O Barrote, sobre uma resposta do Chief of Staff («Tarefa criada: RET-13 — …», «Atribuída a: Gestor de Clientes (client_manager)», botão «Abrir RET-13»): as referências têm de dizer alguma coisa; cada tarefa tem título e descrição, e o título comunica melhor do que o código.
+
+| Decisão | Onde |
+|---|---|
+| **Título e descrição obrigatórios** em cada tarefa criada por um agente (já eram); o título é curto e diz o que é e a quem ou ao quê respeita, sem códigos (exemplo na própria ferramenta: «Seguimento da proposta à Fundação AZUL»). | `CreateTask::schema()` |
+| **Os agentes falam das tarefas pelo título e dos colegas pelo nome**: regra da plataforma para todos; códigos (RET-13) e chaves (client_manager) são só para as ferramentas. Na tarefa em curso, o código vem entre parênteses, como referência. `tasks.create` e `escalate.urgent` devolvem `title` e `ref` (já não `task` com o código), e os textos das ferramentas (`tasks.update_status`, `tasks.ask_human`, `followups.schedule`) falam pelo título. | `InstructionComposer`, ferramentas em `App\Ai\Capabilities\Local` |
+| **A chave interna nunca chega à conversa**: na resposta do agente, «Gestor de Clientes (client_manager)» fica «Gestor de Clientes» e `client_manager` entre crases passa ao nome. | `TaskThread::withoutAgentKeys()` |
+| **Botões, avisos e notas pelo título**: «Abrir «título»» depois de criar ou escalar uma tarefa; notificações «Nova tarefa: título», «X concluiu «título»», ««título» pronta para rever»; notas na conversa («deu a tarefa «título» a …»), rotinas, fluxos e percurso. | `TaskController::resultLink()`, `TaskThread`, `RoutineRunner`, `WorkflowEngine`, `TaskJourney`, `Journey.tsx` |
+| **O código fica como texto secundário**, pequeno e cinzento, para pesquisa e unicidade: depois do título no cabeçalho da tarefa, na lista de tarefas, e como dica (title) nas fichas do percurso, da memória e dos passos de fluxo. A migalha e o separador do browser mostram o título. | `Tasks/Show.tsx`, `Tasks/Index.tsx` |
+
+Testes: `tests/Feature/Tasks/TaskTitlesTest.php`.
+
 ## Raciocínio na conversa (16.10.2026)
 
 Pedido do Barrote: o «A pensar…» deve mostrar o raciocínio, e ser minimalista como no Claude (uma faísca que roda e texto com brilho, sem balão, já feito antes). O ecrã tinha um balão com três pontos, «🔧 a usar web_search» em monospace e «ver execução #392» por baixo.

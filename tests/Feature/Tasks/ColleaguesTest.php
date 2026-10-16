@@ -65,7 +65,7 @@ it('turns a request in a conversation into a task of the agent, with the person,
             ->and($task->assignee_agent_id)->toBe($this->agent->id)
             ->and($task->user_id)->toBe($this->clerk->id)
             ->and($task->parent_id)->toBeNull()
-            ->and($chat->messages()->latest('id')->value('body'))->toContain($task->identifier());
+            ->and($chat->messages()->latest('id')->value('body'))->toContain("«{$task->title}»");
 
         Queue::assertPushed(RunAgent::class);
     });

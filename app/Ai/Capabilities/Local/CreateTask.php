@@ -56,7 +56,7 @@ final class CreateTask extends LocalCapability
         return [
             'agent' => $schema->string()->description('Chave (ou nome) do agente que fica com a tarefa; a tua chave para a criares para ti. Vazio se for para uma pessoa.'),
             'person' => $schema->string()->description('Email da pessoa que fica com a tarefa, em vez de um agente.'),
-            'title' => $schema->string()->required(),
+            'title' => $schema->string()->description('Título curto que diga o que é e a quem ou ao quê respeita, sem códigos (por exemplo «Seguimento da proposta à Fundação AZUL»): é por ele que todos reconhecem a tarefa.')->required(),
             'description' => $schema->string()->description('O que fazer, com o contexto todo (valores, referências, datas): quem recebe não vê a tua conversa.')->required(),
             'priority' => $schema->string()->enum(array_column(TaskPriority::cases(), 'value')),
             'goal_id' => $schema->integer()->description('Objectivo da empresa que a tarefa serve, se houver.'),
@@ -151,11 +151,12 @@ final class CreateTask extends LocalCapability
 
         if ($parent !== null) {
             $this->threads->note($parent, $target?->id === $context->agent->id
-                ? "{$context->agent->name} criou {$task->identifier()} «{$task->title}» e vai trabalhar nela."
-                : "{$context->agent->name} deu {$task->identifier()} «{$task->title}» a {$owner}.", $context->run);
+                ? "{$context->agent->name} criou a tarefa «{$task->title}» e vai trabalhar nela."
+                : "{$context->agent->name} deu a tarefa «{$task->title}» a {$owner}.", $context->run);
         }
 
-        return CapabilityResult::data(['task' => $task->identifier(), 'task_id' => $task->id, 'link' => "/tasks/{$task->id}", 'assigned_to' => $owner]);
+        // The title is how people know the task; the code is only for search (docs/DECISOES.md, "Tarefas pelo título").
+        return CapabilityResult::data(['title' => $task->title, 'ref' => $task->identifier(), 'task_id' => $task->id, 'link' => "/tasks/{$task->id}", 'assigned_to' => $owner]);
     }
 
     public function summarise(array $arguments): string

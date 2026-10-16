@@ -197,7 +197,7 @@ class RoutineController extends Controller
                         $task->status === TaskStatus::WaitingHuman, $task->status === TaskStatus::InReview => 'warning',
                         default => 'running',
                     },
-                    'summary' => "{$task->identifier()} · {$task->title}",
+                    'summary' => $task->title,
                     'cost' => null,
                     'duration_ms' => null,
                     'url' => "/tasks/{$task->id}",

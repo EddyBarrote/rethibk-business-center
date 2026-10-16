@@ -75,7 +75,7 @@ final class AskHuman extends LocalCapability
             $this->threads->post($task, $context->agent, $data['question'], wake: false, notify: false);
             $this->threads->setStatus($task, TaskStatus::WaitingHuman, $context->agent, $data['question']);
 
-            return CapabilityResult::text("Pergunta feita a {$person->name} em {$task->identifier()}. A resposta chega nesta conversa; não repitas a pergunta.");
+            return CapabilityResult::text("Pergunta feita a {$person->name} na tarefa «{$task->title}». A resposta chega nesta conversa; não repitas a pergunta.");
         }
 
         // Outside its own task, the question goes into the agent's one conversation with that person.
@@ -83,7 +83,7 @@ final class AskHuman extends LocalCapability
         $this->threads->post($chat, $context->agent, $data['question'], wake: false, notify: false);
         $this->threads->setStatus($chat, TaskStatus::WaitingHuman, $context->agent, $data['question']);
 
-        return CapabilityResult::text("Perguntei a {$person->name} na vossa conversa ({$chat->identifier()}). Quando responder, recebes a resposta lá.");
+        return CapabilityResult::text("Perguntei a {$person->name} na vossa conversa. Quando responder, recebes a resposta lá.");
     }
 
     public function summarise(array $arguments): string

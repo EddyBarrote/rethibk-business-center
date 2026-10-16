@@ -160,7 +160,7 @@ final class TaskJourney
         $hops = [];
         $owner = $this->owner($task);
         $ownerKey = $owner ? $this->actor($owner, $task->created_at) : null;
-        $ref = ['id' => $visible ? $task->id : null, 'ref' => $task->identifier()];
+        $ref = ['id' => $visible ? $task->id : null, 'ref' => $task->identifier(), 'title' => $task->title];
 
         if ($task->id === $root->id && $email !== null) {
             $triage = $task->createdByAgent;
@@ -242,7 +242,7 @@ final class TaskJourney
         if ($task->parent_id !== null && $task->completed_at !== null && $how !== 'flow') {
             $parentOwner = $this->owner($this->tasks->get($task->parent_id));
             $hops[] = $this->hop($task->completed_at, 'returned', $ownerKey, $parentOwner ? $this->actor($parentOwner, $task->completed_at) : null, 'return', 'Resultado entregue',
-                "{$task->identifier()} {$task->status->label()}: o resultado volta a quem a pediu.",
+                "«{$task->title}» {$task->status->label()}: o resultado volta a quem a pediu.",
                 task: $ref,
                 order: 4,
             );
@@ -283,7 +283,7 @@ final class TaskJourney
             chips: $chips,
             seconds: (int) $approval->created_at->diffInSeconds($approval->decided_at ?? $this->now, true),
             counting: $approval->status === ApprovalStatus::Pending,
-            task: $task ? ['id' => $task->id, 'ref' => $task->identifier()] : null,
+            task: $task ? ['id' => $task->id, 'ref' => $task->identifier(), 'title' => $task->title] : null,
             status: ['value' => $approval->status->value, 'label' => $approval->status->label(), 'open' => $approval->status === ApprovalStatus::Pending],
             order: 2,
             approvalId: $approval->id,
@@ -318,14 +318,14 @@ final class TaskJourney
         $waiting = $open->firstWhere('status', TaskStatus::WaitingHuman);
 
         if ($waiting !== null && ($person = $waiting->assigneeUser ?? $waiting->user) !== null) {
-            return ['type' => 'person', 'name' => $person->name, 'avatar_url' => null, 'doing' => "Responder à pergunta em {$waiting->identifier()}", 'since' => ($waiting->last_activity_at ?? $waiting->updated_at)->toIso8601String(), 'approval_id' => null, 'task' => ['id' => $waiting->id, 'ref' => $waiting->identifier()]];
+            return ['type' => 'person', 'name' => $person->name, 'avatar_url' => null, 'doing' => "Responder à pergunta em «{$waiting->title}»", 'since' => ($waiting->last_activity_at ?? $waiting->updated_at)->toIso8601String(), 'approval_id' => null, 'task' => ['id' => $waiting->id, 'ref' => $waiting->identifier(), 'title' => $waiting->title]];
         }
 
         // The newest open task is the deepest one being worked on; the others wait on it.
         $current = $open->sortBy([['created_at', 'desc'], ['id', 'desc']])->first();
 
         if ($current === null) {
-            return ['type' => 'done', 'name' => null, 'avatar_url' => null, 'doing' => "{$root->identifier()} {$root->status->label()}", 'since' => ($root->completed_at ?? $root->updated_at)->toIso8601String(), 'approval_id' => null, 'task' => null];
+            return ['type' => 'done', 'name' => null, 'avatar_url' => null, 'doing' => "«{$root->title}» {$root->status->label()}", 'since' => ($root->completed_at ?? $root->updated_at)->toIso8601String(), 'approval_id' => null, 'task' => null];
         }
 
         $owner = $this->owner($current);
@@ -337,7 +337,7 @@ final class TaskJourney
             'doing' => $current->title,
             'since' => $current->created_at->toIso8601String(),
             'approval_id' => null,
-            'task' => ['id' => $current->id, 'ref' => $current->identifier()],
+            'task' => ['id' => $current->id, 'ref' => $current->identifier(), 'title' => $current->title],
         ];
     }
 

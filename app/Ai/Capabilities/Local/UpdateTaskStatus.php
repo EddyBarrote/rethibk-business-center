@@ -79,8 +79,8 @@ final class UpdateTaskStatus extends LocalCapability
         $this->threads->setStatus($task, $status, $context->agent, $data['note'] ?? null);
 
         return CapabilityResult::text($status === TaskStatus::InReview && $data['status'] === TaskStatus::Done->value
-            ? "{$task->identifier()} ficou «Em revisão»: quem a pediu aceita-a ou devolve-a."
-            : "{$task->identifier()} está agora «{$task->status->label()}».");
+            ? "A tarefa «{$task->title}» ficou «Em revisão»: quem a pediu aceita-a ou devolve-a."
+            : "A tarefa «{$task->title}» está agora «{$task->status->label()}».");
     }
 
     public function summarise(array $arguments): string

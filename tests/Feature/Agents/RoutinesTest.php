@@ -173,7 +173,7 @@ it('lets a flow start on a schedule, and the routine opens its task with the per
             ->and($task->assignee_agent_id)->toBe($this->agent->id)
             ->and(WorkflowRun::query()->sole()->workflow_id)->toBe($workflow->id)
             ->and(AgentRoutine::query()->sole()->last_task_id)->toBe($task->id)
-            ->and($this->admin->notifications()->sole()->data['title'])->toBe("Rotina «Entregas da semana» abriu {$task->identifier()}")
+            ->and($this->admin->notifications()->sole()->data['title'])->toBe("Rotina «Entregas da semana» abriu «{$task->title}»")
             ->and(Workflow::activeFor(EmailCategory::ClientRfq))->toBeNull();
     });
 

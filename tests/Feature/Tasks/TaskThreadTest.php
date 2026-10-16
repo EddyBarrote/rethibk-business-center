@@ -318,7 +318,7 @@ it('gives what the agent made in a turn a button to open it', function () {
             'email.draft_reply' => ['draft_id' => 89, 'review_at' => '/inbox/81'],
             'reports.draft' => ['report_id' => 4, 'link' => '/reports/4'],
             'followups.schedule' => ['scheduled' => true, 'due_at' => '2026-10-20T07:00:00+00:00', 'agenda' => '/agenda'],
-            'tasks.create' => ['task' => 'RET-6', 'link' => '/tasks/38'],
+            'tasks.create' => ['title' => 'Seguimento da proposta à Fundação AZUL', 'ref' => 'RET-6', 'link' => '/tasks/38'],
             'notify.user' => ['notified' => 'Chefe', 'link' => 'https://fora.example'],
         ] as $key => $result) {
             $recorder->step($run, StepType::ToolCall, ['arguments' => []], $key);
@@ -333,7 +333,7 @@ it('gives what the agent made in a turn a button to open it', function () {
             ->where("tool_calls.{$run->id}.0.link", ['label' => 'Ver rascunho', 'href' => '/inbox/89'])
             ->where("tool_calls.{$run->id}.1.link", ['label' => 'Abrir relatório #4', 'href' => '/reports/4'])
             ->where("tool_calls.{$run->id}.2.link", ['label' => 'Ver na Agenda', 'href' => '/agenda?data=2026-10-20'])
-            ->where("tool_calls.{$run->id}.3.link", ['label' => 'Abrir RET-6', 'href' => '/tasks/38'])
+            ->where("tool_calls.{$run->id}.3.link", ['label' => 'Abrir «Seguimento da proposta à Fundação AZUL»', 'href' => '/tasks/38'])
             ->where("tool_calls.{$run->id}.4.link", null));
 });
 

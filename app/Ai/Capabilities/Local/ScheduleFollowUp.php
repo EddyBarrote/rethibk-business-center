@@ -110,7 +110,7 @@ final class ScheduleFollowUp extends LocalCapability
             'follow_up_id' => $followUp->id,
             'due_at' => $followUp->due_at->toIso8601String(),
             'for' => $user?->name,
-            'task' => $task?->identifier(),
+            'task' => $task?->title,
             'agenda' => '/agenda',
         ]);
     }
@@ -160,7 +160,7 @@ final class ScheduleFollowUp extends LocalCapability
         if ($tasks !== null) {
             $who = $tasks->assigneeUser->name ?? $tasks->assigneeAgent->name ?? 'ninguém';
 
-            return "{$tasks->identifier()} «{$tasks->title}» ({$who}) já acompanha isto, com prazo {$local->format('d/m/Y')}. Não agendei outro seguimento.";
+            return "A tarefa «{$tasks->title}» ({$who}) já acompanha isto, com prazo {$local->format('d/m/Y')}. Não agendei outro seguimento.";
         }
 
         $reminder = FollowUp::query()->whereNull('done_at')->whereBetween('due_at', [$from, $to])

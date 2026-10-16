@@ -141,7 +141,7 @@ it('lets any agent raise something urgent to the Chief of Staff', function () {
         $urgent = Task::query()->where('assignee_agent_id', $this->chief->id)->sole();
 
         expect($urgent->priority)->toBe(TaskPriority::Urgent)
-            ->and($urgent->description)->toContain($task->identifier())
+            ->and($urgent->description)->toContain("«{$task->title}»")
             ->and($task->messages()->latest('id')->value('body'))->toContain('escalou');
     });
 });

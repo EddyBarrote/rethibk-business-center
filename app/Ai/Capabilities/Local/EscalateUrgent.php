@@ -66,7 +66,7 @@ final class EscalateUrgent extends LocalCapability
             'kind' => TaskKind::Task,
             'title' => Str::limit("Urgente: {$data['title']}", 200, '…'),
             'description' => "{$context->agent->name} escala por ser urgente: {$data['why_urgent']}\n\n{$data['summary']}"
-                .($from !== null ? "\n\nOrigem: {$from->identifier()} «{$from->title}» (/tasks/{$from->id})." : ''),
+                .($from !== null ? "\n\nOrigem: «{$from->title}» (/tasks/{$from->id})." : ''),
             'status' => TaskStatus::Todo,
             'priority' => TaskPriority::Urgent,
             'assignee_agent_id' => $chief->id,
@@ -74,9 +74,9 @@ final class EscalateUrgent extends LocalCapability
         ], $context->agent);
 
         if ($from !== null) {
-            $this->threads->note($from, "{$context->agent->name} escalou ao Chief of Staff ({$task->identifier()}).", $context->run);
+            $this->threads->note($from, "{$context->agent->name} escalou ao Chief of Staff em «{$task->title}».", $context->run);
         }
 
-        return CapabilityResult::data(['task' => $task->identifier(), 'link' => "/tasks/{$task->id}"]);
+        return CapabilityResult::data(['title' => $task->title, 'ref' => $task->identifier(), 'link' => "/tasks/{$task->id}"]);
     }
 }

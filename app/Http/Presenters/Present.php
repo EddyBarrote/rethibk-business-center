@@ -108,7 +108,7 @@ final class Present
             $task = Task::query()->whereKey($run->task_id)->first(['id', 'tenant_id', 'number', 'title', 'kind']);
 
             if ($task !== null && $task->kind === TaskKind::Task) {
-                $ref = $task->identifier().' · '.$task->title;
+                $ref = $task->title;
 
                 return str_contains($run->input, 'Batimento') ? "Retomar {$ref}" : $ref;
             }
@@ -179,7 +179,7 @@ final class Present
             'agent_id' => $memory->agent_id,
             'person' => $memory->relationLoaded('user') && $memory->user ? ['id' => $memory->user->id, 'name' => $memory->user->name] : null,
             'about' => $memory->relationLoaded('aboutUser') ? $memory->aboutUser?->name : null,
-            'task' => $memory->relationLoaded('task') && $memory->task ? ['id' => $memory->task->id, 'ref' => $memory->task->identifier()] : null,
+            'task' => $memory->relationLoaded('task') && $memory->task ? ['id' => $memory->task->id, 'ref' => $memory->task->identifier(), 'title' => $memory->task->title] : null,
             'edited' => $memory->edited_by_user_id !== null,
             'updated_at' => $memory->updated_at->toIso8601String(),
         ];

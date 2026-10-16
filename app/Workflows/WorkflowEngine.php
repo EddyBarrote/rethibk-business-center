@@ -543,7 +543,7 @@ final class WorkflowEngine
         $task = $this->threads->open([
             'kind' => TaskKind::Task,
             'title' => Str::limit($label.($step->item ? " · {$step->item}" : ''), 200, '…'),
-            'description' => "Passo do fluxo «{$run->workflow?->name}», pedido por {$parent->identifier()}.\n\n{$instruction}"
+            'description' => "Passo do fluxo «{$run->workflow?->name}», pedido por «{$parent->title}».\n\n{$instruction}"
                 .($step->item ? "\n\nItem: {$step->item}" : '')
                 .($capability ? "\n\nCapacidade indicada: {$capability}." : '')
                 ."\n\nQuando terminares, marca esta tarefa como feita com o resultado.",
@@ -555,7 +555,7 @@ final class WorkflowEngine
         ], $parent->assigneeAgent ?? $agent, start: false);
 
         $step->forceFill(['task_id' => $task->id, 'status' => WorkflowStepStatus::Waiting])->save();
-        $this->threads->note($parent, "Passo do fluxo «{$label}» passado ao {$agent->name} em {$task->identifier()}.");
+        $this->threads->note($parent, "Passo do fluxo «{$label}» passado ao {$agent->name} em «{$task->title}».");
         $this->threads->wake($task->refresh(), null, $task, TriggerType::Agent);
     }
 
@@ -625,7 +625,7 @@ final class WorkflowEngine
         $task = $this->threads->open([
             'kind' => TaskKind::Task,
             'title' => Str::limit($title.($step->item ? " · {$step->item}" : ''), 200, '…'),
-            'description' => "Fluxo «{$run->workflow?->name}», da tarefa {$parent->identifier()} «{$parent->title}».\n\n{$body}",
+            'description' => "Fluxo «{$run->workflow?->name}», da tarefa «{$parent->title}».\n\n{$body}",
             'status' => TaskStatus::Todo,
             'priority' => $step->kind === 'fallback' ? TaskPriority::High : $parent->priority,
             'assignee_user_id' => $person->id,
@@ -635,7 +635,7 @@ final class WorkflowEngine
         ], $parent->assigneeAgent ?? $person, start: false);
 
         $step->forceFill(['task_id' => $task->id, 'status' => WorkflowStepStatus::Waiting])->save();
-        $this->threads->note($parent, "Passo «{$this->graph($run)->label($step->node_id)}» com {$person->name} em {$task->identifier()}.");
+        $this->threads->note($parent, "Passo «{$this->graph($run)->label($step->node_id)}» com {$person->name} em «{$task->title}».");
     }
 
     private function subTaskClosed(WorkflowStep $step, Task $task): void
@@ -651,7 +651,7 @@ final class WorkflowEngine
         $summary = Str::limit((string) ($last ?? ''), 1500);
 
         if ($run->task !== null) {
-            $this->threads->note($run->task, "{$task->identifier()} «{$task->title}» ficou «{$task->status->label()}».".($summary !== '' ? "\n\n{$summary}" : ''), kind: TaskMessageKind::Report);
+            $this->threads->note($run->task, "«{$task->title}» ficou «{$task->status->label()}».".($summary !== '' ? "\n\n{$summary}" : ''), kind: TaskMessageKind::Report);
         }
 
         switch ($step->kind) {
@@ -666,7 +666,7 @@ final class WorkflowEngine
                 $this->finishStep($step, ['summary' => $summary], $step->answer);
 
                 if (! $done && ! in_array($step->answer, ['yes', 'no'], true)) {
-                    $this->cancel($run, "{$task->identifier()} foi cancelada.");
+                    $this->cancel($run, "«{$task->title}» foi cancelada.");
                     break;
                 }
 
@@ -676,12 +676,12 @@ final class WorkflowEngine
 
             default:
                 if (! $done && $step->kind === WorkflowGraph::PERSON) {
-                    $this->cancel($run, "{$task->identifier()} foi cancelada.");
+                    $this->cancel($run, "«{$task->title}» foi cancelada.");
                     break;
                 }
 
                 if (! $done) {
-                    $this->block($step, "{$task->identifier()} foi cancelada.");
+                    $this->block($step, "«{$task->title}» foi cancelada.");
                     break;
                 }
 

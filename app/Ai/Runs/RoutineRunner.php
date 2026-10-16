@@ -167,7 +167,7 @@ final class RoutineRunner
         $routine->forceFill(['last_task_id' => $task->id, 'last_run_id' => null])->save();
         $this->engine->start($workflow, $task);
 
-        $title = "Rotina «{$routine->name}» abriu {$task->identifier()}";
+        $title = "Rotina «{$routine->name}» abriu «{$task->title}»";
         $body = "O fluxo «{$workflow->name}» começou com o {$agent->name}.";
 
         if ($person !== null) {
@@ -178,7 +178,7 @@ final class RoutineRunner
             $this->notifier->notify($admin, $title, $body.($person !== null ? " A tarefa está com {$person->name}." : ''), "/tasks/{$task->id}", $agent->name, 'info', NotificationCategory::Agent, ['task_id' => $task->id]);
         }
 
-        return ['ok' => true, 'message' => "Fluxo «{$workflow->name}» começado em {$task->identifier()}."];
+        return ['ok' => true, 'message' => "Fluxo «{$workflow->name}» começado em «{$task->title}»."];
     }
 
     private function brief(AgentRoutine $routine, User $person): string

@@ -73,7 +73,7 @@ interface WorkflowInfo {
             status_label: string;
             item: string | null;
             answer: string | null;
-            task: { id: number; ref: string } | null;
+            task: { id: number; ref: string; title: string } | null;
         }[];
     } | null;
     decision: { step_id: number; workflow: string; question: string; options: { value: string; label: string }[]; can_decide: boolean } | null;
@@ -386,7 +386,7 @@ export default function TaskShow({
             bleed
             breadcrumbs={
                 !task.is_conversation
-                    ? [{ label: 'Tarefas', href: '/tasks' }, { label: task.ref }]
+                    ? [{ label: 'Tarefas', href: '/tasks' }, { label: task.title }]
                     : someoneElses
                       ? [
                             { label: 'Agentes', href: '/agents' },
@@ -396,7 +396,7 @@ export default function TaskShow({
                       : [{ label: 'Agentes', href: '/agents' }, { label: agentName }]
             }
         >
-            <Head title={task.is_conversation ? `Conversa com ${agentName}` : `${task.ref} · ${task.title}`} />
+            <Head title={task.is_conversation ? `Conversa com ${agentName}` : task.title} />
 
             <div className="flex min-w-0 flex-1 flex-col">
                 <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2.5 sm:px-6">
@@ -420,8 +420,8 @@ export default function TaskShow({
                     ) : (
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                             <TaskStatusIcon status={task.status} label={task.status_label} />
-                            <span className="shrink-0 font-mono text-xs text-muted-foreground">{task.ref}</span>
                             <h1 className="min-w-0 truncate text-sm font-semibold">{task.title}</h1>
+                            <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">{task.ref}</span>
                             {task.priority !== 'normal' && (
                                 <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
                                     <PriorityIcon priority={task.priority} label={task.priority_label} withLabel />
@@ -499,8 +499,7 @@ export default function TaskShow({
                                         className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
                                     >
                                         <CornerLeftUp className="size-3.5" />
-                                        Sub-tarefa de <span className="font-mono">{task.parent.ref}</span>
-                                        <span className="max-w-72 truncate">{task.parent.title}</span>
+                                        Sub-tarefa de <span className="max-w-72 truncate">«{task.parent.title}»</span>
                                     </Link>
                                 )}
                                 {task.description && (
@@ -1019,8 +1018,8 @@ function WorkflowProgress({ progress }: { progress: NonNullable<WorkflowInfo['pr
                             {step.item && <span className="text-muted-foreground"> · {step.item}</span>}
                             {step.answer && <span className="text-muted-foreground"> → {answerLabel[step.answer] ?? step.answer}</span>}
                             {step.task && (
-                                <Link href={`/tasks/${step.task.id}`} className="ml-1 font-mono text-muted-foreground hover:underline">
-                                    {step.task.ref}
+                                <Link href={`/tasks/${step.task.id}`} title={step.task.ref} className="ml-1 text-muted-foreground hover:underline">
+                                    «{step.task.title}»
                                 </Link>
                             )}
                         </div>

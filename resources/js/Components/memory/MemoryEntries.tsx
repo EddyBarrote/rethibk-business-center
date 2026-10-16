@@ -31,7 +31,7 @@ export interface MemoryEntry {
     agent_id: number;
     person: { id: number; name: string } | null;
     about: string | null;
-    task: { id: number; ref: string } | null;
+    task: { id: number; ref: string; title: string } | null;
     edited: boolean;
     updated_at: string;
 }
@@ -272,8 +272,8 @@ function EntrySheet({
                                         <>
                                             <dt className="text-muted-foreground">De onde veio</dt>
                                             <dd>
-                                                <Link href={`/tasks/${entry.task.id}`} className="hover:underline">
-                                                    {entry.task.ref}
+                                                <Link href={`/tasks/${entry.task.id}`} title={entry.task.ref} className="hover:underline">
+                                                    {entry.task.title}
                                                 </Link>
                                             </dd>
                                         </>
