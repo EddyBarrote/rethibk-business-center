@@ -182,6 +182,11 @@ it('gives a colleague outside its area a task from a conversation, for a manager
             ->and($task->messages()->value('body'))->toContain('Pedido por Chefe')
             ->and($this->outsider->notifications()->count())->toBe(1);
 
+        // Its memory is hers: the agent helping her never reads the chats of who asked.
+        expect($task->memoryOwner()->id)->toBe($this->outsider->id)
+            ->and(Task::query()->memoryOf($this->boss->id)->whereKey($task->id)->exists())->toBeFalse()
+            ->and(Task::query()->memoryOf($this->outsider->id)->whereKey($task->id)->exists())->toBeTrue();
+
         // Nobody is put to work when the task opens: it is the person's.
         Queue::assertNothingPushed();
 

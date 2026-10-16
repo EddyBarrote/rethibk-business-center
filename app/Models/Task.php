@@ -164,12 +164,18 @@ class Task extends Model
 
     /**
      * Whose memory this thread feeds and reads (docs/DECISOES.md, "Falhas de
-     * contexto"): the person it is with, else the person who created it. One
-     * rule for saving and reading, so what a task taught the agent is there
-     * the next time.
+     * contexto"): the person it is with, else the person who created it; a
+     * task given to a person is that person's, so the agent helping them never
+     * reads the chats of whoever asked for it ("Passar trabalho a um colega").
+     * One rule for saving and reading, so what a task taught the agent is
+     * there the next time.
      */
     public function memoryOwner(): ?User
     {
+        if ($this->assignee_user_id !== null && $this->assignee_agent_id === null) {
+            return $this->assigneeUser;
+        }
+
         return $this->user ?? $this->createdByUser;
     }
 
@@ -181,7 +187,11 @@ class Task extends Model
     #[Scope]
     protected function memoryOf(Builder $query, int $userId): void
     {
-        $query->where(fn (Builder $q) => $q->where('user_id', $userId)->orWhere(fn (Builder $q) => $q->whereNull('user_id')->where('created_by_user_id', $userId)));
+        $query->where(fn (Builder $q) => $q
+            ->where(fn (Builder $q) => $q->whereNull('assignee_agent_id')->where('assignee_user_id', $userId))
+            ->orWhere(fn (Builder $q) => $q
+                ->where(fn (Builder $q) => $q->whereNull('assignee_user_id')->orWhereNotNull('assignee_agent_id'))
+                ->where(fn (Builder $q) => $q->where('user_id', $userId)->orWhere(fn (Builder $q) => $q->whereNull('user_id')->where('created_by_user_id', $userId)))));
     }
 
     /**
