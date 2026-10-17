@@ -4,10 +4,13 @@ namespace App\Email;
 
 use App\Enums\EmailStatus;
 use App\Models\AgentRun;
+use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
+use App\Models\GeneratedDocument;
 use App\Models\Mailbox;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -70,6 +73,85 @@ final class AgentDrafts
         $draft->fill([...$attributes, 'agent_run_id' => $run->id, 'read_at' => now()])->save();
 
         return $draft;
+    }
+
+    /**
+     * The mailbox the email a task came from arrived in, when the person owns
+     * it: the answer goes out from where the client wrote to.
+     */
+    public function sourceMailbox(AgentRun $run): ?Mailbox
+    {
+        $source = $this->sourceEmail($run);
+        $person = $run->task->user ?? $run->requestedBy;
+
+        return $source !== null && $person !== null && $source->mailbox?->isOwnedBy($person) ? $source->mailbox : null;
+    }
+
+    /**
+     * The email the run's task came from, if it came from one.
+     */
+    public function sourceEmail(AgentRun $run): ?EmailMessage
+    {
+        $task = $run->task;
+
+        return $task !== null && $task->source_type === (new EmailMessage)->getMorphClass()
+            ? EmailMessage::query()->with('mailbox')->find($task->source_id)
+            : null;
+    }
+
+    /**
+     * Copies the documents the agent generated in this task (or run) onto the
+     * draft as files, so what the text says is attached goes with the email.
+     * With no ids and a text that speaks of an attachment, the last document
+     * of the run goes.
+     *
+     * @param  list<int>  $ids
+     * @return array{attached: list<string>, unknown: list<int>}
+     */
+    public function attachDocuments(EmailMessage $draft, AgentRun $run, array $ids, string $body): array
+    {
+        $runs = $run->task_id !== null
+            ? AgentRun::query()->where('task_id', $run->task_id)->select('id')
+            : AgentRun::query()->whereKey($run->id)->select('id');
+        $mine = GeneratedDocument::query()->whereIn('agent_run_id', $runs);
+
+        if ($ids === []) {
+            if (preg_match('/\banex(o|a|os|as|ado|ada|amos)\b/iu', $body) !== 1) {
+                return ['attached' => [], 'unknown' => []];
+            }
+
+            $documents = GeneratedDocument::query()->where('agent_run_id', $run->id)->latest('id')->limit(1)->get();
+        } else {
+            $documents = $mine->whereIn('id', $ids)->get();
+        }
+
+        $disk = (string) config('mail_ingest.disk');
+        $have = $draft->attachments()->pluck('filename')->all();
+        $attached = [];
+
+        foreach ($documents as $document) {
+            if (in_array($document->filename, $have, true) || ! Storage::disk($document->disk)->exists($document->path)) {
+                continue;
+            }
+
+            $path = "tenants/{$draft->tenant_id}/mail/out/{$draft->id}/".Str::random(8).'-'.$document->filename;
+            Storage::disk($disk)->writeStream($path, Storage::disk($document->disk)->readStream($document->path));
+            EmailAttachment::query()->create([
+                'email_message_id' => $draft->id,
+                'filename' => $document->filename,
+                'mime_type' => Storage::disk($document->disk)->mimeType($document->path) ?: 'application/octet-stream',
+                'size_bytes' => $document->size_bytes,
+                'disk' => $disk,
+                'path' => $path,
+                'ocr_status' => 'skipped',
+            ]);
+            $attached[] = $document->filename;
+        }
+
+        return [
+            'attached' => $attached,
+            'unknown' => array_values(array_diff($ids, $documents->pluck('id')->all())),
+        ];
     }
 
     /**

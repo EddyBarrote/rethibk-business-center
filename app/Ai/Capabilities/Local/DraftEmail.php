@@ -64,6 +64,7 @@ final class DraftEmail extends LocalCapability
             'cc' => $schema->array()->items($schema->string()),
             'subject' => $schema->string()->required(),
             'body' => $schema->string()->description('Corpo em texto simples, em português, pronto a enviar (com saudação e despedida).')->required(),
+            'document_ids' => $schema->array()->items($schema->integer())->description('Documentos que geraste nesta tarefa (document_id de documents.generate) a enviar em anexo. Se o texto diz que vai em anexo, indica-os aqui.'),
         ];
     }
 
@@ -77,6 +78,8 @@ final class DraftEmail extends LocalCapability
             'cc.*' => 'string|max:255',
             'subject' => 'required|string|max:255',
             'body' => 'required|string|max:50000',
+            'document_ids' => 'nullable|array|max:10',
+            'document_ids.*' => 'integer',
         ])->validate();
 
         $mailbox = $this->mailboxFor($context);
@@ -91,8 +94,13 @@ final class DraftEmail extends LocalCapability
         $recipient = filled($data['recipient'] ?? null) ? Str::limit(trim((string) $data['recipient']), 250) : null;
         $drafts = app(AgentDrafts::class);
 
+        // Writing to whoever sent the task's email is answering it: in the same conversation, from the mailbox it came to.
+        $source = $drafts->sourceEmail($context->run);
+        $answers = $source !== null && $source->direction === 'inbound' && $source->mailbox_id === $mailbox->id && filled($source->message_id_header)
+            && in_array(Str::lower((string) ($source->reply_to ?: $source->from_address)), $to, true);
+
         // One open draft per email: the same people in the same conversation rewrite it (docs/DECISOES.md, "Um só rascunho por email").
-        $open = $drafts->newEmail($mailbox, $context->run, $to, $recipient);
+        $open = $answers ? $drafts->replyTo($mailbox, $source) : $drafts->newEmail($mailbox, $context->run, $to, $recipient);
 
         if ($open !== null && $drafts->isPersons($open)) {
             return CapabilityResult::data([
@@ -110,6 +118,11 @@ final class DraftEmail extends LocalCapability
             $messageId = '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
             $draft = EmailMessage::query()->create([
                 ...$fields,
+                ...($answers ? [
+                    'thread_id' => $source->thread_id,
+                    'in_reply_to' => $source->message_id_header,
+                    'references' => trim(($source->references ?? '').' '.$source->message_id_header),
+                ] : []),
                 'mailbox_id' => $mailbox->id,
                 'direction' => 'outbound',
                 'from_address' => $mailbox->address,
@@ -122,9 +135,14 @@ final class DraftEmail extends LocalCapability
             ]);
         }
 
+        $files = $drafts->attachDocuments($draft, $context->run, array_map('intval', $data['document_ids'] ?? []), $data['body']);
+
         return CapabilityResult::data(array_filter([
             'draft_id' => $draft->id,
             'mailbox' => $mailbox->address,
+            'in_reply_to_email' => $answers ? $source->id : null,
+            'attached' => $files['attached'] !== [] ? $files['attached'] : null,
+            'not_attached' => $files['unknown'] !== [] ? 'Os documentos '.implode(', ', $files['unknown']).' não são desta tarefa; não os anexei.' : null,
             'to' => $to,
             'cc' => $cc,
             'subject' => $data['subject'],
@@ -143,10 +161,15 @@ final class DraftEmail extends LocalCapability
     }
 
     /**
-     * The person's own mailbox (the draft is theirs to send), else the agent's.
+     * The mailbox the task's email came to, else the person's own mailbox
+     * (the draft is theirs to send), else the agent's.
      */
     private function mailboxFor(CapabilityContext $context): ?Mailbox
     {
+        if (($source = app(AgentDrafts::class)->sourceMailbox($context->run)) !== null) {
+            return $source;
+        }
+
         $person = $context->run->task->user ?? $context->run->requestedBy;
 
         $own = $person !== null

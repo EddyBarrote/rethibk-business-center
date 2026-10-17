@@ -55,12 +55,19 @@ final class DraftEmailReply extends LocalCapability
             'email_id' => $schema->integer()->description('O email a que se responde.')->required(),
             'body' => $schema->string()->description('Texto da resposta, em português.')->required(),
             'subject' => $schema->string()->description('Por omissão: "Re: " + assunto original.'),
+            'document_ids' => $schema->array()->items($schema->integer())->description('Documentos que geraste nesta tarefa (document_id de documents.generate) a enviar em anexo, como uma proposta ou cotação. Se o texto diz que vai em anexo, indica-os aqui.'),
         ];
     }
 
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
-        $data = Validator::make($arguments, ['email_id' => 'required|integer', 'body' => 'required|string|max:50000', 'subject' => 'nullable|string|max:255'])->validate();
+        $data = Validator::make($arguments, [
+            'email_id' => 'required|integer',
+            'body' => 'required|string|max:50000',
+            'subject' => 'nullable|string|max:255',
+            'document_ids' => 'nullable|array|max:10',
+            'document_ids.*' => 'integer',
+        ])->validate();
         $original = EmailMessage::query()->readableBy($context->agent)->with('mailbox')->find($data['email_id']);
 
         if ($original === null) {
@@ -95,9 +102,13 @@ final class DraftEmailReply extends LocalCapability
             ? $drafts->rewrite($open, $context->run, ['to' => $to, 'subject' => $subject, 'text_body' => $data['body']])
             : $this->create($mailbox, $original, $to, $subject, $data['body'], $context);
 
+        $files = $drafts->attachDocuments($draft, $context->run, array_map('intval', $data['document_ids'] ?? []), $data['body']);
+
         return CapabilityResult::data(array_filter([
             'draft_id' => $draft->id,
             'to' => $draft->to,
+            'attached' => $files['attached'] !== [] ? $files['attached'] : null,
+            'not_attached' => $files['unknown'] !== [] ? 'Os documentos '.implode(', ', $files['unknown']).' não são desta tarefa; não os anexei.' : null,
             'subject' => $subject,
             'review_at' => "/inbox/{$original->id}",
             'updated' => $open !== null ? 'Já havia um rascunho de resposta a este email: actualizei esse, não há outro.' : null,

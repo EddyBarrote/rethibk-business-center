@@ -116,7 +116,12 @@ class EmailMessage extends Model
             // An email a person shared with the agent in their conversation.
             ->orWhereIn('id', TaskMessage::query()->whereNotNull('email_message_id')
                 ->whereIn('task_id', Task::query()->where('assignee_agent_id', $agent->id)->select('id'))
-                ->select('email_message_id')));
+                ->select('email_message_id'))
+            // The email a task given to the agent came from, with its conversation, in whatever mailbox it arrived.
+            ->orWhereIn('thread_id', self::query()->whereNotNull('thread_id')
+                ->whereIn('id', Task::query()->where('assignee_agent_id', $agent->id)->where('source_type', (new self)->getMorphClass())->select('source_id'))
+                ->select('thread_id'))
+            ->orWhereIn('id', Task::query()->where('assignee_agent_id', $agent->id)->where('source_type', (new self)->getMorphClass())->select('source_id')));
     }
 
     /**
