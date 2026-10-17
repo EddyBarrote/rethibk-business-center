@@ -1,8 +1,9 @@
 import { Link, router } from '@inertiajs/react';
-import { AlertTriangle, Check, Copy, Mail, Paperclip, PenLine, Send } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Mail, Paperclip, PenLine, Save, Send, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { AgentMark } from '@/Components/AgentAvatar';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Textarea } from '@/Components/ui/textarea';
@@ -13,7 +14,8 @@ import { cn } from '@/lib/utils';
  * An email an agent proposes, shown in the conversation as an email, as in
  * Claude (docs/DECISOES.md, "Email proposto na conversa"). It is the draft in
  * Email, the same one the inbox shows: edited here or there, sent only by a
- * person, from Email.
+ * person, from Email. It goes to the Rascunhos only when the person keeps it
+ * (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
  */
 
 export interface ProposedEmail {
@@ -23,6 +25,8 @@ export interface ProposedEmail {
     agent: { name: string; avatar_url: string | null } | null;
     /** Written by the colleague the request was passed to. */
     from_colleague: boolean;
+    /** Not in the Rascunhos until the person keeps it (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe"). */
+    proposal: boolean;
     mailbox_id: number;
     from: string | null;
     to: string[];
@@ -63,6 +67,13 @@ function EmailCard({ email }: { email: ProposedEmail }) {
     const sent = email.status === 'sent';
     const draft = email.status === 'draft';
     const title = email.agent ? `Rascunho de ${email.agent.name}` : draft ? 'Rascunho' : 'Email';
+
+    const [keeping, setKeeping] = useState(false);
+    const keep = () => {
+        setKeeping(true);
+        router.post(`/inbox/drafts/${email.id}/keep`, {}, { preserveScroll: true, preserveState: true, onFinish: () => setKeeping(false) });
+    };
+    const discard = () => router.delete(`/inbox/${email.id}`, { preserveScroll: true, preserveState: true });
 
     const copy = () => {
         void navigator.clipboard.writeText(`Assunto: ${email.subject}\n\n${email.body}`);
@@ -136,10 +147,31 @@ function EmailCard({ email }: { email: ProposedEmail }) {
                                         Rever e enviar
                                     </Link>
                                 </Button>
+                                {email.proposal && (
+                                    <Button size="sm" variant="outline" disabled={keeping} onClick={keep}>
+                                        <Save />
+                                        Guardar em rascunho
+                                    </Button>
+                                )}
                                 <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
                                     <PenLine />
                                     Editar
                                 </Button>
+                                {email.proposal && (
+                                    <ConfirmDialog
+                                        title="Descartar a proposta?"
+                                        description="O rascunho do agente deixa de aparecer aqui e no email."
+                                        confirmLabel="Descartar"
+                                        destructive
+                                        onConfirm={discard}
+                                        trigger={
+                                            <Button size="sm" variant="ghost">
+                                                <X />
+                                                Descartar
+                                            </Button>
+                                        }
+                                    />
+                                )}
                             </>
                         )}
                         {!draft && email.can_open && (
@@ -160,7 +192,9 @@ function EmailCard({ email }: { email: ProposedEmail }) {
                             </span>
                         )}
                         {draft && email.can_edit && (
-                            <span className="ml-auto text-[11px] text-muted-foreground">Também está nos Rascunhos do Email.</span>
+                            <span className="ml-auto text-[11px] text-muted-foreground">
+                                {email.proposal ? 'Ainda não está nos Rascunhos.' : 'Está nos Rascunhos do Email.'}
+                            </span>
                         )}
                     </footer>
                 </>

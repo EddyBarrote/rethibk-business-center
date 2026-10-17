@@ -57,7 +57,7 @@ it('never rewrites a reply draft a person changed, and adds no other', function 
         app(MailClient::class)->saveDraft($this->mailbox, $this->edy, ['to' => $draft->to, 'cc' => [], 'bcc' => [], 'subject' => $draft->subject, 'body' => 'Versão do Edy'], draft: $draft->fresh());
         $result = runCapability($this->clients, 'email.draft_reply', ['email_id' => $this->email->id, 'body' => 'Nova versão do agente']);
 
-        expect($result->content)->toContain('uma pessoa escreveu ou alterou')
+        expect($result->content)->toContain('uma pessoa escreveu, guardou ou alterou')
             ->and(EmailMessage::query()->where('status', EmailStatus::Draft)->sole()->text_body)->toBe('Versão do Edy');
     });
 });

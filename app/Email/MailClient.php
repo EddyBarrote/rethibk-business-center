@@ -144,6 +144,9 @@ final class MailClient
                 'read_at' => now(),
             ]);
 
+            // Saved by a person: it is theirs, in the Rascunhos (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
+            $draft->kept_at ??= now();
+
             if ($first) {
                 $draft->written_by_user_id = $author->id;
             } elseif ($draft->agent_run_id !== null && $before !== $this->content($data['to'], $data['cc'], $data['bcc'], $data['subject'], $data['body'])) {
@@ -174,14 +177,15 @@ final class MailClient
     }
 
     /**
-     * Puts a draft in the server's Rascunhos (an agent's or a person's),
-     * replacing the copy it had there. Best effort: the draft is safe here.
+     * Puts a draft in the server's Rascunhos (a person's, or an agent's that a
+     * person kept), replacing the copy it had there. Best effort: the draft is safe here.
      */
     public function pushDraft(EmailMessage $draft): void
     {
         $mailbox = $draft->mailbox;
 
-        if (blank($mailbox->imap_host) || $draft->status !== EmailStatus::Draft) {
+        // An agent's proposal stays here until a person keeps it.
+        if (blank($mailbox->imap_host) || $draft->status !== EmailStatus::Draft || $draft->isProposal()) {
             return;
         }
 
@@ -209,6 +213,21 @@ final class MailClient
         } catch (Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * «Guardar em rascunho»: a person keeps an agent's proposal as it is; it
+     * goes to the Rascunhos, also on the server, and is theirs from now on.
+     */
+    public function keepDraft(EmailMessage $draft): void
+    {
+        abort_unless($draft->status === EmailStatus::Draft, 409, 'Este email já não é um rascunho.');
+
+        if ($draft->kept_at === null) {
+            $draft->forceFill(['kept_at' => now()])->save();
+        }
+
+        $this->pushDraft($draft);
     }
 
     /**

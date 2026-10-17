@@ -80,8 +80,8 @@ class EmailFolder extends Model
 
     /**
      * The messages people see in this folder. The standard folders also show
-     * what has no folder yet: an agent's draft or an email being sent before
-     * the server confirms where it is.
+     * what has no folder yet: a draft or an email being sent before the
+     * server confirms where it is.
      *
      * @return Builder<EmailMessage>
      */
@@ -95,6 +95,11 @@ class EmailFolder extends Model
             self::SENT => fn (Builder $q) => $q->where('direction', 'outbound')->where('status', '!=', 'draft'),
             default => null,
         };
+
+        // An agent's proposal is not in the Rascunhos until a person keeps it (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
+        if ($this->role === self::DRAFTS) {
+            $query->notProposals();
+        }
 
         return $query->where(fn (Builder $q) => $q->where('email_folder_id', $this->id)
             ->when($unfiled, fn (Builder $w) => $w->orWhere(fn (Builder $u) => $u->whereNull('email_folder_id')->where($unfiled))));

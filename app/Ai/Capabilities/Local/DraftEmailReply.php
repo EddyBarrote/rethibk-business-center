@@ -9,7 +9,6 @@ use App\Ai\Runs\AgentDirectory;
 use App\Email\AgentDrafts;
 use App\Enums\AutonomyLevel;
 use App\Enums\EmailStatus;
-use App\Jobs\PushDraftToServer;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -17,10 +16,11 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 /**
- * A reply left as a draft for a person to review and send from Email (in
- * their Rascunhos, also on the server). Nothing leaves the company. One open
- * draft per email: drafting again rewrites it, unless a person wrote or
- * changed it.
+ * A reply proposed to a person under the email and in the conversation: they
+ * keep it in their Rascunhos (also on the server), review and send it, or
+ * discard it (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
+ * Nothing leaves the company. One open draft per email: drafting again
+ * rewrites it, unless a person wrote, kept or changed it.
  */
 final class DraftEmailReply extends LocalCapability
 {
@@ -87,7 +87,7 @@ final class DraftEmailReply extends LocalCapability
             return CapabilityResult::data([
                 'draft_id' => $open->id,
                 'changed' => false,
-                'next' => 'Já há um rascunho de resposta a este email que uma pessoa escreveu ou alterou; não o substituí nem criei outro. Diz à pessoa, em poucas linhas, o que mudarias no rascunho dela.',
+                'next' => 'Já há um rascunho de resposta a este email que uma pessoa escreveu, guardou ou alterou; não o substituí nem criei outro. Diz à pessoa, em poucas linhas, o que mudarias no rascunho dela.',
             ]);
         }
 
@@ -95,17 +95,13 @@ final class DraftEmailReply extends LocalCapability
             ? $drafts->rewrite($open, $context->run, ['to' => $to, 'subject' => $subject, 'text_body' => $data['body']])
             : $this->create($mailbox, $original, $to, $subject, $data['body'], $context);
 
-        // Into the owner's Rascunhos on the server too, for review in any email client (the old copy is replaced).
-        if (filled($mailbox->imap_host)) {
-            PushDraftToServer::dispatch($draft->tenant_id, $draft->id);
-        }
-
         return CapabilityResult::data(array_filter([
             'draft_id' => $draft->id,
             'to' => $draft->to,
             'subject' => $subject,
             'review_at' => "/inbox/{$original->id}",
             'updated' => $open !== null ? 'Já havia um rascunho de resposta a este email: actualizei esse, não há outro.' : null,
+            'next' => 'A resposta fica como proposta por baixo do email e na conversa: a pessoa escolhe guardá-la nos Rascunhos, rever e enviar, ou descartá-la. Não digas que está nos Rascunhos.',
         ], fn ($value) => $value !== null));
     }
 

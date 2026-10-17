@@ -825,6 +825,8 @@ class TaskController extends Controller
             // Who wrote it (docs/DECISOES.md, "Quem escreveu o rascunho").
             'agent' => $agent !== null && $draft->written_by_user_id === null ? ['name' => $agent->name, 'avatar_url' => $agent->avatarUrl()] : null,
             'from_colleague' => $fromColleague,
+            // A proposal until the person keeps it in the Rascunhos (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
+            'proposal' => $draft->isProposal(),
             'mailbox_id' => $draft->mailbox_id,
             'from' => $draft->from_address,
             'to' => $draft->to ?? [],

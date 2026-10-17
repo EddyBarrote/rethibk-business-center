@@ -212,7 +212,7 @@ it('rewrites its open draft when it prepares the email again for the same people
         $threads->post($chat, $this->edy, 'Revê o email.');
         $result = draftEmail(workingRun($chat), ['to' => ['natalia.saide@fundacaoazul.org'], 'subject' => 'Seguimento', 'body' => 'Terceira versão']);
 
-        expect($result->content)->toContain('uma pessoa alterou')
+        expect($result->content)->toContain('uma pessoa guardou ou alterou')
             ->and($draft->fresh()->text_body)->toBe('O meu texto')
             ->and($draft->fresh()->edited_by_person_at)->not->toBeNull()
             ->and(EmailMessage::query()->count())->toBe(2);

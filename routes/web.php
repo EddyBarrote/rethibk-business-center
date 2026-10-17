@@ -168,6 +168,7 @@ Route::middleware('auth')->group(function () {
     Route::post('inbox/folders/{folder}/older', [InboxController::class, 'older'])->middleware('throttle:20,1')->name('inbox.older');
     Route::post('inbox/drafts', [InboxController::class, 'saveDraft'])->middleware('throttle:120,1')->name('inbox.drafts.store');
     Route::put('inbox/drafts/{message}', [InboxController::class, 'saveDraft'])->middleware('throttle:120,1')->name('inbox.drafts.update');
+    Route::post('inbox/drafts/{message}/keep', [InboxController::class, 'keepDraft'])->middleware('throttle:60,1')->name('inbox.drafts.keep');
     Route::post('inbox/send', [InboxController::class, 'send'])->middleware('throttle:30,1')->name('inbox.compose.send');
     Route::get('inbox/{message}', [InboxController::class, 'show'])->name('inbox.show');
     Route::post('inbox/{message}/send', [InboxController::class, 'send'])->middleware('throttle:30,1')->name('inbox.send');

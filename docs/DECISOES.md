@@ -1117,3 +1117,16 @@ O Barrote, numa resposta do Chief of Staff que começava «Análise do Email #14
 | **Títulos de tarefas sem o número**: «Elaborar cotação … (Email #143)» fica «Elaborar cotação …». | `EmailReferences::inTitle()`, `CreateTask` |
 
 Testes: `tests/Feature/Tasks/EmailReferencesTest.php`.
+
+## Rascunho só quando a pessoa escolhe (17.10.2026)
+
+O Barrote, na caixa geral@rethink.co.mz da Rethink, com 19 rascunhos nos Rascunhos quase todos escritos por agentes e repetidos (três «Re: Pedido de cotação – sistema de bilhética», dois «Re: Pedido de uma cotação»): «Estes rascunhos devemos escolher guardar em rascunho.» O rascunho de um agente ia sozinho para os Rascunhos da caixa e do servidor; passa a ser a pessoa a escolher.
+
+| Decisão | Onde |
+|---|---|
+| **O rascunho de um agente é uma proposta**: fica por baixo do email e no cartão da conversa («Rascunho de …»), mas não entra nos Rascunhos nem vai para o servidor de email. Os agentes deixam de pôr rascunhos no servidor. | `EmailMessage::proposals()` / `isProposal()`, `EmailFolder::messages()`, `MailClient::pushDraft()`, `DraftEmail`, `DraftEmailReply` |
+| **A pessoa escolhe**: «Guardar em rascunho» (vai para os Rascunhos e para o servidor e passa a ser dela), «Rever e enviar» (abre no compositor; guardar ou mudar também o faz dela) ou «Descartar». Só quem escreve a partir da caixa guarda; fica no registo (`email.draft_kept`). | `InboxController::keepDraft()` (`POST inbox/drafts/{id}/keep`), `MailClient::keepDraft()`, `saveDraft()` (`kept_at`), `Email/Index.tsx`, `EmailCard.tsx` |
+| **Um rascunho por email continua**: o agente só reescreve a sua proposta; um rascunho que uma pessoa guardou (`kept_at`), escreveu ou alterou nunca é reescrito. | `AgentDrafts::isPersons()`, `2026_10_17_140001` |
+| **Os rascunhos de agentes que já estavam nos Rascunhos voltam a propostas**: `mail:return-agent-drafts` (com `--dry-run`) tira dos Rascunhos e do servidor os que nenhuma pessoa guardou nem alterou; a linha fica com o texto, a execução e os ficheiros, por baixo do email e na conversa. Os escritos ou alterados por pessoas ficam onde estão. | `ReturnAgentDrafts`, `AgentDrafts::filedProposals()`, `returnToProposal()` |
+
+Testes: `tests/Feature/Email/DraftWhenPersonChoosesTest.php`, `tests/Feature/Email/EmailClientTest.php`, `tests/Feature/Email/OneDraftPerEmailTest.php`.

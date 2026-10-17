@@ -180,6 +180,26 @@ class InboxController extends Controller
     }
 
     /**
+     * «Guardar em rascunho»: the person keeps an agent's proposal as it is, in
+     * their Rascunhos and on the server (docs/DECISOES.md, "Rascunho só quando
+     * a pessoa escolhe").
+     */
+    public function keepDraft(Request $request, EmailMessage $message, MailClient $client): RedirectResponse
+    {
+        $this->authorizeView($request, $message);
+        abort_unless($message->status === EmailStatus::Draft, 409, 'Este email já não é um rascunho.');
+        abort_unless($message->mailbox->canBeWrittenFromBy($this->user($request)), 403, 'Só quem gere esta caixa guarda os rascunhos dela.');
+
+        if ($message->isProposal()) {
+            AuditLog::record($this->user($request), 'email.draft_kept', ['email_id' => $message->id, 'subject' => $message->subject], subject: $message);
+        }
+
+        $client->keepDraft($message);
+
+        return back()->with('success', 'Guardado nos Rascunhos.');
+    }
+
+    /**
      * Sends what the person wrote: a new email, a reply, a forward, or an
      * agent's draft after review. Agents never send in a person's name.
      */
@@ -584,6 +604,8 @@ class InboxController extends Controller
                 'erp_lead_id' => $m->erp_lead_id,
                 'agent_run_id' => $m->agent_run_id,
                 'written_by_agent' => $m->status === EmailStatus::Draft && $m->agent_run_id !== null && $m->written_by_user_id === null,
+                // An agent's proposal, not yet in the Rascunhos (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
+                'proposal' => $m->isProposal(),
                 // Which agent wrote the draft, from the run that created it.
                 'agent' => $m->status === EmailStatus::Draft && $m->written_by_user_id === null && $m->run?->agent
                     ? ['name' => $m->run->agent->name, 'avatar_url' => $m->run->agent->avatarUrl()]

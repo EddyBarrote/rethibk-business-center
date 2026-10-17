@@ -16,6 +16,8 @@ use Throwable;
  * an agent that drafts again for the same email rewrites its open draft
  * instead of adding another, and never rewrites one a person wrote or changed.
  * The same holds for a new email to the same people in the same conversation.
+ * The agent's draft is a proposal until a person keeps it (docs/DECISOES.md,
+ * "Rascunho só quando a pessoa escolhe"): only proposals are rewritten.
  */
 final class AgentDrafts
 {
@@ -50,16 +52,16 @@ final class AgentDrafts
     }
 
     /**
-     * Whether a person wrote or changed the draft, so no agent rewrites it.
+     * Whether a person wrote, kept or changed the draft, so no agent rewrites it.
      */
     public function isPersons(EmailMessage $draft): bool
     {
-        return $draft->written_by_user_id !== null || $draft->edited_by_person_at !== null;
+        return $draft->written_by_user_id !== null || $draft->kept_at !== null || $draft->edited_by_person_at !== null;
     }
 
     /**
-     * Rewrites the agent's open draft with this run's text; the server copy is
-     * replaced (same Message-ID) by the caller's push.
+     * Rewrites the agent's open proposal with this run's text. A proposal is
+     * never on the server, so there is no copy to replace.
      *
      * @param  array<string, mixed>  $attributes
      */
@@ -108,6 +110,35 @@ final class AgentDrafts
         }
 
         $draft->forceFill(['email_folder_id' => null, 'imap_uid' => null, 'removed_at' => now()])->save();
+    }
+
+    /**
+     * The agent drafts that went to the Rascunhos before "only when the person
+     * chooses" and that no person kept or changed: what `returnToProposal()` takes back.
+     *
+     * @return Collection<int, EmailMessage>
+     */
+    public function filedProposals(): Collection
+    {
+        return EmailMessage::query()->proposals()->where('direction', 'outbound')->whereNull('removed_at')
+            ->where(fn (Builder $q) => $q->whereNotNull('email_folder_id')->orWhereNotNull('imap_uid'))
+            ->orderBy('id')->get();
+    }
+
+    /**
+     * Back to a proposal: out of the Rascunhos and off the server; the row
+     * stays with its text, its run and its files, on the email and in the
+     * conversation, for the person to keep, review and send, or discard.
+     */
+    public function returnToProposal(EmailMessage $draft, MailClient $client): void
+    {
+        try {
+            $client->removeFromServer($draft);
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        $draft->forceFill(['email_folder_id' => null, 'imap_uid' => null])->save();
     }
 
     /**

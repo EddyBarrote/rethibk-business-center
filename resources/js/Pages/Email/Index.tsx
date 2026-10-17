@@ -422,6 +422,25 @@ function ThreadItem({
                             Para: {message.to.join(', ') || '—'} · {message.body.split('\n')[0]}
                         </p>
                     </div>
+                    {message.proposal && (
+                        <>
+                            <ConfirmDialog
+                                title="Descartar a proposta?"
+                                description="O rascunho do agente deixa de aparecer neste email e na conversa."
+                                confirmLabel="Descartar"
+                                destructive
+                                onConfirm={() => router.delete(`/inbox/${message.id}`, visitOptions)}
+                                trigger={
+                                    <Button size="sm" variant="ghost">
+                                        Descartar
+                                    </Button>
+                                }
+                            />
+                            <Button size="sm" variant="outline" onClick={() => router.post(`/inbox/drafts/${message.id}/keep`, {}, visitOptions)}>
+                                Guardar em rascunho
+                            </Button>
+                        </>
+                    )}
                     <Button size="sm" onClick={onEditDraft}>
                         Rever e enviar
                     </Button>

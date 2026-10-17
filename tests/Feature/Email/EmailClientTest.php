@@ -178,7 +178,7 @@ it('replies from the mailbox of the email, threaded, and forwards with its files
     expect(asTenant($this->tenant, fn () => EmailMessage::query()->where('subject', 'Re: Pedido')->sole()->thread_id))->toBe($original->thread_id);
 });
 
-it('puts an agent draft in the owner Rascunhos on the server', function () {
+it('leaves an agent draft as a proposal until the owner keeps it, then puts it in the Rascunhos on the server', function () {
     syncAna($this);
 
     asTenant($this->tenant, function () {
@@ -189,13 +189,21 @@ it('puts an agent draft in the owner Rascunhos on the server', function () {
         runCapability($agent, 'email.draft_reply', ['email_id' => $email->id, 'body' => 'Proposta de resposta.']);
     });
 
-    $draft = asTenant($this->tenant, fn () => EmailMessage::query()->where('status', EmailStatus::Draft)->sole());
-    expect($draft->mailbox_id)->toBe($this->mailbox->id);
-    Queue::assertPushed(PushDraftToServer::class, fn (PushDraftToServer $job) => $job->messageId === $draft->id);
-    asTenant($this->tenant, fn () => app()->call([new PushDraftToServer($this->tenant->id, $draft->id), 'handle']));
+    [$draft, $drafts] = asTenant($this->tenant, fn () => [
+        EmailMessage::query()->where('status', EmailStatus::Draft)->sole(),
+        EmailFolder::query()->where('mailbox_id', $this->mailbox->id)->where('role', EmailFolder::DRAFTS)->sole(),
+    ]);
+    expect($draft->mailbox_id)->toBe($this->mailbox->id)->and($draft->isProposal())->toBeTrue()
+        ->and(asTenant($this->tenant, fn () => $drafts->messages()->count()))->toBe(0);
+    Queue::assertNotPushed(PushDraftToServer::class);
+    expect($this->imap->in('Drafts'))->toBeEmpty();
+
+    $this->actingAs($this->ana)->post(tenantUrl($this->tenant, "inbox/drafts/{$draft->id}/keep"))->assertSessionHas('success', 'Guardado nos Rascunhos.');
 
     $onServer = collect($this->imap->in('Drafts'))->first();
-    expect($onServer['raw'])->toContain('Proposta de resposta.')->toContain('In-Reply-To: <pedido@fora>');
+    expect($onServer['raw'])->toContain('Proposta de resposta.')->toContain('In-Reply-To: <pedido@fora>')
+        ->and(asTenant($this->tenant, fn () => $draft->fresh()->isProposal()))->toBeFalse()
+        ->and(asTenant($this->tenant, fn () => $drafts->messages()->pluck('id')->all()))->toBe([$draft->id]);
 });
 
 it('never opens or writes from someone else mailbox, not even for an administrator', function () {

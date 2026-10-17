@@ -61,6 +61,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $removed_at
  * @property int|null $written_by_user_id
  * @property Carbon|null $edited_by_person_at
+ * @property Carbon|null $kept_at
  * @property list<string>|null $bcc
  * @property string|null $pending_recipient
  * @property Carbon $created_at
@@ -71,7 +72,7 @@ use Illuminate\Support\Carbon;
     'from_address', 'from_name', 'to', 'cc', 'bcc', 'reply_to', 'subject', 'text_body', 'html_body', 'raw_path',
     'classification', 'classification_confidence', 'priority', 'summary', 'extracted', 'flags', 'erp_lead_id',
     'routed_to_user_id', 'department_id', 'deadline_at', 'status', 'agent_run_id', 'received_at', 'sent_at', 'read_at', 'dedup_hash',
-    'email_folder_id', 'imap_uid', 'is_flagged', 'removed_at', 'written_by_user_id', 'pending_recipient', 'edited_by_person_at',
+    'email_folder_id', 'imap_uid', 'is_flagged', 'removed_at', 'written_by_user_id', 'pending_recipient', 'edited_by_person_at', 'kept_at',
 ])]
 #[Hidden(['html_body'])]
 class EmailMessage extends Model
@@ -116,6 +117,38 @@ class EmailMessage extends Model
             ->orWhereIn('id', TaskMessage::query()->whereNotNull('email_message_id')
                 ->whereIn('task_id', Task::query()->where('assignee_agent_id', $agent->id)->select('id'))
                 ->select('email_message_id')));
+    }
+
+    /**
+     * An agent's draft that no person kept, saved or changed yet: a proposal
+     * on the email and in the conversation, out of the Rascunhos and off the
+     * server (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function proposals(Builder $query): void
+    {
+        $query->where('status', EmailStatus::Draft)->whereNotNull('agent_run_id')->whereNull('written_by_user_id')
+            ->whereNull('kept_at')->whereNull('edited_by_person_at');
+    }
+
+    /**
+     * Everything but the proposals.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function notProposals(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q->where('status', '!=', EmailStatus::Draft)->orWhereNull('agent_run_id')
+            ->orWhereNotNull('written_by_user_id')->orWhereNotNull('kept_at')->orWhereNotNull('edited_by_person_at'));
+    }
+
+    public function isProposal(): bool
+    {
+        return $this->status === EmailStatus::Draft && $this->agent_run_id !== null && $this->written_by_user_id === null
+            && $this->kept_at === null && $this->edited_by_person_at === null;
     }
 
     /**
@@ -236,6 +269,7 @@ class EmailMessage extends Model
             'read_at' => 'datetime',
             'removed_at' => 'datetime',
             'edited_by_person_at' => 'datetime',
+            'kept_at' => 'datetime',
             'is_flagged' => 'boolean',
             'imap_uid' => 'integer',
         ];

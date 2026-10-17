@@ -9,7 +9,6 @@ use App\Ai\Runs\FactCheck;
 use App\Email\AgentDrafts;
 use App\Enums\AutonomyLevel;
 use App\Enums\EmailStatus;
-use App\Jobs\PushDraftToServer;
 use App\Models\EmailMessage;
 use App\Models\Mailbox;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -22,7 +21,9 @@ use Illuminate\Support\Str;
  * (docs/DECISOES.md, "Email proposto na conversa"). It goes to the person's
  * own mailbox, or else to the agent's; nothing leaves the company. An address
  * that no source of the run has is left out, never guessed. Drafting again to
- * the same people in the same conversation rewrites the open draft.
+ * the same people in the same conversation rewrites the open draft. It is a
+ * proposal until the person keeps it: not in the Rascunhos, not on the server
+ * (docs/DECISOES.md, "Rascunho só quando a pessoa escolhe").
  */
 final class DraftEmail extends LocalCapability
 {
@@ -97,7 +98,7 @@ final class DraftEmail extends LocalCapability
             return CapabilityResult::data([
                 'draft_id' => $open->id,
                 'changed' => false,
-                'next' => 'Já há um rascunho deste email para as mesmas pessoas que uma pessoa alterou; não o substituí nem criei outro. Diz à pessoa, em poucas linhas, o que mudarias no rascunho dela.',
+                'next' => 'Já há um rascunho deste email para as mesmas pessoas que uma pessoa guardou ou alterou; não o substituí nem criei outro. Diz à pessoa, em poucas linhas, o que mudarias no rascunho dela.',
             ]);
         }
 
@@ -121,11 +122,6 @@ final class DraftEmail extends LocalCapability
             ]);
         }
 
-        // Into the Rascunhos on the server too, for review in any email client.
-        if (filled($mailbox->imap_host)) {
-            PushDraftToServer::dispatch($draft->tenant_id, $draft->id);
-        }
-
         return CapabilityResult::data(array_filter([
             'draft_id' => $draft->id,
             'mailbox' => $mailbox->address,
@@ -134,7 +130,7 @@ final class DraftEmail extends LocalCapability
             'subject' => $data['subject'],
             'left_out' => $leftOut !== [] ? $leftOut : null,
             'updated' => $open !== null ? 'Já havia um rascunho deste email para as mesmas pessoas nesta conversa: actualizei esse, não há outro.' : null,
-            'next' => 'O rascunho aparece na conversa como cartão de email, com Para, Assunto e texto, e a pessoa revê e envia daí. Não repitas o email na resposta: diz numa ou duas linhas o que preparaste'
+            'next' => 'O rascunho aparece na conversa como cartão de email, com Para, Assunto e texto, como proposta: a pessoa escolhe guardá-lo nos Rascunhos, rever e enviar, ou descartá-lo. Não digas que está nos Rascunhos. Não repitas o email na resposta: diz numa ou duas linhas o que preparaste'
                 .($to === [] ? ', que falta o endereço do destinatário e pergunta-o' : '')
                 .($leftOut !== [] ? ' (deixei de fora '.implode(', ', $leftOut).', que não aparece em nenhuma fonte)' : '')
                 .'. Ninguém envia sem ordem da pessoa.',

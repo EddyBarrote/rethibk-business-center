@@ -79,6 +79,8 @@ export interface ThreadMessage extends EmailSummary {
     erp_lead_id: string | null;
     agent_run_id: number | null;
     written_by_agent: boolean;
+    /** An agent's draft that no person kept yet: not in the Rascunhos until «Guardar em rascunho». */
+    proposal: boolean;
     /** The agent that wrote a draft, when one did. */
     agent: { name: string; avatar_url: string | null } | null;
     attachments: EmailFile[];
