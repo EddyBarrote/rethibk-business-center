@@ -40,7 +40,15 @@ interface Choice {
  * What an upload of skills brings in, before anything is saved: each skill
  * with the files that come with it and the ones left out, and why.
  */
-export default function SkillImport({ token, skills, problems }: { token: string; skills: ImportedSkill[]; problems: { source: string; reason: string }[] }) {
+export default function SkillImport({
+    token,
+    skills,
+    problems,
+}: {
+    token: string;
+    skills: ImportedSkill[];
+    problems: { source: string; reason: string }[];
+}) {
     const form = useForm<{ choices: Choice[] }>({
         choices: skills.map((skill) => ({ index: skill.index, include: true, key: skill.key, name: skill.name, description: skill.description })),
     });
@@ -91,7 +99,9 @@ export default function SkillImport({ token, skills, problems }: { token: string
                 )}
 
                 {skills.length === 0 && (
-                    <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma skill encontrada nos ficheiros enviados.</p>
+                    <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                        Nenhuma skill encontrada nos ficheiros enviados.
+                    </p>
                 )}
 
                 {skills.map((skill, position) => {
@@ -127,13 +137,21 @@ export default function SkillImport({ token, skills, problems }: { token: string
                                     <div className="grid min-w-0 gap-4">
                                         <div className="grid gap-4 sm:grid-cols-2">
                                             <Field id={`name-${skill.index}`} label="Nome" error={errorFor(position, 'name')}>
-                                                <Input id={`name-${skill.index}`} value={choice.name} onChange={(e) => set(position, { name: e.target.value })} />
+                                                <Input
+                                                    id={`name-${skill.index}`}
+                                                    value={choice.name}
+                                                    onChange={(e) => set(position, { name: e.target.value })}
+                                                />
                                             </Field>
                                             <Field
                                                 id={`key-${skill.index}`}
                                                 label="Chave"
                                                 error={errorFor(position, 'key')}
-                                                hint={skill.key_taken ? 'Já havia uma skill com esta chave; ficou com um número.' : 'Letras, números e hífen.'}
+                                                hint={
+                                                    skill.key_taken
+                                                        ? 'Já havia uma skill com esta chave; ficou com um número.'
+                                                        : 'Letras, números e hífen.'
+                                                }
                                             >
                                                 <Input
                                                     id={`key-${skill.index}`}
@@ -229,7 +247,6 @@ export default function SkillImport({ token, skills, problems }: { token: string
                     </div>
                 </div>
             </form>
-
         </SettingsLayout>
     );
 }

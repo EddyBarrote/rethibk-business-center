@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Skills\SkillFiles;
+use App\Models\Agent;
 use App\Models\AuditLog;
 use App\Models\PlatformSkill;
 use App\Models\Skill;
@@ -78,8 +79,14 @@ class SkillController extends Controller
         return Inertia::render('Skills/Form', [
             'skill' => [
                 ...$skill->only(['id', 'key', 'name', 'description', 'instructions', 'is_enabled', 'all_agents']),
-                'agents' => $skill->agents()->orderBy('name')->get(['agents.id', 'agents.name'])->map(fn ($agent) => ['id' => $agent->id, 'name' => $agent->name]),
+                'agents' => $skill->agents()->orderBy('name')->get(['agents.id', 'agents.name', 'agents.avatar_path'])->map(fn (Agent $agent) => ['id' => $agent->id, 'name' => $agent->name, 'avatar_url' => $agent->avatarUrl()]),
             ],
+            'agentOptions' => Agent::query()->orderBy('name')->get(['id', 'name', 'title', 'avatar_path'])->map(fn (Agent $agent) => [
+                'id' => $agent->id,
+                'name' => $agent->name,
+                'title' => $agent->title,
+                'avatar_url' => $agent->avatarUrl(),
+            ]),
             'files' => $skill->files->map(fn (SkillFile $file) => [
                 'id' => $file->id,
                 'filename' => $file->filename,
@@ -110,6 +117,31 @@ class SkillController extends Controller
         $skill->delete();
 
         return to_route('skills.index')->with('success', 'Skill apagada.');
+    }
+
+    /**
+     * Choose here which agents use the skill, instead of agent by agent.
+     */
+    public function updateAgents(Request $request, Skill $skill): RedirectResponse
+    {
+        Gate::authorize('manage-catalog');
+        abort_if($skill->platform_skill_id !== null, 404);
+
+        $data = $request->validate([
+            'agents' => ['present', 'array'],
+            'agents.*' => ['integer', TenantRule::exists('agents')],
+        ]);
+
+        $changes = $skill->agents()->sync($data['agents']);
+        AuditLog::record($this->user($request), 'skill.agents_updated', ['key' => $skill->key, 'attached' => $changes['attached'], 'detached' => $changes['detached']], subject: $skill);
+
+        $count = count($data['agents']);
+
+        return back()->with('success', match ($count) {
+            0 => 'Nenhum agente usa esta skill.',
+            1 => '1 agente passa a usar esta skill.',
+            default => "{$count} agentes passam a usar esta skill.",
+        });
     }
 
     /**

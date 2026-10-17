@@ -3,6 +3,7 @@
 use App\Ai\Capabilities\CapabilityCatalog;
 use App\Ai\Skills\SkillPackageReader;
 use App\Documents\DocumentType;
+use App\Models\Agent;
 use App\Models\AuditLog;
 use App\Models\Skill;
 use App\Models\Tenant;
@@ -165,4 +166,23 @@ it('refuses what is not a skill and forgets a cancelled import', function () {
     $this->actingAs($this->owner)->delete(tenantUrl($this->tenant, "settings/skills/import/{$token}"))->assertRedirect();
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "settings/skills/import/{$token}"))->assertNotFound();
     expect(asTenant($this->tenant, fn () => Skill::query()->count()))->toBe(0);
+});
+
+it('chooses on the skill page which agents use it', function () {
+    [$skill, $ana, $rui] = asTenant($this->tenant, fn () => [Skill::factory()->create(), Agent::factory()->create(['name' => 'Ana']), Agent::factory()->create(['name' => 'Rui'])]);
+    $other = Agent::factory()->create();
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "settings/skills/{$skill->id}/edit"))->assertInertia(fn (Assert $page) => $page
+        ->component('Skills/Form')
+        ->has('agentOptions', 2)
+        ->where('agentOptions.0.name', 'Ana'));
+
+    $this->actingAs($this->member)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}/agents"), ['agents' => [$ana->id]])->assertForbidden();
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}/agents"), ['agents' => [$other->id]])->assertSessionHasErrors('agents.0');
+
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}/agents"), ['agents' => [$ana->id, $rui->id]])->assertSessionHas('success');
+    expect(asTenant($this->tenant, fn () => $skill->agents()->pluck('agents.id')->sort()->values()->all()))->toBe([$ana->id, $rui->id]);
+
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}/agents"), ['agents' => [$rui->id]])->assertSessionHas('success');
+    expect(asTenant($this->tenant, fn () => [$skill->agents()->pluck('agents.id')->all(), AuditLog::query()->where('action', 'skill.agents_updated')->count()]))->toBe([[$rui->id], 2]);
 });

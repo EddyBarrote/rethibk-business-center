@@ -87,7 +87,12 @@ export function SkillImportDialog() {
                                 variant="ghost"
                                 size="icon-sm"
                                 aria-label="Retirar"
-                                onClick={() => form.setData('files', form.data.files.filter((_, j) => j !== i))}
+                                onClick={() =>
+                                    form.setData(
+                                        'files',
+                                        form.data.files.filter((_, j) => j !== i),
+                                    )
+                                }
                             >
                                 <X />
                             </Button>

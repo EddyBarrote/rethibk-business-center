@@ -1207,6 +1207,7 @@ O Barrote quer carregar na plataforma as skills que já tem no Claude, no Codex 
 | **Nada da skill corre**: scripts (`.py`, `.sh`, `.js`…) ficam sempre de fora, e as instruções que os mandam correr ganham um aviso para serem revistas. Fontes e tipos que a plataforma não lê também ficam de fora. Caminhos que sobem pastas, ficheiros escondidos e `__MACOSX` são ignorados. | `SkillPackageReader::verdict()`, `normalise()` |
 | **Ver antes de guardar**: o envio fica de lado, e a pessoa vê o que entra e o que fica de fora (e porquê) antes de criar. Uma chave que já existe ganha um número. | `SkillImports::stage()`, `Skills/Import.tsx` |
 | **Sem agentes à partida**: a skill importada fica activa mas não atribuída (nem «Todos os agentes»); uma pessoa escolhe quem a usa. | `SkillImports::commit()` |
+| **Escolher os agentes na página da skill**: lista dos agentes da empresa com caixas para marcar quem a usa, além da página de cada agente. Quem gere skills pode fazê-lo; fica `skill.agents_updated` na auditoria. | `SkillController::updateAgents()`, `SkillEditor.tsx` |
 | **Ficheiros guardam o caminho dentro da skill** (`assets/logo.png`), porque é assim que as instruções os referem; a chave de imagem de um tipo de documento usa só o nome (`logo`). As skills passam a aceitar CSS e imagens também no editor. | `SkillFiles::attach()`, `DocumentType::key()` |
 
 Testes: `tests/Feature/Agents/SkillImportTest.php`. Experimentado com as 14 skills de `~/.claude/skills` e `~/.agents/skills` do Barrote (fora as do gstack).

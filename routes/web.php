@@ -248,6 +248,7 @@ Route::middleware('auth')->group(function () {
         Route::post('skills/import/{token}', [SkillImportController::class, 'confirm'])->name('skills.import.confirm');
         Route::delete('skills/import/{token}', [SkillImportController::class, 'destroy'])->name('skills.import.destroy');
         Route::resource('skills', SkillController::class)->except(['show']);
+        Route::put('skills/{skill}/agents', [SkillController::class, 'updateAgents'])->name('skills.agents');
         Route::put('skills/global/{platformSkill}', [SkillController::class, 'toggleGlobal'])->name('skills.global');
         Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');
         Route::delete('skills/{skill}/files/{file}', [SkillController::class, 'destroyFile'])->name('skills.files.destroy');

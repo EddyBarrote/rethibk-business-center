@@ -9,6 +9,7 @@ import { Field } from '@/Components/Field';
 import { Markdown } from '@/Components/Markdown';
 import { StatusBadge } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
+import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { Switch } from '@/Components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
@@ -25,6 +26,13 @@ export interface SkillData {
     is_active?: boolean;
     all_agents?: boolean;
     agents?: { id: number; name: string; avatar_url?: string | null }[];
+}
+
+export interface SkillAgentOption {
+    id: number;
+    name: string;
+    title?: string | null;
+    avatar_url?: string | null;
 }
 
 export interface SkillFileRow {
@@ -45,7 +53,6 @@ Descreva a situação a que esta skill se aplica.
 - O que o agente nunca deve fazer neste trabalho.
 `;
 
-
 /**
  * A skill in the Claude sense: name, when it applies, markdown instructions
  * and attached files. Same editor for the company's skills and the global ones.
@@ -56,6 +63,7 @@ export function SkillEditor({
     files,
     cancelHref,
     switchField,
+    agentOptions,
 }: {
     base: string;
     skill: SkillData | null;
@@ -63,6 +71,8 @@ export function SkillEditor({
     cancelHref: string;
     /** "is_enabled" for a company's skill, "is_active" for a global one. */
     switchField: 'is_enabled' | 'is_active';
+    /** The company's agents, to choose here which use the skill. */
+    agentOptions?: SkillAgentOption[];
 }) {
     const form = useForm({
         key: skill?.key ?? '',
@@ -92,23 +102,48 @@ export function SkillEditor({
 
         upload.setData('file', file);
         upload.transform(() => ({ file }));
-        upload.post(`${base}/${skill.id}/files`, { preserveScroll: true, forceFormData: true, onFinish: () => fileInput.current && (fileInput.current.value = '') });
+        upload.post(`${base}/${skill.id}/files`, {
+            preserveScroll: true,
+            forceFormData: true,
+            onFinish: () => fileInput.current && (fileInput.current.value = ''),
+        });
     };
 
     return (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <form onSubmit={submit} className="flex min-w-0 flex-col gap-6">
-                <FormSection id="skill" title="Skill" description="O agente vê o nome e o «quando usar»; lê as instruções só quando a skill se aplica.">
+                <FormSection
+                    id="skill"
+                    title="Skill"
+                    description="O agente vê o nome e o «quando usar»; lê as instruções só quando a skill se aplica."
+                >
                     <div className="grid gap-4">
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field id="name" label="Nome" error={form.errors.name}>
-                                <Input id="name" placeholder="Propostas comerciais" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} required />
+                                <Input
+                                    id="name"
+                                    placeholder="Propostas comerciais"
+                                    value={form.data.name}
+                                    onChange={(e) => form.setData('name', e.target.value)}
+                                    required
+                                />
                             </Field>
                             <Field id="key" label="Chave" error={form.errors.key} hint="Letras, números e hífen.">
-                                <Input id="key" className="font-mono" value={form.data.key} onChange={(e) => form.setData('key', e.target.value)} required />
+                                <Input
+                                    id="key"
+                                    className="font-mono"
+                                    value={form.data.key}
+                                    onChange={(e) => form.setData('key', e.target.value)}
+                                    required
+                                />
                             </Field>
                         </div>
-                        <Field id="description" label="Quando usar" error={form.errors.description} hint="Uma ou duas frases. É por aqui que o agente decide.">
+                        <Field
+                            id="description"
+                            label="Quando usar"
+                            error={form.errors.description}
+                            hint="Uma ou duas frases. É por aqui que o agente decide."
+                        >
                             <Textarea
                                 id="description"
                                 rows={2}
@@ -150,7 +185,9 @@ export function SkillEditor({
                                 <Switch checked={Boolean(form.data.all_agents)} onCheckedChange={(on) => form.setData('all_agents', on)} />
                                 <span className="text-sm">
                                     Todos os agentes
-                                    <span className="block text-xs text-muted-foreground">Sem a atribuir um a um, como a capacidade «Gerar documento».</span>
+                                    <span className="block text-xs text-muted-foreground">
+                                        Sem a atribuir um a um, como a capacidade «Gerar documento».
+                                    </span>
                                 </span>
                             </label>
                         )}
@@ -210,7 +247,9 @@ export function SkillEditor({
                     {!skill ? (
                         <p className="text-sm text-muted-foreground">Crie a skill primeiro; depois pode juntar modelos, exemplos e tabelas.</p>
                     ) : files.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Modelos, exemplos ou tabelas que o agente lê quando usa a skill (md, txt, csv, pdf, docx, xlsx) e imagens para documentos.</p>
+                        <p className="text-sm text-muted-foreground">
+                            Modelos, exemplos ou tabelas que o agente lê quando usa a skill (md, txt, csv, pdf, docx, xlsx) e imagens para documentos.
+                        </p>
                     ) : (
                         <ul className="divide-y">
                             {files.map((file) => (
@@ -246,26 +285,79 @@ export function SkillEditor({
                         <h2 className="mb-1 text-sm font-semibold">Agentes com esta skill</h2>
                         <p className="text-sm text-muted-foreground">Todos os agentes da organização.</p>
                     </div>
-                ) : skill?.agents && (
-                    <div className="rounded-xl border bg-card p-4">
-                        <h2 className="mb-3 text-sm font-semibold">Agentes com esta skill</h2>
-                        {skill.agents.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Nenhum ainda. Atribua-a na página de edição de cada agente.</p>
-                        ) : (
-                            <ul className="grid gap-2">
-                                {skill.agents.map((agent) => (
-                                    <li key={agent.id}>
-                                        <Link href={`/agents/${agent.id}/edit#skills`} className="flex items-center gap-2 text-sm hover:underline">
-                                            <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-6 text-[10px]" />
-                                            {agent.name}
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
+                ) : skill && agentOptions ? (
+                    <SkillAgents base={base} skill={skill} options={agentOptions} />
+                ) : (
+                    skill?.agents && (
+                        <div className="rounded-xl border bg-card p-4">
+                            <h2 className="mb-3 text-sm font-semibold">Agentes com esta skill</h2>
+                            {skill.agents.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">Nenhum ainda. Atribua-a na página de edição de cada agente.</p>
+                            ) : (
+                                <ul className="grid gap-2">
+                                    {skill.agents.map((agent) => (
+                                        <li key={agent.id}>
+                                            <Link
+                                                href={`/agents/${agent.id}/edit#skills`}
+                                                className="flex items-center gap-2 text-sm hover:underline"
+                                            >
+                                                <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-6 text-[10px]" />
+                                                {agent.name}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )
                 )}
             </aside>
+        </div>
+    );
+}
+
+/**
+ * Which agents use the skill, chosen from the skill itself.
+ */
+function SkillAgents({ base, skill, options }: { base: string; skill: SkillData; options: SkillAgentOption[] }) {
+    const form = useForm<{ agents: number[] }>({ agents: (skill.agents ?? []).map((agent) => agent.id) });
+
+    const toggle = (id: number, on: boolean) =>
+        form.setData('agents', on ? [...form.data.agents, id] : form.data.agents.filter((agentId) => agentId !== id));
+
+    return (
+        <div className="rounded-xl border bg-card p-4">
+            <h2 className="mb-1 text-sm font-semibold">Agentes com esta skill</h2>
+            <p className="mb-3 text-xs text-muted-foreground">Os agentes escolhidos vêem a skill e lêem-na quando se aplica.</p>
+            {options.length === 0 ? (
+                <p className="text-sm text-muted-foreground">A organização ainda não tem agentes.</p>
+            ) : (
+                <ul className="grid gap-1">
+                    {options.map((agent) => (
+                        <li key={agent.id}>
+                            <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 hover:bg-muted/60">
+                                <Checkbox checked={form.data.agents.includes(agent.id)} onCheckedChange={(on) => toggle(agent.id, on === true)} />
+                                <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-6 text-[10px]" />
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm">{agent.name}</span>
+                                    {agent.title && <span className="block truncate text-xs text-muted-foreground">{agent.title}</span>}
+                                </span>
+                            </label>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {form.errors.agents && <p className="mt-2 text-sm text-destructive">{form.errors.agents}</p>}
+            {form.isDirty && (
+                <Button
+                    size="sm"
+                    className="mt-3 w-full"
+                    disabled={form.processing}
+                    onClick={() => form.put(`${base}/${skill.id}/agents`, { preserveScroll: true, onSuccess: () => form.setDefaults() })}
+                >
+                    Guardar agentes
+                </Button>
+            )}
         </div>
     );
 }
