@@ -1196,3 +1196,17 @@ O Barrote quer poder fechar uma tarefa na página dela («Teste 2: cotação de 
 | **«Reabrir» desfaz**: volta a «Em curso» (ou «Por fazer» sem ninguém atribuído) sem acordar o agente; escrever na tarefa continua a reabri-la e acorda-o. | `TaskController::reopen()`, `TaskThread::reopen()` |
 
 Testes: `tests/Feature/Tasks/CloseTaskTest.php`.
+
+## Importar skills (17.10.2026)
+
+O Barrote quer carregar na plataforma as skills que já tem no Claude, no Codex e parecidos, e vê-o como um bom teste da plataforma. Detalhes em `docs/CAPACIDADES.md`, «Importar skills».
+
+| Decisão | Onde |
+|---|---|
+| **Formatos do Claude e do Codex**: um `SKILL.md` com `name`/`description` no topo, ou a pasta em `.zip`/`.skill` com o `SKILL.md` e os ficheiros ao lado. Um `.zip` com várias pastas importa várias de uma vez. O topo lê-se como YAML simples (valores normais, entre aspas e `>`/`|`), sem dependência nova. | `SkillPackageReader` |
+| **Nada da skill corre**: scripts (`.py`, `.sh`, `.js`…) ficam sempre de fora, e as instruções que os mandam correr ganham um aviso para serem revistas. Fontes e tipos que a plataforma não lê também ficam de fora. Caminhos que sobem pastas, ficheiros escondidos e `__MACOSX` são ignorados. | `SkillPackageReader::verdict()`, `normalise()` |
+| **Ver antes de guardar**: o envio fica de lado, e a pessoa vê o que entra e o que fica de fora (e porquê) antes de criar. Uma chave que já existe ganha um número. | `SkillImports::stage()`, `Skills/Import.tsx` |
+| **Sem agentes à partida**: a skill importada fica activa mas não atribuída (nem «Todos os agentes»); uma pessoa escolhe quem a usa. | `SkillImports::commit()` |
+| **Ficheiros guardam o caminho dentro da skill** (`assets/logo.png`), porque é assim que as instruções os referem; a chave de imagem de um tipo de documento usa só o nome (`logo`). As skills passam a aceitar CSS e imagens também no editor. | `SkillFiles::attach()`, `DocumentType::key()` |
+
+Testes: `tests/Feature/Agents/SkillImportTest.php`. Experimentado com as 14 skills de `~/.claude/skills` e `~/.agents/skills` do Barrote (fora as do gstack).

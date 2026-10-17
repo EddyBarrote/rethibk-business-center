@@ -197,7 +197,7 @@ export function SkillEditor({
                                     ref={fileInput}
                                     type="file"
                                     className="hidden"
-                                    accept=".md,.txt,.csv,.json,.xml,.html,.pdf,.docx,.xlsx"
+                                    accept=".md,.txt,.csv,.json,.xml,.html,.pdf,.docx,.xlsx,.css,.png,.jpg,.jpeg,.gif,.webp,.svg"
                                     onChange={(e) => send(e.target.files?.[0])}
                                 />
                                 <Button size="sm" variant="outline" disabled={upload.processing} onClick={() => fileInput.current?.click()}>
@@ -210,7 +210,7 @@ export function SkillEditor({
                     {!skill ? (
                         <p className="text-sm text-muted-foreground">Crie a skill primeiro; depois pode juntar modelos, exemplos e tabelas.</p>
                     ) : files.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Modelos, exemplos ou tabelas que o agente lê quando usa a skill (md, txt, csv, pdf, docx, xlsx).</p>
+                        <p className="text-sm text-muted-foreground">Modelos, exemplos ou tabelas que o agente lê quando usa a skill (md, txt, csv, pdf, docx, xlsx) e imagens para documentos.</p>
                     ) : (
                         <ul className="divide-y">
                             {files.map((file) => (

@@ -45,6 +45,7 @@ use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\UsageController;
 use App\Http\Controllers\Settings\UserController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\SkillImportController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\WorkflowController;
 use Illuminate\Support\Facades\Route;
@@ -242,6 +243,10 @@ Route::middleware('auth')->group(function () {
         Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');
         Route::patch('capabilities/{capability}', [CapabilityController::class, 'update'])->name('capabilities.update');
         Route::post('capabilities/sync', [CapabilityController::class, 'sync'])->middleware('throttle:10,1')->name('capabilities.sync');
+        Route::post('skills/import', [SkillImportController::class, 'store'])->name('skills.import');
+        Route::get('skills/import/{token}', [SkillImportController::class, 'show'])->name('skills.import.show');
+        Route::post('skills/import/{token}', [SkillImportController::class, 'confirm'])->name('skills.import.confirm');
+        Route::delete('skills/import/{token}', [SkillImportController::class, 'destroy'])->name('skills.import.destroy');
         Route::resource('skills', SkillController::class)->except(['show']);
         Route::put('skills/global/{platformSkill}', [SkillController::class, 'toggleGlobal'])->name('skills.global');
         Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');

@@ -20,15 +20,18 @@ final class SkillFiles
     public const DISK = 'local';
 
     /** Accepted in the upload forms. */
-    public const RULES = ['file', 'max:10240', 'mimes:md,txt,csv,json,xml,html,pdf,docx,xlsx'];
+    public const RULES = ['file', 'max:10240', 'mimes:md,txt,csv,json,xml,html,pdf,docx,xlsx,css,png,jpg,jpeg,gif,webp,svg'];
 
     public function __construct(private readonly TextExtractor $extractor) {}
 
-    public function attach(Skill|PlatformSkill $skill, UploadedFile $file): SkillFile|PlatformSkillFile
+    /**
+     * @param  string|null  $filename  the name to keep, when it is a path inside an imported skill ("assets/logo.png")
+     */
+    public function attach(Skill|PlatformSkill $skill, UploadedFile $file, ?string $filename = null): SkillFile|PlatformSkillFile
     {
-        $filename = Str::limit($file->getClientOriginalName(), 200, '');
+        $filename = Str::limit($filename ?? $file->getClientOriginalName(), 200, '');
         $folder = $skill instanceof PlatformSkill ? "skills/platform/{$skill->id}" : "skills/{$skill->tenant_id}/{$skill->id}";
-        $path = $file->storeAs($folder, Str::random(8).'-'.Str::slug(pathinfo($filename, PATHINFO_FILENAME)).'.'.$file->getClientOriginalExtension(), self::DISK);
+        $path = $file->storeAs($folder, Str::random(8).'-'.Str::slug(pathinfo($filename, PATHINFO_FILENAME)).'.'.Str::lower(pathinfo($filename, PATHINFO_EXTENSION)), self::DISK);
 
         $attributes = [
             'filename' => $filename,

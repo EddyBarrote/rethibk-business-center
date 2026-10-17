@@ -105,7 +105,7 @@ final readonly class DocumentType
     /** "Assinatura do Director.png" → "assinatura-do-director". */
     public static function key(string $name): string
     {
-        $base = preg_replace('/\.(png|jpe?g|gif|svg|webp)$/i', '', trim($name)) ?? $name;
+        $base = preg_replace('/\.(png|jpe?g|gif|svg|webp)$/i', '', basename(trim($name))) ?? $name;
 
         return Str::slug($base);
     }

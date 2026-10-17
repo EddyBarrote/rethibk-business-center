@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { BookOpen, Globe, Plus } from 'lucide-react';
 
 import { EntityRow, ListPanel, Section } from '@/Components/Blocks';
+import { SkillImportDialog } from '@/Components/catalog/SkillImportDialog';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
@@ -40,12 +41,15 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                 title="Skills"
                 description="O que os agentes sabem: instruções da organização para tipos de trabalho (como fazer uma proposta, a política de compras, o tom da marca). O agente lê uma skill quando ela se aplica."
                 actions={
-                    <Button asChild>
-                        <Link href="/settings/skills/create">
-                            <Plus />
-                            Nova skill
-                        </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <SkillImportDialog />
+                        <Button asChild>
+                            <Link href="/settings/skills/create">
+                                <Plus />
+                                Nova skill
+                            </Link>
+                        </Button>
+                    </div>
                 }
             />
 
@@ -55,7 +59,7 @@ export default function SkillsIndex({ skills, globalSkills }: { skills: SkillRow
                         <EmptyState
                             icon={BookOpen}
                             title="Sem skills próprias"
-                            description="Escreva a primeira: o nome, quando se aplica e as instruções, com modelos ou exemplos em anexo."
+                            description="Escreva a primeira (o nome, quando se aplica e as instruções, com modelos ou exemplos em anexo) ou importe as que já usa no Claude ou no Codex."
                             action={
                                 <Button asChild>
                                     <Link href="/settings/skills/create">

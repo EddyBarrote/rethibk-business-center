@@ -69,6 +69,17 @@ asset carimbo: Carimbo da empresa
 - **Falta uma imagem** (pedida no topo, usada no texto, ou o logótipo obrigatório): `documents.generate` não gera e faz um cartão de pergunta do tipo ficheiro (`AgentQuestion`, `kind: file`, até 4 de cada vez). A pessoa carrega a imagem (ou envia-a na conversa) e ela fica na Marca para os documentos seguintes; ou diz para seguir sem ela, e o agente volta a chamar com `without_assets`. A execução pausa e retoma como nas perguntas de escolha.
 - Criar um tipo novo: na página Skills, ou pedindo ao Chief of Staff (`skills.propose`).
 
+## Importar skills
+
+Skills feitas para o Claude, o Codex ou ferramentas parecidas entram pela página Skills, botão **Importar** (só quem tem «Gerir capacidades, skills e conectores»):
+
+- Aceita um `SKILL.md` (nome e descrição entre `---` no topo), ou a pasta da skill em `.zip` ou `.skill`; um `.zip` pode trazer várias pastas, cada uma com o seu `SKILL.md`. Até 20 ficheiros de 50 MB por envio.
+- `name` dá a chave (e o nome legível, se o primeiro título for curto), `description` o «quando usar», o resto do `SKILL.md` as instruções. As linhas de tipo de documento (`modelo`, `estilo`, `logotipo`, `asset …`) ficam no topo; as outras (`license`, `allowed-tools`, `metadata`…) ficam de fora.
+- Os outros ficheiros da pasta entram como ficheiros da skill, com o caminho dentro dela (`assets/logo.png`, `references/guia.md`): texto, PDF, Word, Excel, CSS e imagens. **Scripts nunca entram nem correm**; fontes e outros tipos ficam de fora.
+- Antes de guardar, `Skills/Import` mostra cada skill com o que entra, o que fica de fora e porquê, e avisos (descrição em falta ou cortada, instruções que mandam correr scripts). Pode-se mudar o nome, a chave e o «quando usar», ou deixar uma de fora.
+- A skill importada fica activa mas **sem agentes**: alguém escolhe quem a usa. Fica `skill.imported` na auditoria, com os ficheiros que entraram e os que ficaram de fora.
+- O que se envia fica em `storage/app/private/skill-imports/{tenant}/{token}` até confirmar ou cancelar (ou um dia). Código: `SkillPackageReader`, `SkillImports`, `SkillImportController`.
+
 ## Criar pela conversa
 
 Na conversa com o Chief of Staff, uma pessoa pede um agente ou uma skill nova. O Chief prepara-a (`agents.propose`, `skills.propose`, com `agents.catalog` para as chaves), pergunta o que falta e mostra-a como cartão; só fica criada quando confirma alguém com «Criar e configurar agentes» ou «Gerir capacidades, skills e conectores». Detalhes em `docs/DECISOES.md`, «Chief of Staff cria agentes e skills».
