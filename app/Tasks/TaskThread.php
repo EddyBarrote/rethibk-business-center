@@ -220,11 +220,17 @@ final class TaskThread
             'status' => $status,
             'started_at' => $task->started_at ?? ($status === TaskStatus::InProgress ? now() : null),
             'completed_at' => $status->isClosed() ? now() : null,
+            'closed_by_user_id' => $status->isClosed() && $by instanceof User ? $by->id : null,
+            'closed_by_agent_id' => $status->isClosed() && $by instanceof Agent ? $by->id : null,
             'last_activity_at' => now(),
         ])->save();
 
         $who = $by === null ? 'A plataforma' : $by->name;
         $this->note($task, trim("{$who} mudou o estado de «{$previous->label()}» para «{$status->label()}». ".($note ?? '')));
+
+        if ($status->isClosed() && $by instanceof User) {
+            $this->stopAgentWork($task);
+        }
 
         if ($by !== null) {
             AuditLog::record($by, 'task.status', ['task_id' => $task->id, 'from' => $previous->value, 'to' => $status->value], subject: $task);
@@ -258,6 +264,52 @@ final class TaskThread
         TaskUpdated::live($task);
 
         return $task;
+    }
+
+    /**
+     * A person closes the task from its page (docs/DECISOES.md, "Fechar uma
+     * tarefa"): it is done, with who closed it and when, and the agent's work
+     * still waiting on it stops.
+     */
+    public function close(Task $task, User $by): Task
+    {
+        return $this->setStatus($task, TaskStatus::Done, $by, 'Tarefa fechada.');
+    }
+
+    /**
+     * Undo «Fechar tarefa»: back to work, without waking the agent (whoever
+     * reopens it writes what is missing, and that wakes it).
+     */
+    public function reopen(Task $task, User $by): Task
+    {
+        $status = $this->agentOf($task) !== null || $task->assignee_user_id !== null ? TaskStatus::InProgress : TaskStatus::Todo;
+
+        return $this->setStatus($task, $status, $by, 'Tarefa reaberta.');
+    }
+
+    /**
+     * What the agent still had waiting on a task a person closed: runs in the
+     * queue or waiting for answers or approvals stop, with their questions and
+     * approvals. A run already running finishes its turn; nothing wakes it again.
+     */
+    private function stopAgentWork(Task $task): void
+    {
+        $runs = $task->runs()->whereIn('status', [RunStatus::Queued, RunStatus::AwaitingInput, RunStatus::AwaitingApproval])->get();
+
+        if ($runs->isEmpty()) {
+            return;
+        }
+
+        $questions = app(QuestionService::class);
+
+        foreach ($runs as $run) {
+            $run->forceFill(['status' => RunStatus::Cancelled, 'finished_at' => now()])->save();
+            $questions->cancelFor($run);
+        }
+
+        Approval::query()->whereIn('agent_run_id', $runs->modelKeys())->where('status', ApprovalStatus::Pending)->update(['status' => ApprovalStatus::Expired]);
+
+        $this->note($task, 'O trabalho do agente que esperava nesta tarefa parou.');
     }
 
     /**

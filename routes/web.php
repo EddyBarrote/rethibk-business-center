@@ -94,6 +94,8 @@ Route::middleware('auth')->group(function () {
     Route::post('tasks/bulk', [TaskController::class, 'bulk'])->name('tasks.bulk');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+    Route::post('tasks/{task}/close', [TaskController::class, 'close'])->name('tasks.close');
+    Route::post('tasks/{task}/reopen', [TaskController::class, 'reopen'])->name('tasks.reopen');
     Route::post('tasks/{task}/messages', [TaskController::class, 'message'])->middleware('throttle:30,1')->name('tasks.message');
     Route::post('questions/{question}/answer', [QuestionController::class, 'answer'])->middleware('throttle:30,1')->name('questions.answer');
     Route::get('agents/{agent}/chat', [TaskController::class, 'conversation'])->name('agents.conversation');

@@ -47,6 +47,8 @@ use Illuminate\Support\Str;
  * @property Carbon|null $due_at
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
+ * @property int|null $closed_by_user_id
+ * @property int|null $closed_by_agent_id
  * @property Carbon|null $last_activity_at
  * @property Carbon|null $chat_read_at
  * @property int|null $memory_message_id
@@ -182,6 +184,22 @@ class Task extends Model
     public function assigneeAgent(): BelongsTo
     {
         return $this->belongsTo(Agent::class, 'assignee_agent_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function closedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<Agent, $this>
+     */
+    public function closedByAgent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'closed_by_agent_id');
     }
 
     /**

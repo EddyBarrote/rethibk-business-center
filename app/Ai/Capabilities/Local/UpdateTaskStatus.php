@@ -68,6 +68,10 @@ final class UpdateTaskStatus extends LocalCapability
             return CapabilityResult::error('só podes mudar o estado de tarefas tuas.');
         }
 
+        if ($task->status->isClosed() && $task->closed_by_user_id !== null) {
+            return CapabilityResult::error("a tarefa «{$task->title}» foi fechada por uma pessoa: só ela a reabre.");
+        }
+
         $status = TaskStatus::from($data['status']);
 
         // Work a person asked for is accepted by that person (realinhamento,

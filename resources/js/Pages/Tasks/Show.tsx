@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, Pencil, Route, Send, UserRound, Zap } from 'lucide-react';
+import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, Pencil, RotateCcw, Route, Send, UserRound, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -36,6 +36,8 @@ interface Props extends TaskFormOptions {
         due_at: string | null;
         started_at: string | null;
         completed_at: string | null;
+        /** Who closed it (a person or an agent), while it is closed. */
+        closed_by: string | null;
         parent: { id: number; ref: string; title: string } | null;
         source: { label: string; href: string } | null;
         agent: AgentSummary | null;
@@ -288,6 +290,9 @@ export default function TaskShow({
     }, [messages.length]);
 
     const update = (data: Record<string, string | number | null>) => router.patch(`/tasks/${task.id}`, data, { preserveScroll: true });
+    // «Fechar tarefa» and «Reabrir» (docs/DECISOES.md, "Fechar uma tarefa").
+    const closeTask = () => router.post(`/tasks/${task.id}/close`, {}, { preserveScroll: true });
+    const reopenTask = () => router.post(`/tasks/${task.id}/reopen`, {}, { preserveScroll: true });
 
     const canSend = !form.processing && !files.uploading && !files.failed && (form.data.body.trim() !== '' || files.ids.length > 0);
 
@@ -465,6 +470,22 @@ export default function TaskShow({
                                     },
                                 ]}
                             />
+                        )}
+                        {!task.is_conversation && task.kind === 'task' && can.update && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                onClick={isClosed ? reopenTask : closeTask}
+                                title={
+                                    isClosed
+                                        ? 'Volta a pôr a tarefa em curso'
+                                        : 'Marca a tarefa como feita e pára o trabalho do agente que ainda esperava nela'
+                                }
+                            >
+                                {isClosed ? <RotateCcw /> : <CircleCheck />}
+                                <span className="hidden sm:inline">{isClosed ? 'Reabrir' : 'Fechar tarefa'}</span>
+                            </Button>
                         )}
                         {task.is_conversation && task.assignee && (
                             <>
@@ -895,7 +916,9 @@ function TaskProperties({
                 <span title={dateTime(task.created_at)}>{dateTime(task.created_at)}</span>
             </Property>
             <Property label="Iniciada">{task.started_at ? dateTime(task.started_at) : null}</Property>
-            <Property label="Concluída">{task.completed_at ? dateTime(task.completed_at) : null}</Property>
+            <Property label="Concluída">
+                {task.completed_at ? `${dateTime(task.completed_at)}${task.closed_by ? ` · por ${task.closed_by}` : ''}` : null}
+            </Property>
             <Property label="Prazo">{task.due_at ? date(task.due_at) : null}</Property>
         </Properties>
     );

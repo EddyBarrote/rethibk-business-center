@@ -407,7 +407,7 @@ class TaskController extends Controller
     {
         Gate::authorize('view', $task);
         $user = $this->user($request);
-        $task->load(['assigneeAgent', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'parent:id,number,title,tenant_id', 'tenant:id,slug']);
+        $task->load(['assigneeAgent', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'parent:id,number,title,tenant_id', 'tenant:id,slug', 'closedByUser:id,name', 'closedByAgent:id,name']);
 
         $active = $task->runs()->working()->latest('id')->first();
         $elsewhere = $task->kind === TaskKind::Chat && $task->assigneeAgent !== null
@@ -428,6 +428,7 @@ class TaskController extends Controller
                 'due_at' => $task->due_at?->toIso8601String(),
                 'started_at' => $task->started_at?->toIso8601String(),
                 'completed_at' => $task->completed_at?->toIso8601String(),
+                'closed_by' => $task->status->isClosed() ? ($task->closed_by_user_id !== null ? $task->closedByUser->name : ($task->closed_by_agent_id !== null ? $task->closedByAgent->name : null)) : null,
                 'parent' => $task->parent ? ['id' => $task->parent->id, 'ref' => $task->parent->identifier(), 'title' => $task->parent->title] : null,
                 'source' => $this->source($task),
                 // The agent who answers here: the assigned one, or the one that gave a person this task.
@@ -692,6 +693,36 @@ class TaskController extends Controller
 
         if (isset($data['status'])) {
             $threads->setStatus($task, TaskStatus::from($data['status']), $user);
+        }
+
+        return back();
+    }
+
+    /**
+     * «Fechar tarefa» on the task's page (docs/DECISOES.md, "Fechar uma tarefa").
+     */
+    public function close(Request $request, Task $task, TaskThread $threads): RedirectResponse
+    {
+        Gate::authorize('update', $task);
+        abort_if($task->kind === TaskKind::Chat, 404);
+
+        if (! $task->status->isClosed()) {
+            $threads->close($task, $this->user($request));
+        }
+
+        return back();
+    }
+
+    /**
+     * «Reabrir»: undoes «Fechar tarefa».
+     */
+    public function reopen(Request $request, Task $task, TaskThread $threads): RedirectResponse
+    {
+        Gate::authorize('update', $task);
+        abort_if($task->kind === TaskKind::Chat, 404);
+
+        if ($task->status->isClosed()) {
+            $threads->reopen($task, $this->user($request));
         }
 
         return back();

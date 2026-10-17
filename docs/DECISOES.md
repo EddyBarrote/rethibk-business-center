@@ -1182,3 +1182,17 @@ O Barrote: «o gerar documento deve obedecer um skill, eu posso querer criar um 
 | **Word e PowerPoint** mostram o nome da imagem no lugar dela por agora; o PDF mostra-a. | `MarkdownBlocks::inline()` |
 
 Testes: `tests/Feature/Knowledge/DocumentTypesTest.php`.
+
+## Fechar uma tarefa (17.10.2026)
+
+O Barrote quer poder fechar uma tarefa na página dela («Teste 2: cotação de software de gestão para loja de calçados» estava «À sua espera» sem forma visível de a terminar). O estado «Feita» já existia, mas só no menu «Estado» dos detalhes do painel lateral.
+
+| Decisão | Onde |
+|---|---|
+| **Botão «Fechar tarefa»** no topo da página de uma tarefa (não nas conversas, que se reabrem sozinhas), para quem pode mudar a tarefa (`TaskPolicy::update`). Fecha como «Feita», com o mesmo efeito de a aceitar: avisa a tarefa-mãe, consolida a memória do agente e avança o fluxo. | `TaskController::close()`, `TaskThread::close()`, `Tasks/Show.tsx` |
+| **Fica quem fechou e quando**: `closed_by_user_id` / `closed_by_agent_id` (`2026_10_17_190001`) e `completed_at`, em «Concluída» nos detalhes; vale para qualquer forma de fechar (botão, menu, aceitar, agente). Limpa-se ao reabrir. A linha temporal diz quem mudou o estado. | `TaskThread::setStatus()` |
+| **Quando uma pessoa fecha, o trabalho do agente que esperava pára**: execuções em fila, à espera de resposta ou de aprovação ficam canceladas, com as perguntas canceladas e as aprovações expiradas, e uma nota na linha temporal. Uma execução já a correr acaba o turno; nada a volta a acordar. | `TaskThread::stopAgentWork()` |
+| **Um agente não reabre** uma tarefa fechada por uma pessoa (`tasks.update_status` recusa). | `UpdateTaskStatus` |
+| **«Reabrir» desfaz**: volta a «Em curso» (ou «Por fazer» sem ninguém atribuído) sem acordar o agente; escrever na tarefa continua a reabri-la e acorda-o. | `TaskController::reopen()`, `TaskThread::reopen()` |
+
+Testes: `tests/Feature/Tasks/CloseTaskTest.php`.
