@@ -50,6 +50,10 @@ Ao carregar, `skills.load` troca `{{marca.nome}}`, `{{marca.cor}}`, `{{marca.cor
 
 Ficheiros aceites: md, txt, csv, json, xml, html, pdf, docx, xlsx (até 10 MB). O texto é extraído no upload com `TextExtractor`; um ficheiro sem texto legível fica guardado mas o agente não o consegue ler (o ecrã avisa).
 
+## Criar pela conversa
+
+Na conversa com o Chief of Staff, uma pessoa pede um agente ou uma skill nova. O Chief prepara-a (`agents.propose`, `skills.propose`, com `agents.catalog` para as chaves), pergunta o que falta e mostra-a como cartão; só fica criada quando confirma alguém com «Criar e configurar agentes» ou «Gerir capacidades, skills e conectores». Detalhes em `docs/DECISOES.md`, «Chief of Staff cria agentes e skills».
+
 ## Perguntas de escolha
 
 Todos os agentes têm `questions.ask`, o equivalente ao AskUserQuestion do Claude: 1 a 4 perguntas com 2 a 4 opções cada (e «Outra» sempre disponível). A execução pausa (`awaiting_input`), a pergunta aparece como cartão na conversa e, fora de uma conversa ao vivo, chega à pessoa como notificação «À sua espera». Responder retoma a mesma execução. Detalhes em `docs/DECISOES.md`, «Perguntas dos agentes».

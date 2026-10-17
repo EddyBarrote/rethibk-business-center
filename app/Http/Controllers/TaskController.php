@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Agents\NewColleagues;
 use App\Ai\Runs\AgentNow;
 use App\Attachments\AttachmentLimits;
 use App\Attachments\AttachmentStore;
@@ -482,6 +483,8 @@ class TaskController extends Controller
                     'payload' => $approval->payload,
                     'ceiling_reason' => $approval->ceiling_reason,
                     'can_decide' => $user->can('decide', $approval),
+                    // A new agent or skill the Chief of Staff prepared, as a card to confirm (docs/DECISOES.md).
+                    'proposal' => $this->buildProposal($approval),
                 ]),
             'workflow' => $this->workflow($task, $user),
             // The path of the case across agents and people, loaded when the "Percurso" tab opens.
@@ -502,6 +505,22 @@ class TaskController extends Controller
             ],
             ...$this->formOptions($user),
         ]);
+    }
+
+    /**
+     * @return array{kind: string, facts: list<array{label: string, value: string}>, missing: list<string>}|null
+     */
+    private function buildProposal(Approval $approval): ?array
+    {
+        $colleagues = app(NewColleagues::class);
+
+        $proposal = match ($approval->action_type) {
+            'agents.propose' => ['kind' => 'agent', ...$colleagues->agent($approval->payload ?? [])],
+            'skills.propose' => ['kind' => 'skill', ...$colleagues->skill($approval->payload ?? [])],
+            default => null,
+        };
+
+        return $proposal === null ? null : ['kind' => $proposal['kind'], 'facts' => $proposal['facts'], 'missing' => $proposal['missing']];
     }
 
     /**

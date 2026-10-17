@@ -36,14 +36,9 @@ class ApprovalPolicy
             return false;
         }
 
-        // Spending more than the organisation decided is for those who administer it.
-        if ($approval->action_type === 'budget.override') {
-            return $actor->hasPermission(Permission::ManageCosts);
-        }
-
-        // An agent's trust level is confirmed by those the matrix allows (realinhamento L11).
-        if ($approval->action_type === 'agents.set_trust_level') {
-            return $actor->hasPermission(Permission::ConfirmTrustLevels);
+        // Spending over budget, an agent's trust, new agents and skills: by the matrix (realinhamento L11).
+        if (($permission = Approval::DECIDED_BY_PERMISSION[$approval->action_type] ?? null) !== null) {
+            return $actor->hasPermission($permission);
         }
 
         if ($actor->hasPermission(Permission::DecideAllApprovals)) {

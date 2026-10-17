@@ -138,11 +138,11 @@ final class ApprovalService
 
     /**
      * Who revalidates: the Chief of Staff, unless the action is under the
-     * absolute ceiling, is the Chief's own, or is about budgets or trust.
+     * absolute ceiling, is the Chief's own, or is decided by a permission.
      */
     private function reviewerFor(Approval $approval): ?Agent
     {
-        if ($approval->ceiling_reason !== null || in_array($approval->action_type, ['budget.override', 'agents.set_trust_level'], true)) {
+        if ($approval->ceiling_reason !== null || array_key_exists($approval->action_type, Approval::DECIDED_BY_PERMISSION)) {
             return null;
         }
 

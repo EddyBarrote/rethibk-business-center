@@ -57,6 +57,18 @@ abstract class LocalCapability
     }
 
     /**
+     * What is missing or wrong in this call, said to the agent before anything
+     * reaches the autonomy gate (so it asks the person instead of sending an
+     * incomplete proposal for approval), or null when the call can go ahead.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    public function precheck(array $arguments, CapabilityContext $context): ?string
+    {
+        return null;
+    }
+
+    /**
      * One line for the approval queue.
      *
      * @param  array<string, mixed>  $arguments

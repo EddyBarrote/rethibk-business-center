@@ -1140,3 +1140,17 @@ O Barrote, na página de uma execução com 16 passos de que só cabiam 9 no ecr
 | **Chamada e Resultado numa só linha**: ícone, nome da ferramenta, o essencial da resposta a cinzento quando é texto, duração e hora. O resultado junta-se à última chamada aberta à mesma ferramenta, como em `TaskController::toolCalls()`. Uma ferramenta que falhou fica com o ícone vermelho e o erro por inteiro por baixo. | `RunTimeline.tsx` (`entriesOf()`, `ToolItem`) |
 | **Detalhes ao clicar na linha**, sem «Ver o que enviou» / «Ver o que recebeu»: «Enviou» e «Recebeu» lado a lado quando há largura, um por baixo do outro no painel lateral. Uma ferramenta clicada na conversa abre a linha, venha pela chamada ou pelo resultado. | `Row`, `useOpen()` |
 | **Respostas em duas linhas**, raciocínio e aprovações numa; o clique mostra o texto todo. Os erros soltos ficam sempre por inteiro. | `StepItem` |
+
+## Chief of Staff cria agentes e skills (17.10.2026)
+
+O Barrote: na conversa, o Chief of Staff deve poder criar agentes novos e skills novas. Uma skill já existia (pacote de instruções ao estilo do Claude, `App\Models\Skill`, docs/CAPACIDADES.md); o que faltava era o Chief prepará-la, e o agente, a partir do que a pessoa diz.
+
+| Decisão | Onde |
+|---|---|
+| **Pede-se na conversa com o Chief**. Ele vê o que há (áreas, agentes, capacidades e skills com as chaves) com `agents.catalog` e prepara um agente (nome, função, área, a quem responde, instruções, capacidades, skills, nível inicial) com `agents.propose`, ou uma skill (nome, quando se usa, instruções, que agentes a recebem ou todos) com `skills.propose`. Só o Chief tem as três. | `BuildingCatalog`, `ProposeAgent`, `ProposeSkill`, `CapabilityRegistry::CHIEF_OF_STAFF`, `InstructionComposer::chiefOfStaff()` |
+| **Perguntar, nunca inventar**: uma proposta incompleta (falta a área, a quem responde, as instruções, que agentes recebem a skill) ou com nomes que não existem nem chega à aprovação; o Chief recebe o que falta e pergunta com `questions.ask`. Para isto as capacidades locais ganham `precheck()`, que o `GatedTool` corre antes do portão de autonomia. | `LocalCapability::precheck()`, `GatedTool::handle()`, `NewColleagues::agent()` / `skill()` |
+| **Nada fica criado sem uma pessoa**: a proposta cai sempre no tecto absoluto e aparece na conversa como cartão («Agente novo para confirmar» / «Skill nova para confirmar») com «Criar agente/skill» e «Não criar…». Confirma quem a matriz deixa: criar agentes (`agents.manage`) ou gerir skills (`catalog.manage`), como o orçamento e a confiança, seja a quem for que o Chief responde. Não passa pela revalidação do Chief. | `Approval::DECIDED_BY_PERMISSION`, `ApprovalPolicy::decide()`, `Approval::decidableBy()`, `ApprovalService::reviewerFor()`, `TaskController::buildProposal()`, `BuildProposalCard.tsx` |
+| **Ao confirmar** o agente é criado activo, com as capacidades de sempre (`ON_BY_DEFAULT`), em nome de quem confirmou, e aparece em Agentes e no Organigrama (pela área e a quem responde); a skill fica ligada e atribuída. A conversa recebe uma nota com a ligação. | `NewColleagues::createAgent()` / `createSkill()`, `AgentEditor::save()` |
+| **Um agente novo começa baixo**: N1 por omissão, nunca acima de N1; a confiança sobe depois com o histórico (`agents.set_trust_level`). | `NewColleagues::MAX_START_LEVEL` |
+
+Testes: `tests/Feature/Agents/ChiefBuildsTest.php`.

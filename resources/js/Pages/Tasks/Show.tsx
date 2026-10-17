@@ -10,6 +10,7 @@ import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
 import { type ChatMessage, ChatThread, type LiveReply, type Thought, type ToolCall, WorkingBubble } from '@/Components/tasks/Chat';
+import { type BuildProposal, BuildProposalCard } from '@/Components/tasks/BuildProposalCard';
 import { type ProposedEmail } from '@/Components/tasks/EmailCard';
 import { type Journey, JourneyView } from '@/Components/tasks/Journey';
 import { type AgentWork, type PanelRun, type PanelTab, SidePanel } from '@/Components/tasks/SidePanel';
@@ -108,6 +109,8 @@ interface PendingApproval {
     payload: Record<string, unknown> | null;
     ceiling_reason: string | null;
     can_decide: boolean;
+    /** A new agent or skill prepared by the Chief of Staff. */
+    proposal: BuildProposal | null;
 }
 
 /** Wide enough for the chat and the side panel next to each other; below this the panel slides over. */
@@ -560,7 +563,14 @@ export default function TaskShow({
                                         />
                                     )}
 
-                                    <ChatThread messages={messages} toolCalls={toolCalls} thinking={thinking} emails={emails} viewer={auth.user?.name ?? null} onOpenRun={openRun} />
+                                    <ChatThread
+                                        messages={messages}
+                                        toolCalls={toolCalls}
+                                        thinking={thinking}
+                                        emails={emails}
+                                        viewer={auth.user?.name ?? null}
+                                        onOpenRun={openRun}
+                                    />
 
                                     {(working || stream) && (
                                         <WorkingBubble
@@ -625,9 +635,19 @@ export default function TaskShow({
                                 </div>
                             )}
 
-                            {approvals.map((approval) => (
-                                <ApprovalCard key={approval.id} approval={approval} />
-                            ))}
+                            {approvals.map((approval) =>
+                                approval.proposal ? (
+                                    <BuildProposalCard
+                                        key={approval.id}
+                                        approvalId={approval.id}
+                                        proposal={approval.proposal}
+                                        canDecide={approval.can_decide}
+                                        reload={reloadProps}
+                                    />
+                                ) : (
+                                    <ApprovalCard key={approval.id} approval={approval} />
+                                ),
+                            )}
 
                             {workflow?.decision && <WorkflowDecision decision={workflow.decision} />}
 

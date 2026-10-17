@@ -52,6 +52,20 @@ use Illuminate\Support\Carbon;
 ])]
 class Approval extends Model
 {
+    /**
+     * Actions only a permission of the access matrix decides, whoever the
+     * agent answers to: spending over budget, an agent's trust, and new agents
+     * and skills (docs/DECISOES.md).
+     *
+     * @var array<string, Permission>
+     */
+    public const DECIDED_BY_PERMISSION = [
+        'budget.override' => Permission::ManageCosts,
+        'agents.set_trust_level' => Permission::ConfirmTrustLevels,
+        'agents.propose' => Permission::ManageAgents,
+        'skills.propose' => Permission::ManageCatalog,
+    ];
+
     /** Stages of the revalidation: first the Chief of Staff, then people. */
     public const STAGE_AGENT = 'agent';
 
@@ -125,7 +139,7 @@ class Approval extends Model
     #[Scope]
     protected function decidableBy(Builder $query, User $user): void
     {
-        $special = ['budget.override', 'agents.set_trust_level'];
+        $special = array_keys(self::DECIDED_BY_PERMISSION);
 
         $query->where(function (Builder $q) use ($user, $special) {
             $q->where(function (Builder $rest) use ($user, $special) {
@@ -138,12 +152,10 @@ class Approval extends Model
                 }
             });
 
-            if ($user->hasPermission(Permission::ManageCosts)) {
-                $q->orWhere('action_type', 'budget.override');
-            }
+            $allowed = array_keys(array_filter(self::DECIDED_BY_PERMISSION, fn (Permission $permission) => $user->hasPermission($permission)));
 
-            if ($user->hasPermission(Permission::ConfirmTrustLevels)) {
-                $q->orWhere('action_type', 'agents.set_trust_level');
+            if ($allowed !== []) {
+                $q->orWhereIn('action_type', $allowed);
             }
         });
     }

@@ -120,6 +120,14 @@ final class GatedTool implements Tool
             return $blocked;
         }
 
+        $local = $this->capability->source === CapabilitySource::Local ? app(CapabilityRegistry::class)->find($this->capability->key) : null;
+
+        if ($local !== null && ($missing = $local->precheck($arguments, $this->context)) !== null) {
+            $recorder->step($run, StepType::Error, ['ok' => false, 'content' => $missing], $this->capability->key);
+
+            return $missing;
+        }
+
         $decision = app(AutonomyGate::class)->evaluate($this->capability, $arguments, $this->context);
 
         if (! $decision->allowed) {

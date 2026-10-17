@@ -6,6 +6,7 @@ use App\Ai\Capabilities\Local\AskHuman;
 use App\Ai\Capabilities\Local\AskQuestions;
 use App\Ai\Capabilities\Local\AttachFile;
 use App\Ai\Capabilities\Local\BudgetOverride;
+use App\Ai\Capabilities\Local\BuildingCatalog;
 use App\Ai\Capabilities\Local\ClassifyEmail;
 use App\Ai\Capabilities\Local\ClientSheet;
 use App\Ai\Capabilities\Local\CompareQuotes;
@@ -30,6 +31,8 @@ use App\Ai\Capabilities\Local\MonthSummary;
 use App\Ai\Capabilities\Local\NotifyUser;
 use App\Ai\Capabilities\Local\OrganisationOverview;
 use App\Ai\Capabilities\Local\ProjectMargins;
+use App\Ai\Capabilities\Local\ProposeAgent;
+use App\Ai\Capabilities\Local\ProposeSkill;
 use App\Ai\Capabilities\Local\ProposeTrustLevel;
 use App\Ai\Capabilities\Local\PublishBriefing;
 use App\Ai\Capabilities\Local\RateSupplier;
@@ -129,6 +132,9 @@ final class CapabilityRegistry
         ReviewApproval::class,
         SearchConversations::class,
         ProposeTrustLevel::class,
+        ProposeAgent::class,
+        ProposeSkill::class,
+        BuildingCatalog::class,
         EscalateUrgent::class,
         // Skills (docs/CAPACIDADES.md): given to agents that have skills.
         LoadSkill::class,
@@ -162,7 +168,7 @@ final class CapabilityRegistry
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];
 
     /** What the Chief of Staff gets for its role (realinhamento L10, L11). */
-    public const CHIEF_OF_STAFF = ['approvals.review', 'conversations.search', 'agents.set_trust_level'];
+    public const CHIEF_OF_STAFF = ['approvals.review', 'conversations.search', 'agents.set_trust_level', 'agents.catalog', 'agents.propose', 'skills.propose'];
 
     /**
      * @return list<LocalCapability>
