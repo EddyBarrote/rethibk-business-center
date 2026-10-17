@@ -3,14 +3,13 @@
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Capabilities\CapabilityResult;
-use App\Ai\Code\CodeRunner;
+use App\Ai\Code\Sandbox;
 use App\Ai\Runs\AgentRunner;
 use App\Attachments\ModelInput;
 use App\Attachments\TableReader;
 use App\Enums\AttachmentKind;
 use App\Enums\TriggerType;
 use App\Models\Agent;
-use App\Models\AiCharge;
 use App\Models\AuditLog;
 use App\Models\MessageAttachment;
 use App\Models\Skill;
@@ -18,13 +17,6 @@ use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Storage;
-use Laravel\Ai\Prompts\AgentPrompt;
-use Laravel\Ai\Responses\Data\FinishReason;
-use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\ProviderToolCall;
-use Laravel\Ai\Responses\Data\Step;
-use Laravel\Ai\Responses\Data\TextUsage;
-use Laravel\Ai\Responses\TextResponse;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -163,7 +155,9 @@ it('tells the agent to use files.analyze for tables, in the prompt, in files.rea
     });
 });
 
-// Correr código (docs/DECISOES.md): Python in the provider's sandbox, over files of this conversation.
+// Correr código localmente (docs/DECISOES.md): the agent's Python runs on this
+// server, shut in, over files of this conversation. The run itself needs the
+// sandbox (php artisan sandbox:install); without it the tool says so.
 
 function runCode(object $test, array $arguments): CapabilityResult
 {
@@ -174,52 +168,49 @@ function runCode(object $test, array $arguments): CapabilityResult
     });
 }
 
-it('runs code over the files of the conversation and returns the code and what it printed, charged to the budget', function () {
+it('says code cannot run when there is no sandbox, and refuses files of other conversations', function () {
+    config(['agents.code_execution.driver' => 'off']);
     $file = tableAttachment($this, 'recargas.csv', RECARGAS);
-    CodeRunner::fake([new TextResponse('M-Pesa: 1 555,50 em 4 linhas.', new TextUsage(5000, 800), new Meta('gemini', 'gemini-3.6-flash'))]);
 
-    $result = runCode($this, ['task' => 'Soma o M-Pesa', 'attachment_ids' => [$file->id]]);
+    expect(runCode($this, ['code' => 'print(1)', 'attachment_ids' => [$file->id]])->content)->toContain('não está instalada')->toContain('files.analyze');
+
+    config(['agents.code_execution.driver' => 'auto']);
+    $elsewhere = asTenant($this->tenant, fn () => MessageAttachment::factory()->create(['filename' => 'x.csv', 'task_message_id' => TaskMessage::factory()->create()->id]));
+    if (app(Sandbox::class)->available()) {
+        expect(runCode($this, ['code' => 'print(1)', 'attachment_ids' => [$elsewhere->id]])->content)->toContain('não estão nesta conversa');
+    }
+});
+
+it('runs the agent\'s Python over the files, with no network and nothing else of the machine', function () {
+    $file = tableAttachment($this, 'recargas.csv', RECARGAS);
+    $env = base_path('.env');
+
+    $result = runCode($this, ['attachment_ids' => [$file->id], 'code' => <<<PY
+    import pandas as pd, socket, os
+    df = pd.read_csv("recargas.csv", thousands=".", decimal=",")
+    print("total", df[df["Método de Pagamento"] == "M-Pesa"]["Valor da Recarga"].sum())
+    for what, attempt in [("rede", lambda: socket.create_connection(("1.1.1.1", 80), timeout=2)), ("env", lambda: open("{$env}").read()), ("escrever fora", lambda: open("/private/tmp/micomoc-fora.txt", "w"))]:
+        try:
+            attempt(); print(what, "ABERTO")
+        except Exception as e:
+            print(what, "bloqueado")
+    print(sorted(os.environ))
+    open("saida.csv", "w").write("x")
+    PY]);
 
     expect($result->ok)->toBeTrue()
-        ->and($result->content)->toContain('M-Pesa: 1 555,50 em 4 linhas.')->toContain('não confies nos números sem o código');
+        ->and($result->content)->toContain('Ficheiros na pasta: «recargas.csv». Terminou sem erros.')
+        ->toContain('total 1555.5')->toContain('rede bloqueado')->toContain('env bloqueado')->toContain('escrever fora bloqueado')
+        ->not->toContain('DB_PASSWORD')->not->toContain('ABERTO')
+        ->toContain('Ficheiros que o código criou')->toContain('saida.csv');
 
-    // The code and what it printed, from the provider's steps.
-    $step = new Step('', [], [], FinishReason::Stop, new TextUsage, new Meta('gemini', 'gemini-3.6-flash'), '', [], [
-        new ProviderToolCall('c1', 'code_execution', ['id' => 'c1', 'type' => 'code_execution_call', 'arguments' => ['language' => 'python', 'code' => 'print(1555.5)']]),
-        new ProviderToolCall('', 'code_execution', ['call_id' => 'c1', 'type' => 'code_execution_result', 'result' => "1555.5\n", 'is_error' => false]),
-    ]);
-    expect(CodeRunner::runs([$step]))->toBe([['code' => 'print(1555.5)', 'output' => "1555.5\n", 'error' => false]]);
+    expect(runCode($this, ['code' => 'raise ValueError("coluna errada")'])->content)->toContain('Terminou com erro')->toContain('coluna errada');
 
-    CodeRunner::assertPrompted(fn (AgentPrompt $prompt) => $prompt->prompt === 'Soma o M-Pesa' && $prompt->attachments->count() === 1
-        && str_contains($prompt->agent->instructions(), 'input_file_0: recargas.csv'));
+    asTenant($this->tenant, fn () => expect(AuditLog::query()->where('action', 'code.run')->count())->toBe(2));
+})->skip(fn () => ! app(Sandbox::class)->available(), 'sem caixa para correr código (php artisan sandbox:install)');
 
-    asTenant($this->tenant, fn () => expect(AiCharge::query()->where('purpose', 'code.run')->sole()->input_tokens)->toBe(5000)
-        ->and(AuditLog::query()->where('action', 'code.run')->exists())->toBeTrue());
-});
+it('stops code that runs too long', function () {
+    config(['agents.code_execution.timeout' => 2]);
 
-it('refuses files of other conversations and files above the size limit', function () {
-    CodeRunner::fake(['nada']);
-    $elsewhere = asTenant($this->tenant, fn () => MessageAttachment::factory()->create(['filename' => 'x.csv', 'task_message_id' => TaskMessage::factory()->create()->id]));
-    expect(runCode($this, ['task' => 'x', 'attachment_ids' => [$elsewhere->id]])->content)->toContain('não estão nesta conversa');
-
-    config(['agents.code_execution.max_mb' => 0.0001]);
-    $file = tableAttachment($this, 'recargas.csv', RECARGAS);
-    expect(runCode($this, ['task' => 'x', 'attachment_ids' => [$file->id]])->content)->toContain('acima do limite')->toContain('files.analyze');
-
-    CodeRunner::assertNeverPrompted();
-});
-
-it('gives the sandbox each sheet of a spreadsheet as CSV', function () {
-    $book = new Spreadsheet;
-    $book->getActiveSheet()->setTitle('Fecho')->fromArray([['ASSISTENTE', 'VENDIDOS'], ['Rosalia', 3]]);
-    $book->createSheet()->setTitle('Notas')->fromArray([['nota'], ['ok']]);
-    $path = tempnam(sys_get_temp_dir(), 'xlsx');
-    (new Xlsx($book))->save($path);
-    $file = tableAttachment($this, 'fecho.xlsx', (string) file_get_contents($path), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    CodeRunner::fake(['3 cartões']);
-
-    runCode($this, ['task' => 'Conta', 'attachment_ids' => [$file->id]]);
-
-    CodeRunner::assertPrompted(fn (AgentPrompt $prompt) => $prompt->attachments->count() === 2
-        && str_contains($prompt->agent->instructions(), 'input_file_1: fecho.xlsx — folha Notas.csv'));
-});
+    expect(runCode($this, ['code' => "while True:\n    pass"])->content)->toContain('Parou: passou do tempo');
+})->skip(fn () => ! app(Sandbox::class)->available(), 'sem caixa para correr código (php artisan sandbox:install)');

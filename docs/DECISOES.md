@@ -1231,6 +1231,8 @@ M-Pesa (592 500,00 MZN) e 1 127 POS (144 585,00 MZN) em Setembro.
 
 ## Correr código (17.10.2026)
 
+> Substituído no mesmo dia por [«Correr código localmente»](#correr-código-localmente-17102026): o custo por chamada era demasiado.
+
 O Barrote perguntou por um mini terminal em PHP para os agentes. Um terminal dentro da plataforma teria acesso à base de
 dados de todas as empresas, às chaves e ao disco, e bastaria uma instrução escondida num email ou anexo; escolheu a
 execução de código do próprio fornecedor de IA («faz o recomendado»).
@@ -1244,3 +1246,19 @@ execução de código do próprio fornecedor de IA («faz o recomendado»).
 | **Skills com scripts**: o aviso de `skills.load` passa a indicar também `code.run` para o que `files.analyze` não faz. Os scripts importados continuam de fora: o agente escreve o código para o pedido. | `LoadSkill` |
 
 Testes: `tests/Feature/Tasks/TableAnalysisTest.php`.
+
+## Correr código localmente (17.10.2026)
+
+O Barrote: «o custo é demasiado, devemos criar uma forma localmente». A execução no Gemini custava cerca de 1,58 USD por
+chamada com o CSV das recargas BAZA, porque o ficheiro entrava inteiro no modelo. Agora o código corre neste servidor e
+o modelo só vê o que o código imprime.
+
+| Decisão | Onde |
+|---|---|
+| **`code.run` recebe o código, não um pedido**: o agente escreve o Python (vê antes as colunas com `files.analyze`), diz que anexos usar, e recebe o que o código imprimiu e os erros. Nenhuma chamada extra ao modelo: o custo é só o da vez do agente. A versão no Gemini (`CodeRunner`) saiu. | `RunCode` |
+| **Caixa local fechada**: uma pasta nova por execução só com os anexos (pelo nome) e o `main.py`, apagada no fim; ambiente vazio (sem as variáveis do `.env`); sem rede; sem ler o projecto, o `.env`, a pasta pessoal nem escrever fora da pasta; sem correr outros programas. Limites de tempo (60 s), memória (1 GB), tamanho de ficheiro, saída (20 000 caracteres) e anexos (50 MB). Testado neste Mac: rede, `.env`, `/etc/passwd`, escrita em `/tmp` e `subprocess` ficam bloqueados. | `App\Ai\Code\Sandbox`, `config/agents.php` (`code_execution`) |
+| **Duas formas de isolar**: no macOS, `sandbox-exec` com um perfil que nega tudo menos o Python e a pasta; em servidores, Docker sem rede, só de leitura, como `nobody`, com limites de memória, CPU e processos (imagem em `docker/sandbox`). Sem nenhuma das duas, `code.run` diz que não está instalada e o agente usa `files.analyze`. O caminho Docker ainda não foi experimentado (este Mac não tem Docker). | `Sandbox::driver()`, `AI_CODE_SANDBOX` |
+| **`php artisan sandbox:install`** cria o venv em `storage/app/sandbox/venv` com pandas, numpy e openpyxl (só pacotes já compilados). | `InstallSandbox` |
+| Cada execução fica na auditoria (`code.run`, com o código, os anexos e como terminou). Ficheiros que o código cria não se guardam: os ficheiros entregues fazem-se com `documents.generate`. | `RunCode::execute()` |
+
+Testes: `tests/Feature/Tasks/TableAnalysisTest.php` (os que correm código precisam da caixa instalada; sem ela ficam saltados).

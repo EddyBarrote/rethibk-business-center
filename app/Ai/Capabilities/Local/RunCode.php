@@ -5,7 +5,7 @@ namespace App\Ai\Capabilities\Local;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
-use App\Ai\Code\CodeRunner;
+use App\Ai\Code\Sandbox;
 use App\Models\AuditLog;
 use App\Models\MessageAttachment;
 use App\Tasks\TaskThread;
@@ -17,13 +17,15 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Python in the provider's sandbox, over files of this conversation
- * (docs/DECISOES.md, "Correr código"): for the work files.analyze does not
- * do (crossing two files, rules per row, what a skill's script did). Nothing
- * runs on the platform's server.
+ * Python the agent writes, run on this server in a sandbox, over files of
+ * this conversation (docs/DECISOES.md, "Correr código localmente"): for the
+ * work files.analyze does not do (crossing files, rules per row, what a
+ * skill's script did). No AI cost beyond the agent's own turn.
  */
 final class RunCode extends LocalCapability
 {
+    public function __construct(private readonly Sandbox $sandbox) {}
+
     public function key(): string
     {
         return 'code.run';
@@ -36,26 +38,33 @@ final class RunCode extends LocalCapability
 
     public function description(): string
     {
-        return 'Corre Python numa caixa isolada do fornecedor de IA, com anexos desta conversa (CSV, Excel, texto, PDF), e devolve os resultados, o código e o que ele imprimiu. '
-            .'Usa-o para o que files.analyze não faz: cruzar ficheiros, regras linha a linha, o que o script de uma skill faria. Para somar, contar ou agrupar uma tabela, files.analyze é mais barato. '
-            .'Em task diz exactamente o que calcular (colunas, filtros, período, fórmulas). Os ficheiros entram inteiros no modelo: custa tokens.';
+        $seconds = (int) config('agents.code_execution.timeout', 60);
+
+        return 'Corre Python 3 que tu escreves numa caixa isolada, com anexos desta conversa na pasta actual (pelo nome do ficheiro, mostrado no resultado), e devolve o que o código imprimiu. '
+            .'Há pandas, numpy, openpyxl e a biblioteca padrão; não há rede nem outros ficheiros; '.$seconds.' s no máximo. '
+            .'Usa-o para o que files.analyze não faz: cruzar ficheiros, regras linha a linha, o que o script de uma skill faria. Para somar, contar ou agrupar uma tabela, files.analyze basta. '
+            .'Vê antes as colunas (files.analyze sem filtros) e imprime com print() tudo o que precisas: só o que for impresso volta para ti. Se der erro, corrige e volta a correr.';
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'task' => $schema->string()->required()->description('O que calcular, com as regras e os nomes das colunas.'),
-            'attachment_ids' => $schema->array()->items($schema->integer())->description('Anexos desta conversa a dar à caixa.'),
+            'code' => $schema->string()->required()->description('Programa Python completo; imprime os resultados.'),
+            'attachment_ids' => $schema->array()->items($schema->integer())->description('Anexos desta conversa a pôr na pasta.'),
         ];
     }
 
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
         $data = Validator::make($arguments, [
-            'task' => 'required|string|max:4000',
-            'attachment_ids' => 'nullable|array|max:5',
+            'code' => 'required|string|max:30000',
+            'attachment_ids' => 'nullable|array|max:10',
             'attachment_ids.*' => 'integer',
         ])->validate();
+
+        if (! $this->sandbox->available()) {
+            return CapabilityResult::error('a execução de código não está instalada neste servidor. Faz as contas com files.analyze ou diz à pessoa que falta configurar (php artisan sandbox:install).');
+        }
 
         $ids = array_values(array_unique($data['attachment_ids'] ?? []));
         $files = $ids === [] || $context->run->task_id === null ? collect() : MessageAttachment::query()
@@ -69,36 +78,66 @@ final class RunCode extends LocalCapability
             return CapabilityResult::error('Anexos que não estão nesta conversa: '.implode(', ', array_diff($ids, $files->pluck('id')->all())).'.');
         }
 
-        $missing = $files->first(fn (MessageAttachment $file) => $file->storagePath() === null || ! Storage::disk($file->diskName())->exists((string) $file->storagePath()));
-        if ($missing !== null) {
-            return CapabilityResult::error("O ficheiro do {$missing->reference()} já não está disponível.");
+        $limit = (float) config('agents.code_execution.max_mb', 50) * 1024 * 1024;
+        if ($files->sum('size_bytes') > $limit) {
+            return CapabilityResult::error('Os ficheiros somam '.Number::fileSize($files->sum('size_bytes')).', acima do limite de '.Number::fileSize($limit).'.');
         }
 
-        $limit = (float) config('agents.code_execution.max_mb', 5) * 1024 * 1024;
-        if ($files->sum('size_bytes') > $limit) {
-            return CapabilityResult::error('Os ficheiros somam '.Number::fileSize($files->sum('size_bytes')).', acima do limite de '.Number::fileSize($limit)
-                .' por chamada. Para somar, contar ou agrupar tabelas usa files.analyze; senão, manda menos ficheiros.');
+        $paths = [];
+        foreach ($files as $file) {
+            if ($file->storagePath() === null || ! Storage::disk($file->diskName())->exists((string) $file->storagePath())) {
+                return CapabilityResult::error("O ficheiro do {$file->reference()} já não está disponível.");
+            }
+
+            $paths[$this->folderName($file->filename, array_keys($paths))] = Storage::disk($file->diskName())->path((string) $file->storagePath());
         }
 
         try {
-            $result = CodeRunner::run($data['task'], $files->sortBy(fn ($f) => array_search($f->id, $ids, true))->values()->all(), $context->agent);
+            $result = $this->sandbox->run($data['code'], $paths);
         } catch (Throwable $e) {
             return CapabilityResult::error('a execução de código falhou: '.Str::limit($e->getMessage(), 200));
         }
 
-        AuditLog::record($context->agent, 'code.run', ['attachments' => $ids, 'runs' => count($result['runs'])], subject: $context->run);
+        AuditLog::record($context->agent, 'code.run', [
+            'attachments' => $ids, 'exit' => $result['exit'], 'timed_out' => $result['timed_out'], 'code' => Str::limit($data['code'], 2000),
+        ], subject: $context->run);
 
-        $runs = collect($result['runs'])->map(fn (array $run, int $i) => '### Execução '.($i + 1).($run['error'] ? ' (erro)' : '')
-            ."\n```python\n".Str::limit($run['code'], 3000)."\n```\nSaída:\n```\n{$run['output']}\n```")->implode("\n\n");
+        $names = $paths === [] ? 'nenhum' : collect(array_keys($paths))->map(fn ($n) => "«{$n}»")->implode(', ');
+        $status = match (true) {
+            $result['timed_out'] => 'Parou: passou do tempo ou da memória. Simplifica ou lê menos de cada vez.',
+            $result['exit'] === 0 => 'Terminou sem erros.',
+            default => "Terminou com erro (código {$result['exit']}): corrige e volta a correr.",
+        };
 
-        return CapabilityResult::text(
-            "<resultado_codigo>\n{$result['text']}\n\n".($runs !== '' ? $runs : 'A caixa não indicou código corrido: não confies nos números sem o código.')."\n</resultado_codigo>\n"
-            .'Os números vêm do código acima, sobre os ficheiros desta conversa. Usa-os tal como estão; se o código falhou ou leu menos linhas do que devia, corrige o pedido e volta a correr.'
-        );
+        return CapabilityResult::text(trim(
+            "Ficheiros na pasta: {$names}. {$status}\n"
+            ."<saida_codigo>\n".($result['stdout'] !== '' ? $result['stdout'] : '(nada impresso)')."\n</saida_codigo>"
+            .($result['stderr'] !== '' ? "\nErros:\n<erros_codigo>\n{$result['stderr']}\n</erros_codigo>" : '')
+            .($result['created'] !== [] ? "\nFicheiros que o código criou (não ficam guardados; para entregar um ficheiro usa documents.generate): ".implode(', ', $result['created']).'.' : '')
+        ));
     }
 
     public function summarise(array $arguments): string
     {
-        return 'Correr código: '.Str::limit((string) ($arguments['task'] ?? ''), 80);
+        return 'Correr código';
+    }
+
+    /**
+     * The file's name in the folder: its own, without folders or odd
+     * characters, numbered when two are the same.
+     *
+     * @param  list<string>  $taken
+     */
+    private function folderName(string $filename, array $taken): string
+    {
+        $name = trim((string) preg_replace('/[^\w.\- ]+/u', '_', basename($filename)), '. ') ?: 'ficheiro';
+        $base = pathinfo($name, PATHINFO_FILENAME);
+        $extension = pathinfo($name, PATHINFO_EXTENSION);
+
+        for ($n = 2; in_array($name, [...$taken, 'main.py'], true); $n++) {
+            $name = "{$base} ({$n})".($extension !== '' ? ".{$extension}" : '');
+        }
+
+        return $name;
     }
 }

@@ -97,19 +97,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Running code (docs/DECISOES.md, "Correr código")
+    | Running code (docs/DECISOES.md, "Correr código localmente")
     |--------------------------------------------------------------------------
     |
-    | code.run asks a model with the provider's own code execution (a Python
-    | sandbox on Google's side for Gemini); nothing runs on this server. The
-    | files go whole into the model, so max_mb caps what one call may send.
+    | code.run runs the agent's Python on this server, shut in: sandbox-exec on
+    | macOS (python from the venv `php artisan sandbox:install` makes) or
+    | Docker on servers (image from docker/sandbox). driver: auto, macos,
+    | docker or off. No AI cost; limits per run.
     |
     */
 
     'code_execution' => [
-        'provider' => env('AI_CODE_EXECUTION_PROVIDER', 'gemini'),
-        'model' => env('AI_CODE_EXECUTION_MODEL'),
-        'max_mb' => (float) env('AI_CODE_EXECUTION_MAX_MB', 5),
+        'driver' => env('AI_CODE_SANDBOX', 'auto'),
+        'python' => env('AI_CODE_PYTHON', storage_path('app/sandbox/venv/bin/python')),
+        'base_python' => env('AI_CODE_BASE_PYTHON', 'python3'),
+        'packages' => ['pandas', 'numpy', 'openpyxl'],
+        'docker_image' => env('AI_CODE_DOCKER_IMAGE', 'micomoc-sandbox'),
+        'timeout' => (int) env('AI_CODE_TIMEOUT', 60),
+        'memory_mb' => (int) env('AI_CODE_MEMORY_MB', 1024),
+        'max_mb' => (float) env('AI_CODE_MAX_MB', 50),
+        'output_chars' => 20000,
     ],
 
     'fallback_pricing' => [
