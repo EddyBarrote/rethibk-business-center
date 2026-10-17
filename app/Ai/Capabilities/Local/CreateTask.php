@@ -5,6 +5,7 @@ namespace App\Ai\Capabilities\Local;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
+use App\Email\EmailReferences;
 use App\Enums\AutonomyLevel;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
@@ -56,7 +57,7 @@ final class CreateTask extends LocalCapability
         return [
             'agent' => $schema->string()->description('Chave (ou nome) do agente que fica com a tarefa; a tua chave para a criares para ti. Vazio se for para uma pessoa.'),
             'person' => $schema->string()->description('Email da pessoa que fica com a tarefa, em vez de um agente.'),
-            'title' => $schema->string()->description('Título curto que diga o que é e a quem ou ao quê respeita, sem códigos (por exemplo «Seguimento da proposta à Fundação AZUL»): é por ele que todos reconhecem a tarefa.')->required(),
+            'title' => $schema->string()->description('Título curto que diga o que é e a quem ou ao quê respeita, sem códigos nem números de email (por exemplo «Seguimento da proposta à Fundação AZUL»): é por ele que todos reconhecem a tarefa.')->required(),
             'description' => $schema->string()->description('O que fazer, com o contexto todo (valores, referências, datas): quem recebe não vê a tua conversa.')->required(),
             'priority' => $schema->string()->enum(array_column(TaskPriority::cases(), 'value')),
             'goal_id' => $schema->integer()->description('Objectivo da empresa que a tarefa serve, se houver.'),
@@ -128,7 +129,7 @@ final class CreateTask extends LocalCapability
 
         $task = $this->threads->open([
             'kind' => TaskKind::Task,
-            'title' => $data['title'],
+            'title' => app(EmailReferences::class)->inTitle($data['title']),
             'description' => $data['description'],
             'priority' => $data['priority'] ?? TaskPriority::Normal->value,
             'assignee_agent_id' => $target?->id,

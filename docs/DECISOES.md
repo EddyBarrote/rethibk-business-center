@@ -1105,3 +1105,15 @@ Testes: `tests/Feature/Erp/SimilarSalesTest.php`.
 - **Sem servidor de entrada não se liga.** Se não houver nenhuma caixa do mesmo domínio para copiar, a caixa é recusada com «Indique o servidor de entrada (IMAP)». Uma edição que não toca no servidor continua a passar.
 - **A caixa diz porquê.** Uma caixa pessoal sem servidor de entrada mostra, no Email e nas Definições, «Esta caixa não tem servidor de entrada (IMAP), por isso nenhum email chega». Guardá-la de novo nas Definições preenche o servidor.
 - O exemplo no campo passou a `ex.: imap.empresa.co.mz`, para não se confundir com um valor.
+
+## Emails por quem escreveu (17.10.2026)
+
+O Barrote, numa resposta do Chief of Staff que começava «Análise do Email #143 e acções tomadas»: «Aqui analise o email de fulano de y, z com assunto x, z». O número do email é interno, como o código das tarefas.
+
+| Decisão | Onde |
+|---|---|
+| **A regra para os agentes**: fala-se dos emails por quem os escreveu, a empresa e o assunto («o email de Carmélia Buque, da Olankha, a pedir cotação de credenciação»), nunca pelo número; os números ficam para as ferramentas. | `InstructionComposer` (Regras da plataforma) |
+| **A plataforma corrige o que escapar**: numa resposta de um agente, «Email #143» passa a «email de Carmelia Buque («Solicitação de Cotação…»)», com o nome de quem escreveu (ou o endereço) e o assunto; um email enviado lê-se «email para …». Só para emails que o agente pode ler; os outros ficam com o número, para não revelar quem escreveu. | `EmailReferences::inText()`, `TaskThread::recordReply()` |
+| **Títulos de tarefas sem o número**: «Elaborar cotação … (Email #143)» fica «Elaborar cotação …». | `EmailReferences::inTitle()`, `CreateTask` |
+
+Testes: `tests/Feature/Tasks/EmailReferencesTest.php`.

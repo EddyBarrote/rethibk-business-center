@@ -8,6 +8,7 @@ use App\Ai\Runs\QuestionService;
 use App\Attachments\AttachmentStore;
 use App\Attachments\ModelInput;
 use App\Attachments\StoredFile;
+use App\Email\EmailReferences;
 use App\Enums\ActorType;
 use App\Enums\ApprovalStatus;
 use App\Enums\NotificationCategory;
@@ -356,7 +357,7 @@ final class TaskThread
             return;
         }
 
-        $text = $this->withoutAgentKeys(trim((string) ($run->output['text'] ?? '')));
+        $text = app(EmailReferences::class)->inText($this->withoutAgentKeys(trim((string) ($run->output['text'] ?? ''))), $run->agent);
         $files = $this->agentFiles($run);
 
         if ($run->status === RunStatus::Failed) {
