@@ -231,14 +231,34 @@ final class MailClient
     }
 
     /**
-     * Takes the server's copy away (a duplicate draft that is archived here);
-     * the row is the caller's to keep or change.
+     * Takes a draft's copies out of the server's Rascunhos, found by its
+     * Message-ID (the row may no longer say where it was); the row is the
+     * caller's to keep or change.
      *
      * @throws RuntimeException
      */
-    public function removeFromServer(EmailMessage $message): void
+    public function removeDraftFromServer(EmailMessage $draft): void
     {
-        $this->onServer($message, fn (ImapSession $s, int $uid) => $s->delete([$uid]));
+        $mailbox = $draft->mailbox()->first();
+
+        if ($mailbox === null || blank($mailbox->imap_host) || blank($draft->message_id_header)) {
+            return;
+        }
+
+        $this->session($mailbox, function (ImapSession $s) use ($mailbox, $draft) {
+            $folder = $this->sync->folderFor($mailbox, EmailFolder::DRAFTS, $s);
+
+            if ($folder === null) {
+                return;
+            }
+
+            $s->select($folder->path);
+
+            // Each push replaced the one before, but a copy left behind goes too.
+            for ($i = 0; $i < 5 && ($uid = $s->findByMessageId((string) $draft->message_id_header)) !== null; $i++) {
+                $s->delete([$uid]);
+            }
+        });
     }
 
     public function discardDraft(EmailMessage $draft): void

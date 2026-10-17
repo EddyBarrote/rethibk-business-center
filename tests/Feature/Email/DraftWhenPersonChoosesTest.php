@@ -93,6 +93,12 @@ it('takes the agent drafts that went to the Rascunhos by themselves back to prop
         EmailMessage::factory()->create(['mailbox_id' => $this->mailbox->id, 'direction' => 'outbound', 'status' => EmailStatus::Draft, 'email_folder_id' => $folder->id, 'agent_run_id' => null, 'raw_path' => 'mail/x.eml']),
     ]);
 
+    // Their copies on the server.
+    foreach ([$filed, $kept, $orphan] as $draft) {
+        asTenant($this->tenant, fn () => $draft->forceFill(['message_id_header' => "<d{$draft->id}@rethink.test>"])->save());
+        $this->imap->deliver('Drafts', "Message-ID: <d{$draft->id}@rethink.test>\r\nSubject: x\r\n\r\nx\r\n", ['\\Draft']);
+    }
+
     $this->artisan('mail:return-agent-drafts', ['--dry-run' => true])->assertSuccessful();
     expect(asTenant($this->tenant, fn () => $filed->fresh()->email_folder_id))->toBe($folder->id);
 
@@ -107,4 +113,7 @@ it('takes the agent drafts that went to the Rascunhos by themselves back to prop
             ->and($persons->fresh()->email_folder_id)->toBe($folder->id)
             ->and($folder->messages()->pluck('id')->sort()->values()->all())->toBe([$kept->id, $persons->id, $fromServer->id]);
     });
+    // Only the kept one is still on the server.
+    expect(collect($this->imap->in('Drafts'))->pluck('raw')->implode(''))->toContain("<d{$kept->id}@")
+        ->not->toContain("<d{$filed->id}@")->not->toContain("<d{$orphan->id}@");
 });

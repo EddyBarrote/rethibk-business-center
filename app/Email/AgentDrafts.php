@@ -104,7 +104,7 @@ final class AgentDrafts
     public function archive(EmailMessage $draft, MailClient $client): void
     {
         try {
-            $client->removeFromServer($draft);
+            $client->removeDraftFromServer($draft);
         } catch (Throwable $e) {
             report($e);
         }
@@ -148,7 +148,7 @@ final class AgentDrafts
     public function returnToProposal(EmailMessage $draft, MailClient $client): void
     {
         try {
-            $client->removeFromServer($draft);
+            $client->removeDraftFromServer($draft);
         } catch (Throwable $e) {
             report($e);
         }
