@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Ai\Runs\AgentDirectory;
+use App\Email\AgentDrafts;
 use App\Enums\AutonomyLevel;
 use App\Enums\EmailStatus;
 use App\Jobs\PushDraftToServer;
@@ -17,7 +18,9 @@ use Illuminate\Support\Str;
 
 /**
  * A reply left as a draft for a person to review and send from Email (in
- * their Rascunhos, also on the server). Nothing leaves the company.
+ * their Rascunhos, also on the server). Nothing leaves the company. One open
+ * draft per email: drafting again rewrites it, unless a person wrote or
+ * changed it.
  */
 final class DraftEmailReply extends LocalCapability
 {
@@ -73,10 +76,47 @@ final class DraftEmailReply extends LocalCapability
         $mailbox = $original->mailbox->isPersonal()
             ? $original->mailbox
             : (Mailbox::query()->where('agent_id', $context->agent->id)->first() ?? $original->mailbox);
-        $messageId = '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
         $subject = $data['subject'] ?? (Str::startsWith(Str::lower((string) $original->subject), 're:') ? $original->subject : 'Re: '.$original->subject);
+        $to = [$original->reply_to ?: $original->from_address];
+        $drafts = app(AgentDrafts::class);
 
-        $draft = EmailMessage::query()->create([
+        // One open draft per email: drafting again (a retry, a second task, a revision) rewrites it (docs/DECISOES.md, "Um só rascunho por email").
+        $open = $drafts->replyTo($mailbox, $original);
+
+        if ($open !== null && $drafts->isPersons($open)) {
+            return CapabilityResult::data([
+                'draft_id' => $open->id,
+                'changed' => false,
+                'next' => 'Já há um rascunho de resposta a este email que uma pessoa escreveu ou alterou; não o substituí nem criei outro. Diz à pessoa, em poucas linhas, o que mudarias no rascunho dela.',
+            ]);
+        }
+
+        $draft = $open !== null
+            ? $drafts->rewrite($open, $context->run, ['to' => $to, 'subject' => $subject, 'text_body' => $data['body']])
+            : $this->create($mailbox, $original, $to, $subject, $data['body'], $context);
+
+        // Into the owner's Rascunhos on the server too, for review in any email client (the old copy is replaced).
+        if (filled($mailbox->imap_host)) {
+            PushDraftToServer::dispatch($draft->tenant_id, $draft->id);
+        }
+
+        return CapabilityResult::data(array_filter([
+            'draft_id' => $draft->id,
+            'to' => $draft->to,
+            'subject' => $subject,
+            'review_at' => "/inbox/{$original->id}",
+            'updated' => $open !== null ? 'Já havia um rascunho de resposta a este email: actualizei esse, não há outro.' : null,
+        ], fn ($value) => $value !== null));
+    }
+
+    /**
+     * @param  list<string|null>  $to
+     */
+    private function create(Mailbox $mailbox, EmailMessage $original, array $to, string $subject, string $body, CapabilityContext $context): EmailMessage
+    {
+        $messageId = '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
+
+        return EmailMessage::query()->create([
             'mailbox_id' => $mailbox->id,
             'direction' => 'outbound',
             'thread_id' => $original->thread_id,
@@ -84,22 +124,15 @@ final class DraftEmailReply extends LocalCapability
             'references' => trim(($original->references ?? '').' '.$original->message_id_header),
             'from_address' => $mailbox->address,
             'from_name' => $mailbox->display_name,
-            'to' => [$original->reply_to ?: $original->from_address],
+            'to' => $to,
             'subject' => $subject,
-            'text_body' => $data['body'],
+            'text_body' => $body,
             'status' => EmailStatus::Draft,
             'agent_run_id' => $context->run->id,
             'message_id_header' => $messageId,
             'dedup_hash' => hash('sha256', $messageId.'|'.$mailbox->id),
             'read_at' => now(),
         ]);
-
-        // Into the owner's Rascunhos on the server too, for review in any email client.
-        if (filled($mailbox->imap_host)) {
-            PushDraftToServer::dispatch($draft->tenant_id, $draft->id);
-        }
-
-        return CapabilityResult::data(['draft_id' => $draft->id, 'to' => $draft->to, 'subject' => $subject, 'review_at' => "/inbox/{$original->id}"]);
     }
 
     public function summarise(array $arguments): string

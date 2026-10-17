@@ -1,3 +1,4 @@
+import { Bot } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 
 import { Monogram } from '@/Components/Blocks';
@@ -18,4 +19,20 @@ export function AgentAvatar({ name, url, className }: { name: string; url?: stri
     }
 
     return <img src={src} alt="" className={cn('inline-block size-7 shrink-0 rounded-lg bg-muted object-cover', className)} />;
+}
+
+/**
+ * The agent's face with the agent symbol (the robot of Agentes) on its corner,
+ * where something an agent wrote sits beside what people wrote, such as a
+ * draft under an email: initials alone read as a person.
+ */
+export function AgentMark({ name, url, className }: { name: string; url?: string | null; className?: string }) {
+    return (
+        <span className="relative inline-flex shrink-0" title={`Agente: ${name}`}>
+            <AgentAvatar name={name} url={url} className={className} />
+            <span className="absolute -right-1 -bottom-1 inline-flex size-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
+                <Bot className="size-2.5" aria-hidden="true" />
+            </span>
+        </span>
+    );
 }

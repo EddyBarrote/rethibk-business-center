@@ -120,10 +120,11 @@ final class MailClient
     {
         $draft ??= new EmailMessage;
         $first = ! $draft->exists;
+        $before = $first ? null : $this->content($draft->to, $draft->cc, $draft->bcc, $draft->subject, $draft->text_body);
         $messageId = $draft->message_id_header ?: '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
         $references = $replyTo !== null ? trim(($replyTo->references ?? '').' '.$replyTo->message_id_header) : $draft->references;
 
-        DB::transaction(function () use ($draft, $mailbox, $author, $data, $uploads, $keep, $first, $messageId, $references, $replyTo) {
+        DB::transaction(function () use ($draft, $mailbox, $author, $data, $uploads, $keep, $first, $before, $messageId, $references, $replyTo) {
             $draft->fill([
                 'mailbox_id' => $mailbox->id,
                 'direction' => 'outbound',
@@ -145,6 +146,9 @@ final class MailClient
 
             if ($first) {
                 $draft->written_by_user_id = $author->id;
+            } elseif ($draft->agent_run_id !== null && $before !== $this->content($data['to'], $data['cc'], $data['bcc'], $data['subject'], $data['body'])) {
+                // A person changed an agent's draft: the agent no longer rewrites it (docs/DECISOES.md, "Um só rascunho por email").
+                $draft->edited_by_person_at = now();
             }
 
             $draft->save();
@@ -155,6 +159,18 @@ final class MailClient
         $this->pushDraft($draft->refresh());
 
         return $draft;
+    }
+
+    /**
+     * What a person sees of a draft, to tell an edit from a save without changes.
+     *
+     * @param  list<string>|null  $to
+     * @param  list<string>|null  $cc
+     * @param  list<string>|null  $bcc
+     */
+    private function content(?array $to, ?array $cc, ?array $bcc, ?string $subject, ?string $body): string
+    {
+        return json_encode([$to ?? [], $cc ?? [], $bcc ?? [], trim((string) $subject), trim(str_replace("\r\n", "\n", (string) $body))]) ?: '';
     }
 
     /**
@@ -193,6 +209,17 @@ final class MailClient
         } catch (Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * Takes the server's copy away (a duplicate draft that is archived here);
+     * the row is the caller's to keep or change.
+     *
+     * @throws RuntimeException
+     */
+    public function removeFromServer(EmailMessage $message): void
+    {
+        $this->onServer($message, fn (ImapSession $s, int $uid) => $s->delete([$uid]));
     }
 
     public function discardDraft(EmailMessage $draft): void

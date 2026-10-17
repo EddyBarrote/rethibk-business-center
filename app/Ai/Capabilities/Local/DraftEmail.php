@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Ai\Runs\FactCheck;
+use App\Email\AgentDrafts;
 use App\Enums\AutonomyLevel;
 use App\Enums\EmailStatus;
 use App\Jobs\PushDraftToServer;
@@ -20,7 +21,8 @@ use Illuminate\Support\Str;
  * to review and send, shown in the conversation as an email card
  * (docs/DECISOES.md, "Email proposto na conversa"). It goes to the person's
  * own mailbox, or else to the agent's; nothing leaves the company. An address
- * that no source of the run has is left out, never guessed.
+ * that no source of the run has is left out, never guessed. Drafting again to
+ * the same people in the same conversation rewrites the open draft.
  */
 final class DraftEmail extends LocalCapability
 {
@@ -85,24 +87,39 @@ final class DraftEmail extends LocalCapability
         [$to, $leftOutTo] = $this->grounded($data['to'] ?? [], $context);
         [$cc, $leftOutCc] = $this->grounded($data['cc'] ?? [], $context);
         $leftOut = [...$leftOutTo, ...$leftOutCc];
-        $messageId = '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
+        $recipient = filled($data['recipient'] ?? null) ? Str::limit(trim((string) $data['recipient']), 250) : null;
+        $drafts = app(AgentDrafts::class);
 
-        $draft = EmailMessage::query()->create([
-            'mailbox_id' => $mailbox->id,
-            'direction' => 'outbound',
-            'from_address' => $mailbox->address,
-            'from_name' => $mailbox->display_name,
-            'to' => $to,
-            'cc' => $cc,
-            'subject' => $data['subject'],
-            'text_body' => $data['body'],
-            'status' => EmailStatus::Draft,
-            'agent_run_id' => $context->run->id,
-            'pending_recipient' => filled($data['recipient'] ?? null) ? Str::limit(trim((string) $data['recipient']), 250) : null,
-            'message_id_header' => $messageId,
-            'dedup_hash' => hash('sha256', $messageId.'|'.$mailbox->id),
-            'read_at' => now(),
-        ]);
+        // One open draft per email: the same people in the same conversation rewrite it (docs/DECISOES.md, "Um só rascunho por email").
+        $open = $drafts->newEmail($mailbox, $context->run, $to, $recipient);
+
+        if ($open !== null && $drafts->isPersons($open)) {
+            return CapabilityResult::data([
+                'draft_id' => $open->id,
+                'changed' => false,
+                'next' => 'Já há um rascunho deste email para as mesmas pessoas que uma pessoa alterou; não o substituí nem criei outro. Diz à pessoa, em poucas linhas, o que mudarias no rascunho dela.',
+            ]);
+        }
+
+        $fields = ['to' => $to, 'cc' => $cc, 'subject' => $data['subject'], 'text_body' => $data['body'], 'pending_recipient' => $recipient];
+
+        if ($open !== null) {
+            $draft = $drafts->rewrite($open, $context->run, $fields);
+        } else {
+            $messageId = '<'.Str::uuid().'@'.(Str::after($mailbox->address, '@') ?: 'micomoc.local').'>';
+            $draft = EmailMessage::query()->create([
+                ...$fields,
+                'mailbox_id' => $mailbox->id,
+                'direction' => 'outbound',
+                'from_address' => $mailbox->address,
+                'from_name' => $mailbox->display_name,
+                'status' => EmailStatus::Draft,
+                'agent_run_id' => $context->run->id,
+                'message_id_header' => $messageId,
+                'dedup_hash' => hash('sha256', $messageId.'|'.$mailbox->id),
+                'read_at' => now(),
+            ]);
+        }
 
         // Into the Rascunhos on the server too, for review in any email client.
         if (filled($mailbox->imap_host)) {
@@ -116,6 +133,7 @@ final class DraftEmail extends LocalCapability
             'cc' => $cc,
             'subject' => $data['subject'],
             'left_out' => $leftOut !== [] ? $leftOut : null,
+            'updated' => $open !== null ? 'Já havia um rascunho deste email para as mesmas pessoas nesta conversa: actualizei esse, não há outro.' : null,
             'next' => 'O rascunho aparece na conversa como cartão de email, com Para, Assunto e texto, e a pessoa revê e envia daí. Não repitas o email na resposta: diz numa ou duas linhas o que preparaste'
                 .($to === [] ? ', que falta o endereço do destinatário e pergunta-o' : '')
                 .($leftOut !== [] ? ' (deixei de fora '.implode(', ', $leftOut).', que não aparece em nenhuma fonte)' : '')

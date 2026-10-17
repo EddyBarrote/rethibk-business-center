@@ -60,6 +60,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_flagged
  * @property Carbon|null $removed_at
  * @property int|null $written_by_user_id
+ * @property Carbon|null $edited_by_person_at
  * @property list<string>|null $bcc
  * @property string|null $pending_recipient
  * @property Carbon $created_at
@@ -70,7 +71,7 @@ use Illuminate\Support\Carbon;
     'from_address', 'from_name', 'to', 'cc', 'bcc', 'reply_to', 'subject', 'text_body', 'html_body', 'raw_path',
     'classification', 'classification_confidence', 'priority', 'summary', 'extracted', 'flags', 'erp_lead_id',
     'routed_to_user_id', 'department_id', 'deadline_at', 'status', 'agent_run_id', 'received_at', 'sent_at', 'read_at', 'dedup_hash',
-    'email_folder_id', 'imap_uid', 'is_flagged', 'removed_at', 'written_by_user_id', 'pending_recipient',
+    'email_folder_id', 'imap_uid', 'is_flagged', 'removed_at', 'written_by_user_id', 'pending_recipient', 'edited_by_person_at',
 ])]
 #[Hidden(['html_body'])]
 class EmailMessage extends Model
@@ -234,6 +235,7 @@ class EmailMessage extends Model
             'sent_to_triage_at' => 'datetime',
             'read_at' => 'datetime',
             'removed_at' => 'datetime',
+            'edited_by_person_at' => 'datetime',
             'is_flagged' => 'boolean',
             'imap_uid' => 'integer',
         ];

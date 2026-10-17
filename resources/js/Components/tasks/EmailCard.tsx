@@ -2,7 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { AlertTriangle, Check, Copy, Mail, Paperclip, PenLine, Send } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
-import { AgentAvatar } from '@/Components/AgentAvatar';
+import { AgentMark } from '@/Components/AgentAvatar';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Textarea } from '@/Components/ui/textarea';
@@ -74,7 +74,7 @@ function EmailCard({ email }: { email: ProposedEmail }) {
         <article className="w-full max-w-2xl overflow-hidden rounded-xl border bg-card text-sm shadow-xs">
             <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2">
                 {email.agent ? (
-                    <AgentAvatar name={email.agent.name} url={email.agent.avatar_url} className="size-5 rounded text-[8px]" />
+                    <AgentMark name={email.agent.name} url={email.agent.avatar_url} className="size-5 rounded text-[8px]" />
                 ) : (
                     <Mail className="size-4 shrink-0 text-muted-foreground" />
                 )}
@@ -117,7 +117,10 @@ function EmailCard({ email }: { email: ProposedEmail }) {
                     {email.attachments.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 px-4 pb-3">
                             {email.attachments.map((file) => (
-                                <span key={file.id} className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
+                                <span
+                                    key={file.id}
+                                    className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs text-muted-foreground"
+                                >
                                     <Paperclip className="size-3" />
                                     {file.name}
                                 </span>
@@ -156,7 +159,9 @@ function EmailCard({ email }: { email: ProposedEmail }) {
                                 {email.from ? `Rascunho na caixa ${email.from}; só quem a gere o envia.` : 'Só quem gere a caixa o envia.'}
                             </span>
                         )}
-                        {draft && email.can_edit && <span className="ml-auto text-[11px] text-muted-foreground">Também está nos Rascunhos do Email.</span>}
+                        {draft && email.can_edit && (
+                            <span className="ml-auto text-[11px] text-muted-foreground">Também está nos Rascunhos do Email.</span>
+                        )}
                     </footer>
                 </>
             )}
@@ -215,7 +220,12 @@ function EditDraft({ email, onDone }: { email: ProposedEmail; onDone: () => void
             <EditRow label="Assunto">
                 <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="h-8" />
             </EditRow>
-            <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={Math.min(18, Math.max(6, body.split('\n').length + 1))} className="text-sm" />
+            <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={Math.min(18, Math.max(6, body.split('\n').length + 1))}
+                className="text-sm"
+            />
             {error && <p className={cn('text-xs text-status-danger')}>{error}</p>}
             <div className="flex items-center gap-1.5">
                 <Button size="sm" onClick={save} disabled={saving}>

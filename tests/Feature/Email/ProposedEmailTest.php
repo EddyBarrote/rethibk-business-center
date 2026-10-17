@@ -2,6 +2,7 @@
 
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityRegistry;
+use App\Email\MailClient;
 use App\Enums\EmailStatus;
 use App\Enums\RunStatus;
 use App\Models\Agent;
@@ -180,4 +181,40 @@ it('shows the email a colleague drafted under the reply of the agent that passed
             ->where("emails.{$relay->id}.0.agent.name", 'Gestor de Clientes')
             ->where("emails.{$relay->id}.0.from_colleague", true)
             ->where("emails.{$relay->id}.0.mailbox_id", $this->mailbox->id));
+});
+
+it('rewrites its open draft when it prepares the email again for the same people, and leaves alone one the person changed', function () {
+    asTenant($this->tenant, function () {
+        $threads = app(TaskThread::class);
+        $chat = $threads->conversation($this->edy, $this->chief);
+        $threads->post($chat, $this->edy, 'Prepara o seguimento à Dra. Natália, natalia.saide@fundacaoazul.org');
+        $first = workingRun($chat);
+        draftEmail($first, ['to' => ['natalia.saide@fundacaoazul.org'], 'subject' => 'Seguimento', 'body' => 'Primeira versão']);
+        endTurn($first, 'Preparei o seguimento.');
+
+        $threads->post($chat, $this->edy, 'Muda o assunto para «Seguimento da proposta».');
+        $second = workingRun($chat);
+        $result = draftEmail($second, ['to' => ['natalia.saide@fundacaoazul.org'], 'subject' => 'Seguimento da proposta', 'body' => 'Segunda versão']);
+        $draft = EmailMessage::query()->sole();
+
+        expect($result->content)->toContain('actualizei esse')
+            ->and($draft->subject)->toBe('Seguimento da proposta')
+            ->and($draft->text_body)->toBe('Segunda versão')
+            ->and($draft->agent_run_id)->toBe($second->id);
+
+        // Another person in the same conversation is another email.
+        draftEmail($second, ['recipient' => 'Director da Fundação', 'subject' => 'Apresentação', 'body' => 'Caro Director,']);
+        expect(EmailMessage::query()->count())->toBe(2);
+        endTurn($second, 'Mudei o assunto.');
+
+        // Once the person changed it, the agent no longer rewrites it.
+        app(MailClient::class)->saveDraft($this->mailbox, $this->edy, ['to' => ['natalia.saide@fundacaoazul.org'], 'cc' => [], 'bcc' => [], 'subject' => 'Seguimento da proposta', 'body' => 'O meu texto'], draft: $draft->fresh());
+        $threads->post($chat, $this->edy, 'Revê o email.');
+        $result = draftEmail(workingRun($chat), ['to' => ['natalia.saide@fundacaoazul.org'], 'subject' => 'Seguimento', 'body' => 'Terceira versão']);
+
+        expect($result->content)->toContain('uma pessoa alterou')
+            ->and($draft->fresh()->text_body)->toBe('O meu texto')
+            ->and($draft->fresh()->edited_by_person_at)->not->toBeNull()
+            ->and(EmailMessage::query()->count())->toBe(2);
+    });
 });

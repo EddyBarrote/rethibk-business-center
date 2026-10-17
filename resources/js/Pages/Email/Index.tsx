@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
-import { AgentAvatar } from '@/Components/AgentAvatar';
+import { AgentMark } from '@/Components/AgentAvatar';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Monogram } from '@/Components/Blocks';
 import { CategoryBadge, PriorityDot } from '@/Components/CategoryBadge';
@@ -412,7 +412,7 @@ function ThreadItem({
             <article className="rounded-xl border border-status-warning/40 bg-status-warning/5">
                 <div className="flex items-center gap-3 px-4 py-3">
                     {message.agent ? (
-                        <AgentAvatar name={message.agent.name} url={message.agent.avatar_url} className="size-7" />
+                        <AgentMark name={message.agent.name} url={message.agent.avatar_url} className="size-7" />
                     ) : (
                         <PenLine className="size-4 shrink-0 text-status-warning" />
                     )}

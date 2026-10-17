@@ -1057,3 +1057,17 @@ O Barrote pediu ao Chief of Staff «mostra aqui a proposta do email a enviar»: 
 | **Regra para todos os agentes**: quando propõem um email, preparam-no com `email.draft` (ou `email.draft_reply`) e dizem numa ou duas linhas o que prepararam, em vez de escrever o email no texto. | `InstructionComposer` (regras da plataforma) |
 
 Testes: `tests/Feature/Email/ProposedEmailTest.php`.
+
+## Um só rascunho por email (17.10.2026)
+
+O Barrote, no email 91 da Rethink («Pedido de cotação» de software para uma loja de calçados): quatro cartões iguais «Rascunho de Gestor de Clientes» por baixo do mesmo email, com as iniciais «GC» num círculo. «Aqui deve ter símbolo do agente, e nota que temos muitos drafts para o mesmo email, não pode acontecer isso.» Os quatro vieram de quatro execuções do Gestor de Clientes, cada uma a criar um rascunho novo: a 377 deixou o rascunho e falhou (o Gemini caiu), a retoma 378 escreveu outro; o Chief of Staff abriu uma segunda tarefa para o mesmo email (RET-10, run 386) e a revisão com os preços do Barrote (run 390) escreveu um quarto, dizendo que tinha «actualizado» o rascunho.
+
+| Decisão | Onde |
+|---|---|
+| **Um rascunho aberto por email**: quando um agente prepara outra vez a resposta ao mesmo email (retoma de uma execução falhada, outra tarefa, uma revisão, outro agente), reescreve o rascunho aberto dessa resposta na mesma caixa em vez de criar outro; o rascunho passa a ser da última execução (o cartão aparece por baixo dessa resposta) e a cópia nos Rascunhos do servidor é substituída (mesmo Message-ID). A ferramenta diz ao agente que actualizou o que já havia. | `AgentDrafts::replyTo()`, `DraftEmailReply` |
+| **O mesmo no «Preparar email»**: um email novo para as mesmas pessoas (os mesmos endereços, ou o mesmo destinatário sem endereço) na mesma conversa reescreve o rascunho aberto; para outras pessoas é outro email. | `AgentDrafts::newEmail()`, `DraftEmail` |
+| **O rascunho de uma pessoa nunca é reescrito**: se uma pessoa o escreveu (`written_by_user_id`) ou o alterou (`edited_by_person_at`, marcado quando muda Para, Cc, Bcc, Assunto ou texto; abrir e guardar sem mudar não conta), o agente não lhe toca nem cria outro e a ferramenta manda-o dizer à pessoa o que mudaria. | `AgentDrafts::isPersons()`, `MailClient::saveDraft()`, `2026_10_17_100001` |
+| **Os repetidos que já havia são arquivados, não apagados**: `mail:archive-duplicate-drafts` (com `--dry-run`) fica com o mais recente de cada email (ou o da pessoa, se houver) e tira os outros rascunhos de agentes das vistas e dos Rascunhos do servidor; a linha fica com o texto, a execução e os ficheiros (`removed_at`). | `ArchiveDuplicateDrafts`, `AgentDrafts::duplicates()`, `archive()` |
+| **O símbolo do agente no rascunho**: o cartão do rascunho por baixo do email, o cabeçalho do «Rever e enviar» e o cartão de email na conversa mostram a cara do agente com o robô dos Agentes no canto, para não se ler como uma pessoa; sem foto, a cara continua a ser as iniciais do agente. | `AgentMark` (`AgentAvatar.tsx`), `Email/Index.tsx`, `EmailComposer.tsx`, `EmailCard.tsx` |
+
+Testes: `tests/Feature/Email/OneDraftPerEmailTest.php`, `tests/Feature/Email/ProposedEmailTest.php`.

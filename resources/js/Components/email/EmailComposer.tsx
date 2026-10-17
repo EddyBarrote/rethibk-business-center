@@ -2,7 +2,7 @@ import { router, usePage } from '@inertiajs/react';
 import { Loader2, Save, Send, Trash2, X } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
-import { AgentAvatar } from '@/Components/AgentAvatar';
+import { AgentMark } from '@/Components/AgentAvatar';
 import { AttachButton, AttachmentTray, DropOverlay, useFileDrop } from '@/Components/attachments/Composer';
 import { ConfirmDialog } from '@/Components/Dialogs';
 import { FileIcon } from '@/Components/FileIcon';
@@ -194,7 +194,7 @@ export function EmailComposer({
             <DropOverlay show={drop.dragging} />
 
             <header className="flex items-center gap-2 border-b px-4 py-2.5">
-                {form.agent && <AgentAvatar name={form.agent.name} url={form.agent.avatar_url} className="size-6" />}
+                {form.agent && <AgentMark name={form.agent.name} url={form.agent.avatar_url} className="size-6" />}
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold">{form.title}</p>
                 {savedAt && (
                     <span className="text-xs text-muted-foreground">
