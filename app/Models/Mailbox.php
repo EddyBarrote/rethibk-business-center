@@ -192,6 +192,11 @@ class Mailbox extends Model
      */
     public function errorMessage(): ?string
     {
+        // A person's mailbox saved without a server for incoming email.
+        if ($this->isPersonal() && blank($this->imap_host)) {
+            return 'Esta caixa não tem servidor de entrada (IMAP), por isso nenhum email chega. Indique o servidor e guarde de novo.';
+        }
+
         if (blank($this->last_error)) {
             return null;
         }

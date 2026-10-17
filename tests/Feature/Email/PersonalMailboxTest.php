@@ -195,3 +195,46 @@ it('hands new email in a personal mailbox to the agent its owners chose, as thei
             ->and(EmailPrompt::forPerson($email))->toContain($this->ana->email)->toContain('Nunca envies');
     });
 });
+
+it('fills a server left blank from the company\'s other mailbox on the same domain, and refuses one with none', function () {
+    connectMailbox($this, $this->ana);
+
+    // Same domain as ana@: the servers come from her mailbox.
+    connectMailbox($this, $this->rui, ['address' => 'rui@empresa.test', 'display_name' => 'Rui', 'imap_host' => '', 'smtp_host' => null, 'imap_port' => 143, 'imap_encryption' => 'tls']);
+
+    asTenant($this->tenant, fn () => expect(Mailbox::query()->where('address', 'rui@empresa.test')->sole())
+        ->imap_host->toBe('imap.empresa.test')
+        ->imap_port->toBe(993)
+        ->imap_encryption->toBe('ssl')
+        ->smtp_host->toBe('smtp.empresa.test')
+        ->errorMessage()->toBeNull());
+
+    // Another domain, nothing to borrow: refused, since no email would ever arrive.
+    $this->actingAs($this->rui)->post(tenantUrl($this->tenant, 'settings/mailboxes'), [
+        'address' => 'rui@outra.test', 'display_name' => 'Rui', 'imap_host' => '', 'imap_password' => 'segredo',
+    ])->assertSessionHasErrors('imap_host');
+    asTenant($this->tenant, fn () => expect(Mailbox::query()->where('address', 'rui@outra.test')->exists())->toBeFalse());
+});
+
+it('says in the inbox why a mailbox saved without a server stays empty, and saving it again fills the server', function () {
+    connectMailbox($this, $this->ana);
+    connectMailbox($this, $this->rui, ['address' => 'rui@empresa.test', 'display_name' => 'Rui']);
+    // As ebarrote@ was saved before servers were filled in.
+    $mailbox = asTenant($this->tenant, function () {
+        $mailbox = Mailbox::query()->where('address', 'rui@empresa.test')->sole();
+        $mailbox->forceFill(['imap_host' => null, 'smtp_host' => null])->save();
+
+        return $mailbox;
+    });
+
+    $this->actingAs($this->rui)->get(tenantUrl($this->tenant, "inbox?mailbox={$mailbox->id}"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('current.mailbox', $mailbox->id)
+            ->where('mailboxes.0.error', 'Esta caixa não tem servidor de entrada (IMAP), por isso nenhum email chega. Indique o servidor e guarde de novo.'));
+
+    $this->actingAs($this->rui)->put(tenantUrl($this->tenant, "settings/mailboxes/{$mailbox->id}"), [
+        'address' => 'rui@empresa.test', 'display_name' => 'Rui', 'imap_host' => '', 'smtp_host' => '',
+    ])->assertSessionHasNoErrors()->assertRedirect();
+
+    expect($mailbox->fresh())->imap_host->toBe('imap.empresa.test')->smtp_host->toBe('smtp.empresa.test')
+        ->and($mailbox->fresh()->imap_password)->toBe('segredo-imap');
+});

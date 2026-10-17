@@ -371,7 +371,7 @@ function ServerFields({
                         id={key('host')}
                         value={form.data[key('host')]}
                         onChange={(e) => form.setData(key('host'), e.target.value)}
-                        placeholder={`${prefix}.hostinger.com`}
+                        placeholder={`ex.: ${prefix}.empresa.co.mz`}
                     />
                 </Field>
                 <Field id={key('port')} label="Porta" error={errors[key('port')]}>

@@ -1097,3 +1097,11 @@ Pedido do Barrote: há eventos para os quais se fazem propostas, e o agente deve
 | **Quem a tem**: Gestor de Clientes e Chief of Staff (modelos); na Rethink dada também aos dois agentes existentes. | `AgentTemplates` |
 
 Testes: `tests/Feature/Erp/SimilarSalesTest.php`.
+
+## Caixa de email sem servidor (17.10.2026)
+
+- **O problema.** A caixa ebarrote@rethink.co.mz foi ligada a 16.10 com utilizador e palavra-passe mas sem servidor IMAP nem SMTP (o campo mostrava `imap.hostinger.com` como exemplo, parecia preenchido). Sem servidor a caixa fica local: as pastas aparecem, mas nunca chega nenhum email e não dizia porquê.
+- **Servidor em branco = o do mesmo domínio.** Ao guardar uma caixa pessoal com o servidor de entrada ou de saída em branco, usa-se o servidor, a porta e a segurança de outra caixa pessoal do tenant com o mesmo domínio (geral@ e ebarrote@ estão no mesmo Hostinger).
+- **Sem servidor de entrada não se liga.** Se não houver nenhuma caixa do mesmo domínio para copiar, a caixa é recusada com «Indique o servidor de entrada (IMAP)». Uma edição que não toca no servidor continua a passar.
+- **A caixa diz porquê.** Uma caixa pessoal sem servidor de entrada mostra, no Email e nas Definições, «Esta caixa não tem servidor de entrada (IMAP), por isso nenhum email chega». Guardá-la de novo nas Definições preenche o servidor.
+- O exemplo no campo passou a `ex.: imap.empresa.co.mz`, para não se confundir com um valor.

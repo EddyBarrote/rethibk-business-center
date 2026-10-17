@@ -15,6 +15,7 @@ use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -186,6 +187,49 @@ class MailboxController extends Controller
 
         if (($data['processor'] ?? null) !== null && ! in_array((int) $data['processor'], array_map('intval', $data['readers'] ?? []), true)) {
             throw ValidationException::withMessages(['processor' => 'O agente que vê o email novo tem de estar entre os que lêem a caixa.']);
+        }
+
+        $data = $this->withServers($data, $mailbox);
+
+        // Without a server for incoming email nothing ever arrives in it.
+        if (($mailbox === null || array_key_exists('imap_host', $data)) && blank($data['imap_host'] ?? null)) {
+            throw ValidationException::withMessages(['imap_host' => 'Indique o servidor de entrada (IMAP), sem ele nenhum email chega a esta caixa.']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * A server left blank is the one the company's other mailboxes on the
+     * same domain already use (geral@ and ebarrote@ share one), with its
+     * port and security.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withServers(array $data, ?Mailbox $mailbox): array
+    {
+        $domain = Str::after(Str::lower((string) $data['address']), '@');
+
+        foreach (['imap', 'smtp'] as $side) {
+            $host = array_key_exists("{$side}_host", $data) ? $data["{$side}_host"] : $mailbox?->{"{$side}_host"};
+
+            if (filled($host) || $domain === '') {
+                continue;
+            }
+
+            $twin = Mailbox::query()->where('kind', Mailbox::PERSON)
+                ->when($mailbox, fn ($q) => $q->whereKeyNot($mailbox->id))
+                ->where('address', 'like', '%@'.$domain)
+                ->whereNotNull("{$side}_host")->where("{$side}_host", '!=', '')
+                ->orderBy('id')
+                ->first();
+
+            if ($twin !== null) {
+                $data["{$side}_host"] = $twin->{"{$side}_host"};
+                $data["{$side}_port"] = $twin->{"{$side}_port"};
+                $data["{$side}_encryption"] = $twin->{"{$side}_encryption"};
+            }
         }
 
         return $data;
