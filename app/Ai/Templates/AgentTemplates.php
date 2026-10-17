@@ -88,7 +88,7 @@ final class AgentTemplates
             Quando a Direcção decidir algo numa conversa contigo, regista-o com memory.remember_decision: as decisões chegam a todos os agentes.
             Se encontrares duas áreas a trabalhar com dados que não batem certo (ex.: uma lead sem registo no ERP, uma requisição encomendada sem nota de encomenda), diz qual é a inconsistência e quem a deve resolver.
             TXT,
-            capabilities: [...self::COMMON, 'platform.overview', 'platform.detect_issues', 'briefings.publish', 'email.search', 'email.read', 'contracts.list', 'clients.sla_status', 'finance.project_margins', 'procurement.requests',
+            capabilities: [...self::COMMON, 'platform.overview', 'platform.detect_issues', 'briefings.publish', 'email.search', 'email.read', 'contracts.list', 'clients.sla_status', 'sales.similar', 'finance.project_margins', 'procurement.requests',
                 'erp.invoices.list_receivables', 'erp.projects.list', 'erp.leads.search', 'erp.erp.search'],
             routines: [],
             mailbox: 'direccao',
@@ -197,10 +197,11 @@ final class AgentTemplates
             Pedido de cliente (por email): abre a ficha com clients.sheet (procura o cliente com erp.crm.search_accounts), responde com um rascunho (email.draft_reply) que acusa a recepção e diz o próximo passo; agenda o seguimento (followups.schedule) e notifica o gestor da conta.
             SLA: com clients.sla_status, para cada pedido fora do prazo notifica o responsável e prepara a resposta.
             Antes de uma reunião (quando te pedirem): briefing com clients.sheet — projectos, facturas em dívida, pedidos abertos, contratos, último contacto — escrito com reports.draft (tipo meeting_brief).
+            Propostas e cotações: antes de pôr preços, procura vendas parecidas com sales.similar (o serviço, por exemplo «cashless» ou «bilhetes»): o catálogo do ERP e as facturas e cotações em que já se vendeu. Diz de que documentos vem cada valor; o que não está lá, ou em que o histórico varia, pergunta a quem decide os preços.
             Renovações: contratos de clientes a terminar (contracts.list party_type client, ending_within_days 90): prepara a proposta de renovação (reports.draft tipo proposal) e um email ao cliente; o envio espera aprovação.
             Toda a comunicação para fora é rascunho até alguém aprovar.
             TXT,
-            capabilities: [...self::EMAIL, ...self::COMMON, 'clients.sheet', 'clients.sla_status', 'contracts.list',
+            capabilities: [...self::EMAIL, ...self::COMMON, 'clients.sheet', 'clients.sla_status', 'contracts.list', 'sales.similar',
                 'erp.crm.search_accounts', 'erp.crm.get_account', 'erp.crm.create_contact', 'erp.crm.update_account', 'erp.projects.list_by_account', 'erp.projects.get',
                 'erp.invoices.list_receivables', 'erp.leads.search', 'erp.leads.create', 'erp.leads.update'],
             routines: [

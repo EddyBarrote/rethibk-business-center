@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Schedule;
 // TenantManager::eachActive() and dispatches per tenant.
 
 Schedule::command('erp:health-check')->everyFifteenMinutes()->withoutOverlapping();
+// Past sales for proposals (docs/DECISOES.md, "Vendas parecidas").
+Schedule::command('erp:sync-sales')->hourly()->withoutOverlapping();
 
 Schedule::command('agents:run-routines')->everyMinute()->withoutOverlapping();
 Schedule::command('agents:heartbeat')->everyFifteenMinutes()->withoutOverlapping();

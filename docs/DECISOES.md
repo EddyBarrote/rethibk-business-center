@@ -1083,3 +1083,17 @@ Pergunta do Barrote: onde ficam os produtos e serviços que os agentes usam nas 
 | **A proposta inventada da RET-6 continua por rever**: «Proposta Comercial Reactive - Eddy Barrote» (item 19, `pending_review`) tem os 12 500 MZN de setup, 7 500 MZN e 5% que o agente estimou. Não é publicada nem usada como fonte. | — |
 
 Sem código, sem testes novos.
+
+## Vendas parecidas (17.10.2026)
+
+Pedido do Barrote: há eventos para os quais se fazem propostas, e o agente deve conseguir ir buscar facturas parecidas para ter uma base. O Perfex só procura facturas e cotações pelo número ou pelo cliente, e as linhas de cada documento custam uma leitura; na Rethink nenhum agente tinha sequer leituras de facturas, cotações ou catálogo.
+
+| Decisão | Onde |
+|---|---|
+| **Uma cópia das vendas do ERP, linha a linha**: facturas, cotações e artigos do catálogo, com cliente, data, estado, total, linhas (descrição, descrição longa, quantidade, preço, valor, impostos) e notas e condições do documento. A cópia relê só os documentos novos ou mudados (estado, total, data, cliente, número) e retira os que desapareceram; no máximo 400 leituras por vez. Só para ERP Perfex. | `erp_sales`, `App\Sales\SalesHistory::sync()`, migração `2026_10_17_120001` |
+| **Copiada de hora a hora** (`erp:sync-sales`, na fila por tenant) ou já com `erp:sync-sales {tenant}`. Cada leitura passa pelo `ErpGateway` e fica na auditoria. | `Console/Commands/Erp/SyncErpSales`, `Jobs/SyncErpSales`, `routes/console.php` |
+| **`sales.similar` («Vendas parecidas»)**: o agente diz o que se vendeu («cashless», «bilhetes», «check-in»), e recebe os artigos do catálogo e os documentos cujas linhas o mencionam (sem acentos nem maiúsculas, palavras genéricas como «serviço», «evento» e «proposta» não contam), primeiro os que têm mais palavras, depois os mais recentes; filtra por facturas ou cotações e por cliente. Sem cópia ainda, pede-a e diz para tentar depois. | `App\Ai\Capabilities\Local\SimilarSales`, `SalesHistory::search()` |
+| **Histórico não é tabela**: a ferramenta e as instruções do Gestor de Clientes dizem que o catálogo é o preço de tabela e um documento é o que se fez com um cliente; o agente cita o número do documento e pergunta a quem decide os preços quando o histórico varia ou não cobre o pedido. O que a ferramenta devolve conta como fonte para a verificação de «Perguntar, nunca inventar». | `SimilarSales::description()`, `AgentTemplates::clientManager()` |
+| **Quem a tem**: Gestor de Clientes e Chief of Staff (modelos); na Rethink dada também aos dois agentes existentes. | `AgentTemplates` |
+
+Testes: `tests/Feature/Erp/SimilarSalesTest.php`.

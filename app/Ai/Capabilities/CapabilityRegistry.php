@@ -49,6 +49,7 @@ use App\Ai\Capabilities\Local\SearchKnowledge;
 use App\Ai\Capabilities\Local\SearchPastChats;
 use App\Ai\Capabilities\Local\SearchWeb;
 use App\Ai\Capabilities\Local\SendEmail;
+use App\Ai\Capabilities\Local\SimilarSales;
 use App\Ai\Capabilities\Local\SlaStatus;
 use App\Ai\Capabilities\Local\SuggestBankMatch;
 use App\Ai\Capabilities\Local\SupplierScores;
@@ -110,6 +111,8 @@ final class CapabilityRegistry
         // E08: client manager
         ClientSheet::class,
         SlaStatus::class,
+        // Past sales for proposals (docs/DECISOES.md, "Vendas parecidas").
+        SimilarSales::class,
         // Tasks and conversations (Paperclip-style collaboration)
         CreateTask::class,
         // Agents message each other (docs/DECISOES.md, "Mensagens entre agentes").
