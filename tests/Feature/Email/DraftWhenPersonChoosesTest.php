@@ -87,17 +87,24 @@ it('takes the agent drafts that went to the Rascunhos by themselves back to prop
             $folder,
         ];
     });
+    [$orphan, $fromServer] = asTenant($this->tenant, fn () => [
+        // An agent's whose run was deleted, and one that came from the server (another email client).
+        EmailMessage::factory()->create(['mailbox_id' => $this->mailbox->id, 'direction' => 'outbound', 'status' => EmailStatus::Draft, 'email_folder_id' => $folder->id, 'agent_run_id' => null, 'raw_path' => null]),
+        EmailMessage::factory()->create(['mailbox_id' => $this->mailbox->id, 'direction' => 'outbound', 'status' => EmailStatus::Draft, 'email_folder_id' => $folder->id, 'agent_run_id' => null, 'raw_path' => 'mail/x.eml']),
+    ]);
 
     $this->artisan('mail:return-agent-drafts', ['--dry-run' => true])->assertSuccessful();
     expect(asTenant($this->tenant, fn () => $filed->fresh()->email_folder_id))->toBe($folder->id);
 
     $this->artisan('mail:return-agent-drafts')->assertSuccessful();
 
-    asTenant($this->tenant, function () use ($filed, $kept, $persons, $folder) {
-        expect($filed->fresh()->email_folder_id)->toBeNull()
+    asTenant($this->tenant, function () use ($filed, $kept, $persons, $folder, $orphan, $fromServer) {
+        expect($orphan->fresh()->removed_at)->not->toBeNull()
+            ->and($fromServer->fresh()->removed_at)->toBeNull()
+            ->and($filed->fresh()->email_folder_id)->toBeNull()
             ->and($filed->fresh()->removed_at)->toBeNull()
             ->and($kept->fresh()->email_folder_id)->toBe($folder->id)
             ->and($persons->fresh()->email_folder_id)->toBe($folder->id)
-            ->and($folder->messages()->pluck('id')->sort()->values()->all())->toBe([$kept->id, $persons->id]);
+            ->and($folder->messages()->pluck('id')->sort()->values()->all())->toBe([$kept->id, $persons->id, $fromServer->id]);
     });
 });

@@ -126,6 +126,21 @@ final class AgentDrafts
     }
 
     /**
+     * Agent drafts whose run is gone (runs deleted, the link set to null):
+     * written here (no copy of a server email, `raw_path`), by no person, and
+     * not kept or changed by one. Without their run they cannot show as an
+     * agent's proposal, so `mail:return-agent-drafts` archives them.
+     *
+     * @return Collection<int, EmailMessage>
+     */
+    public function orphans(): Collection
+    {
+        return EmailMessage::query()->where('status', EmailStatus::Draft)->where('direction', 'outbound')->whereNull('removed_at')
+            ->whereNull('agent_run_id')->whereNull('written_by_user_id')->whereNull('kept_at')->whereNull('edited_by_person_at')
+            ->whereNull('raw_path')->orderBy('id')->get();
+    }
+
+    /**
      * Back to a proposal: out of the Rascunhos and off the server; the row
      * stays with its text, its run and its files, on the email and in the
      * conversation, for the person to keep, review and send, or discard.

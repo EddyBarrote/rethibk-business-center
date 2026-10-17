@@ -15,7 +15,8 @@ use Illuminate\Console\Command;
  * The agent drafts that went to the Rascunhos by themselves, before "only
  * when the person chooses" (docs/DECISOES.md, "Rascunho só quando a pessoa
  * escolhe"): those no person kept or changed go back to proposals, out of the
- * Rascunhos and off the server, the row kept. A person's draft is never touched.
+ * Rascunhos and off the server, the row kept; those whose run is gone are
+ * archived. A person's draft is never touched.
  */
 #[Signature('mail:return-agent-drafts {--dry-run : Só lista o que devolveria}')]
 #[Description('Devolve a propostas os rascunhos de agentes que nenhuma pessoa guardou ou alterou')]
@@ -37,6 +38,19 @@ class ReturnAgentDrafts extends Command
             });
 
             $this->components->info("{$tenant->slug}: {$filed->count()} rascunho(s) de agentes".($dry ? ' por devolver.' : ' devolvido(s) a proposta.'));
+
+            // Those whose run is gone cannot show as an agent's proposal: archived, the row kept.
+            $orphans = $drafts->orphans();
+
+            $orphans->each(function (EmailMessage $draft) use ($drafts, $client, $dry, $tenant) {
+                $this->line("{$tenant->slug}: #{$draft->id} «{$draft->subject}» (sem execução)".($dry ? '' : ' arquivado'));
+
+                if (! $dry) {
+                    $drafts->archive($draft, $client);
+                }
+            });
+
+            $this->components->info("{$tenant->slug}: {$orphans->count()} rascunho(s) de agentes sem execução".($dry ? ' por arquivar.' : ' arquivado(s).'));
         });
 
         return self::SUCCESS;
