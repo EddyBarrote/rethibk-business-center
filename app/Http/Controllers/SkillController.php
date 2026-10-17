@@ -128,16 +128,19 @@ class SkillController extends Controller
         abort_if($skill->platform_skill_id !== null, 404);
 
         $data = $request->validate([
+            'all_agents' => ['sometimes', 'boolean'],
             'agents' => ['present', 'array'],
             'agents.*' => ['integer', TenantRule::exists('agents')],
         ]);
 
+        // The chosen ones are kept under «Todos os agentes», for when it is switched off.
+        $skill->update(['all_agents' => $data['all_agents'] ?? $skill->all_agents]);
         $changes = $skill->agents()->sync($data['agents']);
-        AuditLog::record($this->user($request), 'skill.agents_updated', ['key' => $skill->key, 'attached' => $changes['attached'], 'detached' => $changes['detached']], subject: $skill);
+        AuditLog::record($this->user($request), 'skill.agents_updated', ['key' => $skill->key, 'all_agents' => $skill->all_agents, 'attached' => $changes['attached'], 'detached' => $changes['detached']], subject: $skill);
 
         $count = count($data['agents']);
 
-        return back()->with('success', match ($count) {
+        return back()->with('success', $skill->all_agents ? 'Todos os agentes usam esta skill.' : match ($count) {
             0 => 'Nenhum agente usa esta skill.',
             1 => '1 agente passa a usar esta skill.',
             default => "{$count} agentes passam a usar esta skill.",

@@ -186,3 +186,18 @@ it('chooses on the skill page which agents use it', function () {
     $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}/agents"), ['agents' => [$rui->id]])->assertSessionHas('success');
     expect(asTenant($this->tenant, fn () => [$skill->agents()->pluck('agents.id')->all(), AuditLog::query()->where('action', 'skill.agents_updated')->count()]))->toBe([[$rui->id], 2]);
 });
+
+it('switches «Todos os agentes» from the agents panel without losing who was chosen', function () {
+    [$skill, $ana] = asTenant($this->tenant, fn () => [Skill::factory()->create(), Agent::factory()->create()]);
+
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}/agents"), ['all_agents' => true, 'agents' => [$ana->id]])
+        ->assertSessionHas('success', 'Todos os agentes usam esta skill.');
+    expect([$skill->fresh()->all_agents, asTenant($this->tenant, fn () => $skill->agents()->count())])->toBe([true, 1]);
+
+    // Saving the skill itself leaves the choice alone.
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}"), $skill->only(['key', 'name', 'description', 'instructions', 'is_enabled']));
+    expect($skill->fresh()->all_agents)->toBeTrue();
+
+    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "settings/skills/{$skill->id}/agents"), ['all_agents' => false, 'agents' => [$ana->id]]);
+    expect($skill->fresh()->all_agents)->toBeFalse();
+});
