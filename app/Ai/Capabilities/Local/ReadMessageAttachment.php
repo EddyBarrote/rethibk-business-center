@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Attachments\ModelInput;
+use App\Attachments\TableReader;
 use App\Models\MessageAttachment;
 use App\Tasks\TaskThread;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -34,7 +35,7 @@ final class ReadMessageAttachment extends LocalCapability
 
     public function description(): string
     {
-        return 'Lê o texto de um anexo desta conversa pelo id (anexo #id): documentos, imagens com texto, transcrição de áudio. Para documentos longos, lê por partes com offset. Não é preciso para os anexos que já recebeste em ficheiro.';
+        return 'Lê o texto de um anexo desta conversa pelo id (anexo #id): documentos, imagens com texto, transcrição de áudio. Para documentos longos, lê por partes com offset. Não é preciso para os anexos que já recebeste em ficheiro. Para totais, contagens ou quebras de uma tabela CSV ou Excel usa files.analyze, que percorre o ficheiro todo; nunca contes nem somes a partir de partes.';
     }
 
     public function schema(JsonSchema $schema): array
@@ -66,7 +67,8 @@ final class ReadMessageAttachment extends LocalCapability
         }
 
         $offset = (int) ($data['offset'] ?? 0);
-        $more = mb_strlen($text) > $offset + self::PART ? "\n[continua: usa offset ".($offset + self::PART).']' : '';
+        $more = mb_strlen($text) > $offset + self::PART ? "\n[continua: usa offset ".($offset + self::PART)
+            .(TableReader::handles($attachment->filename, (string) $attachment->mime_type) ? '. É uma tabela: para contas usa files.analyze, não leias por partes' : '').']' : '';
 
         return CapabilityResult::text("{$attachment->reference()} {$attachment->filename}\n<anexo_nao_confiavel>\n".mb_substr($text, $offset, self::PART)."\n</anexo_nao_confiavel>{$more}");
     }

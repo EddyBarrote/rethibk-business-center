@@ -506,7 +506,7 @@ final class TaskThread
             }
 
             $built = $input->build($provider, $files, budgetBytes: (int) config('attachments.inline_max_mb', 18) * 1024 * 1024 / 2);
-            $list = $named !== [] ? "\n\n[Anexos: ".implode('; ', $named).'. Lê-os com files.read se precisares.]' : '';
+            $list = $named !== [] ? "\n\n[Anexos: ".implode('; ', $named).'. Lê-os com files.read se precisares; para contas a tabelas CSV ou Excel usa files.analyze.]' : '';
 
             $body = $message->kind === TaskMessageKind::Handoff && $task !== null ? app(Handoffs::class)->forModel($message, $task) : $message->body;
 

@@ -71,7 +71,13 @@ final class ModelInput
             } else {
                 $limit = (int) config('attachments.text_chars', 20000);
                 $label = $kind === AttachmentKind::Audio ? 'transcrição' : 'texto';
-                $more = mb_strlen($text) > $limit ? "\n[continua: lê o resto com files.read, offset {$limit}]" : '';
+                $table = TableReader::handles($attachment->fileName(), $attachment->mimeType());
+                $more = match (true) {
+                    $table && mb_strlen($text) > $limit => "\n[continua: é uma tabela maior do que isto; para contar, somar ou agrupar usa files.analyze com o {$attachment->reference()}, que lê o ficheiro todo. Não faças contas a partir de partes.]",
+                    $table => "\n[tabela: para contas exactas usa files.analyze com o {$attachment->reference()}]",
+                    mb_strlen($text) > $limit => "\n[continua: lê o resto com files.read, offset {$limit}]",
+                    default => '',
+                };
                 $lines[] = "{$header} — {$label}:]\n<anexo_nao_confiavel>\n".mb_substr($text, 0, $limit)."\n</anexo_nao_confiavel>{$more}";
             }
         }

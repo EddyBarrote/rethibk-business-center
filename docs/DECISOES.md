@@ -1211,3 +1211,20 @@ O Barrote quer carregar na plataforma as skills que já tem no Claude, no Codex 
 | **Ficheiros guardam o caminho dentro da skill** (`assets/logo.png`), porque é assim que as instruções os referem; a chave de imagem de um tipo de documento usa só o nome (`logo`). As skills passam a aceitar CSS e imagens também no editor. | `SkillFiles::attach()`, `DocumentType::key()` |
 
 Testes: `tests/Feature/Agents/SkillImportTest.php`. Experimentado com as 14 skills de `~/.claude/skills` e `~/.agents/skills` do Barrote (fora as do gstack).
+
+## Contas sobre tabelas anexadas (17.10.2026)
+
+O Barrote achou que o Agente de Finanças não usou os ficheiros na reconciliação BAZA de Setembro. Usou-os em parte: leu
+todo o CSV dos cartões (259 linhas), mas o das recargas (11 407 linhas, 1,5 MB) só em janelas de 12 000 caracteres com
+`files.read`, por isso nunca somou o M-Pesa (o PDF e o Excel diziam «Apurado na conta M-Pesa») e inventou o quadro por
+assistente. A skill importada mandava correr um script Python que faz essas contas, e a plataforma não corre scripts.
+
+| Decisão | Onde |
+|---|---|
+| **`files.analyze`**, de todos os agentes (como `files.read`): conta, filtra, agrupa (até 2 colunas, e/ou por dia) e soma um anexo CSV ou Excel da conversa, percorrendo o ficheiro todo. Sem argumentos, mostra as colunas e os valores que cada uma toma. Nada corre: o agente diz colunas, filtros e grupos. | `AnalyzeAttachment`, `CapabilityRegistry::ALWAYS_ON` |
+| **Ler tabelas como as pessoas as escrevem**: separador e codificação do CSV detectados (`,` `;` tab, UTF-8 ou Windows-1252, `NULL` vazio); no Excel, a folha por nome ou número e o cabeçalho encontrado abaixo de títulos; números `1 000,50`, `1.000,50`, `1,000.50`, `(30)`; datas `30/09/2026 23:45`, `2026-09-30` e as do Excel. Nomes de colunas sem maiúsculas nem acentos. | `App\Attachments\TableReader` |
+| **O agente é mandado para lá**: o anexo que é tabela diz «para contas usa files.analyze» no prompt, no aviso «continua» de `files.read` e na lista de anexos da conversa; ler por partes deixa de ser o caminho sugerido para tabelas. | `ModelInput::build()`, `ReadMessageAttachment`, `TaskThread` |
+| **Skills feitas para correr scripts**: quando as instruções mostram comandos (`python …`, blocos `bash`, `scripts/…`), `skills.load` acrescenta que a plataforma não os corre, que as contas se fazem com `files.analyze` e os ficheiros com `documents.generate`, e que os números do script nunca se estimam. | `LoadSkill::RUNS_SCRIPTS` |
+
+Testes: `tests/Feature/Tasks/TableAnalysisTest.php`. Com os ficheiros reais dá o mesmo que a soma à mão: 10 280 recargas
+M-Pesa (592 500,00 MZN) e 1 127 POS (144 585,00 MZN) em Setembro.

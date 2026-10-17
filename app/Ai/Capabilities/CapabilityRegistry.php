@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities;
 
+use App\Ai\Capabilities\Local\AnalyzeAttachment;
 use App\Ai\Capabilities\Local\AskHuman;
 use App\Ai\Capabilities\Local\AskQuestions;
 use App\Ai\Capabilities\Local\AttachFile;
@@ -128,6 +129,7 @@ final class CapabilityRegistry
         // Files in conversations (docs/DECISOES.md, "Anexos nas conversas").
         AttachFile::class,
         ReadMessageAttachment::class,
+        AnalyzeAttachment::class,
         // Chief of Staff (realinhamento L10, L11) and urgent escalation.
         ReviewApproval::class,
         SearchConversations::class,
@@ -156,7 +158,7 @@ final class CapabilityRegistry
     public const SKILL_TOOLS = ['skills.load', 'skills.read_file'];
 
     /** Given to every agent, whatever its configuration (section 13.2). */
-    public const ALWAYS_ON = ['memory.search', 'memory.read', 'memory.search_chats', 'tasks.create', 'agents.message', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'documents.generate'];
+    public const ALWAYS_ON = ['memory.search', 'memory.read', 'memory.search_chats', 'tasks.create', 'agents.message', 'tasks.ask_human', 'questions.ask', 'tasks.update_status', 'tasks.list', 'escalate.urgent', 'workflow.complete_step', 'files.attach', 'files.read', 'files.analyze', 'documents.generate'];
 
     /**
      * Switched on for every agent once (existing ones at the next sync, new ones
