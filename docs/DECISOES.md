@@ -1130,3 +1130,13 @@ O Barrote, na caixa geral@rethink.co.mz da Rethink, com 19 rascunhos nos Rascunh
 | **Os rascunhos de agentes que já estavam nos Rascunhos voltam a propostas**: `mail:return-agent-drafts` (com `--dry-run`) tira dos Rascunhos e do servidor os que nenhuma pessoa guardou nem alterou; a linha fica com o texto, a execução e os ficheiros, por baixo do email e na conversa. Os escritos ou alterados por pessoas ficam onde estão. Os rascunhos de agentes cuja execução já foi apagada (escritos aqui, sem pessoa, sem cópia de um email do servidor; 16 na geral@ da Rethink, de 8 a 12.10) não podem aparecer como proposta de um agente e são arquivados (`removed_at`), não apagados. | `ReturnAgentDrafts`, `AgentDrafts::filedProposals()`, `returnToProposal()`, `orphans()` |
 
 Testes: `tests/Feature/Email/DraftWhenPersonChoosesTest.php`, `tests/Feature/Email/EmailClientTest.php`, `tests/Feature/Email/OneDraftPerEmailTest.php`.
+
+## Linha temporal compacta (17.10.2026)
+
+O Barrote, na página de uma execução com 16 passos de que só cabiam 9 no ecrã: «Deve ser mais minimalista para preservar o espaço.» A linha temporal (página da execução e painel lateral da conversa) passa a ter uma linha por acontecimento.
+
+| Decisão | Onde |
+|---|---|
+| **Chamada e Resultado numa só linha**: ícone, nome da ferramenta, o essencial da resposta a cinzento quando é texto, duração e hora. O resultado junta-se à última chamada aberta à mesma ferramenta, como em `TaskController::toolCalls()`. Uma ferramenta que falhou fica com o ícone vermelho e o erro por inteiro por baixo. | `RunTimeline.tsx` (`entriesOf()`, `ToolItem`) |
+| **Detalhes ao clicar na linha**, sem «Ver o que enviou» / «Ver o que recebeu»: «Enviou» e «Recebeu» lado a lado quando há largura, um por baixo do outro no painel lateral. Uma ferramenta clicada na conversa abre a linha, venha pela chamada ou pelo resultado. | `Row`, `useOpen()` |
+| **Respostas em duas linhas**, raciocínio e aprovações numa; o clique mostra o texto todo. Os erros soltos ficam sempre por inteiro. | `StepItem` |

@@ -1,10 +1,10 @@
 import { AlertTriangle, Brain, CheckSquare, CornerDownRight, type LucideIcon, MessageSquare, Wrench } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, type Ref, useEffect, useRef, useState } from 'react';
 
 import { Markdown } from '@/Components/Markdown';
 import { StatusDot, type Tone } from '@/Components/Status';
 import { approvalFacts } from '@/lib/approvals';
-import { dateTime, duration, time, withoutTags } from '@/lib/format';
+import { dateTime, duration, plainText, time, withoutTags } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 /*
@@ -39,7 +39,40 @@ const iconTone: Record<Tone, string> = {
     idle: 'bg-muted text-muted-foreground',
 };
 
-/** The steps of a run, in order; `focusStepId` scrolls to and marks one step (a tool clicked in the chat). */
+/**
+ * A tool call and what came back, shown as one line; every other step is a line of its own.
+ * The result pairs with the last open call to the same tool (TaskController::toolCalls pairs the same way).
+ */
+type Entry = { key: number; call: Step | null; result: Step | null; step: Step };
+
+function entriesOf(steps: Step[]): Entry[] {
+    const entries: Entry[] = [];
+    const open = new Map<string, Entry>();
+
+    for (const step of steps) {
+        const name = step.tool_name;
+
+        if (step.type === 'tool_call' && name) {
+            const entry = { key: step.id, call: step, result: null, step };
+            entries.push(entry);
+            open.set(name, entry);
+        } else if ((step.type === 'tool_result' || step.type === 'error') && name && open.has(name)) {
+            open.get(name)!.result = step;
+            open.delete(name);
+        } else if (step.type === 'tool_result') {
+            entries.push({ key: step.id, call: null, result: step, step });
+        } else {
+            entries.push({ key: step.id, call: null, result: null, step });
+        }
+    }
+
+    return entries;
+}
+
+/**
+ * The steps of a run, one compact line each; a click opens the details. `focusStepId`
+ * scrolls to and opens one step (a tool clicked in the chat, by its call or its result).
+ */
 export function RunTimeline({
     steps,
     finished,
@@ -62,21 +95,32 @@ export function RunTimeline({
         );
     }
 
+    const entries = entriesOf(steps);
+
     return (
         <ol className="flex flex-col">
-            {steps.map((step, index) => (
-                <StepItem
-                    key={step.id}
-                    step={step}
-                    last={index === steps.length - 1 && finished}
-                    toolName={step.tool_name ? toolNames[step.tool_name] : undefined}
-                    final={!!output && step.type === 'message' && pickText(step) === output}
-                    focused={focusStepId === step.id}
-                />
-            ))}
+            {entries.map((entry, index) => {
+                const focused = focusStepId !== null && focusStepId !== undefined && [entry.step.id, entry.result?.id].includes(focusStepId);
+                const last = index === entries.length - 1 && finished;
+
+                return entry.call || entry.result ? (
+                    <ToolItem key={entry.key} entry={entry} last={last} finished={finished} toolNames={toolNames} focused={focused} />
+                ) : (
+                    <StepItem
+                        key={entry.key}
+                        step={entry.step}
+                        last={last}
+                        final={!!output && entry.step.type === 'message' && pickText(entry.step) === output}
+                        focused={focused}
+                    />
+                );
+            })}
             {!finished && (
-                <li className="flex items-center gap-3 pl-1.5 text-xs text-muted-foreground">
-                    <StatusDot tone="running" />A trabalhar…
+                <li className="flex items-center gap-2.5 px-1.5 py-1 text-xs text-muted-foreground">
+                    <span className="flex size-5 items-center justify-center">
+                        <StatusDot tone="running" />
+                    </span>
+                    A trabalhar…
                 </li>
             )}
         </ol>
@@ -121,19 +165,8 @@ const pickText = (step: Step) => {
     return typeof value === 'string' ? value : null;
 };
 
-function StepItem({
-    step,
-    last,
-    toolName,
-    final = false,
-    focused = false,
-}: {
-    step: Step;
-    last: boolean;
-    toolName?: string;
-    final?: boolean;
-    focused?: boolean;
-}) {
+/** Opens with a click, and by itself when the chat points at it. */
+function useOpen(focused: boolean) {
     const [open, setOpen] = useState(focused);
     const ref = useRef<HTMLLIElement>(null);
 
@@ -143,92 +176,207 @@ function StepItem({
             ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }, [focused]);
+
+    return { open, toggle: () => setOpen((value) => !value), ref };
+}
+
+/** One line of the timeline: icon, what happened, duration and time; the details open below it. */
+function Row({
+    rowRef,
+    tone,
+    icon: Icon,
+    last,
+    focused,
+    open,
+    onToggle,
+    duration: ms,
+    at,
+    children,
+    details,
+}: {
+    rowRef: Ref<HTMLLIElement>;
+    tone: Tone;
+    icon: LucideIcon;
+    last: boolean;
+    focused: boolean;
+    open: boolean;
+    onToggle: (() => void) | null;
+    duration?: number | null;
+    at: string;
+    children: ReactNode;
+    details?: ReactNode;
+}) {
+    const line = (
+        <>
+            <span className={cn('relative flex size-5 shrink-0 items-center justify-center rounded-full', iconTone[tone])}>
+                <Icon className="size-3" />
+            </span>
+            <span className="min-w-0 flex-1">{children}</span>
+            <span className="flex shrink-0 items-baseline gap-2 self-start pt-px text-[11px] leading-5 text-muted-foreground tabular-nums">
+                {ms !== null && ms !== undefined && <span>{duration(ms)}</span>}
+                <span title={dateTime(at)}>{time(at)}</span>
+            </span>
+        </>
+    );
+
+    return (
+        <li ref={rowRef} className={cn('relative', focused && 'rounded-md bg-accent/50 ring-1 ring-primary/25')}>
+            {!last && <span className="absolute top-6 -bottom-1 left-4 w-px -translate-x-1/2 bg-border" aria-hidden="true" />}
+            {onToggle ? (
+                <button
+                    type="button"
+                    onClick={onToggle}
+                    aria-expanded={open}
+                    className="flex w-full items-start gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-muted/60"
+                >
+                    {line}
+                </button>
+            ) : (
+                <div className="flex items-start gap-2.5 px-1.5 py-1 text-sm">{line}</div>
+            )}
+            {open && details && <div className="pt-1 pr-1.5 pb-3 pl-9">{details}</div>}
+        </li>
+    );
+}
+
+/** A tool call and its result in one line: the tool's name and, greyed, the gist of the answer. */
+function ToolItem({
+    entry,
+    last,
+    finished,
+    toolNames,
+    focused,
+}: {
+    entry: Entry;
+    last: boolean;
+    finished: boolean;
+    toolNames: Record<string, string>;
+    focused: boolean;
+}) {
+    const { open, toggle, ref } = useOpen(focused);
+    const { call, result } = entry;
+    const key = (call ?? result)?.tool_name ?? '';
+    const failed = result?.type === 'error';
+    const waiting = !result && !finished;
+    const answer = result ? pickText(result) : null;
+    const gist = readable(answer);
+    const args = call?.payload?.arguments && typeof call.payload.arguments === 'object' ? (call.payload.arguments as Record<string, unknown>) : null;
+    const facts = args ? approvalFacts(args) : [];
+    const sent = facts.length > 0 ? null : args && Object.keys(args).length > 0 ? JSON.stringify(args, null, 2) : null;
+    const received = answer ? prettyJson(answer) : null;
+
+    return (
+        <Row
+            rowRef={ref}
+            tone={failed ? 'danger' : waiting ? 'running' : 'idle'}
+            icon={failed ? AlertTriangle : Wrench}
+            last={last}
+            focused={focused}
+            open={open}
+            onToggle={toggle}
+            duration={result?.duration_ms}
+            at={(call ?? entry.step).created_at}
+            details={
+                <div className="@container">
+                    <div className="grid gap-2 @lg:grid-cols-2">
+                        <Detail label="Enviou">
+                            {facts.length > 0 ? (
+                                <dl className="grid gap-x-3 gap-y-1 text-xs @xs:grid-cols-[minmax(0,7rem)_1fr]">
+                                    {facts.map((fact) => (
+                                        <div key={fact.label} className="contents">
+                                            <dt className="text-muted-foreground">{fact.label}</dt>
+                                            <dd className="min-w-0 break-words">{fact.value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            ) : sent ? (
+                                <pre className="font-mono text-xs break-words whitespace-pre-wrap">{sent}</pre>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">Nada.</p>
+                            )}
+                        </Detail>
+                        <Detail label="Recebeu">
+                            {received ? (
+                                <pre className={cn('font-mono text-xs break-words whitespace-pre-wrap', failed && 'text-status-danger')}>
+                                    {received}
+                                </pre>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">{waiting ? 'À espera da resposta…' : 'Sem resposta.'}</p>
+                            )}
+                        </Detail>
+                    </div>
+                </div>
+            }
+        >
+            <span className="flex min-w-0 items-baseline gap-2 leading-5">
+                <span className="shrink-0" title={key}>
+                    {toolNames[key] ?? key}
+                </span>
+                {gist && !failed && <span className="min-w-0 truncate text-xs text-muted-foreground">{plainText(gist)}</span>}
+            </span>
+            {failed && answer && <span className="mt-0.5 block text-xs break-words whitespace-pre-wrap text-status-danger">{answer}</span>}
+        </Row>
+    );
+}
+
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <div className="min-w-0 rounded-lg border bg-muted/40 p-2.5">
+            <p className="mb-1 text-[11px] font-medium text-muted-foreground">{label}</p>
+            <div className="max-h-72 overflow-auto">{children}</div>
+        </div>
+    );
+}
+
+/** A reply, a thought or an approval: a line or two that opens in full; an error is always shown in full. */
+function StepItem({ step, last, final = false, focused = false }: { step: Step; last: boolean; final?: boolean; focused?: boolean }) {
+    const { open, toggle, ref } = useOpen(focused);
     const meta = stepMeta[step.type] ?? stepMeta.message;
-    const Icon = meta.icon;
     const payload = step.payload ?? {};
     const pick = (...keys: string[]) => keys.map((key) => payload[key]).find((value): value is string => typeof value === 'string') ?? null;
-    const tool = step.type === 'tool_call' || step.type === 'tool_result';
-    const raw =
+    const text =
         step.type === 'approval'
             ? [pick('summary'), pick('reason'), pick('note')].filter(Boolean).join(' · ') || null
             : pick('content', 'text', 'message');
-    const text = tool ? readable(raw) : raw;
-    const facts =
-        step.type === 'tool_call' && payload.arguments && typeof payload.arguments === 'object'
-            ? approvalFacts(payload.arguments as Record<string, unknown>)
-            : [];
-    const detail = step.type === 'tool_result' && raw ? prettyJson(raw) : facts.length > 0 ? null : JSON.stringify(payload, null, 2);
+    const error = step.type === 'error';
+    const preview = text ? plainText(text) : '';
+    // Only text that does not fit in its preview opens.
+    const opens = !error && !!text && (preview.length > 60 || text.includes('\n'));
+    const label = step.type === 'message' ? (final ? 'Resposta final' : null) : meta.label;
 
     return (
-        <li ref={ref} className={cn('relative flex gap-3 pb-5', focused && 'rounded-lg bg-accent/50 ring-1 ring-primary/25 ring-offset-4 ring-offset-background')}>
-            {!last && <span className="absolute top-7 bottom-0 left-3 w-px -translate-x-1/2 bg-border" aria-hidden="true" />}
-            <span
-                className={cn('relative flex size-6 shrink-0 items-center justify-center rounded-full ring-4 ring-background', iconTone[meta.tone])}
-            >
-                <Icon className="size-3.5" />
-            </span>
-            <div className="min-w-0 flex-1 pt-0.5">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-                    <span className="font-medium">{meta.label}</span>
-                    {step.tool_name && (
-                        <span className="text-muted-foreground" title={step.tool_name}>
-                            {toolName ?? step.tool_name}
-                        </span>
-                    )}
-                    <span className="ml-auto flex items-baseline gap-2 text-[11px] text-muted-foreground tabular-nums">
-                        {step.duration_ms !== null && <span>{duration(step.duration_ms)}</span>}
-                        <span title={dateTime(step.created_at)}>{time(step.created_at)}</span>
-                    </span>
-                </div>
-                {text && final ? (
-                    <p className="mt-1 text-sm text-muted-foreground">A resposta completa está na conversa e em «Resposta final».</p>
-                ) : (
-                    text &&
-                    (step.type === 'message' ? (
-                        <div className="mt-1 text-sm">
-                            <Markdown>{text}</Markdown>
-                        </div>
-                    ) : (
-                        <p
-                            className={cn(
-                                'mt-1 text-sm break-words whitespace-pre-wrap',
-                                tool ? 'line-clamp-2' : 'line-clamp-6',
-                                step.type === 'error' ? 'text-status-danger' : 'text-muted-foreground',
-                            )}
-                        >
-                            {text}
-                        </p>
-                    ))
-                )}
-                <button
-                    type="button"
-                    onClick={() => setOpen(!open)}
-                    className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                    aria-expanded={open}
-                >
-                    {open ? 'Esconder dados' : step.type === 'tool_call' ? 'Ver o que enviou' : tool ? 'Ver o que recebeu' : 'Ver dados'}
-                </button>
-                {open && (
-                    <div className="mt-2 space-y-2">
-                        {facts.length > 0 && (
-                            <dl className="grid gap-x-4 gap-y-1 rounded-lg border bg-card p-3 text-sm sm:grid-cols-[minmax(0,10rem)_1fr]">
-                                {facts.map((fact) => (
-                                    <div key={fact.label} className="contents">
-                                        <dt className="text-muted-foreground">{fact.label}</dt>
-                                        <dd className="min-w-0 break-words">{fact.value}</dd>
-                                    </div>
-                                ))}
-                            </dl>
-                        )}
-                        {detail && (
-                            <pre className="max-h-72 overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs break-words whitespace-pre-wrap">
-                                {detail}
-                            </pre>
-                        )}
+        <Row
+            rowRef={ref}
+            tone={meta.tone}
+            icon={meta.icon}
+            last={last}
+            focused={focused}
+            open={open}
+            onToggle={opens ? toggle : null}
+            duration={step.duration_ms}
+            at={step.created_at}
+            details={
+                text &&
+                (step.type === 'message' ? (
+                    <div className="text-sm">
+                        <Markdown>{text}</Markdown>
                     </div>
-                )}
-            </div>
-        </li>
+                ) : (
+                    <p className="text-sm break-words whitespace-pre-wrap text-muted-foreground">{text}</p>
+                ))
+            }
+        >
+            {error ? (
+                <span className="block leading-5 break-words whitespace-pre-wrap text-status-danger">{text ?? meta.label}</span>
+            ) : open ? (
+                <span className="block leading-5 font-medium">{label ?? meta.label}</span>
+            ) : (
+                <span className={cn('block leading-5', step.type === 'message' ? 'line-clamp-2' : 'truncate')}>
+                    {label && <span className="mr-2">{label}</span>}
+                    <span className="text-muted-foreground">{preview || (label ? '' : meta.label)}</span>
+                </span>
+            )}
+        </Row>
     );
 }
 
