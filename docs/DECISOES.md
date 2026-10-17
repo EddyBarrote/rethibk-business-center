@@ -1071,3 +1071,15 @@ O Barrote, no email 91 da Rethink («Pedido de cotação» de software para uma 
 | **O símbolo do agente no rascunho**: o cartão do rascunho por baixo do email, o cabeçalho do «Rever e enviar» e o cartão de email na conversa mostram a cara do agente com o robô dos Agentes no canto, para não se ler como uma pessoa; sem foto, a cara continua a ser as iniciais do agente. | `AgentMark` (`AgentAvatar.tsx`), `Email/Index.tsx`, `EmailComposer.tsx`, `EmailCard.tsx` |
 
 Testes: `tests/Feature/Email/OneDraftPerEmailTest.php`, `tests/Feature/Email/ProposedEmailTest.php`.
+
+## Produtos e serviços para cotações: Reactive no Conhecimento (17.10.2026)
+
+Pergunta do Barrote: onde ficam os produtos e serviços que os agentes usam nas cotações, se na base de conhecimento, e, se sim, um conhecimento sobre a Reactive para testar. A recomendação de onde ficam (catálogo) espera pelo «avança» dele; o teste fez-se só com dados, sem código.
+
+| Decisão | Onde |
+|---|---|
+| **Conhecimento da Reactive no tenant `rethink`**, publicado, em Geral › Produtos e serviços › Reactive (todos os agentes o lêem): «Reactive: serviços e o que incluem» e «Reactive: preços e condições nas fontes». Cada facto diz a fonte: o site rethink.co.mz (produtos/reactive, produtos/rethink-rsvp, faq), o ERP (artigos 265 e 266, facturas e cotações com o número) e as skills internas reactive-cashless-fecho e reactive-bilhetes-e-bio. | `knowledge_items` 28 e 29, `knowledge_folders` 15 e 16 |
+| **Preço de catálogo só o do ERP; o resto é histórico**: o artigo de preços separa o artigo do ERP («Tickets by Reactive», 7% por bilhete) dos valores de facturas e cotações a clientes concretos (comissões de 5%, 6% e 7%; plataforma de eventos 40 000 a 70 000; check-in 12 000 por dia; pacotes de caixas do fecho), e acaba com o que nenhuma fonte diz e se pergunta ao CEO. Os preços dos exemplos das skills (bilhetes de 1000 MT, etc.) ficaram de fora. | artigo 29 |
+| **A proposta inventada da RET-6 continua por rever**: «Proposta Comercial Reactive - Eddy Barrote» (item 19, `pending_review`) tem os 12 500 MZN de setup, 7 500 MZN e 5% que o agente estimou. Não é publicada nem usada como fonte. | — |
+
+Sem código, sem testes novos.
