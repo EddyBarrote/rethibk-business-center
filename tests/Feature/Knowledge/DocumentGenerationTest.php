@@ -3,7 +3,9 @@
 use App\Ai\Capabilities\CapabilityCatalog;
 use App\Ai\Knowledge\KnowledgeAccess;
 use App\Documents\Brand;
+use App\Documents\DocumentSpec;
 use App\Documents\MarkdownBlocks;
+use App\Documents\Renderers\PdfRenderer;
 use App\Documents\Renderers\XlsxRenderer;
 use App\Enums\AutonomyLevel;
 use App\Enums\Role;
@@ -221,4 +223,51 @@ it('reads Markdown blocks and spreadsheet numbers', function () {
         ->and(XlsxRenderer::number('3,5%'))->toBe(['value' => 0.035, 'format' => '0.0%'])
         ->and(XlsxRenderer::number('2026-10-04'))->toBeNull()
         ->and(XlsxRenderer::number('0841234567'))->toBeNull();
+});
+
+it('lays out a proposal for PDF without changing a word of it', function () {
+    $markdown = <<<'MD'
+**Cliente:** Olankha, Lda  
+**Referência:** PROP-01
+
+| Item | Descrição | Qtd | Total (MZN) |
+| :--- | :--- | :---: | :---: |
+| **1. Setup** | Configuração | 1 | 70 000,00 |
+| **2. Convites** | Por convidado | 150 | 2 250,00 |
+
+---
+## Resumo
+
+- **Subtotal:** 72 250,00 MZN
+- **IVA (16%):** 11 560,00 MZN
+- **Total com IVA:** 83 810,00 MZN
+
+Condições:
+
+- **Pagamento:**
+  - 50% na adjudicação
+- **Moeda:** MZN
+MD;
+
+    $html = PdfRenderer::polishFor(new DocumentSpec('Proposta', $markdown));
+
+    expect($html)
+        ->toContain('<table class="info">')->toContain('<th>Cliente</th><td>Olankha, Lda</td>')
+        ->toContain('<table class="data">')->toContain('<td class="num">70 000,00</td>')->toContain('<th class="num">Qtd</th>')
+        ->not->toContain('align=')
+        ->toContain('<table class="totals">')->toContain('<tr class="grand"><th>Total com IVA</th><td class="num">83 810,00 MZN</td></tr>')
+        ->toContain('<li><strong>Pagamento:</strong>')
+        ->not->toContain('<hr>');
+});
+
+it('embeds the brand font in PDFs and draws the page numbers', function () {
+    asTenant($this->tenant, function () {
+        $this->tenant->update(['settings' => ['brand' => ['color' => '#0052CC', 'font' => 'Space Grotesk', 'footer' => 'Rethink · Maputo']]]);
+        expect(Brand::current()->pdfFont())->toBe('Space Grotesk');
+
+        $pdf = generated(['format' => 'pdf', 'template' => 'relatorio', 'title' => 'Proposta', 'content' => MONTH_CLOSE]);
+        $bytes = (string) Storage::disk('local')->get($pdf->path);
+
+        expect($bytes)->toContain('SpaceGrotesk-Bold')->toContain('SpaceGrotesk-Regular');
+    });
 });

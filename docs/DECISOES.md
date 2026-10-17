@@ -1140,3 +1140,18 @@ O Barrote, na página de uma execução com 16 passos de que só cabiam 9 no ecr
 | **Chamada e Resultado numa só linha**: ícone, nome da ferramenta, o essencial da resposta a cinzento quando é texto, duração e hora. O resultado junta-se à última chamada aberta à mesma ferramenta, como em `TaskController::toolCalls()`. Uma ferramenta que falhou fica com o ícone vermelho e o erro por inteiro por baixo. | `RunTimeline.tsx` (`entriesOf()`, `ToolItem`) |
 | **Detalhes ao clicar na linha**, sem «Ver o que enviou» / «Ver o que recebeu»: «Enviou» e «Recebeu» lado a lado quando há largura, um por baixo do outro no painel lateral. Uma ferramenta clicada na conversa abre a linha, venha pela chamada ou pelo resultado. | `Row`, `useOpen()` |
 | **Respostas em duas linhas**, raciocínio e aprovações numa; o clique mostra o texto todo. Os erros soltos ficam sempre por inteiro. | `StepItem` |
+
+## PDFs com aspecto profissional (17.10.2026)
+
+O Barrote, sobre o PDF da proposta à Olankha (credenciação, email 143): os PDFs gerados pelos agentes estavam «muito pobres». Capa quase vazia com o logótipo e o nome repetidos, rodapé em duas linhas por cima do número da página, DejaVu em vez da fonte da marca, valores centrados na tabela e subtotal/IVA/total como lista de pontos.
+
+| Decisão | Onde |
+|---|---|
+| **A marca continua a vir de Definições › Marca** (cor, cor secundária, fonte, logótipo, rodapé, por empresa). O desenho da página fica no código; o agente escolhe só `documento`, `relatorio` ou `carta`. | `Brand`, `documents/pdf.blade.php` |
+| **A fonte da marca vai embutida no PDF** quando os ficheiros estão em `resources/fonts` (`<Nome>-Regular.ttf` e `-Bold.ttf`); hoje a Space Grotesk (OFL). As outras fontes continuam em DejaVu da mesma família. | `Brand::pdfFontFiles()`, `resources/fonts/README.md` |
+| **Cabeçalho e rodapé desenhados em cada página**: logótipo e título do documento em cima; linha do rodapé da marca (cortada com «…» para caber numa linha) e «Página x de y» em baixo. Não aparecem na capa do relatório nem na primeira página da carta. | `PdfRenderer::decorate()` |
+| **Capa do relatório**: logótipo uma vez, nome da empresa, título, subtítulo e uma faixa na cor da marca com a data e o rodapé. | `pdf.blade.php` |
+| **O conteúdo do agente ganha forma sem mudar uma palavra**: colunas só com valores alinhadas à direita (o alinhamento do markdown é ignorado), cabeçalho das tabelas na cor da marca; linhas «**Rótulo:** valor» (lista ou parágrafo) viram uma caixa rótulo/valor; quando todos os rótulos são subtotal/IVA/total/desconto, viram um bloco de totais à direita com a linha «Total…» na cor da marca; uma linha `---` antes de um título de secção sai. | `PdfContent::polish()` |
+| **Documentos já gerados não mudam**: a nova versão da proposta à Olankha foi gerada à parte para comparar; o anexo do rascunho por enviar fica como está até o Barrote decidir trocar. | — |
+
+Testes: `tests/Feature/Knowledge/DocumentGenerationTest.php` («lays out a proposal for PDF…», «embeds the brand font…»).

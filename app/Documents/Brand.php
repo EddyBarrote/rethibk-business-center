@@ -17,8 +17,8 @@ final readonly class Brand
 
     /**
      * Fonts offered for Word, PowerPoint and Excel, by name: the reader's
-     * Office shows them if installed. PDF has only the embedded DejaVu, so
-     * it keeps to the family (serif or sans).
+     * Office shows them if installed. PDF embeds the font when its files are
+     * in resources/fonts, and otherwise keeps to the family in DejaVu.
      */
     public const FONTS = [
         'Calibri' => 'sans', 'Aptos' => 'sans', 'Arial' => 'sans', 'Helvetica' => 'sans', 'Segoe UI' => 'sans',
@@ -65,10 +65,28 @@ final readonly class Brand
         return $this->accent ?? $this->color;
     }
 
-    /** The PDF font: DejaVu in the brand font's family. */
+    /** The PDF font: the brand font when it can be embedded, else DejaVu in its family. */
     public function pdfFont(): string
     {
+        if ($this->pdfFontFiles() !== null) {
+            return $this->font;
+        }
+
         return self::FONTS[$this->font] === 'serif' ? 'DejaVu Serif' : 'DejaVu Sans';
+    }
+
+    /**
+     * The brand font's files for embedding in PDFs, when they ship with the
+     * app (resources/fonts/SpaceGrotesk-Regular.ttf and -Bold.ttf).
+     *
+     * @return array{regular: string, bold: string}|null
+     */
+    public function pdfFontFiles(): ?array
+    {
+        $base = resource_path('fonts/'.str_replace(' ', '', $this->font));
+        $files = ['regular' => $base.'-Regular.ttf', 'bold' => $base.'-Bold.ttf'];
+
+        return is_file($files['regular']) && is_file($files['bold']) ? $files : null;
     }
 
     /**
