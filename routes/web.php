@@ -205,6 +205,9 @@ Route::middleware('auth')->group(function () {
         Route::get('brand', [BrandController::class, 'show'])->name('settings.brand.show');
         Route::post('brand', [BrandController::class, 'update'])->name('settings.brand.update');
         Route::get('brand/logo', [BrandController::class, 'logo'])->name('settings.brand.logo');
+        Route::post('brand/assets', [BrandController::class, 'storeAsset'])->name('settings.brand.assets.store');
+        Route::get('brand/assets/{key}', [BrandController::class, 'asset'])->name('settings.brand.assets.show');
+        Route::delete('brand/assets/{key}', [BrandController::class, 'destroyAsset'])->name('settings.brand.assets.destroy');
         Route::get('attachments', [AttachmentSettingsController::class, 'show'])->name('settings.attachments.show');
         Route::put('attachments', [AttachmentSettingsController::class, 'update'])->name('settings.attachments.update');
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->names('settings.departments');

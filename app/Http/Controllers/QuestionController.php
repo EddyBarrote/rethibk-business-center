@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Runs\QuestionService;
+use App\Documents\BrandAssets;
 use App\Models\AgentQuestion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,8 @@ class QuestionController extends Controller
             'answers.*.selected' => ['array', 'max:4'],
             'answers.*.selected.*' => ['string', 'max:80'],
             'answers.*.other' => ['nullable', 'string', 'max:2000'],
+            // An image asked for a document (docs/CAPACIDADES.md, "Tipos de documento").
+            'answers.*.file' => ['nullable', ...BrandAssets::RULES],
         ]);
 
         // validated() can reorder the keys (answers with an empty list come first): keep them by question.

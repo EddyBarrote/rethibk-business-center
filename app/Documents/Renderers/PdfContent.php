@@ -2,6 +2,7 @@
 
 namespace App\Documents\Renderers;
 
+use App\Documents\DocumentType;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
@@ -23,7 +24,10 @@ final class PdfContent
 
     private const GRAND = '/^\s*total\b/iu';
 
-    public static function polish(string $html): string
+    /**
+     * @param  array<string, string>  $images  asset key => absolute path, for ![…](asset:key)
+     */
+    public static function polish(string $html, array $images = []): string
     {
         if (trim($html) === '') {
             return $html;
@@ -40,6 +44,10 @@ final class PdfContent
 
         if (! $root instanceof DOMElement) {
             return $html;
+        }
+
+        foreach (iterator_to_array($xpath->query('.//img', $root)) as $image) {
+            self::image($image, $images);
         }
 
         foreach (iterator_to_array($xpath->query('.//table', $root)) as $table) {
@@ -70,6 +78,35 @@ final class PdfContent
         }
 
         return $out;
+    }
+
+    /**
+     * An asset:… image inlined from its file; any other image (remote, unknown)
+     * is left out, since a PDF never fetches anything.
+     *
+     * @param  array<string, string>  $images
+     */
+    private static function image(DOMElement $image, array $images): void
+    {
+        $src = trim($image->getAttribute('src'));
+        $path = str_starts_with($src, 'asset:') ? ($images[DocumentType::key(substr($src, 6))] ?? null) : null;
+
+        if ($path === null || ! is_file($path)) {
+            $image->parentNode?->removeChild($image);
+
+            return;
+        }
+
+        $mime = mime_content_type($path) ?: 'image/png';
+        $image->setAttribute('src', 'data:'.$mime.';base64,'.base64_encode((string) file_get_contents($path)));
+        self::addClass($image, 'asset');
+
+        // An image alone in its paragraph is a figure (a signature, a stamp…).
+        $parent = $image->parentNode;
+
+        if ($parent instanceof DOMElement && $parent->nodeName === 'p' && trim($parent->textContent) === '' && $parent->getElementsByTagName('img')->length === 1) {
+            self::addClass($parent, 'figure');
+        }
     }
 
     /** Amount columns right-aligned; a table of subtotal/IVA/total rows styled as totals. */

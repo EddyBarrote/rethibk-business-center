@@ -3,6 +3,7 @@
 namespace App\Ai\Runs;
 
 use App\Ai\Capabilities\CapabilityContext;
+use App\Documents\BrandAssets;
 use App\Enums\ActorType;
 use App\Enums\AuditResult;
 use App\Enums\NotificationCategory;
@@ -17,11 +18,13 @@ use App\Jobs\RunAgent;
 use App\Models\AgentQuestion;
 use App\Models\AgentRun;
 use App\Models\AuditLog;
+use App\Models\MessageAttachment;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;
 use App\Support\Notifier;
 use App\Tasks\TaskThread;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -35,10 +38,11 @@ final class QuestionService
     public function __construct(
         private readonly TaskThread $threads,
         private readonly Notifier $notifier,
+        private readonly BrandAssets $assets,
     ) {}
 
     /**
-     * @param  list<array{question: string, header: string, options: list<array{label: string, description: string}>, multi_select: bool}>  $questions
+     * @param  list<array{question: string, header: string, options: list<array{label: string, description: string}>, multi_select: bool, kind?: 'file', asset?: array{key: string, label: string}}>  $questions
      */
     public function ask(array $questions, CapabilityContext $context): AgentQuestion|string
     {
@@ -126,9 +130,30 @@ final class QuestionService
     }
 
     /**
+     * Images a document needs that nobody has uploaded yet (DocumentType::missing()):
+     * a card where the person uploads each one, or says to do without it. What
+     * they upload is kept in the brand for every later document.
+     *
+     * @param  list<array{key: string, label: string}>  $missing
+     */
+    public function askForAssets(array $missing, string $document, CapabilityContext $context): AgentQuestion|string
+    {
+        $questions = array_map(fn (array $asset) => [
+            'question' => "Para «{$document}» falta: {$asset['label']}. Pode carregar a imagem? Fica guardada na Marca para os próximos documentos.",
+            'header' => Str::limit($asset['label'], 22),
+            'options' => [],
+            'multi_select' => false,
+            'kind' => 'file',
+            'asset' => ['key' => $asset['key'], 'label' => $asset['label']],
+        ], array_slice($missing, 0, 4));
+
+        return $this->ask($questions, $context);
+    }
+
+    /**
      * Record a person's answers and resume the run.
      *
-     * @param  list<array{selected?: list<string>, other?: string|null}>  $answers  one per question, in order
+     * @param  list<array{selected?: list<string>, other?: string|null, file?: UploadedFile|string|null}>  $answers  one per question, in order
      */
     public function answer(AgentQuestion $question, User $user, array $answers): AgentQuestion
     {
@@ -182,7 +207,16 @@ final class QuestionService
         }
 
         $text = trim($message->body) !== '' ? Str::limit(trim($message->body), 2000) : '(enviou ficheiros)';
-        $this->answer($question, $user, array_map(fn () => ['selected' => [], 'other' => $text], $question->questions));
+        // Images sent in the message answer the requests for images, in order.
+        $images = $message->attachments()->get()->filter(fn (MessageAttachment $a) => str_starts_with($a->mime_type, 'image/') && $a->disk === 'local')->values();
+
+        $this->answer($question, $user, array_map(function (array $item) use ($text, $images) {
+            if (($item['kind'] ?? null) === 'file' && $images->isNotEmpty()) {
+                return ['selected' => [], 'other' => null, 'file' => $images->shift()->path];
+            }
+
+            return ['selected' => [], 'other' => $text];
+        }, $question->questions));
 
         return true;
     }
@@ -219,7 +253,11 @@ final class QuestionService
     {
         $who = $question->answeredBy->name ?? 'A pessoa';
 
-        return "[{$who}] Respostas às tuas perguntas:\n".$this->transcript($question)
+        $assets = collect($question->questions)->contains(fn (array $item) => ($item['kind'] ?? null) === 'file')
+            ? "\n\nAs imagens carregadas já estão na Marca: chama de novo documents.generate com os mesmos argumentos. As que a pessoa não carregou passa-as em without_assets (pela chave) e segue sem elas, salvo se ela disse outra coisa."
+            : '';
+
+        return "[{$who}] Respostas às tuas perguntas:\n".$this->transcript($question).$assets
             ."\n\nContinua o trabalho a partir daqui com estas respostas. Não voltes a perguntar o que já foi respondido.";
     }
 
@@ -231,7 +269,9 @@ final class QuestionService
         $lines = [];
 
         foreach ($question->questions as $index => $item) {
-            $options = collect($item['options'])->pluck('label')->implode(' / ');
+            $options = ($item['kind'] ?? null) === 'file'
+                ? 'carregar imagem, chave '.($item['asset']['key'] ?? '?')
+                : collect($item['options'])->pluck('label')->implode(' / ');
             $lines[] = "- {$item['question']} ({$options})";
 
             if ($withAnswers && $question->answers !== null) {
@@ -243,11 +283,15 @@ final class QuestionService
     }
 
     /**
-     * @param  array{selected?: list<string>, other?: string|null}|null  $answer
+     * @param  array{selected?: list<string>, other?: string|null, file?: string|null}|null  $answer
      */
     public static function answerText(?array $answer): string
     {
         $parts = [...($answer['selected'] ?? [])];
+
+        if (filled($answer['file'] ?? null)) {
+            $parts[] = "carregou a imagem (asset:{$answer['file']})";
+        }
 
         if (filled($answer['other'] ?? null)) {
             $parts[] = '«'.$answer['other'].'»';
@@ -286,8 +330,8 @@ final class QuestionService
     }
 
     /**
-     * @param  list<array{selected?: list<string>, other?: string|null}>  $answers
-     * @return list<array{question: string, selected: list<string>, other: string|null}>
+     * @param  list<array{selected?: list<string>, other?: string|null, file?: UploadedFile|string|null}>  $answers
+     * @return list<array{question: string, selected: list<string>, other: string|null, file?: string|null}>
      */
     private function normalise(AgentQuestion $question, array $answers): array
     {
@@ -295,6 +339,13 @@ final class QuestionService
 
         foreach ($question->questions as $index => $item) {
             $answer = $answers[$index] ?? [];
+
+            if (($item['kind'] ?? null) === 'file') {
+                $result[] = $this->fileAnswer($item, $answer, $index);
+
+                continue;
+            }
+
             $labels = collect($item['options'])->pluck('label')->all();
             $selected = array_values(array_intersect($labels, array_map('strval', (array) ($answer['selected'] ?? []))));
             $other = trim((string) ($answer['other'] ?? ''));
@@ -312,5 +363,32 @@ final class QuestionService
         }
 
         return $result;
+    }
+
+    /**
+     * An image uploaded for a document (kept in the brand under the asset's
+     * key), or a word saying to do without it.
+     *
+     * @param  array<string, mixed>  $item
+     * @param  array{other?: string|null, file?: UploadedFile|string|null}  $answer
+     * @return array{question: string, selected: list<string>, other: string|null, file: string|null}
+     */
+    private function fileAnswer(array $item, array $answer, int $index): array
+    {
+        $other = trim((string) ($answer['other'] ?? ''));
+        $other = $other !== '' ? Str::limit($other, 2000, '') : null;
+        $file = $answer['file'] ?? null;
+
+        if ($file === null && $other === null) {
+            throw ValidationException::withMessages(["answers.{$index}" => "Carregue a imagem para «{$item['header']}» ou diga como seguir."]);
+        }
+
+        $key = null;
+
+        if ($file !== null) {
+            $key = $this->assets->store($file, (string) ($item['asset']['key'] ?? 'imagem'), (string) ($item['asset']['label'] ?? ''));
+        }
+
+        return ['question' => (string) $item['question'], 'selected' => [], 'other' => $other, 'file' => $key];
     }
 }

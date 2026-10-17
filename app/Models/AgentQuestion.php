@@ -18,7 +18,8 @@ use Illuminate\Support\Carbon;
  * AskUserQuestion: its run waits until someone answers (docs/DECISOES.md,
  * "Perguntas dos agentes").
  *
- * questions: list of {question, header, options: list<{label, description}>, multi_select}
+ * questions: list of {question, header, options: list<{label, description}>, multi_select}, or an
+ * image to upload for a document: kind "file" and asset {key, label}, no options
  * answers: list of {question, selected: list<string>, other: ?string}, in the same order
  *
  * @property int $id
@@ -28,8 +29,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $task_id
  * @property int|null $task_message_id
  * @property int|null $asked_user_id
- * @property list<array{question: string, header: string, options: list<array{label: string, description: string}>, multi_select: bool}> $questions
- * @property list<array{question: string, selected: list<string>, other: string|null}>|null $answers
+ * @property list<array{question: string, header: string, options: list<array{label: string, description: string}>, multi_select: bool, kind?: 'file', asset?: array{key: string, label: string}}> $questions
+ * @property list<array{question: string, selected: list<string>, other: string|null, file?: string|null}>|null $answers
  * @property QuestionStatus $status
  * @property int|null $answered_by_user_id
  * @property Carbon|null $answered_at

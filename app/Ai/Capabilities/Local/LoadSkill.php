@@ -7,6 +7,7 @@ use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Ai\Skills\AgentSkills;
 use App\Documents\Brand;
+use App\Documents\DocumentType;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Number;
 
@@ -53,7 +54,8 @@ final class LoadSkill extends LocalCapability
 
         return CapabilityResult::text(
             "# Skill: {$skill->displayName()} ({$skill->key})\n\n".Brand::current()->fill($skill->body())
-            .($files !== '' ? "\n\n## Ficheiros desta skill\nLê-os com skills.read_file quando precisares:\n{$files}" : ''),
+            .($files !== '' ? "\n\n## Ficheiros desta skill\nLê-os com skills.read_file quando precisares:\n{$files}" : '')
+            .(DocumentType::config($skill->body()) !== [] ? "\n\nÉ um tipo de documento: gera o ficheiro com documents.generate e skill: «{$skill->key}» (modelo, estilo e imagens vêm daqui; as que faltarem a plataforma pede à pessoa)." : ''),
         );
     }
 }

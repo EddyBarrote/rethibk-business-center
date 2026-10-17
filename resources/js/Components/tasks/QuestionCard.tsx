@@ -1,7 +1,8 @@
 import { router } from '@inertiajs/react';
-import { Check, CircleHelp, CornerDownLeft, PenLine } from 'lucide-react';
+import { Check, CircleHelp, CornerDownLeft, ImageUp, PenLine } from 'lucide-react';
 import { type KeyboardEvent, useState } from 'react';
 
+import { FileInput } from '@/Components/FileInput';
 import { Button } from '@/Components/ui/button';
 import { Textarea } from '@/Components/ui/textarea';
 import { time } from '@/lib/format';
@@ -18,12 +19,16 @@ export interface AgentQuestionItem {
     header: string;
     options: { label: string; description: string }[];
     multi_select: boolean;
+    /** An image a document needs (docs/CAPACIDADES.md, "Tipos de documento"): uploaded, not chosen. */
+    kind?: 'file';
+    asset?: { key: string; label: string };
 }
 
 export interface AgentQuestionAnswer {
     question: string;
     selected: string[];
     other: string | null;
+    file?: string | null;
 }
 
 export interface AgentQuestions {
@@ -39,9 +44,10 @@ export interface AgentQuestions {
 interface Draft {
     selected: string[];
     other: string | null;
+    file: File | null;
 }
 
-const answered = (draft: Draft) => draft.selected.length > 0 || (draft.other !== null && draft.other.trim() !== '');
+const answered = (draft: Draft) => draft.selected.length > 0 || draft.file !== null || (draft.other !== null && draft.other.trim() !== '');
 
 export function QuestionCard({ question }: { question: AgentQuestions }) {
     if (question.status === 'answered' && question.answers) {
@@ -67,7 +73,7 @@ export function QuestionCard({ question }: { question: AgentQuestions }) {
 function PendingCard({ question }: { question: AgentQuestions }) {
     const items = question.questions;
     const [current, setCurrent] = useState(0);
-    const [drafts, setDrafts] = useState<Draft[]>(() => items.map(() => ({ selected: [], other: null })));
+    const [drafts, setDrafts] = useState<Draft[]>(() => items.map(() => ({ selected: [], other: null, file: null })));
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const item = items[current];
@@ -88,7 +94,7 @@ function PendingCard({ question }: { question: AgentQuestions }) {
 
             return;
         }
-        update(current, { selected: [label], other: null });
+        update(current, { selected: [label], other: null, file: null });
         // A single choice moves on by itself, like Claude's.
         if (!last) {
             setTimeout(() => setCurrent((index) => Math.min(index + 1, items.length - 1)), 160);
@@ -99,7 +105,7 @@ function PendingCard({ question }: { question: AgentQuestions }) {
         if (disabled) {
             return;
         }
-        update(current, item.multi_select ? { ...draft, other: draft.other ?? '' } : { selected: [], other: draft.other ?? '' });
+        update(current, item.multi_select ? { ...draft, other: draft.other ?? '' } : { selected: [], other: draft.other ?? '', file: null });
     };
 
     const submit = () => {
@@ -110,9 +116,10 @@ function PendingCard({ question }: { question: AgentQuestions }) {
         setError(null);
         router.post(
             `/questions/${question.id}/answer`,
-            { answers: drafts.map((value) => ({ selected: value.selected, other: value.other?.trim() || null })) },
+            { answers: drafts.map((value) => ({ selected: value.selected, other: value.other?.trim() || null, file: value.file })) },
             {
                 preserveScroll: true,
+                forceFormData: drafts.some((value) => value.file !== null),
                 onError: (errors) => setError(Object.values(errors)[0] ?? 'Não foi possível enviar as respostas.'),
                 onFinish: () => setSending(false),
             },
@@ -176,82 +183,106 @@ function PendingCard({ question }: { question: AgentQuestions }) {
                     {item.multi_select && <p className="text-xs text-muted-foreground">Pode escolher várias.</p>}
                 </div>
 
-                <div role={item.multi_select ? 'group' : 'radiogroup'} className="flex flex-col gap-1.5">
-                    {item.options.map((option, index) => {
-                        const selected = draft.selected.includes(option.label);
-
-                        return (
-                            <button
-                                key={option.label}
-                                type="button"
-                                role={item.multi_select ? 'checkbox' : 'radio'}
-                                aria-checked={selected}
-                                disabled={disabled}
-                                onClick={() => choose(option.label)}
-                                className={cn(
-                                    'group flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-default',
-                                    selected ? 'border-primary bg-primary/5' : 'hover:border-foreground/20 hover:bg-accent/50',
-                                )}
-                            >
-                                <Marker index={index} selected={selected} multi={item.multi_select} />
-                                <span className="min-w-0 flex-1">
-                                    <span className="block text-sm font-medium">{option.label}</span>
-                                    {option.description && <span className="block text-xs text-muted-foreground">{option.description}</span>}
-                                </span>
-                            </button>
-                        );
-                    })}
-
-                    <div
-                        className={cn(
-                            'rounded-lg border transition-colors',
-                            draft.other !== null ? 'border-primary bg-primary/5' : 'border-dashed hover:border-foreground/20',
-                        )}
-                    >
-                        <button
+                {item.kind === 'file' ? (
+                    <div className="flex flex-col gap-1.5">
+                        <FileInput
+                            id={`question-${question.id}-${current}`}
+                            accept=".png,.jpg,.jpeg"
+                            file={draft.file}
+                            hint="PNG ou JPG até 5 MB. Fica na Marca para os próximos documentos."
+                            onChange={(file) => update(current, { selected: [], other: null, file })}
+                        />
+                        <Button
                             type="button"
+                            size="sm"
+                            variant={draft.other !== null ? 'secondary' : 'ghost'}
                             disabled={disabled}
-                            onClick={chooseOther}
-                            className="flex w-full items-center gap-3 px-3 py-2 text-left disabled:cursor-default"
+                            className="self-start"
+                            onClick={() => update(current, { selected: [], other: 'Seguir sem esta imagem.', file: null })}
                         >
-                            <span className="grid size-5 shrink-0 place-content-center rounded-md border text-muted-foreground">
-                                <PenLine className="size-3" />
-                            </span>
-                            <span className="text-sm font-medium">Outra</span>
-                            <span className="text-xs text-muted-foreground">Escrever a minha resposta</span>
-                        </button>
-                        {draft.other !== null && (
-                            <div className="px-3 pb-2">
-                                <Textarea
-                                    rows={2}
-                                    autoFocus
-                                    value={draft.other}
-                                    disabled={disabled}
-                                    onChange={(event) => update(current, { ...draft, other: event.target.value })}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' && !event.shiftKey) {
-                                            event.preventDefault();
-                                            if (last) {
-                                                submit();
-                                            } else if (answered(draft)) {
-                                                setCurrent(current + 1);
-                                            }
-                                        }
-                                    }}
-                                    placeholder="A sua resposta…"
-                                    className="min-h-14 resize-none bg-background text-sm"
-                                />
-                            </div>
-                        )}
+                            Seguir sem esta imagem
+                        </Button>
                     </div>
-                </div>
+                ) : (
+                    <div role={item.multi_select ? 'group' : 'radiogroup'} className="flex flex-col gap-1.5">
+                        {item.options.map((option, index) => {
+                            const selected = draft.selected.includes(option.label);
+
+                            return (
+                                <button
+                                    key={option.label}
+                                    type="button"
+                                    role={item.multi_select ? 'checkbox' : 'radio'}
+                                    aria-checked={selected}
+                                    disabled={disabled}
+                                    onClick={() => choose(option.label)}
+                                    className={cn(
+                                        'group flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-default',
+                                        selected ? 'border-primary bg-primary/5' : 'hover:border-foreground/20 hover:bg-accent/50',
+                                    )}
+                                >
+                                    <Marker index={index} selected={selected} multi={item.multi_select} />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-medium">{option.label}</span>
+                                        {option.description && <span className="block text-xs text-muted-foreground">{option.description}</span>}
+                                    </span>
+                                </button>
+                            );
+                        })}
+
+                        <div
+                            className={cn(
+                                'rounded-lg border transition-colors',
+                                draft.other !== null ? 'border-primary bg-primary/5' : 'border-dashed hover:border-foreground/20',
+                            )}
+                        >
+                            <button
+                                type="button"
+                                disabled={disabled}
+                                onClick={chooseOther}
+                                className="flex w-full items-center gap-3 px-3 py-2 text-left disabled:cursor-default"
+                            >
+                                <span className="grid size-5 shrink-0 place-content-center rounded-md border text-muted-foreground">
+                                    <PenLine className="size-3" />
+                                </span>
+                                <span className="text-sm font-medium">Outra</span>
+                                <span className="text-xs text-muted-foreground">Escrever a minha resposta</span>
+                            </button>
+                            {draft.other !== null && (
+                                <div className="px-3 pb-2">
+                                    <Textarea
+                                        rows={2}
+                                        autoFocus
+                                        value={draft.other}
+                                        disabled={disabled}
+                                        onChange={(event) => update(current, { ...draft, other: event.target.value })}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' && !event.shiftKey) {
+                                                event.preventDefault();
+                                                if (last) {
+                                                    submit();
+                                                } else if (answered(draft)) {
+                                                    setCurrent(current + 1);
+                                                }
+                                            }
+                                        }}
+                                        placeholder="A sua resposta…"
+                                        className="min-h-14 resize-none bg-background text-sm"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {error && <p className="text-xs text-destructive">{error}</p>}
             </div>
 
             <div className="flex items-center gap-2 border-t px-4 py-2.5">
                 {question.can_answer ? (
-                    <span className="hidden flex-1 text-[11px] text-muted-foreground sm:block">Teclas 1–{item.options.length} para escolher</span>
+                    <span className="hidden flex-1 text-[11px] text-muted-foreground sm:block">
+                        {item.kind === 'file' ? 'Também pode enviar a imagem na conversa' : `Teclas 1–${item.options.length} para escolher`}
+                    </span>
                 ) : (
                     <span className="flex-1 text-xs text-muted-foreground">À espera da resposta da pessoa a quem perguntou.</span>
                 )}
@@ -313,6 +344,12 @@ function AnsweredCard({ question, answers }: { question: AgentQuestions; answers
                                         {label}
                                     </span>
                                 ))}
+                                {answer?.file && (
+                                    <span className="inline-flex h-6 items-center gap-1 rounded-full bg-primary/10 px-2.5 text-xs font-medium text-primary">
+                                        <ImageUp className="size-3" />
+                                        Imagem carregada
+                                    </span>
+                                )}
                                 {answer?.other && (
                                     <span className="inline-flex min-h-6 items-center rounded-full bg-muted px-2.5 py-0.5 text-xs">
                                         «{answer.other}»

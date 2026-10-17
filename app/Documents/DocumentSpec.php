@@ -16,6 +16,8 @@ final readonly class DocumentSpec
         public DocumentTemplate $template = DocumentTemplate::Document,
         public ?string $subtitle = null,
         public ?Carbon $date = null,
+        /** The document type (a skill) it follows, if any: style and images. */
+        public ?DocumentType $type = null,
     ) {}
 
     public function dateLabel(): string
@@ -43,6 +45,6 @@ final readonly class DocumentSpec
 
     public function withoutRepeatedTitle(): self
     {
-        return new self($this->title, $this->body(), $this->template, $this->subtitle, $this->date);
+        return new self($this->title, $this->body(), $this->template, $this->subtitle, $this->date, $this->type);
     }
 }

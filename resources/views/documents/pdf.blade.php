@@ -77,6 +77,14 @@
     .letterhead img { height: 15mm; }
     .letterhead .name { font-size: 11pt; font-weight: bold; color: {{ $color }}; }
     .letterhead .date { text-align: right; color: #4B5563; font-size: 9pt; margin-top: 6mm; }
+
+    img.asset { max-width: 100%; max-height: 60mm; }
+    p.figure { margin: 3mm 0 4mm; }
+    p.figure img.asset { max-height: 28mm; }
+@if ($css)
+    /* The document type's own style (a file of its skill). */
+    {!! $css !!}
+@endif
 </style>
 </head>
 <body>

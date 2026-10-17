@@ -33,6 +33,8 @@ final readonly class Brand
         public ?string $footer,
         public ?string $accent = null,
         public string $font = self::DEFAULT_FONT,
+        /** @var array<string, array{label: string, path: string}> images documents can show (signature, stamp…), by key: settings.brand.assets */
+        public array $assets = [],
     ) {}
 
     public static function current(): self
@@ -43,6 +45,13 @@ final readonly class Brand
         $accent = (string) ($settings['accent_color'] ?? '');
         $font = (string) ($settings['font'] ?? '');
         $logo = $settings['logo_path'] ?? null;
+        $assets = [];
+
+        foreach ((array) ($settings['assets'] ?? []) as $asset) {
+            if (is_array($asset) && is_string($asset['path'] ?? null) && Storage::disk('local')->exists($asset['path'])) {
+                $assets[(string) $asset['key']] = ['label' => (string) ($asset['label'] ?? $asset['key']), 'path' => Storage::disk('local')->path($asset['path'])];
+            }
+        }
 
         return new self(
             name: (string) ($tenant->name ?? config('app.name')),
@@ -51,6 +60,7 @@ final readonly class Brand
             footer: isset($settings['footer']) ? (string) $settings['footer'] : null,
             accent: self::validColor($accent) ? strtoupper($accent) : null,
             font: array_key_exists($font, self::FONTS) ? $font : self::DEFAULT_FONT,
+            assets: $assets,
         );
     }
 
@@ -104,6 +114,7 @@ final readonly class Brand
             'fonte' => $this->font,
             'logotipo' => $this->logoPath !== null ? 'carregado (aparece sozinho nos ficheiros)' : 'nenhum carregado',
             'rodape' => $this->footer ?? $this->name,
+            'imagens' => $this->assets === [] ? 'nenhuma' : implode(', ', array_map(fn (string $key, array $a) => "{$a['label']} (asset:{$key})", array_keys($this->assets), $this->assets)),
         ];
     }
 
@@ -130,7 +141,7 @@ final readonly class Brand
     public function fill(string $text): string
     {
         $facts = $this->facts();
-        $labels = ['nome' => 'Nome', 'cor' => 'Cor principal', 'cor_secundaria' => 'Cor secundária', 'fonte' => 'Fonte', 'logotipo' => 'Logótipo', 'rodape' => 'Rodapé'];
+        $labels = ['nome' => 'Nome', 'cor' => 'Cor principal', 'cor_secundaria' => 'Cor secundária', 'fonte' => 'Fonte', 'logotipo' => 'Logótipo', 'rodape' => 'Rodapé', 'imagens' => 'Imagens'];
         $list = collect($facts)->map(fn (string $value, string $key) => '- '.$labels[$key].': '.$value)->implode("\n");
 
         return (string) preg_replace_callback('/\{\{\s*marca(?:\.([a-z_]+))?\s*\}\}/u', fn (array $m) => ($m[1] ?? '') === ''

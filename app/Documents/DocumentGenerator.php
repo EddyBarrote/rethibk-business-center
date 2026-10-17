@@ -51,6 +51,7 @@ final class DocumentGenerator
             return GeneratedDocument::query()->create([
                 'agent_id' => $agent?->id,
                 'agent_run_id' => $run?->id,
+                'skill_id' => $spec->type?->skillId,
                 'created_by_user_id' => $user?->id,
                 'title' => $spec->title,
                 'format' => $format->value,

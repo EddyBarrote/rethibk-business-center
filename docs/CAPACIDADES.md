@@ -50,6 +50,25 @@ Ao carregar, `skills.load` troca `{{marca.nome}}`, `{{marca.cor}}`, `{{marca.cor
 
 Ficheiros aceites: md, txt, csv, json, xml, html, pdf, docx, xlsx (até 10 MB). O texto é extraído no upload com `TextExtractor`; um ficheiro sem texto legível fica guardado mas o agente não o consegue ler (o ecrã avisa).
 
+## Tipos de documento
+
+Um tipo de documento (proposta comercial, relatório mensal, carta de cobrança…) é uma **skill**: as instruções dizem o que leva e em que tom; umas linhas no topo dizem como fica (`App\Documents\DocumentType`):
+
+```
+---
+modelo: relatorio            # documento, relatorio (com capa) ou carta
+estilo: estilo.css           # um ficheiro da skill, juntado ao estilo do PDF
+logotipo: obrigatório        # pede o logótipo se a Marca não tiver
+asset assinatura: Assinatura de quem assina a proposta
+asset carimbo: Carimbo da empresa
+---
+```
+
+- O agente carrega a skill (`skills.load` diz-lhe que é um tipo de documento) e chama `documents.generate` com `skill`. O modelo da skill vale quando o agente não escolhe outro; o documento guarda `skill_id`, e a conversão para outro formato mantém o tipo.
+- Imagens no texto: `![Assinatura](asset:assinatura)`. Vêm primeiro dos ficheiros de imagem da skill (pelo nome, sem extensão) e depois das **Imagens para documentos** da Marca (`settings.brand.assets`, Definições › Marca). No PDF entram na página; no Word e no PowerPoint fica o nome.
+- **Falta uma imagem** (pedida no topo, usada no texto, ou o logótipo obrigatório): `documents.generate` não gera e faz um cartão de pergunta do tipo ficheiro (`AgentQuestion`, `kind: file`, até 4 de cada vez). A pessoa carrega a imagem (ou envia-a na conversa) e ela fica na Marca para os documentos seguintes; ou diz para seguir sem ela, e o agente volta a chamar com `without_assets`. A execução pausa e retoma como nas perguntas de escolha.
+- Criar um tipo novo: na página Skills, ou pedindo ao Chief of Staff (`skills.propose`).
+
 ## Criar pela conversa
 
 Na conversa com o Chief of Staff, uma pessoa pede um agente ou uma skill nova. O Chief prepara-a (`agents.propose`, `skills.propose`, com `agents.catalog` para as chaves), pergunta o que falta e mostra-a como cartão; só fica criada quando confirma alguém com «Criar e configurar agentes» ou «Gerir capacidades, skills e conectores». Detalhes em `docs/DECISOES.md`, «Chief of Staff cria agentes e skills».

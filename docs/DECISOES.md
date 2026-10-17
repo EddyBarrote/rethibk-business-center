@@ -1168,3 +1168,17 @@ O Barrote: na conversa, o Chief of Staff deve poder criar agentes novos e skills
 | **Um agente novo começa baixo**: N1 por omissão, nunca acima de N1; a confiança sobe depois com o histórico (`agents.set_trust_level`). | `NewColleagues::MAX_START_LEVEL` |
 
 Testes: `tests/Feature/Agents/ChiefBuildsTest.php`.
+
+## Tipos de documento são skills (17.10.2026)
+
+O Barrote: «o gerar documento deve obedecer um skill, eu posso querer criar um tipo de documento hoje, e outro amanhã. Sim sobre marca, sobre assets, até deveria pedir em run time se houver necessidade de adicionar assets.» Detalhes em `docs/CAPACIDADES.md`, «Tipos de documento».
+
+| Decisão | Onde |
+|---|---|
+| **Um tipo de documento é uma skill**, não um modelo novo no código: as instruções dizem o conteúdo, umas linhas `chave: valor` entre `---` no topo dizem o modelo de página, o estilo (CSS de um ficheiro da skill, sem `@import` nem endereços), o logótipo obrigatório e as imagens obrigatórias. Sem o bloco, uma skill é só instruções, como antes. | `DocumentType::fromSkill()`, `config()` |
+| **`documents.generate` recebe `skill`** e aplica-a por cima da Marca; o documento guarda `skill_id` (`2026_10_17_170001`) para a conversão de formato manter o tipo. | `GenerateDocument`, `DocumentController::convert()` |
+| **As imagens vivem na Marca** (Imagens para documentos), por chave, além das imagens que uma skill traga: a assinatura e o carimbo são da empresa e servem a vários tipos. Uma imagem que não é `asset:` não entra no PDF (nada é buscado fora). | `BrandAssets`, `Brand::$assets`, `PdfContent::image()` |
+| **O que falta pede-se em tempo de execução** com o cartão de perguntas, num tipo «ficheiro»: carregar a imagem, enviá-la na conversa, ou seguir sem ela (`without_assets`). O que se carrega fica na Marca. | `QuestionService::askForAssets()`, `fileAnswer()`, `QuestionCard.tsx` |
+| **Word e PowerPoint** mostram o nome da imagem no lugar dela por agora; o PDF mostra-a. | `MarkdownBlocks::inline()` |
+
+Testes: `tests/Feature/Knowledge/DocumentTypesTest.php`.

@@ -49,7 +49,8 @@ final class PdfRenderer implements Renderer
         $dompdf->loadHtml(view('documents.pdf', [
             'spec' => $spec,
             'brand' => $brand,
-            'content' => self::polishFor($spec),
+            'content' => self::polishFor($spec, $brand),
+            'css' => $spec->type?->css,
             'logo' => $brand->logoDataUri(),
             'fonts' => $brand->pdfFontFiles(),
         ])->render(), 'UTF-8');
@@ -62,9 +63,12 @@ final class PdfRenderer implements Renderer
     }
 
     /** The document's content as the PDF lays it out. */
-    public static function polishFor(DocumentSpec $spec): string
+    public static function polishFor(DocumentSpec $spec, ?Brand $brand = null): string
     {
-        return PdfContent::polish($spec->withoutRepeatedTitle()->html());
+        $brand ??= Brand::current();
+        $images = $spec->type?->imagesWith($brand) ?? array_map(fn (array $asset) => $asset['path'], $brand->assets);
+
+        return PdfContent::polish($spec->withoutRepeatedTitle()->html(), $images);
     }
 
     private function decorate(Dompdf $dompdf, DocumentSpec $spec, Brand $brand): void

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Documents\Brand;
+use App\Documents\BrandAssets;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Tenant;
@@ -35,6 +36,7 @@ class BrandController extends Controller
                 'footer' => $brand->footer,
                 'has_logo' => $brand->logoPath !== null,
             ],
+            'assets' => array_map(fn (string $key, array $asset) => ['key' => $key, 'label' => $asset['label']], array_keys($brand->assets), $brand->assets),
             'default_color' => Brand::DEFAULT_COLOR,
             'fonts' => array_keys(Brand::FONTS),
         ]);
@@ -84,6 +86,44 @@ class BrandController extends Controller
     {
         $this->user($request);
         $path = data_get(Tenant::current()?->settings, 'brand.logo_path');
+        abort_unless(is_string($path) && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path);
+    }
+
+    /**
+     * An image documents can show (signature, stamp…), by key: ![…](asset:key).
+     */
+    public function storeAsset(Request $request, BrandAssets $assets): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->canManageTenant(), 403);
+        $data = $request->validate([
+            'label' => ['required', 'string', 'max:120'],
+            'file' => ['required', ...BrandAssets::RULES],
+        ]);
+
+        $key = $assets->store($request->file('file'), $data['label'], $data['label']);
+        AuditLog::record($user, 'settings.brand_asset_saved', ['key' => $key]);
+
+        return back()->with('success', "Imagem guardada: asset:{$key}.");
+    }
+
+    public function destroyAsset(Request $request, string $key, BrandAssets $assets): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->canManageTenant(), 403);
+        $assets->remove($key);
+        AuditLog::record($user, 'settings.brand_asset_removed', ['key' => $key]);
+
+        return back()->with('success', 'Imagem removida.');
+    }
+
+    public function asset(Request $request, string $key): StreamedResponse
+    {
+        $this->user($request);
+        $asset = collect((array) data_get(Tenant::current()?->settings, 'brand.assets', []))->first(fn ($a) => is_array($a) && ($a['key'] ?? null) === $key);
+        $path = is_array($asset) ? ($asset['path'] ?? null) : null;
         abort_unless(is_string($path) && Storage::disk('local')->exists($path), 404);
 
         return Storage::disk('local')->response($path);

@@ -7,12 +7,14 @@ use App\Documents\DocumentFormat;
 use App\Documents\DocumentGenerator;
 use App\Documents\DocumentSpec;
 use App\Documents\DocumentTemplate;
+use App\Documents\DocumentType;
 use App\Enums\Permission;
 use App\Models\AuditLog;
 use App\Models\GeneratedDocument;
 use App\Models\KnowledgeDomain;
 use App\Models\KnowledgeFolder;
 use App\Models\Report;
+use App\Models\Skill;
 use App\Models\User;
 use App\Tenancy\TenantRule;
 use Illuminate\Database\Eloquent\Builder;
@@ -103,7 +105,10 @@ class DocumentController extends Controller
         abort_unless($this->canSee($user, $document), 403);
         $format = DocumentFormat::from($request->validate(['format' => ['required', Rule::enum(DocumentFormat::class)]])['format']);
 
-        $copy = $this->make($user, $format, new DocumentSpec($document->title, $document->source, DocumentTemplate::tryFrom($document->template) ?? DocumentTemplate::Document));
+        // A copy keeps the document type's style and images, while its skill exists.
+        $skill = $document->skill_id !== null ? Skill::query()->find($document->skill_id) : null;
+        $type = $skill !== null ? DocumentType::fromSkill($skill) : null;
+        $copy = $this->make($user, $format, new DocumentSpec($document->title, $document->source, DocumentTemplate::tryFrom($document->template) ?? DocumentTemplate::Document, type: $type));
 
         return $copy === null ? back()->with('error', 'Não foi possível gerar o ficheiro.') : to_route('documents.show', $copy)->with('success', "Gerado em {$format->label()}.");
     }
