@@ -2,7 +2,7 @@ import { router, usePage } from '@inertiajs/react';
 import { Bot, Loader2, Send } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
-import { AgentAvatar } from '@/Components/AgentAvatar';
+import { AgentMark } from '@/Components/AgentAvatar';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Textarea } from '@/Components/ui/textarea';
@@ -47,15 +47,15 @@ export function TalkToAgent({ emailId, subject, className }: { emailId: number; 
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="sm:max-w-lg">
-                    <form onSubmit={send} className="flex flex-col gap-4">
+                    <form onSubmit={send} className="flex min-w-0 flex-col gap-4">
                         <DialogHeader>
-                            <DialogTitle>Falar com um agente sobre este email</DialogTitle>
-                            <DialogDescription className="truncate">
+                            <DialogTitle className="pr-6">Falar com um agente sobre este email</DialogTitle>
+                            <DialogDescription className="line-clamp-3 break-words" title={subject}>
                                 «{subject}» vai para a sua conversa com o agente, que o pode ler.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="flex max-h-56 flex-col gap-1 overflow-y-auto" role="radiogroup" aria-label="Agente">
+                        <div className="-mx-1 flex max-h-56 flex-col gap-1 overflow-y-auto px-1 py-1" role="radiogroup" aria-label="Agente">
                             {agents.map((agent) => (
                                 <button
                                     key={agent.id}
@@ -68,8 +68,8 @@ export function TalkToAgent({ emailId, subject, className }: { emailId: number; 
                                         agentId === agent.id ? 'border-primary bg-primary/5' : 'border-transparent',
                                     )}
                                 >
-                                    <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-7" />
-                                    <span className="truncate font-medium">{agent.name}</span>
+                                    <AgentMark name={agent.name} url={agent.avatar_url} className="size-7" />
+                                    <span className="min-w-0 truncate font-medium">{agent.name}</span>
                                 </button>
                             ))}
                         </div>
@@ -79,6 +79,7 @@ export function TalkToAgent({ emailId, subject, className }: { emailId: number; 
                             onChange={(event) => setMessage(event.target.value)}
                             placeholder="O que quer? Ex.: prepara uma proposta para este cliente, ou o que achas deste pedido?"
                             rows={3}
+                            className="field-sizing-fixed resize-y"
                             maxLength={10000}
                         />
 
