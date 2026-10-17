@@ -116,7 +116,7 @@ it('ticks the internet on a new agent and gives it to agents installed from a te
         expect($agent->capabilities()->pluck('key')->all())->toContain('web.search', 'web.read_page');
 
         $defaults = app(AgentEditor::class)->options()['defaultCapabilities'];
-        expect(Capability::query()->whereKey($defaults)->pluck('key')->sort()->values()->all())->toBe(['email.draft', 'web.read_page', 'web.search']);
+        expect(Capability::query()->whereKey($defaults)->pluck('key')->sort()->values()->all())->toBe(['code.run', 'email.draft', 'web.read_page', 'web.search']);
     });
 
     @unlink($store);

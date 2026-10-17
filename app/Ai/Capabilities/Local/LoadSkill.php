@@ -58,7 +58,7 @@ final class LoadSkill extends LocalCapability
         return CapabilityResult::text(
             "# Skill: {$skill->displayName()} ({$skill->key})\n\n".Brand::current()->fill($skill->body())
             .($files !== '' ? "\n\n## Ficheiros desta skill\nLê-os com skills.read_file quando precisares:\n{$files}" : '')
-            .(preg_match(self::RUNS_SCRIPTS, $skill->body()) ? "\n\n## Scripts\nAs instruções falam em correr scripts, que a plataforma não corre. Faz o que o script faria com as tuas ferramentas: as contas sobre ficheiros CSV ou Excel com files.analyze (percorre o ficheiro todo; filtra, agrupa e soma), os ficheiros finais com documents.generate. Nunca estimes nem inventes os números que o script calcularia; se uma conta não for possível, diz qual e porquê." : '')
+            .(preg_match(self::RUNS_SCRIPTS, $skill->body()) ? "\n\n## Scripts\nAs instruções falam em correr scripts, que a plataforma não corre. Faz o que o script faria com as tuas ferramentas: as contas sobre ficheiros CSV ou Excel com files.analyze (percorre o ficheiro todo; filtra, agrupa e soma) ou, para o que ela não faz, com code.run (Python numa caixa isolada, se o tiveres), os ficheiros finais com documents.generate. Nunca estimes nem inventes os números que o script calcularia; se uma conta não for possível, diz qual e porquê." : '')
             .(DocumentType::config($skill->body()) !== [] ? "\n\nÉ um tipo de documento: gera o ficheiro com documents.generate e skill: «{$skill->key}» (modelo, estilo e imagens vêm daqui; as que faltarem a plataforma pede à pessoa)." : ''),
         );
     }

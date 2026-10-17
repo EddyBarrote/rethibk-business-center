@@ -2,18 +2,29 @@
 
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityRegistry;
+use App\Ai\Capabilities\CapabilityResult;
+use App\Ai\Code\CodeRunner;
 use App\Ai\Runs\AgentRunner;
 use App\Attachments\ModelInput;
 use App\Attachments\TableReader;
 use App\Enums\AttachmentKind;
 use App\Enums\TriggerType;
 use App\Models\Agent;
+use App\Models\AiCharge;
+use App\Models\AuditLog;
 use App\Models\MessageAttachment;
 use App\Models\Skill;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Ai\Prompts\AgentPrompt;
+use Laravel\Ai\Responses\Data\FinishReason;
+use Laravel\Ai\Responses\Data\Meta;
+use Laravel\Ai\Responses\Data\ProviderToolCall;
+use Laravel\Ai\Responses\Data\Step;
+use Laravel\Ai\Responses\Data\TextUsage;
+use Laravel\Ai\Responses\TextResponse;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -150,4 +161,65 @@ it('tells the agent to use files.analyze for tables, in the prompt, in files.rea
         expect(runCapability($this->agent, 'skills.load', ['skill' => $skill->key])->content)->toContain('## Scripts')->toContain('files.analyze')
             ->and(runCapability($this->agent, 'skills.load', ['skill' => $plain->key])->content)->not->toContain('## Scripts');
     });
+});
+
+// Correr código (docs/DECISOES.md): Python in the provider's sandbox, over files of this conversation.
+
+function runCode(object $test, array $arguments): CapabilityResult
+{
+    return asTenant($test->tenant, function () use ($test, $arguments) {
+        $run = app(AgentRunner::class)->create($test->agent, 'teste', TriggerType::Manual, taskId: $test->task->id);
+
+        return app(CapabilityRegistry::class)->find('code.run')->execute($arguments, new CapabilityContext($test->agent, $run));
+    });
+}
+
+it('runs code over the files of the conversation and returns the code and what it printed, charged to the budget', function () {
+    $file = tableAttachment($this, 'recargas.csv', RECARGAS);
+    CodeRunner::fake([new TextResponse('M-Pesa: 1 555,50 em 4 linhas.', new TextUsage(5000, 800), new Meta('gemini', 'gemini-3.6-flash'))]);
+
+    $result = runCode($this, ['task' => 'Soma o M-Pesa', 'attachment_ids' => [$file->id]]);
+
+    expect($result->ok)->toBeTrue()
+        ->and($result->content)->toContain('M-Pesa: 1 555,50 em 4 linhas.')->toContain('não confies nos números sem o código');
+
+    // The code and what it printed, from the provider's steps.
+    $step = new Step('', [], [], FinishReason::Stop, new TextUsage, new Meta('gemini', 'gemini-3.6-flash'), '', [], [
+        new ProviderToolCall('c1', 'code_execution', ['id' => 'c1', 'type' => 'code_execution_call', 'arguments' => ['language' => 'python', 'code' => 'print(1555.5)']]),
+        new ProviderToolCall('', 'code_execution', ['call_id' => 'c1', 'type' => 'code_execution_result', 'result' => "1555.5\n", 'is_error' => false]),
+    ]);
+    expect(CodeRunner::runs([$step]))->toBe([['code' => 'print(1555.5)', 'output' => "1555.5\n", 'error' => false]]);
+
+    CodeRunner::assertPrompted(fn (AgentPrompt $prompt) => $prompt->prompt === 'Soma o M-Pesa' && $prompt->attachments->count() === 1
+        && str_contains($prompt->agent->instructions(), 'input_file_0: recargas.csv'));
+
+    asTenant($this->tenant, fn () => expect(AiCharge::query()->where('purpose', 'code.run')->sole()->input_tokens)->toBe(5000)
+        ->and(AuditLog::query()->where('action', 'code.run')->exists())->toBeTrue());
+});
+
+it('refuses files of other conversations and files above the size limit', function () {
+    CodeRunner::fake(['nada']);
+    $elsewhere = asTenant($this->tenant, fn () => MessageAttachment::factory()->create(['filename' => 'x.csv', 'task_message_id' => TaskMessage::factory()->create()->id]));
+    expect(runCode($this, ['task' => 'x', 'attachment_ids' => [$elsewhere->id]])->content)->toContain('não estão nesta conversa');
+
+    config(['agents.code_execution.max_mb' => 0.0001]);
+    $file = tableAttachment($this, 'recargas.csv', RECARGAS);
+    expect(runCode($this, ['task' => 'x', 'attachment_ids' => [$file->id]])->content)->toContain('acima do limite')->toContain('files.analyze');
+
+    CodeRunner::assertNeverPrompted();
+});
+
+it('gives the sandbox each sheet of a spreadsheet as CSV', function () {
+    $book = new Spreadsheet;
+    $book->getActiveSheet()->setTitle('Fecho')->fromArray([['ASSISTENTE', 'VENDIDOS'], ['Rosalia', 3]]);
+    $book->createSheet()->setTitle('Notas')->fromArray([['nota'], ['ok']]);
+    $path = tempnam(sys_get_temp_dir(), 'xlsx');
+    (new Xlsx($book))->save($path);
+    $file = tableAttachment($this, 'fecho.xlsx', (string) file_get_contents($path), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    CodeRunner::fake(['3 cartões']);
+
+    runCode($this, ['task' => 'Conta', 'attachment_ids' => [$file->id]]);
+
+    CodeRunner::assertPrompted(fn (AgentPrompt $prompt) => $prompt->attachments->count() === 2
+        && str_contains($prompt->agent->instructions(), 'input_file_1: fecho.xlsx — folha Notas.csv'));
 });

@@ -1228,3 +1228,19 @@ assistente. A skill importada mandava correr um script Python que faz essas cont
 
 Testes: `tests/Feature/Tasks/TableAnalysisTest.php`. Com os ficheiros reais dá o mesmo que a soma à mão: 10 280 recargas
 M-Pesa (592 500,00 MZN) e 1 127 POS (144 585,00 MZN) em Setembro.
+
+## Correr código (17.10.2026)
+
+O Barrote perguntou por um mini terminal em PHP para os agentes. Um terminal dentro da plataforma teria acesso à base de
+dados de todas as empresas, às chaves e ao disco, e bastaria uma instrução escondida num email ou anexo; escolheu a
+execução de código do próprio fornecedor de IA («faz o recomendado»).
+
+| Decisão | Onde |
+|---|---|
+| **`code.run` («Correr código»)**: o agente diz o que calcular e que anexos da conversa usar; a plataforma faz uma chamada curta ao modelo com a execução de código do fornecedor (Python numa caixa isolada do Google, no Gemini). **Nada corre no nosso servidor.** Devolve a resposta, o código e o que ele imprimiu, para os números terem fonte (e passarem em «Perguntar, nunca inventar»). | `RunCode`, `App\Ai\Code\CodeRunner` |
+| **Ligada por defeito** em todos os agentes (como a pesquisa na internet), e os administradores desligam-na por agente. Só lê: risco «Observar». | `CapabilityRegistry::ON_BY_DEFAULT` |
+| **Custa tokens**: os ficheiros entram inteiros no modelo (o CSV de 1,5 MB das recargas BAZA gastou cerca de 1 milhão de tokens de entrada numa conta). Por isso há um limite por chamada (`AI_CODE_EXECUTION_MAX_MB`, 5 MB), cada chamada conta para o orçamento de IA (`ai_charges.purpose = code.run`) e fica `code.run` na auditoria. Para somar, contar ou agrupar uma tabela, `files.analyze` continua a ser o caminho, sem custo. | `config/agents.php` (`code_execution`), `BudgetGuard::charge()` |
+| **Ficheiros como a caixa os aceita**: CSV e texto como estão, PDF como PDF, cada folha de um Excel como CSV, o resto pelo texto extraído. A caixa recebe a lista dos nomes pela ordem (`input_file_0`, …). | `CodeRunner::documents()` |
+| **Skills com scripts**: o aviso de `skills.load` passa a indicar também `code.run` para o que `files.analyze` não faz. Os scripts importados continuam de fora: o agente escreve o código para o pedido. | `LoadSkill` |
+
+Testes: `tests/Feature/Tasks/TableAnalysisTest.php`.

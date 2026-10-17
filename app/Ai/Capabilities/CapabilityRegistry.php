@@ -46,6 +46,7 @@ use App\Ai\Capabilities\Local\ReadWebPage;
 use App\Ai\Capabilities\Local\RecordTender;
 use App\Ai\Capabilities\Local\RememberDecision;
 use App\Ai\Capabilities\Local\ReviewApproval;
+use App\Ai\Capabilities\Local\RunCode;
 use App\Ai\Capabilities\Local\ScheduleFollowUp;
 use App\Ai\Capabilities\Local\SearchConversations;
 use App\Ai\Capabilities\Local\SearchEmails;
@@ -130,6 +131,8 @@ final class CapabilityRegistry
         AttachFile::class,
         ReadMessageAttachment::class,
         AnalyzeAttachment::class,
+        // Python in the provider's sandbox (docs/DECISOES.md, "Correr código").
+        RunCode::class,
         // Chief of Staff (realinhamento L10, L11) and urgent escalation.
         ReviewApproval::class,
         SearchConversations::class,
@@ -164,7 +167,7 @@ final class CapabilityRegistry
      * Switched on for every agent once (existing ones at the next sync, new ones
      * in the form and from templates); admins can turn them off per agent.
      */
-    public const ON_BY_DEFAULT = ['web.search', 'web.read_page', 'email.draft'];
+    public const ON_BY_DEFAULT = ['web.search', 'web.read_page', 'email.draft', 'code.run'];
 
     /** What an agent gets when it reads a person's mailbox: read, summarise, draft; never send. */
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];

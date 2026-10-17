@@ -95,6 +95,23 @@ return [
         'fee_usd' => (float) env('AI_WEB_SEARCH_FEE_USD', 0.014),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Running code (docs/DECISOES.md, "Correr código")
+    |--------------------------------------------------------------------------
+    |
+    | code.run asks a model with the provider's own code execution (a Python
+    | sandbox on Google's side for Gemini); nothing runs on this server. The
+    | files go whole into the model, so max_mb caps what one call may send.
+    |
+    */
+
+    'code_execution' => [
+        'provider' => env('AI_CODE_EXECUTION_PROVIDER', 'gemini'),
+        'model' => env('AI_CODE_EXECUTION_MODEL'),
+        'max_mb' => (float) env('AI_CODE_EXECUTION_MAX_MB', 5),
+    ],
+
     'fallback_pricing' => [
         'input' => (float) env('AI_FALLBACK_INPUT_USD_PER_MTOK', 15),
         'output' => (float) env('AI_FALLBACK_OUTPUT_USD_PER_MTOK', 75),
