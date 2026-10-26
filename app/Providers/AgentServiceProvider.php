@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Ai\Runs\AgentRunner;
+use App\Ai\Runs\ProviderRetry;
 use App\Email\Imap\ImapGateway;
 use App\Email\Imap\WebklexImapGateway;
 use App\Enums\EmailStatus;
@@ -10,6 +11,7 @@ use App\Enums\RunStatus;
 use App\Events\AgentRunFinished;
 use App\Models\EmailMessage;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Ai\Events\StepCompleted;
 
@@ -27,6 +29,9 @@ class AgentServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // A provider that drops a request gets it again (ProviderRetry).
+        Http::globalMiddleware(ProviderRetry::middleware());
+
         Event::listen(StepCompleted::class, fn (StepCompleted $event) => $this->app->make(AgentRunner::class)->onStepCompleted($event));
 
         // An email handed to an agent is triaged once its run is over.

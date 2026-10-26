@@ -20,6 +20,17 @@ return [
     'timeout' => 120,
 
     /*
+    | A request to a model provider that got no answer (connection dropped,
+    | 429, 5xx) is sent again this many times, waiting delay_ms, then double.
+    */
+
+    'provider_retry' => [
+        'times' => (int) env('AI_PROVIDER_RETRIES', 3),
+        'delay_ms' => (int) env('AI_PROVIDER_RETRY_DELAY_MS', 1500),
+        'hosts' => ['generativelanguage.googleapis.com', 'api.anthropic.com', 'api.openai.com'],
+    ],
+
+    /*
     | Ask the model for a summary of its reasoning (Gemini thought summaries),
     | shown live in the chat and folded to «Pensou durante…» afterwards. Its
     | tokens are output tokens, so they count in the AI budget.
