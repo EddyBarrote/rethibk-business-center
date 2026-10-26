@@ -1,12 +1,12 @@
-import { Check, RotateCcw, TriangleAlert, Waypoints, X } from 'lucide-react';
+import { ArrowRight, RotateCcw, TriangleAlert, Waypoints, X } from 'lucide-react';
 
 import { Button } from '@/Components/ui/button';
 import { blocks, type BlockType, type WfGraph } from '@/lib/workflows';
 
 /*
- * The flow the assistant drafted from a description, shown as a card to
- * confirm, like the agents and skills the Chief of Staff prepares. Applying
- * fills the editor; nothing is saved until the person presses Guardar.
+ * The flow the assistant drafted on «Criar com IA», shown as a card to
+ * confirm, like the agents and skills the Chief of Staff prepares. Opening it
+ * fills the editor; nothing is saved until the person presses Guardar there.
  */
 
 export interface WorkflowDraft {
@@ -90,8 +90,8 @@ export function DraftCard({
             )}
             <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
                 <Button size="sm" onClick={onApply}>
-                    <Check />
-                    Aplicar ao editor
+                    Abrir no editor
+                    <ArrowRight />
                 </Button>
                 <Button size="sm" variant="outline" onClick={onRetry}>
                     <RotateCcw />
@@ -101,7 +101,7 @@ export function DraftCard({
                     <X />
                     Descartar
                 </Button>
-                <p className="text-xs text-muted-foreground">Substitui os blocos actuais. Só fica guardado quando carregar em Guardar.</p>
+                <p className="text-xs text-muted-foreground">Nada fica guardado até carregar em Guardar no editor.</p>
             </div>
         </div>
     );

@@ -258,6 +258,8 @@ Route::middleware('auth')->group(function () {
         Route::post('workflows', [WorkflowController::class, 'store'])->name('workflows.store');
         Route::post('workflows/check', [WorkflowController::class, 'check'])->middleware('throttle:120,1')->name('workflows.check');
         Route::post('workflows/draft', [WorkflowController::class, 'draft'])->middleware('throttle:10,1')->name('workflows.draft');
+        Route::get('workflows/describe', [WorkflowController::class, 'describe'])->name('workflows.describe');
+        Route::post('workflows/draft/stream', [WorkflowController::class, 'draftStream'])->middleware('throttle:10,1')->name('workflows.draft-stream');
         Route::get('workflows/{workflow}/edit', [WorkflowController::class, 'edit'])->name('workflows.edit');
         Route::put('workflows/{workflow}', [WorkflowController::class, 'update'])->name('workflows.update');
         Route::put('workflows/{workflow}/status', [WorkflowController::class, 'status'])->name('workflows.status');

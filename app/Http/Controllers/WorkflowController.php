@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Models\Workflow;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowStep;
+use App\Tenancy\TenantManager;
 use App\Tenancy\TenantRule;
 use App\Workflows\EmailRouter;
 use App\Workflows\WorkflowDrafting;
@@ -30,6 +31,7 @@ use App\Workflows\WorkflowReadiness;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -37,6 +39,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
@@ -98,14 +101,108 @@ class WorkflowController extends Controller
 
         $category = EmailCategory::tryFrom((string) $request->query('category'));
 
-        return $this->editor(null, $category, WorkflowTrigger::tryFrom((string) $request->query('trigger')) ?? WorkflowTrigger::Email);
+        return $this->editor(null, $category, WorkflowTrigger::tryFrom((string) $request->query('trigger')) ?? WorkflowTrigger::Email, $this->pulledDraft($request));
     }
 
-    public function edit(Workflow $workflow): Response
+    public function edit(Request $request, Workflow $workflow): Response
     {
         Gate::authorize('update', $workflow);
 
-        return $this->editor($workflow);
+        return $this->editor($workflow, draft: $this->pulledDraft($request));
+    }
+
+    /**
+     * "Criar com IA": a page of its own to describe the flow; while the
+     * assistant drafts it, the page shows what it is doing (draftStream).
+     */
+    public function describe(Request $request): Response
+    {
+        $workflow = $request->filled('workflow') ? Workflow::query()->findOrFail($request->integer('workflow')) : null;
+        Gate::authorize($workflow !== null ? 'update' : 'create', $workflow ?? Workflow::class);
+
+        $category = $workflow !== null ? $workflow->email_category : EmailCategory::tryFrom((string) $request->query('category'));
+        $trigger = $workflow !== null ? $workflow->trigger : WorkflowTrigger::tryFrom((string) $request->query('trigger'));
+        $agent = $workflow !== null ? $workflow->agent : ($category ? $this->router->route($category)['agent'] : null);
+
+        return Inertia::render('Workflows/Describe', [
+            'workflow' => $workflow ? ['id' => $workflow->id, 'name' => $workflow->name] : null,
+            'category' => $category ? ['value' => $category->value, 'label' => $category->label()] : null,
+            'trigger' => $trigger?->value,
+            'trigger_label' => $trigger?->label(),
+            'agent' => $agent ? ['id' => $agent->id, 'name' => $agent->name] : null,
+            'agents' => Agent::query()->where('status', AgentStatus::Active)->orderBy('name')->get(['id', 'name']),
+            'categories' => EmailCategory::options(),
+            'can_draft' => AgentDrafting::available(),
+        ]);
+    }
+
+    /**
+     * The draft, streamed as lines of JSON: each stage and each step as the
+     * assistant gets to it, then the draft itself, kept for a day under a
+     * token the editor opens. Nothing is saved as a flow here.
+     */
+    public function draftStream(Request $request, WorkflowDrafting $drafting): StreamedResponse
+    {
+        Gate::authorize('create', Workflow::class);
+
+        $user = $this->user($request);
+        $data = $request->validate([
+            'description' => ['required', 'string', 'min:15', 'max:4000'],
+            'agent_id' => ['nullable', 'integer', TenantRule::exists('agents')],
+            'email_category' => ['nullable', Rule::enum(EmailCategory::class)],
+            'trigger' => ['nullable', Rule::enum(WorkflowTrigger::class)],
+        ]);
+        $agent = isset($data['agent_id']) ? Agent::query()->find($data['agent_id']) : null;
+
+        $tenantId = (int) app(TenantManager::class)->id();
+
+        // The body is sent after the request's middleware has finished, so the tenant is set again around it.
+        return response()->stream(fn () => app(TenantManager::class)->run($tenantId, function () use ($drafting, $data, $agent, $user) {
+            $emit = function (string $type, array $payload): void {
+                echo json_encode(['type' => $type, ...$payload], JSON_UNESCAPED_UNICODE)."\n";
+
+                // Out through any output buffer, so the page sees each line now (tests read the buffer).
+                if (ob_get_level() > 0 && ! app()->runningUnitTests()) {
+                    ob_flush();
+                }
+
+                flush();
+            };
+
+            try {
+                $draft = $drafting->draft(
+                    $data['description'],
+                    $agent,
+                    EmailCategory::tryFrom((string) ($data['email_category'] ?? '')),
+                    WorkflowTrigger::tryFrom((string) ($data['trigger'] ?? '')),
+                    $emit,
+                );
+                $token = (string) Str::uuid();
+                Cache::put($this->draftKey($user, $token), $draft, now()->addDay());
+                $emit('draft', ['draft' => $draft, 'token' => $token]);
+            } catch (MissingProviderKey|BudgetExceeded $e) {
+                $emit('error', ['message' => $e->getMessage()]);
+            } catch (Throwable $e) {
+                report($e);
+                $emit('error', ['message' => 'O assistente não conseguiu preparar o fluxo: '.Str::limit($e->getMessage(), 200)]);
+            }
+        }), 200, ['Content-Type' => 'application/x-ndjson; charset=utf-8', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no']);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function pulledDraft(Request $request): ?array
+    {
+        $user = $request->user('web');
+        $draft = $user instanceof User && is_string($token = $request->query('draft')) ? Cache::get($this->draftKey($user, $token)) : null;
+
+        return is_array($draft) ? $draft : null;
+    }
+
+    private function draftKey(User $user, string $token): string
+    {
+        return "workflow-draft:{$user->tenant_id}:{$user->id}:{$token}";
     }
 
     public function store(Request $request): RedirectResponse
@@ -259,24 +356,40 @@ class WorkflowController extends Controller
         });
     }
 
-    private function editor(?Workflow $workflow, ?EmailCategory $category = null, WorkflowTrigger $trigger = WorkflowTrigger::Email): Response
+    /**
+     * @param  array<string, mixed>|null  $draft  what "Criar com IA" prepared, shown over the flow until saved
+     */
+    private function editor(?Workflow $workflow, ?EmailCategory $category = null, WorkflowTrigger $trigger = WorkflowTrigger::Email, ?array $draft = null): Response
     {
         $agent = $workflow?->agent;
         $trigger = $workflow->trigger ?? $trigger;
         $graph = $workflow !== null ? $workflow->graph : $this->starterGraph($trigger === WorkflowTrigger::Email ? $category : null, $trigger);
+
+        if ($draft !== null) {
+            $agent = isset($draft['agent_id']) ? Agent::query()->find($draft['agent_id']) : $agent;
+            $graph = $draft['graph'];
+        }
+
         $readiness = $this->readiness->check(new WorkflowGraph($graph), $agent);
+        $initial = [
+            'name' => $workflow->name ?? ($category ? 'Responder a '.Str::lcfirst($category->label()) : ''),
+            'description' => $workflow->description ?? '',
+            'trigger' => $trigger->value,
+            'email_category' => $workflow !== null ? $workflow->email_category?->value : $category?->value,
+            'agent_id' => $workflow !== null ? $workflow->agent_id : ($category ? $this->router->route($category)['agent']?->id : null),
+            'fallback_user_id' => $workflow?->fallback_user_id,
+            'graph' => $graph,
+        ];
+
+        if ($draft !== null) {
+            $initial = [...$initial, 'name' => $draft['name'], 'description' => $draft['description'] ?: $initial['description'], 'trigger' => $draft['trigger'],
+                'email_category' => $draft['email_category'], 'agent_id' => $draft['agent_id'] ?? $initial['agent_id']];
+        }
 
         return Inertia::render('Workflows/Edit', [
             'workflow' => $workflow ? $this->present($workflow) : null,
-            'initial' => [
-                'name' => $workflow->name ?? ($category ? 'Responder a '.Str::lcfirst($category->label()) : ''),
-                'description' => $workflow->description ?? '',
-                'trigger' => $trigger->value,
-                'email_category' => $workflow !== null ? $workflow->email_category?->value : $category?->value,
-                'agent_id' => $workflow !== null ? $workflow->agent_id : ($category ? $this->router->route($category)['agent']?->id : null),
-                'fallback_user_id' => $workflow?->fallback_user_id,
-                'graph' => $graph,
-            ],
+            'initial' => $initial,
+            'from_draft' => $draft !== null,
             'readiness' => $readiness,
             'categories' => EmailCategory::options(),
             'triggers' => WorkflowTrigger::options(),

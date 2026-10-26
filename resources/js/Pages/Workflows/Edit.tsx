@@ -10,19 +10,17 @@ import {
     type NodeChange,
     ReactFlowProvider,
 } from '@xyflow/react';
-import { LayoutGrid, List, Loader2, Pause, Play, Plus, Sparkles, Trash2, Waypoints } from 'lucide-react';
+import { LayoutGrid, List, Pause, Play, Plus, Sparkles, Trash2, Waypoints } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { ConfirmDialog, FormDialog } from '@/Components/Dialogs';
+import { ConfirmDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
 import { StatusBadge, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
-import { Textarea } from '@/Components/ui/textarea';
-import { DraftCard, type WorkflowDraft } from '@/Components/workflows/DraftCard';
 import { FlowCanvas, type FlowNode, fromFlow, Palette, toFlow, toFlowEdge } from '@/Components/workflows/Canvas';
 import { CanvasContext } from '@/Components/workflows/Canvas';
 import { type AgentOption, BlockInspector, type CapabilityOption } from '@/Components/workflows/Inspector';
@@ -71,6 +69,8 @@ interface Props {
     capabilities: CapabilityOption[];
     skills: { key: string; name: string }[];
     can_draft: boolean;
+    /** Opened from «Criar com IA»: the assistant's draft, not saved yet. */
+    from_draft: boolean;
 }
 
 const statusTone = (status: string): Tone => (({ active: 'success', draft: 'idle', paused: 'warning' }) as Record<string, Tone>)[status] ?? 'idle';
@@ -107,6 +107,7 @@ function Editor({
     capabilities,
     skills,
     can_draft,
+    from_draft,
 }: Props) {
     const errors = usePage().props.errors as Record<string, string>;
     const linked = new URLSearchParams(window.location.search).get('node');
@@ -126,13 +127,14 @@ function Editor({
     const [readiness, setReadiness] = useState(initialReadiness);
     const [problems, setProblems] = useState<string[]>(workflow?.problems ?? []);
     const [saving, setSaving] = useState(false);
-    const [dirty, setDirty] = useState(false);
-    const [drafting, setDrafting] = useState({ open: false, text: '', busy: false });
-    const [proposal, setProposal] = useState<WorkflowDraft | null>(null);
-    // A new, empty flow starts by describing it; the blocks can still be drawn by hand.
-    const [describing, setDescribing] = useState(
-        can_draft && !workflow && initial.graph.nodes.every((node) => node.type === 'trigger' || node.type === 'end'),
-    );
+    const [dirty, setDirty] = useState(from_draft);
+    // A new, empty flow is offered «Criar com IA»; the blocks can still be drawn by hand.
+    const empty = !workflow && !from_draft && initial.graph.nodes.every((node) => node.type === 'trigger' || node.type === 'end');
+    const describeHref = workflow
+        ? `/settings/workflows/describe?workflow=${workflow.id}`
+        : `/settings/workflows/describe?${new URLSearchParams(
+              form.trigger === 'schedule' ? { trigger: 'schedule' } : form.email_category ? { category: form.email_category } : {},
+          ).toString()}`;
     const [confirmDelete, setConfirmDelete] = useState(false);
 
     const graph = useMemo(() => fromFlow(nodes, edges), [nodes, edges]);
@@ -308,64 +310,6 @@ function Editor({
         router.put(`/settings/workflows/${workflow.id}/status`, { status }, { preserveScroll: true });
     };
 
-    const propose = () => {
-        setDrafting((current) => ({ ...current, busy: true }));
-        postJson<{ draft: WorkflowDraft }>('/settings/workflows/draft', {
-            description: drafting.text,
-            agent_id: form.agent_id ? Number(form.agent_id) : null,
-            // What the person already chose stays; the rest the assistant proposes.
-            trigger: form.trigger === 'schedule' || form.email_category || workflow ? form.trigger : null,
-            email_category: form.trigger === 'email' ? form.email_category || null : null,
-        })
-            .then((result) => {
-                setProposal(result.draft);
-                setDrafting((current) => ({ ...current, open: false, busy: false }));
-            })
-            .catch((error: Error) => {
-                toast.error(error.message);
-                setDrafting((current) => ({ ...current, busy: false }));
-            });
-    };
-
-    const applyProposal = (draft: WorkflowDraft) => {
-        setForm({
-            ...form,
-            name: draft.name || form.name,
-            description: draft.description || form.description,
-            trigger: draft.trigger,
-            email_category: draft.email_category ?? '',
-            agent_id: draft.agent_id ? String(draft.agent_id) : form.agent_id,
-        });
-        setGraph(layout(draft.graph));
-        setSelected(null);
-        setDirty(true);
-        setProposal(null);
-        setDescribing(false);
-        toast.success('Rascunho aplicado. Reveja os passos e guarde quando estiver bem.');
-    };
-
-    const proposalFacts = (draft: WorkflowDraft) => {
-        const chosen = agents.find((row) => row.id === draft.agent_id);
-        const current = agents.find((row) => String(row.id) === form.agent_id);
-        const category = categories.find((row) => row.value === draft.email_category);
-
-        return [
-            { label: 'Nome', value: draft.name },
-            { label: 'Para que serve', value: draft.description },
-            {
-                label: 'Como começa',
-                value:
-                    draft.trigger === 'email'
-                        ? `Email: ${category?.label ?? 'tipo por escolher'}`
-                        : (triggers.find((row) => row.value === draft.trigger)?.label ?? ''),
-            },
-            {
-                label: 'Agente',
-                value: chosen ? chosen.name + (current && current.id !== chosen.id ? ` (em vez de ${current.name})` : '') : 'Por escolher',
-            },
-        ];
-    };
-
     const title = workflow?.name ?? (form.name || 'Novo fluxo');
 
     return (
@@ -413,10 +357,12 @@ function Editor({
                             </button>
                         ))}
                     </div>
-                    {can_draft && !describing && !proposal && (
-                        <Button variant="outline" onClick={() => setDrafting((current) => ({ ...current, open: true }))}>
-                            <Sparkles />
-                            Descrever o fluxo
+                    {can_draft && !empty && (
+                        <Button variant="outline" asChild>
+                            <Link href={describeHref}>
+                                <Sparkles />
+                                Criar com IA
+                            </Link>
                         </Button>
                     )}
                     {workflow?.status === 'active' ? (
@@ -436,51 +382,35 @@ function Editor({
                 </div>
             </div>
 
-            {proposal ? (
-                <DraftCard
-                    draft={proposal}
-                    facts={proposalFacts(proposal)}
-                    onApply={() => applyProposal(proposal)}
-                    onRetry={() => {
-                        setProposal(null);
-                        if (!describing) {
-                            setDrafting((current) => ({ ...current, open: true }));
-                        }
-                    }}
-                    onDiscard={() => setProposal(null)}
-                />
-            ) : (
-                describing && (
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
-                        <div className="flex items-start gap-2">
-                            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
-                            <div className="min-w-0 flex-1 space-y-0.5">
-                                <p className="text-sm font-medium">Descreva o fluxo em palavras</p>
-                                <p className="text-xs text-muted-foreground">
-                                    O assistente prepara o rascunho: nome, como começa, o agente que o trata e os passos, só com o que os agentes
-                                    sabem fazer. Confirma no cartão e revê no editor antes de guardar.
-                                </p>
-                            </div>
-                        </div>
-                        <Textarea
-                            id="describe"
-                            rows={4}
-                            aria-label="O fluxo de que precisa"
-                            value={drafting.text}
-                            onChange={(event) => setDrafting((current) => ({ ...current, text: event.target.value }))}
-                            placeholder="Quando chega um pedido de cotação de um lead, ver se já é cliente, registar a oportunidade, pedir preços a três fornecedores, esperar cinco dias e preparar a proposta; acima de 500 000 MZN a directora aprova."
-                        />
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Button size="sm" disabled={drafting.busy || drafting.text.trim().length < 15} onClick={propose}>
-                                {drafting.busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                                {drafting.busy ? 'A preparar…' : 'Preparar rascunho'}
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setDescribing(false)}>
-                                Desenhar à mão
-                            </Button>
-                        </div>
-                    </div>
-                )
+            {from_draft && (
+                <div className="flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+                    <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <p className="min-w-0 flex-1">
+                        Rascunho preparado pela IA. Reveja o nome, o agente e cada passo; só fica guardado quando carregar em Guardar.{' '}
+                        <Link href={describeHref} className="text-primary hover:underline">
+                            Descrever de outra forma
+                        </Link>
+                    </p>
+                </div>
+            )}
+
+            {can_draft && empty && (
+                <Link
+                    href={describeHref}
+                    className="group flex items-center gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
+                >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Sparkles className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium">Criar com IA</span>
+                        <span className="block text-xs text-muted-foreground">
+                            Descreva o fluxo em palavras. O assistente prepara o nome, como começa, o agente e os passos, e mostra o que está a fazer
+                            enquanto o prepara.
+                        </span>
+                    </span>
+                    <span className="text-sm text-primary group-hover:underline">Começar</span>
+                </Link>
             )}
 
             <div className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -720,27 +650,6 @@ function Editor({
                     )}
                 </aside>
             </div>
-
-            <FormDialog
-                open={drafting.open}
-                onOpenChange={(open) => setDrafting((current) => ({ ...current, open }))}
-                title="Descrever o fluxo"
-                description="Descreva o fluxo em palavras. O assistente prepara o rascunho (nome, como começa, agente e passos) e mostra-o para confirmar antes de mexer no editor. Nada fica guardado sem carregar em Guardar."
-                submitLabel={drafting.busy ? 'A preparar…' : 'Preparar rascunho'}
-                processing={drafting.busy}
-                disabled={drafting.text.trim().length < 15}
-                onSubmit={propose}
-            >
-                <Field id="draft" label="O fluxo de que precisa">
-                    <Textarea
-                        id="draft"
-                        rows={6}
-                        value={drafting.text}
-                        onChange={(event) => setDrafting((current) => ({ ...current, text: event.target.value }))}
-                        placeholder="Quando um cliente pede cotação, ver se já é cliente, registar a oportunidade, pedir preços a três fornecedores, esperar cinco dias e preparar a proposta; acima de 500 000 MZN a directora aprova."
-                    />
-                </Field>
-            </FormDialog>
 
             {workflow && (
                 <ConfirmDialog
