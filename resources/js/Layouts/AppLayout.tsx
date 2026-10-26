@@ -392,11 +392,14 @@ export default function AppLayout({
     children,
     breadcrumbs,
     bleed = false,
+    aside,
 }: {
     children: ReactNode;
     breadcrumbs?: Crumb[];
     /** The page fills the space under the top bar edge to edge and scrolls its own parts (a conversation with its side panel). */
     bleed?: boolean;
+    /** A panel docked on the right, under the top bar; the page narrows for it instead of being covered. */
+    aside?: ReactNode;
 }) {
     const page = usePage<SharedProps>();
     const { auth, tenant, flash } = page.props;
@@ -546,6 +549,15 @@ export default function AppLayout({
                     {/* One width for every page, so content always starts at the same place. */}
                     {bleed ? (
                         <main className="flex h-[calc(100svh-3rem)] min-h-0 w-full overflow-hidden">{children}</main>
+                    ) : aside ? (
+                        <div className="flex min-h-0 w-full flex-1">
+                            <main className="mx-auto flex w-full max-w-[90rem] min-w-0 flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+                                {children}
+                            </main>
+                            <aside className="sticky top-12 flex h-[calc(100svh-3rem)] w-[28rem] shrink-0 flex-col border-l bg-background 2xl:w-[32rem]">
+                                {aside}
+                            </aside>
+                        </div>
                     ) : (
                         <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
                     )}

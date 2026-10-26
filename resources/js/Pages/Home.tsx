@@ -17,6 +17,7 @@ import {
 } from '@/Components/ui/dropdown-menu';
 import { Textarea } from '@/Components/ui/textarea';
 import { useAttachments } from '@/hooks/useAttachments';
+import { useWide } from '@/hooks/useWide';
 import AppLayout from '@/Layouts/AppLayout';
 import type { AttachmentLimits } from '@/lib/attachments';
 import type { ApprovalSummary, SharedProps } from '@/types';
@@ -64,6 +65,9 @@ export default function Home({
     const box = useRef<HTMLTextAreaElement>(null);
     const canSend = !form.processing && !files.uploading && !files.failed && (form.data.message.trim() !== '' || files.ids.length > 0);
     const [openApproval, setOpenApproval] = useState<number | null>(null);
+    // Beside the page on a wide screen (the page moves over for it), over it on a narrow one.
+    const wide = useWide();
+    const approvalSheet = <ApprovalSheet approvals={approvals} openId={openApproval} onOpenChange={setOpenApproval} docked={wide} />;
     const firstName = auth.user?.name.split(' ')[0] ?? '';
 
     const submit = (event: FormEvent) => {
@@ -93,7 +97,7 @@ export default function Home({
     ].filter((item): item is { key: string; href: string; label: string; onClick?: () => void } => Boolean(item));
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Início' }]}>
+        <AppLayout breadcrumbs={[{ label: 'Início' }]} aside={wide && openApproval !== null ? approvalSheet : undefined}>
             <Head title="Início" />
 
             <div className="mx-auto flex min-h-[calc(100svh-9rem)] w-full max-w-2xl flex-col items-center justify-center gap-6 py-6">
@@ -210,7 +214,7 @@ export default function Home({
                 )}
             </div>
 
-            <ApprovalSheet approvals={approvals} openId={openApproval} onOpenChange={setOpenApproval} />
+            {!wide && approvalSheet}
         </AppLayout>
     );
 }

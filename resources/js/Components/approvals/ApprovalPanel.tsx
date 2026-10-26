@@ -70,11 +70,11 @@ export function ApprovalPanel({
     onNext,
     onClose,
     onDecided,
-    floating = false,
+    docked = false,
 }: {
     approval: ApprovalSummary | OpenApproval | null;
-    /** A card over the page, which stays usable around it (no dimming, no focus trap), instead of a modal sheet. */
-    floating?: boolean;
+    /** A column beside the page (AppLayout's `aside`), which moves aside for it, instead of a sheet over it. */
+    docked?: boolean;
     loading: boolean;
     areaLabel?: string;
     position: { index: number; total: number } | null;
@@ -83,32 +83,35 @@ export function ApprovalPanel({
     onClose: () => void;
     onDecided: () => void;
 }) {
+    const body = approval && (
+        <Body
+            key={approval.id}
+            approval={approval}
+            docked={docked}
+            loading={loading}
+            areaLabel={areaLabel}
+            position={position}
+            onPrevious={onPrevious}
+            onNext={onNext}
+            onClose={onClose}
+            onDecided={onDecided}
+        />
+    );
+
+    if (docked) {
+        return body;
+    }
+
     return (
-        <Sheet open={approval !== null} onOpenChange={(open) => !open && onClose()} modal={!floating}>
+        <Sheet open={approval !== null} onOpenChange={(open) => !open && onClose()}>
             <SheetContent
                 side="right"
                 showCloseButton={false}
-                overlay={!floating}
                 // Focus stays put, so no tooltip pops up on the first button.
                 onOpenAutoFocus={(event) => event.preventDefault()}
-                className={cn(
-                    'w-full gap-0 p-0 sm:max-w-xl',
-                    floating && 'top-14 right-3 bottom-3 h-auto w-[calc(100%-1.5rem)] overflow-hidden rounded-2xl border shadow-xl sm:max-w-lg',
-                )}
+                className="w-full gap-0 p-0 sm:max-w-xl"
             >
-                {approval && (
-                    <Body
-                        key={approval.id}
-                        approval={approval}
-                        loading={loading}
-                        areaLabel={areaLabel}
-                        position={position}
-                        onPrevious={onPrevious}
-                        onNext={onNext}
-                        onClose={onClose}
-                        onDecided={onDecided}
-                    />
-                )}
+                {body}
             </SheetContent>
         </Sheet>
     );
@@ -116,6 +119,7 @@ export function ApprovalPanel({
 
 function Body({
     approval,
+    docked,
     loading,
     areaLabel,
     position,
@@ -125,6 +129,7 @@ function Body({
     onDecided,
 }: {
     approval: ApprovalSummary | OpenApproval;
+    docked: boolean;
     loading: boolean;
     areaLabel?: string;
     position: { index: number; total: number } | null;
@@ -157,7 +162,9 @@ function Body({
             if (event.metaKey || event.ctrlKey || event.altKey || target?.closest('input, textarea, [contenteditable]')) {
                 return;
             }
-            if (event.key === 'j' && onNext) {
+            if (event.key === 'Escape' && docked) {
+                onClose();
+            } else if (event.key === 'j' && onNext) {
                 onNext();
             } else if (event.key === 'k' && onPrevious) {
                 onPrevious();
@@ -166,14 +173,36 @@ function Body({
         window.addEventListener('keydown', onKey);
 
         return () => window.removeEventListener('keydown', onKey);
-    }, [onNext, onPrevious]);
+    }, [onNext, onPrevious, onClose, docked]);
 
-    const conversation = full?.task ? `/tasks/${full.task.id}?execucao=${approval.run_id}` : approval.task_id ? `/tasks/${approval.task_id}?execucao=${approval.run_id}` : null;
+    const titleClass = 'text-lg leading-snug font-semibold break-words';
+    const byline = (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <AgentAvatar name={approval.agent.name} className="size-5" />
+            <Link href={`/agents/${approval.agent.id}`} className="font-medium text-foreground hover:underline">
+                {approval.agent.name}
+            </Link>
+            <span>pediu {ago(approval.created_at)}</span>
+            {recipient && (
+                <>
+                    <span aria-hidden="true">·</span>
+                    <span className="max-w-full truncate">{recipient}</span>
+                </>
+            )}
+        </div>
+    );
+    const conversation = full?.task
+        ? `/tasks/${full.task.id}?execucao=${approval.run_id}`
+        : approval.task_id
+          ? `/tasks/${approval.task_id}?execucao=${approval.run_id}`
+          : null;
 
     return (
         <div className="flex h-full min-h-0 flex-col">
             <div className="flex h-12 shrink-0 items-center gap-1 border-b px-3">
-                <StatusBadge tone={approvalTone(approval.status)}>{approval.status === 'pending' ? 'À espera de decisão' : approval.status_label}</StatusBadge>
+                <StatusBadge tone={approvalTone(approval.status)}>
+                    {approval.status === 'pending' ? 'À espera de decisão' : approval.status_label}
+                </StatusBadge>
                 {areaLabel && <span className="ml-1 truncate text-xs text-muted-foreground">{areaLabel}</span>}
                 <div className="ml-auto flex items-center gap-0.5">
                     {position && (
@@ -191,22 +220,17 @@ function Body({
 
             <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
                 <div className="flex flex-col gap-2">
-                    <SheetTitle className="text-lg leading-snug font-semibold break-words">{title}</SheetTitle>
-                    <SheetDescription asChild>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                            <AgentAvatar name={approval.agent.name} className="size-5" />
-                            <Link href={`/agents/${approval.agent.id}`} className="font-medium text-foreground hover:underline">
-                                {approval.agent.name}
-                            </Link>
-                            <span>pediu {ago(approval.created_at)}</span>
-                            {recipient && (
-                                <>
-                                    <span aria-hidden="true">·</span>
-                                    <span className="max-w-full truncate">{recipient}</span>
-                                </>
-                            )}
-                        </div>
-                    </SheetDescription>
+                    {docked ? (
+                        <>
+                            <h2 className={titleClass}>{title}</h2>
+                            {byline}
+                        </>
+                    ) : (
+                        <>
+                            <SheetTitle className={titleClass}>{title}</SheetTitle>
+                            <SheetDescription asChild>{byline}</SheetDescription>
+                        </>
+                    )}
                 </div>
 
                 <Reason approval={approval} />
@@ -236,7 +260,9 @@ function Body({
                             title={full?.run?.title ?? `Execução #${approval.run_id}`}
                             meta={
                                 full?.run
-                                    ? [full.run.status_label, full.run.requested_by && `pedida por ${full.run.requested_by}`].filter(Boolean).join(' · ')
+                                    ? [full.run.status_label, full.run.requested_by && `pedida por ${full.run.requested_by}`]
+                                          .filter(Boolean)
+                                          .join(' · ')
                                     : 'O que o agente fez até aqui'
                             }
                             loading={loading && !full}
@@ -260,7 +286,9 @@ function Body({
                             Capacidade <code className="rounded bg-muted px-1 font-mono">{approval.action_type}</code> · execução{' '}
                             <span className="font-mono">#{approval.run_id}</span> · aprovação <span className="font-mono">#{approval.id}</span>
                         </p>
-                        <pre className="max-h-56 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">{JSON.stringify(approval.payload, null, 2)}</pre>
+                        <pre className="max-h-56 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">
+                            {JSON.stringify(approval.payload, null, 2)}
+                        </pre>
                     </CollapsibleContent>
                 </Collapsible>
             </div>
@@ -349,7 +377,14 @@ function NavButton({ icon: Icon, label, shortcut, onClick }: { icon: LucideIcon;
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" className="text-muted-foreground" disabled={!onClick} onClick={onClick ?? undefined} aria-label={label}>
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground"
+                    disabled={!onClick}
+                    onClick={onClick ?? undefined}
+                    aria-label={label}
+                >
                     <Icon />
                 </Button>
             </TooltipTrigger>
@@ -360,7 +395,19 @@ function NavButton({ icon: Icon, label, shortcut, onClick }: { icon: LucideIcon;
     );
 }
 
-function ContextLink({ href, icon: Icon, title, meta, loading = false }: { href: string; icon: LucideIcon; title: string; meta: string; loading?: boolean }) {
+function ContextLink({
+    href,
+    icon: Icon,
+    title,
+    meta,
+    loading = false,
+}: {
+    href: string;
+    icon: LucideIcon;
+    title: string;
+    meta: string;
+    loading?: boolean;
+}) {
     return (
         <Link href={href} className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/60">
             <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -448,7 +495,9 @@ function Timeline({ approval }: { approval: ApprovalSummary }) {
                                 {dateTime(event.at)}
                             </p>
                         )}
-                        {event.note && <p className="mt-1.5 max-h-40 overflow-auto rounded-lg bg-muted px-3 py-2 text-xs whitespace-pre-wrap">{event.note}</p>}
+                        {event.note && (
+                            <p className="mt-1.5 max-h-40 overflow-auto rounded-lg bg-muted px-3 py-2 text-xs whitespace-pre-wrap">{event.note}</p>
+                        )}
                     </div>
                 </li>
             ))}

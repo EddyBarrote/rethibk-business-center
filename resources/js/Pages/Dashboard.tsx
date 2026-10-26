@@ -14,6 +14,7 @@ import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { agentTone, StatusBadge, StatusDot } from '@/Components/Status';
 import { useLive } from '@/hooks/useLive';
 import { useToolNames } from '@/hooks/useToolNames';
+import { useWide } from '@/hooks/useWide';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, plainText, runTitle, usd } from '@/lib/format';
 import { pathLabel } from '@/lib/paths';
@@ -69,6 +70,9 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Bom dia' : hour < 19 ? 'Boa tarde' : 'Boa noite';
     const [openApproval, setOpenApproval] = useState<number | null>(null);
+    // Beside the page on a wide screen (the page moves over for it), over it on a narrow one.
+    const wide = useWide();
+    const approvalSheet = <ApprovalSheet approvals={approvals} openId={openApproval} onOpenChange={setOpenApproval} docked={wide} />;
     const running = new Set(sidebar_agents.filter((agent) => agent.running > 0).map((agent) => agent.id));
 
     useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished', 'BudgetThresholdReached'], () =>
@@ -83,7 +87,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
     const highlights = (briefing?.highlights ?? []).filter((highlight) => !/pendente/i.test(highlight));
 
     return (
-        <AppLayout>
+        <AppLayout aside={wide && openApproval !== null ? approvalSheet : undefined}>
             <Head title="Painel" />
 
             <PageHeader title={`${greeting}, ${firstName}`} description="O que está a acontecer, o que precisa de si e o estado dos agentes." />
@@ -401,7 +405,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     )}
                 </Section>
             </div>
-            <ApprovalSheet approvals={approvals} openId={openApproval} onOpenChange={setOpenApproval} />
+            {!wide && approvalSheet}
         </AppLayout>
     );
 }
