@@ -44,7 +44,9 @@ php artisan mail:ingest micomoc triagem@agentes.micomoc.test docs/demo/pedido-co
   Varão do Centro para o varão, Segurança Total EPI para o EPI) e prepara o pedido de cotação, **sem preços**.
 - Criar o pedido no ERP está acima do nível dele: vai ao **Chief of Staff**, que revalida e aprova (tarefa «Revalidar…»),
   e o pedido fica criado no ERP. Mostrar em **Aprovações**.
-- Do email até ao primeiro pedido no ERP são ~4 a 5 min. Enquanto corre, falar do passo 5.
+- Do email até aos três pedidos no ERP (cimento, varão, EPI) são ~5 min. Enquanto corre, falar do passo 5.
+- No ensaio de 26.10 com este mesmo email: RFQ de cimento à Cimentos do Púnguè, de varão à Ferragens Matola e à Aço e
+  Varão do Centro, de EPI à Segurança Total EPI, cada um revalidado pelo Chief of Staff.
 
 ## 5. Chief of Staff sugere fluxos — 3 min
 
@@ -59,7 +61,11 @@ php artisan mail:ingest micomoc triagem@agentes.micomoc.test docs/demo/pedido-co
 
 ## Se algo falhar
 
-- Um agente parado: a página da tarefa tem «Tentar outra vez». Os pedidos ao Gemini que caem já se repetem sozinhos (3×).
+- **Sem internet não há agentes.** A 26.10, entre 15:06 e 15:28, o Mac perdeu o DNS («Could not resolve host») e a
+  triagem falhou; as repetições automáticas (3×, ~10 s) não chegam para uma quebra longa. Testar a rede antes.
+- Email com triagem falhada: abrir o email e carregar em **«Triar de novo»**.
 - Nada acontece depois do `mail:ingest`: confirmar que o Horizon está a correr no `composer dev` e correr
   `php artisan queue:restart`.
+- Os ensaios deixaram na Triagem três emails iguais (dois do Hotel Baía Azul, um da Agro Zambeze, tarefas canceladas);
+  a triagem pode dizer que o pedido parece repetido. O ERP de demonstração foi reposto como estava antes dos ensaios.
 - Repetir o passo 2: mudar o `Message-ID` do ficheiro (ex.: `-2` no fim), ou a plataforma trata-o como o mesmo email.
