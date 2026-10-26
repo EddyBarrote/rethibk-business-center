@@ -38,6 +38,8 @@ function prose(text: string): string {
             .replace(/(?<![\\$])\$(?!\$)([^$\n]+?)(?<!\\)\$(?!\$)/g, (whole, body: string) =>
                 looksLikeMath(body) && !/^\s|\s$/.test(body) ? whole : `\\$${body}\\$`,
             )
+            // A decimal comma (464,83) is a comma in TeX too, not a list separator with a space after it.
+            .replace(/(?<![\\$])\$\$\n[\s\S]+?\n[ \t]*\$\$|(?<![\\$])\$(?!\$)[^$\n]+?(?<!\\)\$/g, (math) => math.replace(/(\d),(?=\d)/g, '$1{,}'))
     );
 }
 
