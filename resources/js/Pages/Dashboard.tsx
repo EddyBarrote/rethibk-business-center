@@ -1,8 +1,10 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, Bot, CheckSquare, CircleDollarSign, FileText, Loader } from 'lucide-react';
+import { useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { ApprovalCard, ApprovalList } from '@/Components/ApprovalCard';
+import { ApprovalSheet } from '@/Components/approvals/ApprovalSheet';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { EntityRow, ListPanel, MetricCard, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
@@ -66,6 +68,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
     const firstName = auth.user?.name.split(' ')[0];
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Bom dia' : hour < 19 ? 'Boa tarde' : 'Boa noite';
+    const [openApproval, setOpenApproval] = useState<number | null>(null);
     const running = new Set(sidebar_agents.filter((agent) => agent.running > 0).map((agent) => agent.id));
 
     useLive(tenant ? `tenant.${tenant.id}.agents` : null, ['AgentRunStarted', 'AgentRunFinished', 'BudgetThresholdReached'], () =>
@@ -220,7 +223,12 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                             {approvals.length > 0 && (
                                 <ApprovalList>
                                     {approvals.slice(0, 3).map((approval) => (
-                                        <ApprovalCard key={approval.id} approval={approval} />
+                                        <ApprovalCard
+                                            key={approval.id}
+                                            approval={approval}
+                                            onOpen={() => setOpenApproval(approval.id)}
+                                            active={approval.id === openApproval}
+                                        />
                                     ))}
                                     {auth.pending_approvals > 3 && (
                                         <Link
@@ -393,6 +401,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                     )}
                 </Section>
             </div>
+            <ApprovalSheet approvals={approvals} openId={openApproval} onOpenChange={setOpenApproval} />
         </AppLayout>
     );
 }

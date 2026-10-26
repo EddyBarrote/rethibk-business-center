@@ -3,6 +3,7 @@ import { ArrowUp, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { type FormEvent, Fragment, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { ApprovalSheet } from '@/Components/approvals/ApprovalSheet';
 import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
 import { InputError } from '@/Components/InputError';
 import { Button } from '@/Components/ui/button';
@@ -18,7 +19,7 @@ import { Textarea } from '@/Components/ui/textarea';
 import { useAttachments } from '@/hooks/useAttachments';
 import AppLayout from '@/Layouts/AppLayout';
 import type { AttachmentLimits } from '@/lib/attachments';
-import type { SharedProps } from '@/types';
+import type { ApprovalSummary, SharedProps } from '@/types';
 
 interface HomeAgent {
     id: number;
@@ -27,6 +28,8 @@ interface HomeAgent {
     avatar_url: string | null;
     suggestions: string[];
 }
+
+const waitingLink = 'font-medium text-foreground underline-offset-4 hover:underline';
 
 function greeting(now = new Date()) {
     const hour = now.getHours();
@@ -43,11 +46,13 @@ export default function Home({
     agents,
     agent_id,
     questions,
+    approvals,
     attachment_limits,
 }: {
     agents: HomeAgent[];
     agent_id: number;
     questions: { agent: string; href: string }[];
+    approvals: ApprovalSummary[];
     attachment_limits: AttachmentLimits;
 }) {
     const { auth } = usePage<SharedProps>().props;
@@ -58,6 +63,7 @@ export default function Home({
     const drop = useFileDrop(files.add);
     const box = useRef<HTMLTextAreaElement>(null);
     const canSend = !form.processing && !files.uploading && !files.failed && (form.data.message.trim() !== '' || files.ids.length > 0);
+    const [openApproval, setOpenApproval] = useState<number | null>(null);
     const firstName = auth.user?.name.split(' ')[0] ?? '';
 
     const submit = (event: FormEvent) => {
@@ -74,6 +80,8 @@ export default function Home({
         auth.pending_approvals > 0 && {
             key: 'approvals',
             href: '/approvals',
+            // Opens the first in the side panel; the page itself only if the list could not come along.
+            onClick: approvals.length > 0 ? () => setOpenApproval(approvals[0].id) : undefined,
             label: auth.pending_approvals === 1 ? '1 aprovação' : `${auth.pending_approvals} aprovações`,
         },
         auth.waiting_tasks > 0 && {
@@ -82,7 +90,7 @@ export default function Home({
             label: auth.waiting_tasks === 1 ? '1 tarefa' : `${auth.waiting_tasks} tarefas`,
         },
         ...questions.map((question) => ({ key: question.href, href: question.href, label: `perguntas de ${question.agent}` })),
-    ].filter((item): item is { key: string; href: string; label: string } => Boolean(item));
+    ].filter((item): item is { key: string; href: string; label: string; onClick?: () => void } => Boolean(item));
 
     return (
         <AppLayout breadcrumbs={[{ label: 'Início' }]}>
@@ -104,9 +112,15 @@ export default function Home({
                             {waiting.map((item, index) => (
                                 <Fragment key={item.key}>
                                     {index > 0 && ' · '}
-                                    <Link href={item.href} className="font-medium text-foreground underline-offset-4 hover:underline">
-                                        {item.label}
-                                    </Link>
+                                    {item.onClick ? (
+                                        <button type="button" onClick={item.onClick} className={waitingLink}>
+                                            {item.label}
+                                        </button>
+                                    ) : (
+                                        <Link href={item.href} className={waitingLink}>
+                                            {item.label}
+                                        </Link>
+                                    )}
                                 </Fragment>
                             ))}
                         </p>
@@ -195,6 +209,8 @@ export default function Home({
                     </div>
                 )}
             </div>
+
+            <ApprovalSheet approvals={approvals} openId={openApproval} onOpenChange={setOpenApproval} />
         </AppLayout>
     );
 }

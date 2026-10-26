@@ -71,7 +71,7 @@ export function ApprovalPanel({
     onClose,
     onDecided,
 }: {
-    approval: ApprovalRow | OpenApproval | null;
+    approval: ApprovalSummary | OpenApproval | null;
     loading: boolean;
     areaLabel?: string;
     position: { index: number; total: number } | null;
@@ -117,7 +117,7 @@ function Body({
     onClose,
     onDecided,
 }: {
-    approval: ApprovalRow | OpenApproval;
+    approval: ApprovalSummary | OpenApproval;
     loading: boolean;
     areaLabel?: string;
     position: { index: number; total: number } | null;
@@ -377,7 +377,7 @@ interface Event {
 }
 
 /** Asked, revalidated, decided, carried out: what happened to it so far. */
-function Timeline({ approval }: { approval: ApprovalRow }) {
+function Timeline({ approval }: { approval: ApprovalSummary }) {
     const events: Event[] = [
         {
             icon: CircleDot,

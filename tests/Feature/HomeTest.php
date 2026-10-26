@@ -2,6 +2,7 @@
 
 use App\Models\Agent;
 use App\Models\AgentQuestion;
+use App\Models\Approval;
 use App\Models\Capability;
 use App\Models\Tenant;
 use App\Models\User;
@@ -115,4 +116,18 @@ it('starts in lite for whoever does not administer the company, and remembers th
     expect($this->clerk->fresh()->prefersLite())->toBeFalse();
 
     $this->actingAs($this->clerk)->put(tenantUrl($this->tenant, 'settings/profile/mode'), ['mode' => 'admin'])->assertSessionHasErrors('mode');
+});
+
+it('brings the pending approvals along, so "À sua espera" opens them in a side panel', function () {
+    $approval = asTenant($this->tenant, fn () => Approval::factory()->create(['agent_id' => $this->triage->id]));
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('approvals', 1)
+            ->where('approvals.0.id', $approval->id)
+            ->where('approvals.0.can_decide', true));
+
+    // Only the ones they may see: Rui answers for Finanças, not Triagem.
+    $this->actingAs($this->clerk)->get(tenantUrl($this->tenant))
+        ->assertInertia(fn (Assert $page) => $page->has('approvals', 0));
 });

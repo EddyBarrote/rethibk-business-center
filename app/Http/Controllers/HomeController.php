@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Attachments\AttachmentLimits;
 use App\Enums\AgentStatus;
 use App\Enums\QuestionStatus;
+use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentQuestion;
+use App\Models\Approval;
 use App\Models\Task;
 use App\Support\AgentSuggestions;
 use Illuminate\Http\RedirectResponse;
@@ -70,6 +72,9 @@ class HomeController extends Controller
             ]),
             'agent_id' => $latest ?? $agents->first()->id,
             'questions' => $questions,
+            // "À sua espera" opens these in a side panel, to decide without leaving the screen.
+            'approvals' => fn () => Approval::query()->visibleTo($user)->pending()->with(Present::APPROVAL_RELATIONS)->latest('id')->limit(20)->get()
+                ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
         ]);
     }
