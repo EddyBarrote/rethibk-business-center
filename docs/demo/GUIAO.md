@@ -55,8 +55,8 @@ php artisan mail:ingest micomoc triagem@agentes.micomoc.test docs/demo/pedido-co
 - Ele vê os tipos de email e quem os trata (`workflows.overview`), diz porquê, e guarda o fluxo como **rascunho** com a
   ligação para o editor (no ensaio: «Processar factura de fornecedor», com o Agente de Finanças). Abrir a ligação:
   os blocos estão no canvas; o fluxo só corre depois de uma pessoa o **activar**.
-- Extra: em **Definições › Fluxos de trabalho › Novo**, «Descreva o fluxo» desenha um fluxo a partir de uma frase, por
-  exemplo: *«Quando chega uma candidatura, o Agente de RH compara com as vagas abertas e marca entrevista com o
+- Extra: em **Definições › Fluxos de trabalho**, **«Criar com IA»** (/settings/workflows/describe) mostra ao vivo cada
+  etapa e cada passo enquanto desenha o fluxo; o rascunho abre no editor sem gravar. Por exemplo: *«Quando chega uma candidatura, o Agente de RH compara com as vagas abertas e marca entrevista com o
   responsável da área.»*
 
 ## Se algo falhar
