@@ -179,3 +179,45 @@ it('proposes the blocks from a description, keeping only capabilities and agents
         ->and($graph->next('pedir'))->toBeNull()
         ->and($graph->problems())->toContain('O fluxo volta para trás sozinho. Para repetir passos, use um bloco de ciclo.');
 });
+
+it('drafts the whole flow from a description, keeping what the person chose and saving nothing', function () {
+    $count = asTenant($this->tenant, fn () => Workflow::query()->count());
+    $draft = fn (string $agent, string $trigger, ?string $category) => [
+        'name' => 'Qualificar leads novos',
+        'summary' => 'Vê se o lead já é cliente e marca a primeira reunião.',
+        'trigger' => $trigger,
+        'email_category' => $category,
+        'agent' => $agent,
+        'notes' => ['Falta dizer quem aprova descontos.'],
+        'steps' => [
+            ['ref' => 'ver', 'type' => 'agent', 'label' => 'Ver se já é cliente', 'next' => 'end'],
+        ],
+    ];
+
+    // Nothing chosen yet: the assistant proposes how it starts and who handles it.
+    WorkflowDrafter::fake([$draft('procurement', 'email', 'lead')]);
+
+    $this->actingAs($this->owner)->postJson(tenantUrl($this->tenant, 'settings/workflows/draft'), [
+        'description' => 'Quando chega um lead novo, ver se já é cliente e marcar uma reunião.',
+    ])->assertOk()
+        ->assertJsonPath('draft.name', 'Qualificar leads novos')
+        ->assertJsonPath('draft.trigger', 'email')
+        ->assertJsonPath('draft.email_category', 'lead')
+        ->assertJsonPath('draft.agent_id', asTenant($this->tenant, fn () => Agent::query()->where('key', 'procurement')->value('id')))
+        ->assertJsonPath('draft.notes.0', 'Falta dizer quem aprova descontos.')
+        ->assertJsonPath('draft.graph.nodes.0.data.label', EmailCategory::Lead->label());
+
+    // The kind of email from the screen stays; an agent that does not exist falls back to the suggested one.
+    WorkflowDrafter::fake([$draft('nao_existe', 'schedule', 'tender')]);
+
+    $this->actingAs($this->owner)->postJson(tenantUrl($this->tenant, 'settings/workflows/draft'), [
+        'description' => 'Quando chega um lead novo, ver se já é cliente e marcar uma reunião.',
+        'agent_id' => $this->manager->id,
+        'email_category' => 'lead',
+    ])->assertOk()
+        ->assertJsonPath('draft.trigger', 'email')
+        ->assertJsonPath('draft.email_category', 'lead')
+        ->assertJsonPath('draft.agent_id', $this->manager->id);
+
+    expect(asTenant($this->tenant, fn () => Workflow::query()->count()))->toBe($count);
+});
