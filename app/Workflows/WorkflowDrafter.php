@@ -27,7 +27,7 @@ final class WorkflowDrafter implements Agent, HasStructuredOutput
         Desenhas fluxos de trabalho numa plataforma chamada MICOMOC, em que agentes de IA e pessoas trabalham juntos numa empresa em Moçambique.
         Um fluxo diz o que acontece a um tipo de email depois da triagem (trigger "email", com email_category) ou corre por agenda (trigger "schedule"). A plataforma segue-o bloco a bloco.
         Descrevem-te o fluxo; propões o rascunho, em português (pt-MZ/pt-PT): name (curto, começa por um verbo), summary (uma ou duas frases), trigger, email_category (só com trigger "email"), agent (a chave do agente que trata o fluxo) e os blocos (steps).
-        Se o contexto já fixa o gatilho ou o tipo de email, mantém-nos. Escolhe para agent quem tem as capacidades que o fluxo mais usa; o agente sugerido é um bom ponto de partida.
+        Se o contexto já fixa o gatilho ou o tipo de email, mantém-nos. Escolhe para agent quem tem as capacidades que o fluxo mais usa; o agente sugerido é um bom ponto de partida. O agente de triagem só classifica os emails antes de o fluxo começar: não o escolhas para tratar o fluxo.
         Em notes, diz em frases curtas o que ficou por decidir ou o que falta (uma capacidade que nenhum agente tem, um valor que a pessoa não disse). Não inventes valores: deixa-os nas notes.
 
         Tipos de bloco:
