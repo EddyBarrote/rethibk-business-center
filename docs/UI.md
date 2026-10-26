@@ -8,7 +8,7 @@ Cada ecrã responde, por esta ordem: **o que está a acontecer, precisa de mim, 
 - Tema "Apple Os" do tweakcn, aplicado com `npx shadcn@latest add https://tweakcn.com/r/themes/cmtu0kiln000004l4dkbr3c0w`
   (desde 26.10.2026; antes era o "Claude +"). Ver `docs/DECISOES.md`, «Tema Apple Os».
   Os tokens vivem só em `resources/css/app.css` (Tailwind v4, sem `tailwind.config.js`).
-- Fontes: Inter (texto) e Geist Mono (valores de máquina), via `@fontsource-variable`.
+- Fontes: Jost (texto, desde 26.10.2026) e Geist Mono (valores de máquina), via `@fontsource-variable`.
 - Modo claro, escuro e sistema: `resources/js/lib/appearance.ts`; o primeiro paint é feito em `app.blade.php`.
 - Componentes base são os oficiais do shadcn (`npx shadcn@latest add <nome>`), em `resources/js/Components/ui`.
 

@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jost';
 @import '@fontsource-variable/geist-mono';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -57,7 +57,7 @@
     --sidebar-primary: oklch(0.55 0.19 256);
     --sidebar-primary-foreground: oklch(0.9846 0.0017 247.8389);
     --sidebar-ring: oklch(0.55 0.19 256);
-    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Jost Variable', ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
     --shadow-color: oklch(0 0 0);
@@ -118,7 +118,7 @@
     --sidebar-primary: oklch(0.6969 0.1630 252.9094);
     --sidebar-primary-foreground: oklch(0.1757 0.0122 254.1481);
     --sidebar-ring: oklch(0.6969 0.1630 252.9094);
-    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Jost Variable', ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
     --shadow-color: oklch(0 0 0);
@@ -140,7 +140,7 @@
 }
 
 @theme inline {
-    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Jost Variable', ui-sans-serif, system-ui, sans-serif;
 
     --radius-sm: calc(var(--radius) - 4px);
     --radius-md: calc(var(--radius) - 2px);
