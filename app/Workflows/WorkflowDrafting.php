@@ -8,13 +8,14 @@ use App\Ai\Budget\BudgetGuard;
 use App\Ai\Runs\MissingProviderKey;
 use App\Enums\AgentStatus;
 use App\Enums\EmailCategory;
+use App\Enums\WorkflowTrigger;
 use App\Models\Agent;
 use App\Models\Capability;
 use Illuminate\Support\Str;
 use Laravel\Ai\Responses\StructuredAgentResponse;
 
 /**
- * Turns a description into a flow's graph with WorkflowDrafter. Positions are
+ * Turns a description into a flow's draft with WorkflowDrafter. Positions are
  * left at zero: the editor lays the blocks out. Nothing is saved here.
  */
 final class WorkflowDrafting
@@ -22,9 +23,13 @@ final class WorkflowDrafting
     public function __construct(private readonly BudgetGuard $budget) {}
 
     /**
-     * @return array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}
+     * The draft the person confirms on a card. The trigger and the kind of
+     * email they already chose are kept; the agent is the drafter's pick
+     * among the active ones, else the suggested one.
+     *
+     * @return array{name: string, description: string, trigger: string, email_category: ?string, agent_id: ?int, notes: list<string>, graph: array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}}
      */
-    public function draft(string $description, Agent $agent, ?EmailCategory $category): array
+    public function draft(string $description, ?Agent $agent, ?EmailCategory $category, ?WorkflowTrigger $trigger = null): array
     {
         if (! WorkflowDrafter::isFaked() && ! AgentDrafting::available()) {
             throw new MissingProviderKey('Falta a chave da API do provedor '.config('ai.default').' no ficheiro .env.');
@@ -34,23 +39,37 @@ final class WorkflowDrafting
             throw new BudgetExceeded('tenant', 'O orçamento mensal de IA da organização está esgotado.');
         }
 
-        $response = (new WorkflowDrafter($this->context($agent, $category)))
+        $trigger = $category !== null ? WorkflowTrigger::Email : $trigger;
+
+        $response = (new WorkflowDrafter($this->context($agent, $category, $trigger)))
             ->prompt("O fluxo de que preciso:\n".$description, provider: config('ai.default'), model: config('agents.model') ?: null);
 
         $draft = $response instanceof StructuredAgentResponse ? $response->toArray() : (array) json_decode($response->text, true);
 
-        return $this->graph((array) ($draft['steps'] ?? []), $category);
+        $trigger ??= WorkflowTrigger::tryFrom((string) ($draft['trigger'] ?? '')) ?? WorkflowTrigger::Email;
+        $category = $trigger === WorkflowTrigger::Email ? ($category ?? EmailCategory::tryFrom((string) ($draft['email_category'] ?? ''))) : null;
+        $chosen = Agent::query()->where('status', AgentStatus::Active)->where('key', (string) ($draft['agent'] ?? ''))->value('id');
+
+        return [
+            'name' => Str::limit(trim((string) ($draft['name'] ?? '')), 200, '') ?: ($category ? 'Responder a '.Str::lcfirst($category->label()) : 'Novo fluxo'),
+            'description' => Str::limit(trim((string) ($draft['summary'] ?? '')), 4000, ''),
+            'trigger' => $trigger->value,
+            'email_category' => $category?->value,
+            'agent_id' => $chosen ?? $agent?->id,
+            'notes' => array_values(array_slice(array_filter(array_map(fn ($note) => is_string($note) ? Str::limit(trim($note), 300) : '', (array) ($draft['notes'] ?? []))), 0, 8)),
+            'graph' => $this->graph((array) ($draft['steps'] ?? []), $category, $trigger),
+        ];
     }
 
     /**
      * @param  list<mixed>  $steps
      * @return array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}
      */
-    public function graph(array $steps, ?EmailCategory $category): array
+    public function graph(array $steps, ?EmailCategory $category, WorkflowTrigger $trigger = WorkflowTrigger::Email): array
     {
         $agents = Agent::query()->get(['id', 'key'])->pluck('id', 'key');
         $refs = [];
-        $nodes = [['id' => 'trigger', 'type' => WorkflowGraph::TRIGGER, 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => $category?->label() ?? 'Email depois da triagem']]];
+        $nodes = [['id' => 'trigger', 'type' => WorkflowGraph::TRIGGER, 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => $category?->label() ?? $trigger->label()]]];
         $edges = [];
         $hasEnd = false;
 
@@ -134,21 +153,24 @@ final class WorkflowDrafting
         return ['nodes' => $nodes, 'edges' => $edges];
     }
 
-    private function context(Agent $agent, ?EmailCategory $category): string
+    private function context(?Agent $agent, ?EmailCategory $category, ?WorkflowTrigger $trigger): string
     {
         $lines = [];
-        $lines[] = 'Tipo de email: '.($category?->label() ?? 'por definir').'.';
-        $lines[] = "Agente do fluxo: {$agent->name} (nível {$agent->autonomy_level->code()}). As suas capacidades:";
-
-        foreach ($agent->capabilities()->wherePivot('enabled', true)->orderBy('key')->get() as $capability) {
-            $lines[] = "- {$capability->key}: {$capability->name}".($capability->is_mutating ? ' [escreve]' : '');
-        }
-
+        $lines[] = match (true) {
+            $category !== null => "Gatilho fixo: email, do tipo {$category->value} ({$category->label()}).",
+            $trigger === WorkflowTrigger::Schedule => 'Gatilho fixo: schedule (corre por agenda).',
+            default => 'Gatilho por escolher. Tipos de email: '.implode('; ', array_map(fn (EmailCategory $c) => "{$c->value} ({$c->label()})", EmailCategory::cases())).'.',
+        };
+        $lines[] = $agent !== null ? "Agente sugerido: {$agent->key} ({$agent->name})." : 'Agente por escolher.';
         $lines[] = '';
-        $lines[] = 'Outros agentes (para handoff, pela chave):';
+        $lines[] = 'Agentes activos (pela chave) e as suas capacidades ([escreve] = muda dados):';
 
-        foreach (Agent::query()->where('status', AgentStatus::Active)->whereKeyNot($agent->id)->with(['capabilities' => fn ($q) => $q->wherePivot('enabled', true)])->get() as $other) {
-            $lines[] = "- {$other->key}: {$other->name} — ".$other->capabilities->pluck('key')->take(25)->implode(', ');
+        foreach (Agent::query()->where('status', AgentStatus::Active)->orderBy('name')->with(['capabilities' => fn ($q) => $q->wherePivot('enabled', true)->orderBy('key')])->get() as $other) {
+            $lines[] = "- {$other->key}: {$other->name}".($other->title ? ", {$other->title}" : '')." (nível {$other->autonomy_level->code()})";
+
+            foreach ($other->capabilities->take(40) as $capability) {
+                $lines[] = "  - {$capability->key}: {$capability->name}".($capability->is_mutating ? ' [escreve]' : '');
+            }
         }
 
         return implode("\n", $lines);

@@ -2,15 +2,18 @@
 
 namespace App\Workflows;
 
+use App\Enums\EmailCategory;
+use App\Enums\WorkflowTrigger;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 
 /**
- * "Propor passos" in the flow editor: turns a description into blocks, using
- * only the capabilities the flow's agent (and the other agents) have. The
- * person reviews the proposal on the canvas before anything is saved.
+ * "Descrever o fluxo" in the flow editor: turns a description into a draft
+ * (name, how it starts, the agent that runs it, and the blocks), using only
+ * the agents and capabilities that exist. The person confirms the draft on a
+ * card and reviews it on the canvas before anything is saved.
  */
 final class WorkflowDrafter implements Agent, HasStructuredOutput
 {
@@ -22,8 +25,10 @@ final class WorkflowDrafter implements Agent, HasStructuredOutput
     {
         return <<<TXT
         Desenhas fluxos de trabalho numa plataforma chamada MICOMOC, em que agentes de IA e pessoas trabalham juntos numa empresa em Moçambique.
-        Um fluxo diz o que acontece a um tipo de email depois da triagem. A plataforma segue-o bloco a bloco.
-        Descrevem-te o fluxo; propões os blocos, em português (pt-MZ/pt-PT).
+        Um fluxo diz o que acontece a um tipo de email depois da triagem (trigger "email", com email_category) ou corre por agenda (trigger "schedule"). A plataforma segue-o bloco a bloco.
+        Descrevem-te o fluxo; propões o rascunho, em português (pt-MZ/pt-PT): name (curto, começa por um verbo), summary (uma ou duas frases), trigger, email_category (só com trigger "email"), agent (a chave do agente que trata o fluxo) e os blocos (steps).
+        Se o contexto já fixa o gatilho ou o tipo de email, mantém-nos. Escolhe para agent quem tem as capacidades que o fluxo mais usa; o agente sugerido é um bom ponto de partida. O agente de triagem só classifica os emails antes de o fluxo começar: não o escolhas para tratar o fluxo.
+        Em notes, diz em frases curtas o que ficou por decidir ou o que falta (uma capacidade que nenhum agente tem, um valor que a pessoa não disse). Não inventes valores: deixa-os nas notes.
 
         Tipos de bloco:
         - agent: um passo do agente do fluxo. instruction diz o que fazer; capability é a chave de uma capacidade do agente, se houver uma que sirva.
@@ -51,6 +56,12 @@ final class WorkflowDrafter implements Agent, HasStructuredOutput
     public function schema(JsonSchema $schema): array
     {
         return [
+            'name' => $schema->string()->required(),
+            'summary' => $schema->string(),
+            'trigger' => $schema->string()->enum(array_column(WorkflowTrigger::cases(), 'value'))->required(),
+            'email_category' => $schema->string()->enum(array_column(EmailCategory::cases(), 'value')),
+            'agent' => $schema->string()->required(),
+            'notes' => $schema->array()->items($schema->string()),
             'steps' => $schema->array()->items($schema->object([
                 'ref' => $schema->string()->required(),
                 'type' => $schema->string()->enum(['agent', 'handoff', 'condition', 'loop', 'repeat', 'wait', 'approval', 'person', 'end'])->required(),

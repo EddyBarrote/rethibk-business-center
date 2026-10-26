@@ -199,7 +199,7 @@ class WorkflowController extends Controller
     }
 
     /**
-     * "Propor passos": the assistant drafts the blocks from a description, with the agent's capabilities.
+     * "Descrever o fluxo": the assistant drafts the name, trigger, agent and blocks from a description. Nothing is saved.
      */
     public function draft(Request $request, WorkflowDrafting $drafting): JsonResponse
     {
@@ -207,12 +207,18 @@ class WorkflowController extends Controller
 
         $data = $request->validate([
             'description' => ['required', 'string', 'min:15', 'max:4000'],
-            'agent_id' => ['required', 'integer', TenantRule::exists('agents')],
+            'agent_id' => ['nullable', 'integer', TenantRule::exists('agents')],
             'email_category' => ['nullable', Rule::enum(EmailCategory::class)],
+            'trigger' => ['nullable', Rule::enum(WorkflowTrigger::class)],
         ]);
 
         try {
-            $graph = $drafting->draft($data['description'], Agent::query()->findOrFail($data['agent_id']), EmailCategory::tryFrom((string) ($data['email_category'] ?? '')));
+            $draft = $drafting->draft(
+                $data['description'],
+                isset($data['agent_id']) ? Agent::query()->find($data['agent_id']) : null,
+                EmailCategory::tryFrom((string) ($data['email_category'] ?? '')),
+                WorkflowTrigger::tryFrom((string) ($data['trigger'] ?? '')),
+            );
         } catch (MissingProviderKey|BudgetExceeded $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         } catch (Throwable $e) {
@@ -221,7 +227,7 @@ class WorkflowController extends Controller
             return response()->json(['message' => 'O assistente não conseguiu propor os passos: '.Str::limit($e->getMessage(), 200)], 422);
         }
 
-        return response()->json(['graph' => $graph]);
+        return response()->json(['draft' => $draft, 'graph' => $draft['graph']]);
     }
 
     /**
