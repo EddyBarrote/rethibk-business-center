@@ -126,7 +126,7 @@ Pedido do Barrote: o login tem de parecer um produto a sério, com "Desenvolvido
 | Marca do tenant | O nome da empresa não aparece no login (pedido do Barrote, 05.10). Só o logótipo de Definições › Marca, se existir, servido sem sessão em `/login/logo`. | `Auth\LoginBrand`, `LoginController::logo` |
 | Recuperar palavra-passe | Para pessoas dos tenants e para super admins: link por email (60 min), resposta igual quer a conta exista ou não, só contas activas. Nos tenants a procura fica limitada ao tenant do endereço e usa `password_reset_tokens` (chave = email; se o mesmo email existir em dois tenants, o pedido mais recente substitui o anterior). Os super admins têm tokens próprios (`platform_admin_password_reset_tokens`) e o link aponta para o host de administração. Com `APP_ENV=local` e email em `log`, o link aparece também no ecrã, porque o email nunca chega a ninguém. | `Auth\ForgotPasswordController`, `Auth\ResetPasswordController` e as subclasses em `Admin\` |
 | Logótipo | Um fluxo de três passos ligados por um caminho, com a faísca da IA ao lado (o Barrote pediu algo sobre IA e workflows, não o "R"). Conceito gerado com nano banana e redesenhado à mão em SVG para ler bem a 24 px, na cor primária do tema; também é o favicon. | `RethinkMark`, `public/favicon.svg` |
-| Ilustração | Gerada com nano banana (Gemini 3 Pro Image, 2K), versão clara e escura, optimizadas para WebP 1400 px (~22 e ~32 KB). Prompts em [UI.md](UI.md#imagens-geradas). | `public/images/auth/` |
+| Ilustração | ~~Gerada com nano banana, versão clara e escura em WebP.~~ Desde 26.10.2026 a entrada não usa imagens: ver «Página de entrada com animação». | `Components/auth/AgentsMotion.tsx` |
 
 ## Realinhamento: pessoas e agentes como colegas (05.10.2026)
 
@@ -1277,3 +1277,20 @@ cor principal, cantos de 0,625rem e a fonte Inter.
 | **Fonte Jost** como principal (pedido do Barrote, no lugar da Inter que o tema traz), do `@fontsource-variable/jost`, para não depender de estar instalada no computador. A Outfit e a Inter saíram; os números e ids continuam em Geist Mono. | `package.json`, `app.css` |
 | **Favicon e miniaturas em Definições › Aparência** nas cores novas. | `public/favicon.svg`, `Settings/Appearance.tsx` |
 | **A Marca da empresa não muda**: as cores de Definições › Marca vão para os documentos e o logótipo para a entrada; não pintam a consola, por isso o tema e a Marca não se misturam. | `Brand`, `Settings/Brand.tsx` |
+
+## Página de entrada com animação (26.10.2026)
+
+O Barrote não gostou da entrada e pediu componentes em vez de imagens. Viu sete direcções em maqueta (A a G) e escolheu
+a C (escura, formulário em vidro, consola ao lado), com duas mudanças: no lugar da consola, uma animação; e o fundo
+com pequenos pontos. Em claro e em escuro.
+
+| Decisão | Onde |
+|---|---|
+| **Sem imagens**: as ilustrações geradas (`public/images/auth/*.webp`, terracota do tema antigo) saíram. | — |
+| **Formulário à esquerda num cartão de vidro**, com o logótipo da empresa (Definições › Marca) dentro do cartão; a saudação muda com a hora de quem abre («Bom dia.», «Boa tarde.», «Boa noite.»). Recuperar acesso, nova palavra-passe e a entrada do super admin usam o mesmo layout. | `Layouts/AuthLayout.tsx`, `Pages/Auth/Login.tsx` |
+| **Fundo de pontos** em toda a página (cor do texto a 20 %, esbatido nas margens) com dois brilhos suaves, azul e lilás. | `AuthLayout` › `Backdrop` |
+| **Animação dos agentes a trabalhar** (só em ecrãs largos): o Chief of Staff ao centro, à volta Email, ERP, Documentos, Aprovações, Clientes e Conhecimento; pacotes de trabalho a correr pelas linhas, e por baixo uma linha com o que acabou de acontecer, que muda a cada 2,8 s e acende o sítio de onde veio. Os textos são exemplos, não dados da empresa. Decorativa (`aria-hidden`). | `Components/auth/AgentsMotion.tsx`, `.motion-*` em `app.css` |
+| **Movimento reduzido**: com `prefers-reduced-motion`, não há pacotes, anéis nem troca de linhas; fica o desenho parado. | `useReducedMotion()`, `app.css` |
+| **«Esqueceu-se?» ao lado de «Manter sessão iniciada»**, em vez da caixa tracejada por baixo do botão; «Não tem conta?» e «Voltar a entrar» por baixo do cartão (`note`). | `SignInForm`, `AuthLayout` |
+| Só tokens do tema (`primary`, `card`, `foreground`, `chart-5`…), por isso o claro e o escuro saem do mesmo código. | — |
+

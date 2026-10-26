@@ -566,3 +566,60 @@
         animation: none;
     }
 }
+
+/* The sign-in motion: rings that leave the hub, nodes that float, the latest event that slides in. */
+.motion-ring {
+    animation: motion-ring 3.2s ease-out infinite;
+}
+
+.motion-float {
+    animation: motion-float 6s ease-in-out infinite;
+}
+
+.motion-toast {
+    animation: motion-toast 0.5s ease-out both;
+}
+
+@keyframes motion-ring {
+    from {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+    to {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+}
+
+@keyframes motion-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes motion-toast {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .motion-ring,
+    .motion-float,
+    .motion-toast {
+        animation: none;
+    }
+
+    .motion-ring {
+        display: none;
+    }
+}

@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { AgentsMotion } from '@/Components/auth/AgentsMotion';
 import { PRODUCT_NAME, RethinkMark } from '@/Components/RethinkMark';
 import { Button } from '@/Components/ui/button';
 import { type Appearance, useAppearance } from '@/lib/appearance';
@@ -19,9 +20,9 @@ const nextAppearance: Record<Appearance, { next: Appearance; label: string; icon
 };
 
 /**
- * Every sign-in screen: one card in the middle of the page, under a soft glow
- * of the theme's primary colour, with the company's logo above it (the
- * product mark when it has none). The same on a phone and on a large screen.
+ * Every sign-in screen: the form in a glass card on the left, over a field of
+ * small dots, and on large screens the agents at work on the right. Theme
+ * tokens only, so light and dark come out of the same code.
  */
 export function AuthLayout({
     title,
@@ -42,47 +43,56 @@ export function AuthLayout({
     children: ReactNode;
 }) {
     return (
-        <div className="relative flex min-h-svh flex-col overflow-hidden bg-background px-4 sm:px-8">
+        <div className="relative min-h-svh overflow-hidden bg-background">
             <Head title={title} />
-            <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent)]"
-            />
+            <Backdrop />
 
-            <header className="relative mx-auto flex w-full max-w-6xl justify-end py-5">
+            <div className="absolute top-5 right-4 z-10 sm:right-8">
                 <AppearanceToggle />
-            </header>
+            </div>
 
-            <main className="relative flex flex-1 items-center justify-center py-8">
-                <div className="w-full max-w-[400px]">
-                    <div className="flex flex-col items-center text-center">
-                        {brand?.logo_url ? (
-                            <img src={brand.logo_url} alt="" className="h-12 max-w-48 object-contain" />
-                        ) : (
-                            <RethinkMark className="size-14 rounded-2xl shadow-[0_10px_30px_-8px_color-mix(in_oklch,var(--primary)_60%,transparent)]" />
-                        )}
-                        {eyebrow && <div className="mt-6 -mb-2">{eyebrow}</div>}
-                        <h1 className="mt-6 text-3xl font-semibold tracking-tight">{heading}</h1>
-                        <p className="mt-2 text-[15px] text-balance text-muted-foreground">{description}</p>
-                    </div>
+            <div className="relative mx-auto grid min-h-svh w-full max-w-7xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-10 xl:gap-20">
+                <div className="flex min-h-svh flex-col px-4 py-6 sm:px-10 lg:pr-0">
+                    <header className="flex items-center gap-2.5">
+                        <RethinkMark className="size-8 rounded-lg" />
+                        <span className="font-semibold tracking-tight">{PRODUCT_NAME}</span>
+                    </header>
 
-                    <div className="mt-8 rounded-3xl border bg-card p-6 shadow-[0_20px_60px_-20px_rgb(15_23_42/0.18)] sm:p-8 dark:shadow-none">
-                        {children}
-                    </div>
+                    <main className="flex flex-1 flex-col justify-center py-10">
+                        <div className="mx-auto w-full max-w-sm lg:max-w-none">
+                            {eyebrow && <div className="mb-6">{eyebrow}</div>}
+                            <h1 className="text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl">{heading}</h1>
+                            <p className="mt-3 text-[15px] text-muted-foreground">{description}</p>
 
-                    {note && <div className="mt-6 text-center text-sm text-muted-foreground">{note}</div>}
+                            <div className="mt-8 rounded-3xl border bg-card/70 p-6 shadow-[0_24px_70px_-24px_rgb(15_23_42/0.25)] backdrop-blur-xl sm:p-7 dark:bg-card/60 dark:shadow-[0_24px_70px_-24px_rgb(0_0_0/0.7)]">
+                                {brand?.logo_url && <img src={brand.logo_url} alt="" className="mb-6 h-9 max-w-40 object-contain" />}
+                                {children}
+                            </div>
+
+                            {note && <div className="mt-6 text-center text-sm text-muted-foreground lg:text-left">{note}</div>}
+                        </div>
+                    </main>
+
+                    <footer className="text-center text-xs text-muted-foreground lg:text-left">
+                        Desenvolvido por <span className="font-medium text-foreground">Rethink Technologies</span> · © {new Date().getFullYear()}
+                    </footer>
                 </div>
-            </main>
 
-            <footer className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 border-t py-5 text-xs text-muted-foreground sm:flex-row">
-                <span className="flex items-center gap-2 text-center sm:text-left">
-                    <RethinkMark className="hidden size-5 rounded-[5px] sm:flex" />
-                    <span>
-                        {PRODUCT_NAME} · Desenvolvido por <span className="font-medium text-foreground">Rethink Technologies</span>
-                    </span>
-                </span>
-                <span className="font-mono">© {new Date().getFullYear()}</span>
-            </footer>
+                <div className="relative hidden items-center justify-center py-16 lg:flex">
+                    <AgentsMotion className="w-full max-w-[38rem] [@media(max-height:44rem)]:max-w-[28rem]" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** The page behind everything: a field of small dots that fades at the edges, and two soft glows. */
+function Backdrop() {
+    return (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-0 bg-[radial-gradient(color-mix(in_oklch,var(--foreground)_20%,transparent)_1px,transparent_1.5px)] [mask-image:radial-gradient(ellipse_85%_75%_at_55%_45%,black,transparent)] bg-[size:22px_22px]" />
+            <div className="absolute -top-64 left-1/4 size-[44rem] rounded-full bg-primary/15 blur-[140px] dark:bg-primary/25" />
+            <div className="absolute -right-48 -bottom-56 size-[40rem] rounded-full bg-chart-5/15 blur-[140px] dark:bg-chart-5/20" />
         </div>
     );
 }
