@@ -19,6 +19,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Workflow;
 use App\Models\WorkflowRun;
+use App\Workflows\EmailRouter;
 use App\Workflows\WorkflowGraph;
 use App\Workflows\WorkflowReadiness;
 use App\Workflows\WorkflowTemplates;
@@ -168,10 +169,10 @@ it('hands a client\'s email to the Chief of Staff when the company has no Gestor
         $this->manager->forceFill(['status' => 'suspended'])->save();
         $chief = templateAgent('chief_of_staff');
 
-        $route = app(App\Workflows\EmailRouter::class)->route(EmailCategory::ClientRequest);
+        $route = app(EmailRouter::class)->route(EmailCategory::ClientRequest);
 
         expect($route['agent']?->id)->toBe($chief->id)->and($route['source'])->toBe('default')
             // Kinds with no handler still stay with triage.
-            ->and(app(App\Workflows\EmailRouter::class)->route(EmailCategory::Newsletter)['agent'])->toBeNull();
+            ->and(app(EmailRouter::class)->route(EmailCategory::Newsletter)['agent'])->toBeNull();
     });
 });

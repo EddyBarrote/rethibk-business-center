@@ -35,6 +35,7 @@ use App\Ai\Capabilities\Local\ProjectMargins;
 use App\Ai\Capabilities\Local\ProposeAgent;
 use App\Ai\Capabilities\Local\ProposeSkill;
 use App\Ai\Capabilities\Local\ProposeTrustLevel;
+use App\Ai\Capabilities\Local\ProposeWorkflow;
 use App\Ai\Capabilities\Local\PublishBriefing;
 use App\Ai\Capabilities\Local\RateSupplier;
 use App\Ai\Capabilities\Local\ReadAttachment;
@@ -60,6 +61,7 @@ use App\Ai\Capabilities\Local\SuggestBankMatch;
 use App\Ai\Capabilities\Local\SupplierScores;
 use App\Ai\Capabilities\Local\UpdatePurchaseRequest;
 use App\Ai\Capabilities\Local\UpdateTaskStatus;
+use App\Ai\Capabilities\Local\WorkflowsOverview;
 
 /**
  * The local capabilities the platform ships (section 7.3), i.e. tools written
@@ -97,6 +99,9 @@ final class CapabilityRegistry
         DetectIssues::class,
         PublishBriefing::class,
         DraftReport::class,
+        // The Chief of Staff suggests flows (docs/DECISOES.md, "Chief of Staff sugere fluxos").
+        WorkflowsOverview::class,
+        ProposeWorkflow::class,
         // E05: finance
         ImportBankStatement::class,
         ListUnreconciled::class,
@@ -173,7 +178,7 @@ final class CapabilityRegistry
     public const MAILBOX_READER = ['email.read', 'email.search', 'email.classify', 'email.draft_reply'];
 
     /** What the Chief of Staff gets for its role (realinhamento L10, L11). */
-    public const CHIEF_OF_STAFF = ['approvals.review', 'conversations.search', 'agents.set_trust_level', 'agents.catalog', 'agents.propose', 'skills.propose'];
+    public const CHIEF_OF_STAFF = ['approvals.review', 'conversations.search', 'agents.set_trust_level', 'agents.catalog', 'agents.propose', 'skills.propose', 'workflows.overview', 'workflows.propose'];
 
     /**
      * @return list<LocalCapability>

@@ -1309,3 +1309,15 @@ favicon, Marca da empresa) continua a valer.
 | **Brilhos da entrada só em azul**: o segundo brilho usava `chart-5`, que no escuro deste tema é branco. | `AuthLayout` › `Backdrop` |
 | Favicon e miniaturas de Definições › Aparência nas cores novas. | `public/favicon.svg`, `Settings/Appearance.tsx` |
 
+
+## Preparação da demo (26.10.2026)
+
+Para a demo de 27.10 no tenant micomoc (MCP, triagem, passagem ao Gestor de Clientes e ao Agente de Procurement, Chief
+of Staff a sugerir fluxos). Guião em `docs/demo/GUIAO.md`.
+
+| Decisão | Onde |
+|---|---|
+| **Repetir quando o provedor falha**: um pedido aos provedores de IA (Gemini, Anthropic, OpenAI) que não teve resposta (ligação caída, 408, 429, 5xx) é enviado outra vez, até 3 vezes, com espera de 1,5 s a dobrar (ou o `Retry-After` do provedor, até 20 s). Só se repete o que não teve resposta, por isso nenhuma ferramenta corre duas vezes. Nos logs: 6 execuções falharam com «Could not connect to AI provider [gemini]» entre 16 e 20.10. | `ProviderRetry` (middleware global do `Http`), `agents.provider_retry`, `AI_PROVIDER_RETRIES` |
+| **Sem agente da área, o Chief of Staff**: um tipo de email cujo agente não existe (ex.: uma empresa sem Gestor de Clientes) vai ao Chief of Staff em vez de ficar parado na triagem. | `EmailRouter::route()` |
+| **Passagens que davam erro**: quando o colega respondia depois de dar tarefas (sem passar pedidos), o registo do que fez juntava textos a uma colecção Eloquent vazia («getKey() on string») e a conversa de origem falhava; 7 execuções da Rethink falharam assim desde 19.10. | `Handoffs::passedOn()` |
+| **Chief of Staff sugere fluxos**: `workflows.overview` mostra os tipos de email dos últimos dias (quantos, quem trata, se têm fluxo) e os fluxos existentes; `workflows.propose` desenha o fluxo com o mesmo rascunho de «Descreva o fluxo» (`WorkflowDrafting`) e guarda-o **como rascunho**, com a ligação para o editor e o porquê na descrição. Não precisa de aprovação porque um rascunho não faz nada: só uma pessoa que gere agentes o activa no editor. Não sugere um segundo fluxo para um tipo que já tem um activo. | `WorkflowsOverview`, `ProposeWorkflow`, `CapabilityRegistry::CHIEF_OF_STAFF`, `InstructionComposer` |

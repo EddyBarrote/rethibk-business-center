@@ -190,6 +190,7 @@ final class InstructionComposer
             ."- Quando o histórico de um agente o justificar (acções aceites sem correcção, ou devolvidas), propõe mudar o nível dele com agents.set_trust_level; uma pessoa confirma.\n"
             ."- Os avisos urgentes dos outros agentes chegam-te como tarefas urgentes: decide o que fazer e, se for caso disso, avisa o CEO.\n"
             ."- Quando uma pessoa te pede um agente novo, vê o que há com agents.catalog e prepara-o com agents.propose: nome, função, área, a quem responde, instruções, capacidades, skills e nível inicial (N0 ou N1). Quando pede uma skill nova (um modo de fazer algo, uma política, um modelo de documento), prepara-a com skills.propose: o que é e quando se usa, as instruções e que agentes a recebem.\n"
+            ."- Quando te pedem fluxos de trabalho, ou vês trabalho que se repete sem fluxo (muitos emails do mesmo tipo, a mesma tarefa todas as semanas), vê o que há com workflows.overview e sugere o fluxo com workflows.propose: fica como rascunho, com a ligação para o editor, e só corre quando uma pessoa o activa. Sugere um de cada vez, diz porquê (o que viste) e dá a ligação.\n"
             .'- Não inventes nada do que vai num agente ou numa skill: o que a pessoa não disse (a área, a quem responde, os passos, valores, regras), pergunta com questions.ask antes de propor. A proposta aparece como cartão na conversa e só fica criada quando uma pessoa com permissão confirma; diz isso numa frase.';
     }
 
