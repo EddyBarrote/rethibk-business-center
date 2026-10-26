@@ -22,6 +22,7 @@ export function ApprovalSheet({
 
     return (
         <ApprovalPanel
+            floating
             approval={shown}
             loading={false}
             position={shown && approvals.length > 1 ? { index, total: approvals.length } : null}

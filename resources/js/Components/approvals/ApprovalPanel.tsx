@@ -70,8 +70,11 @@ export function ApprovalPanel({
     onNext,
     onClose,
     onDecided,
+    floating = false,
 }: {
     approval: ApprovalSummary | OpenApproval | null;
+    /** A card over the page, which stays usable around it (no dimming, no focus trap), instead of a modal sheet. */
+    floating?: boolean;
     loading: boolean;
     areaLabel?: string;
     position: { index: number; total: number } | null;
@@ -81,13 +84,17 @@ export function ApprovalPanel({
     onDecided: () => void;
 }) {
     return (
-        <Sheet open={approval !== null} onOpenChange={(open) => !open && onClose()}>
+        <Sheet open={approval !== null} onOpenChange={(open) => !open && onClose()} modal={!floating}>
             <SheetContent
                 side="right"
                 showCloseButton={false}
+                overlay={!floating}
                 // Focus stays put, so no tooltip pops up on the first button.
                 onOpenAutoFocus={(event) => event.preventDefault()}
-                className="w-full gap-0 p-0 sm:max-w-xl"
+                className={cn(
+                    'w-full gap-0 p-0 sm:max-w-xl',
+                    floating && 'top-14 right-3 bottom-3 h-auto w-[calc(100%-1.5rem)] overflow-hidden rounded-2xl border shadow-xl sm:max-w-lg',
+                )}
             >
                 {approval && (
                     <Body
