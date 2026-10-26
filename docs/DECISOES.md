@@ -1262,3 +1262,18 @@ o modelo só vê o que o código imprime.
 | Cada execução fica na auditoria (`code.run`, com o código, os anexos e como terminou). Ficheiros que o código cria não se guardam: os ficheiros entregues fazem-se com `documents.generate`. | `RunCode::execute()` |
 
 Testes: `tests/Feature/Tasks/TableAnalysisTest.php` (os que correm código precisam da caixa instalada; sem ela ficam saltados).
+
+## Tema Apple Os (26.10.2026)
+
+O Barrote pediu para trocar o tema "Claude +" (creme e laranja) pelo tema "Apple Os" do tweakcn:
+`npx shadcn@latest add https://tweakcn.com/r/themes/cmtu0kiln000004l4dkbr3c0w`. Fundo cinza-azulado claro, azul como
+cor principal, cantos de 0,625rem e a fonte Inter.
+
+| Decisão | Onde |
+|---|---|
+| **Tokens do tema** aplicados pelo `shadcn add`; os nossos tokens de estado (`--status-*`) e o `.text-warning-strong` ficam como estavam. | `resources/css/app.css` |
+| **Azul principal com contraste AA**: o azul do tema claro (`oklch(0.6225 …)`) dava 3,5:1 com texto branco; passou para `oklch(0.55 0.19 256)` (#006DDD, 4,7:1), também no anel de foco e na barra lateral. O vermelho de erro desceu para `oklch(0.577 …)` (4,6:1). O tema escuro fica como vem (texto escuro, 7:1 e 6:1). | `:root` em `app.css` |
+| **Sombras corrigidas**: o tweakcn escreve `hsl(0, 0, 0 / 0.1)`, que o browser ignora; passou a `hsl(0 0% 0% / 0.1)`, e `--shadow-color` a `oklch(0 0 0)`. | `app.css` |
+| **Fonte Inter** vem do `@fontsource-variable/inter` (a Outfit saiu), para não depender de estar instalada no computador. | `package.json`, `app.css` |
+| **Favicon e miniaturas em Definições › Aparência** nas cores novas. | `public/favicon.svg`, `Settings/Appearance.tsx` |
+| **A Marca da empresa não muda**: as cores de Definições › Marca vão para os documentos e o logótipo para a entrada; não pintam a consola, por isso o tema e a Marca não se misturam. | `Brand`, `Settings/Brand.tsx` |
