@@ -84,7 +84,7 @@ function Backdrop() {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
             <div className="absolute inset-0 bg-[radial-gradient(color-mix(in_oklch,var(--foreground)_20%,transparent)_1px,transparent_1.5px)] [mask-image:radial-gradient(ellipse_80%_75%_at_50%_45%,black,transparent)] bg-[size:22px_22px]" />
             <div className="absolute -top-64 left-1/2 size-[44rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[140px] dark:bg-primary/25" />
-            <div className="absolute -right-48 -bottom-56 size-[40rem] rounded-full bg-chart-5/15 blur-[140px] dark:bg-chart-5/20" />
+            <div className="absolute -right-48 -bottom-56 size-[40rem] rounded-full bg-primary/10 blur-[140px] dark:bg-primary/15" />
         </div>
     );
 }

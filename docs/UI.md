@@ -5,8 +5,8 @@ Cada ecrã responde, por esta ordem: **o que está a acontecer, precisa de mim, 
 
 ## Tema e tokens
 
-- Tema "Apple Os" do tweakcn, aplicado com `npx shadcn@latest add https://tweakcn.com/r/themes/cmtu0kiln000004l4dkbr3c0w`
-  (desde 26.10.2026; antes era o "Claude +"). Ver `docs/DECISOES.md`, «Tema Apple Os».
+- Tema "Google" do tweakcn, aplicado com `npx shadcn@latest add https://tweakcn.com/r/themes/cmsoje5dh000104ju3xhz0ahj`
+  (desde 26.10.2026; antes o "Apple Os" e o "Claude +"). Ver `docs/DECISOES.md`, «Tema Google».
   Os tokens vivem só em `resources/css/app.css` (Tailwind v4, sem `tailwind.config.js`).
 - Fontes: Jost (texto, desde 26.10.2026) e Geist Mono (valores de máquina), via `@fontsource-variable`.
 - Modo claro, escuro e sistema: `resources/js/lib/appearance.ts`; o primeiro paint é feito em `app.blade.php`.

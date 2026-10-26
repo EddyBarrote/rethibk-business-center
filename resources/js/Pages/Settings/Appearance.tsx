@@ -16,13 +16,13 @@ const options: { value: Appearance; label: string; hint: string; icon: LucideIco
 /** A small picture of the console in each theme: sidebar, title and two rows. */
 function Preview({ tone }: { tone: Appearance }) {
     const pane = (dark: boolean, className?: string) => (
-        <div className={cn('flex h-full gap-1.5 p-2', dark ? 'bg-[#0d1116]' : 'bg-[#f9fafb]', className)}>
-            <div className={cn('w-1/4 rounded-sm', dark ? 'bg-[#151a20]' : 'bg-[#dfe9f4]')} />
+        <div className={cn('flex h-full gap-1.5 p-2', dark ? 'bg-[#202124]' : 'bg-[#ffffff]', className)}>
+            <div className={cn('w-1/4 rounded-sm', dark ? 'bg-[#171717]' : 'bg-[#e8f0fe]')} />
             <div className="flex flex-1 flex-col gap-1.5">
-                <div className={cn('h-2 w-1/2 rounded-sm', dark ? 'bg-[#e8ecef]' : 'bg-[#12181e]')} />
-                <div className={cn('h-2 rounded-sm', dark ? 'bg-[#20262c]' : 'bg-[#eef0f3]')} />
-                <div className={cn('h-2 w-3/4 rounded-sm', dark ? 'bg-[#20262c]' : 'bg-[#eef0f3]')} />
-                <div className="mt-auto h-2 w-1/3 self-end rounded-sm bg-[#006ddd]" />
+                <div className={cn('h-2 w-1/2 rounded-sm', dark ? 'bg-[#e8eaed]' : 'bg-[#202124]')} />
+                <div className={cn('h-2 rounded-sm', dark ? 'bg-[#35363a]' : 'bg-[#f1f3f4]')} />
+                <div className={cn('h-2 w-3/4 rounded-sm', dark ? 'bg-[#35363a]' : 'bg-[#f1f3f4]')} />
+                <div className="mt-auto h-2 w-1/3 self-end rounded-sm bg-[#146fe3]" />
             </div>
         </div>
     );

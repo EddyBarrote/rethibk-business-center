@@ -1293,3 +1293,19 @@ com pequenos pontos. Em claro e em escuro.
 | **«Esqueceu-se?» ao lado de «Manter sessão iniciada»**, em vez da caixa tracejada por baixo do botão; «Não tem conta?» e «Voltar a entrar» por baixo do cartão (`note`). | `SignInForm`, `AuthLayout` |
 | Só tokens do tema (`primary`, `card`, `foreground`, `chart-5`…), por isso o claro e o escuro saem do mesmo código. | — |
 
+## Tema Google (26.10.2026)
+
+O Barrote pediu o tema "Google" do tweakcn no lugar do "Apple Os":
+`npx shadcn@latest add https://tweakcn.com/r/themes/cmsoje5dh000104ju3xhz0ahj`. Fundo branco, azul Google como cor
+principal, cinzentos neutros no escuro. Substitui as cores da secção «Tema Apple Os»; o resto dessa secção (sombras,
+favicon, Marca da empresa) continua a valer.
+
+| Decisão | Onde |
+|---|---|
+| **Fontes ficam a Jost e a Geist Mono**: o tema traz as fontes do sistema, mas a Jost foi pedida pelo Barrote como principal. | `app.css` |
+| **Contraste AA no claro**: o azul principal desceu de L 0,5737 (4,5:1 com texto branco, no limite) para `oklch(0.56 …)` (#146FE3, 4,8:1), também no anel de foco e na barra lateral; o azul do texto numa linha seleccionada (`accent-foreground`) para `oklch(0.52 …)` (4,9:1 em vez de 3,9:1). | `:root` em `app.css` |
+| **Bordas dos campos**: o `--input` do tema é quase branco sobre branco (1,1:1); passou à cor das bordas. | `:root` em `app.css` |
+| **Contraste AA no escuro**: o texto branco sobre o azul dava 3,6:1; o azul ficou um pouco mais claro (`oklch(0.66 …)`) com texto escuro (5,1:1), e lê-se como texto num cartão (4,5:1). O azul do texto numa linha seleccionada subiu para `oklch(0.75 …)` (5,1:1). | `.dark` em `app.css` |
+| **Brilhos da entrada só em azul**: o segundo brilho usava `chart-5`, que no escuro deste tema é branco. | `AuthLayout` › `Backdrop` |
+| Favicon e miniaturas de Definições › Aparência nas cores novas. | `public/favicon.svg`, `Settings/Appearance.tsx` |
+
