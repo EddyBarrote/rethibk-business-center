@@ -1,26 +1,58 @@
+import 'katex/dist/katex.min.css';
+
 import { Link } from '@inertiajs/react';
 import { type ReactNode, useLayoutEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 
+import { prepareMath } from '@/lib/math';
 import { isConsolePath, pathLabel } from '@/lib/paths';
+import { cn } from '@/lib/utils';
+
+/** A cell that holds a number, an amount or a percentage ("1.234,56 MZN", "-12%", "MZN 80"). */
+const NUMBER = /^[(\-−+]?\s*(?:[A-Z]{3}\s*|[$€£]\s*)?\d[\d\s.,  ]*(?:\s*(?:%|[A-Z]{3}|MT|un\.?|x))?\)?$/;
+const TOTAL = /^(total|subtotal|soma|saldo|imposto a pagar|a pagar|diferença)\b/i;
 
 /**
- * Markdown written by agents (briefings, documents). Raw HTML is never
- * rendered; links open in the console when they are console paths.
+ * Markdown written by agents (briefings, documents, chat replies): GFM tables,
+ * lists, code, quotes and formulas ($…$, $$…$$) drawn with KaTeX. Raw HTML is
+ * never rendered; links open in the console when they are console paths.
  */
-export function Markdown({ children }: { children: string }) {
+export function Markdown({ children, className }: { children: string; className?: string }) {
     const root = useRef<HTMLDivElement>(null);
 
-    // On a phone each table row becomes a card (the "table-stack" style): every cell is labelled with its column.
     useLayoutEffect(() => {
         root.current?.querySelectorAll('table').forEach((table) => {
-            const heads = [...table.querySelectorAll('thead th')].map((th) => th.textContent?.trim() ?? '');
+            const heads = [...table.querySelectorAll('thead th')];
+            const rows = [...table.querySelectorAll('tbody tr')];
+
+            // Columns of numbers line up on the right, unless the agent aligned them itself.
+            heads.forEach((head, index) => {
+                const cells = rows.map((row) => row.children[index]).filter((cell) => cell && cell.textContent?.trim() !== '');
+                if (
+                    !(head as HTMLElement).style.textAlign &&
+                    cells.length > 0 &&
+                    cells.every((cell) => NUMBER.test(cell.textContent?.trim() ?? ''))
+                ) {
+                    [head, ...cells].forEach((cell) => cell.classList.add('md-num'));
+                }
+            });
+
+            // A last row named "Total" (or Subtotal, Saldo…) stands out.
+            const last = rows.at(-1);
+            if (rows.length > 1 && last && TOTAL.test(last.children[0]?.textContent?.replace(/[*_]/g, '').trim() ?? '')) {
+                last.classList.add('md-total');
+            }
+
+            // On a phone each table row becomes a card (the "table-stack" style): every cell is labelled with its column.
             table.classList.add('table-stack');
-            table.querySelectorAll('tbody tr').forEach((row) =>
+            rows.forEach((row) =>
                 [...row.children].forEach((cell, index) => {
-                    if (index > 0 && heads[index]) {
-                        cell.setAttribute('data-label', heads[index]);
+                    const head = heads[index]?.textContent?.trim();
+                    if (index > 0 && head) {
+                        cell.setAttribute('data-label', head);
                     }
                 }),
             );
@@ -28,35 +60,33 @@ export function Markdown({ children }: { children: string }) {
     }, [children]);
 
     return (
-        <div
-            ref={root}
-            className="prose-sm max-w-none min-w-0 text-sm leading-relaxed break-words [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:font-semibold [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_table]:w-full [&_td]:align-top [&_hr]:my-4 [&_table]:text-left [&_td]:border-b [&_td]:px-2 [&_td]:py-1 [&_th]:border-b [&_th]:px-2 [&_th]:py-1 [&_th]:font-medium [&_ul]:list-disc [&_ul]:pl-5"
-        >
+        <div ref={root} className={cn('markdown', className)}>
             <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+                rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }]]}
                 skipHtml
                 components={{
                     // Wide tables scroll inside the text column instead of spilling over the page.
                     table: ({ node: _node, ...props }) => (
-                        <div className="my-3 overflow-x-auto">
+                        <div className="md-table">
                             <table {...props} />
                         </div>
                     ),
                     a: ({ node: _node, href, children: label }) => <ConsoleLink href={href}>{label}</ConsoleLink>,
                     // Inline code (an address, a file name) may break only after . @ / _ -, never mid-word.
-                    code: ({ node: _node, children: text, className, ...props }) =>
-                        typeof text === 'string' && !className && !text.includes('\n') ? (
+                    code: ({ node: _node, children: text, className: language, ...props }) =>
+                        typeof text === 'string' && !language && !text.includes('\n') ? (
                             <code {...props} className="[overflow-wrap:normal] break-normal">
                                 {text.split(/(?<=[./@_-])/).flatMap((part, index) => (index === 0 ? [part] : [<wbr key={index} />, part]))}
                             </code>
                         ) : (
-                            <code {...props} className={className}>
+                            <code {...props} className={language}>
                                 {text}
                             </code>
                         ),
                 }}
             >
-                {children}
+                {prepareMath(children)}
             </ReactMarkdown>
         </div>
     );

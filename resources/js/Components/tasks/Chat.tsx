@@ -171,7 +171,14 @@ export function ChatThread({
                         ) : isPerson(message) ? (
                             <PersonBubble message={message} continued={continued} own={viewer === message.author} />
                         ) : (
-                            <AgentBubble message={message} continued={continued} tools={tools} thought={thought} emails={proposed} onOpenRun={onOpenRun} />
+                            <AgentBubble
+                                message={message}
+                                continued={continued}
+                                tools={tools}
+                                thought={thought}
+                                emails={proposed}
+                                onOpenRun={onOpenRun}
+                            />
                         )}
                     </div>
                 );
@@ -263,7 +270,7 @@ function AgentBubble({
     onOpenRun: OpenRun;
 }) {
     return (
-        <div className={cn('flex gap-2.5 pr-6 sm:pr-16', continued ? 'mt-1' : 'mt-4')}>
+        <div className={cn('flex gap-2.5', continued ? 'mt-1' : 'mt-4')}>
             {!continued ? (
                 <AgentAvatar name={message.author} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" />
             ) : (
@@ -278,9 +285,8 @@ function AgentBubble({
                 )}
                 {thought && thought.text !== '' && <ThoughtToggle thought={thought} />}
                 {message.body !== '' && (
-                    <div className="max-w-full min-w-0 rounded-2xl rounded-tl-md border bg-card px-4 py-2.5 text-sm break-words shadow-xs [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0">
-                        <Markdown>{message.body}</Markdown>
-                    </div>
+                    // As in Claude, an agent's reply is not a bubble: it takes the chat's width, so tables and formulas fit.
+                    <Markdown className="w-full px-1 py-0.5">{message.body}</Markdown>
                 )}
                 {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} />}
                 <EmailCards emails={emails} />
@@ -424,7 +430,7 @@ export function WorkingBubble({
     const thinking = !!live?.thinking && reasoning !== null;
 
     return (
-        <div className="mt-4 flex gap-2.5 pr-6 sm:pr-16">
+        <div className="mt-4 flex gap-2.5">
             <span className="relative mt-0.5 h-fit shrink-0">
                 <AgentAvatar name={agent} className="size-7 rounded-lg text-[10px]" />
                 <StatusDot tone="running" className="absolute -right-0.5 -bottom-0.5" />
@@ -434,13 +440,7 @@ export function WorkingBubble({
                     <span className="text-xs font-medium text-foreground/80">{agent}</span>
                 </div>
                 {reasoning && !thinking && <ThoughtToggle thought={{ text: reasoning, ms: live?.thought_ms ?? 0 }} />}
-                {text && (
-                    <div className="max-w-full min-w-0 rounded-2xl rounded-tl-md border bg-card px-4 py-2.5 text-sm shadow-xs">
-                        <div className="[&>*:first-child]:mt-0">
-                            <Markdown>{text}</Markdown>
-                        </div>
-                    </div>
-                )}
+                {text && <Markdown className="w-full px-1 py-0.5">{text}</Markdown>}
                 <Working label={live?.tool ?? null} />
                 {thinking && <LiveReasoning text={reasoning} />}
                 {runId && calls.length > 0 && <ToolCalls runId={runId} calls={calls} onOpenRun={onOpenRun} live />}
@@ -537,7 +537,7 @@ function EventLine({ message, onOpenRun }: { message: ChatMessage; onOpenRun: Op
 
 function ReportCard({ message, onOpenRun }: { message: ChatMessage; onOpenRun: OpenRun }) {
     return (
-        <details className="group mt-4 mr-6 ml-9.5 rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground sm:mr-16">
+        <details className="group mt-4 ml-9.5 rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground">
             <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
                 <FileText className="size-3.5 shrink-0" />
                 <span className="min-w-0 flex-1 truncate">

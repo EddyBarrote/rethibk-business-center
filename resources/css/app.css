@@ -272,6 +272,211 @@
 }
 
 /*
+ * Markdown written by agents (Markdown.tsx). In components so a caller's
+ * utilities (smaller text, no top margin) still win.
+ */
+@layer components {
+    .markdown {
+        font-size: 0.875rem;
+        line-height: 1.65;
+        min-width: 0;
+        overflow-wrap: break-word;
+    }
+
+    .markdown > :first-child {
+        margin-top: 0;
+    }
+
+    .markdown > :last-child {
+        margin-bottom: 0;
+    }
+
+    .markdown p {
+        margin: 0.5rem 0;
+    }
+
+    .markdown :is(h1, h2, h3, h4, h5, h6) {
+        margin: 1.25rem 0 0.5rem;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+
+    .markdown h1 {
+        font-size: 1.125rem;
+    }
+
+    .markdown h2 {
+        font-size: 1rem;
+    }
+
+    .markdown :is(h3, h4, h5, h6) {
+        font-size: 0.875rem;
+    }
+
+    .markdown :is(ul, ol) {
+        margin: 0.5rem 0;
+        padding-left: 1.25rem;
+    }
+
+    .markdown ul {
+        list-style: disc;
+    }
+
+    .markdown ol {
+        list-style: decimal;
+    }
+
+    .markdown li {
+        margin: 0.2rem 0;
+        padding-left: 0.125rem;
+    }
+
+    .markdown li::marker {
+        color: var(--muted-foreground);
+    }
+
+    .markdown li > :is(p, ul, ol) {
+        margin: 0.2rem 0;
+    }
+
+    /* GFM task lists: the checkbox stands in for the bullet. */
+    .markdown li:has(> input[type='checkbox']) {
+        list-style: none;
+        margin-left: -1.25rem;
+    }
+
+    .markdown li > input[type='checkbox'] {
+        margin-right: 0.4rem;
+        vertical-align: -0.1em;
+        accent-color: var(--primary);
+    }
+
+    .markdown a {
+        color: var(--primary);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .markdown strong {
+        font-weight: 600;
+    }
+
+    .markdown hr {
+        margin: 1rem 0;
+    }
+
+    .markdown blockquote {
+        margin: 0.75rem 0;
+        border-left: 2px solid var(--border);
+        padding-left: 0.75rem;
+        color: var(--muted-foreground);
+    }
+
+    .markdown code {
+        border-radius: 0.25rem;
+        background: var(--muted);
+        padding: 0.05rem 0.3rem;
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+    }
+
+    .markdown pre {
+        margin: 0.75rem 0;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        background: var(--muted);
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+        line-height: 1.55;
+    }
+
+    .markdown pre code {
+        background: none;
+        padding: 0;
+        font-size: inherit;
+    }
+
+    .markdown img {
+        max-width: 100%;
+        border-radius: 0.5rem;
+    }
+
+    /* Tables: a framed block that scrolls sideways when wide; numbers line up on the right. */
+    .markdown .md-table {
+        margin: 0.75rem 0;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+    }
+
+    .markdown table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8125rem;
+        line-height: 1.45;
+    }
+
+    .markdown thead {
+        background: color-mix(in oklab, var(--muted) 70%, transparent);
+    }
+
+    .markdown th {
+        padding: 0.45rem 0.75rem;
+        text-align: left;
+        font-weight: 500;
+        color: var(--muted-foreground);
+        white-space: nowrap;
+    }
+
+    .markdown td {
+        padding: 0.45rem 0.75rem;
+        vertical-align: top;
+    }
+
+    .markdown :is(thead, tbody) tr {
+        border-bottom: 1px solid var(--border);
+    }
+
+    .markdown tbody tr:last-child {
+        border-bottom: 0;
+    }
+
+    .markdown tbody tr:hover {
+        background: color-mix(in oklab, var(--muted) 40%, transparent);
+    }
+
+    .markdown :is(th, td).md-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .markdown tr.md-total {
+        background: color-mix(in oklab, var(--muted) 55%, transparent);
+        font-weight: 600;
+    }
+
+    /* Formulas (KaTeX). A display formula scrolls sideways instead of overflowing. */
+    .markdown .katex {
+        font-size: 1.05em;
+    }
+
+    .markdown .katex-display {
+        margin: 0.75rem 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0.25rem 0;
+    }
+
+    .markdown .katex-error {
+        color: var(--muted-foreground) !important;
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+    }
+}
+
+/*
  * Tables that turn into cards on a phone (class "table-stack" on <Table>).
  * Below 640 px the header hides, each row becomes a card and each cell a
  * "label · value" line, the label read from the cell's data-label. The first
