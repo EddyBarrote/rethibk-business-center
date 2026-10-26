@@ -86,7 +86,9 @@ export default function WorkflowDescribe({ workflow, category, trigger, trigger_
                 if (line.type === 'stage') {
                     setActivity((rows) => [...rows, { kind: 'stage', text: line.text, at: Date.now() }]);
                 } else if (line.type === 'step') {
-                    setActivity((rows) => [...rows, { kind: 'step', text: line.label, block: line.kind, at: Date.now() }]);
+                    if (line.kind !== 'end') {
+                        setActivity((rows) => [...rows, { kind: 'step', text: line.label, block: line.kind, at: Date.now() }]);
+                    }
                 } else if (line.type === 'draft') {
                     setResult({ draft: line.draft, token: line.token });
                 } else {
@@ -216,8 +218,9 @@ export default function WorkflowDescribe({ workflow, category, trigger, trigger_
                                         {running ? 'O assistente está a trabalhar' : error ? 'Não ficou pronto' : 'Rascunho pronto'}
                                     </p>
                                     <span className="text-xs text-muted-foreground tabular-nums">
-                                        {steps > 0 && `${steps} ${steps === 1 ? 'passo' : 'passos'} · `}
-                                        {running ? `${seconds} s` : ''}
+                                        {[steps > 0 ? `${steps} ${steps === 1 ? 'passo' : 'passos'}` : null, running ? `${seconds} s` : null]
+                                            .filter(Boolean)
+                                            .join(' · ')}
                                     </span>
                                 </div>
                                 <ol className="max-h-80 space-y-1.5 overflow-y-auto px-4 py-3 text-sm">
