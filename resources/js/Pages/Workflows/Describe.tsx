@@ -62,7 +62,9 @@ export default function WorkflowDescribe({ workflow, category, trigger, trigger_
         return () => window.clearInterval(timer);
     }, [running]);
 
-    useEffect(() => bottom.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), [activity.length]);
+    useEffect(() => {
+        bottom.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, [activity.length]);
 
     const start = () => {
         setRunning(true);
