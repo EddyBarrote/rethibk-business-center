@@ -28,15 +28,18 @@ export function Markdown({ children, className }: { children: string; className?
             const heads = [...table.querySelectorAll('thead th')];
             const rows = [...table.querySelectorAll('tbody tr')];
 
-            // Columns of numbers line up on the right, unless the agent aligned them itself.
+            // Columns of numbers line up on the right, also when the agent centred them (a left alignment stays).
             heads.forEach((head, index) => {
                 const cells = rows.map((row) => row.children[index]).filter((cell) => cell && cell.textContent?.trim() !== '');
                 if (
-                    !(head as HTMLElement).style.textAlign &&
+                    ['', 'center'].includes((head as HTMLElement).style.textAlign) &&
                     cells.length > 0 &&
                     cells.every((cell) => NUMBER.test(cell.textContent?.trim() ?? ''))
                 ) {
-                    [head, ...cells].forEach((cell) => cell.classList.add('md-num'));
+                    [head, ...cells].forEach((cell) => {
+                        cell.classList.add('md-num');
+                        (cell as HTMLElement).style.textAlign = '';
+                    });
                 }
             });
 
