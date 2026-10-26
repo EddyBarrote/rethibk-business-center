@@ -86,7 +86,7 @@ function ProductPanel() {
                     <span className="font-semibold tracking-tight">{PRODUCT_NAME}</span>
                 </div>
 
-                <ProductShowcase className="[@media(max-height:46rem)]:hidden" />
+                <ProductShowcase className="[@media(max-height:38rem)]:hidden" />
 
                 <div className="max-w-md space-y-6">
                     <p className="text-3xl leading-tight font-semibold tracking-tight text-balance xl:text-4xl">

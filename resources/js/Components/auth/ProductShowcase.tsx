@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils';
  * an image: a conversation with an agent, the task it works on, the approval
  * it waits for and what it is connected to. Theme tokens only, so it follows
  * the theme and light/dark by itself. Decorative: hidden from screen readers
- * and from the keyboard.
+ * and from the keyboard. On short screens it keeps only the conversation and
+ * the approval.
  */
 export function ProductShowcase({ className }: { className?: string }) {
     return (
@@ -20,9 +21,9 @@ export function ProductShowcase({ className }: { className?: string }) {
 
             <div className="relative space-y-4">
                 <Conversation />
-                <Workflow className="ml-auto w-[88%] -rotate-1" />
-                <Approval className="w-[82%] rotate-1" />
-                <Connections />
+                <Workflow className="ml-auto w-[88%] [@media(max-height:46rem)]:hidden" />
+                <Approval className="w-[82%]" />
+                <Connections className="[@media(max-height:46rem)]:hidden" />
             </div>
         </div>
     );
@@ -133,9 +134,9 @@ const connections = [
     { label: 'Conhecimento', icon: BookOpen },
 ];
 
-function Connections() {
+function Connections({ className }: { className?: string }) {
     return (
-        <div className="flex items-center justify-center gap-2 pt-1">
+        <div className={cn('flex items-center justify-center gap-2 pt-1', className)}>
             {connections.map(({ label, icon: Icon }) => (
                 <span
                     key={label}
