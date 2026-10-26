@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, Pencil, RotateCcw, Route, Send, UserRound, Zap } from 'lucide-react';
+import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, RotateCcw, Route, Send, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -197,7 +197,10 @@ export default function TaskShow({
     // The side panel (docs/DECISOES.md, "Página de conversa"): open by default on a wide screen, remembered per browser.
     const initialRun = panelRun?.run.id ?? null;
     const [panelOpen, setPanelOpen] = useState(() => initialRun !== null || (wide && remembered(PANEL_KEY) !== 'closed'));
-    const [tab, setTab] = useState<PanelTab>(initialRun !== null ? 'runs' : 'details');
+    // A conversation has no Detalhes tab (the header says it all): it opens on the person's work with the agent.
+    const [tab, setTab] = useState<PanelTab>(
+        initialRun !== null ? 'runs' : !task.is_conversation ? 'details' : agentWork !== null ? 'tasks' : 'runs',
+    );
     const [runId, setRunId] = useState<number | null>(initialRun);
     const [stepId, setStepId] = useState<number | null>(null);
 
@@ -388,7 +391,7 @@ export default function TaskShow({
             messages={messages}
             onOpenRun={openRun}
             onCloseRun={closeRun}
-            details={details}
+            details={task.is_conversation ? null : details}
             agentWork={agentWork}
         />
     );
@@ -414,9 +417,28 @@ export default function TaskShow({
                 <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2.5 sm:px-6">
                     {task.is_conversation ? (
                         <>
-                            <AgentAvatar name={agentName} className="size-8 rounded-lg text-xs" />
+                            {/* The agent's name opens its page (and editing it from there); its description is the tooltip. */}
+                            {task.assignee ? (
+                                <Link href={`/agents/${task.assignee.id}`} title={task.agent?.description ?? `Ver ${agentName}`} className="shrink-0">
+                                    <AgentAvatar name={agentName} className="size-8 rounded-lg text-xs" />
+                                </Link>
+                            ) : (
+                                <AgentAvatar name={agentName} className="size-8 rounded-lg text-xs" />
+                            )}
                             <div className="min-w-0 flex-1">
-                                <h1 className="truncate text-sm font-semibold">{agentName}</h1>
+                                <h1 className="truncate text-sm font-semibold">
+                                    {task.assignee ? (
+                                        <Link
+                                            href={`/agents/${task.assignee.id}`}
+                                            title={task.agent?.description ?? `Ver ${agentName}`}
+                                            className="hover:underline"
+                                        >
+                                            {agentName}
+                                        </Link>
+                                    ) : (
+                                        agentName
+                                    )}
+                                </h1>
                                 <p className="truncate text-xs text-muted-foreground">
                                     {task.agent?.title ?? 'Assistente'}
                                     {working ? (
@@ -486,22 +508,6 @@ export default function TaskShow({
                                 {isClosed ? <RotateCcw /> : <CircleCheck />}
                                 <span className="hidden sm:inline">{isClosed ? 'Reabrir' : 'Fechar tarefa'}</span>
                             </Button>
-                        )}
-                        {task.is_conversation && task.assignee && (
-                            <>
-                                <Button variant="ghost" size="icon" className="size-8" asChild>
-                                    <Link href={`/agents/${task.assignee.id}`} aria-label="Ver agente" title="Ver agente">
-                                        <UserRound />
-                                    </Link>
-                                </Button>
-                                {can.manage_agent && (
-                                    <Button variant="ghost" size="icon" className="size-8" asChild>
-                                        <Link href={`/agents/${task.assignee.id}/edit`} aria-label="Editar agente" title="Editar agente">
-                                            <Pencil />
-                                        </Link>
-                                    </Button>
-                                )}
-                            </>
                         )}
                         <Button
                             variant="ghost"
@@ -771,7 +777,7 @@ export default function TaskShow({
             </div>
 
             {wide ? (
-                panelOpen && <aside className="flex w-[26rem] shrink-0 flex-col border-l 2xl:w-[30rem]">{panel}</aside>
+                panelOpen && <aside className="flex w-80 shrink-0 flex-col border-l 2xl:w-[22rem]">{panel}</aside>
             ) : (
                 <Sheet open={panelOpen} onOpenChange={setPanelOpen}>
                     <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-md">

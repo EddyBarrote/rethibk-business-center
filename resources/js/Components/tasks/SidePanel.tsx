@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, ChevronDown, CircleDot, Info, type LucideIcon, Paperclip, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, ChevronDown, CircleDot, Info, type LucideIcon, Paperclip, Search, X } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -8,11 +8,12 @@ import { approvalTitle } from '@/lib/approvals';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Markdown } from '@/Components/Markdown';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
+import { runTone, StatusDot } from '@/Components/Status';
 import { RunRequest, RunTimeline, type Step } from '@/Components/runs/RunTimeline';
 import { useLive } from '@/hooks/useLive';
 import { ago, dateTime, duration, number, runTitle, time, usd, usdPrecise } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { TaskRow, type TaskSummary } from '@/Pages/Tasks/Index';
+import { TaskStatusIcon, type TaskSummary } from '@/Pages/Tasks/Index';
 import type { ApprovalSummary, RunSummary, SharedProps } from '@/types';
 
 import type { ChatMessage, OpenRun } from './Chat';
@@ -72,7 +73,8 @@ export function SidePanel({
     messages: ChatMessage[];
     onOpenRun: OpenRun;
     onCloseRun: () => void;
-    details: ReactNode;
+    /** Null in a conversation: the header already says who, with whom and since when. */
+    details: ReactNode | null;
     agentWork?: AgentWork | null;
     className?: string;
 }) {
@@ -83,7 +85,7 @@ export function SidePanel({
         runs: runs.length,
         files: files.reduce((n, m) => n + m.attachments.length, 0),
     };
-    const shown = tabs.filter(({ value }) => value !== 'tasks' || agentWork !== null);
+    const shown = tabs.filter(({ value }) => (value !== 'tasks' || agentWork !== null) && (value !== 'details' || details !== null));
 
     return (
         <div className={cn('flex h-full min-h-0 flex-col bg-sidebar/40', className)}>
@@ -101,7 +103,7 @@ export function SidePanel({
                                 tab === value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                             )}
                         >
-                            {/* Four tabs fit the narrow panel by their names alone; the icons come back when there is room. */}
+                            {/* The tabs fit the narrow panel by their names alone; the icons come back when there is room. */}
                             <Icon className="hidden size-3.5 2xl:block" />
                             {label}
                             {!!counts[value] && <span className="text-[10px] text-muted-foreground tabular-nums">{counts[value]}</span>}
@@ -120,7 +122,7 @@ export function SidePanel({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-                {tab === 'details' && <div className="flex flex-col gap-6 p-4">{details}</div>}
+                {tab === 'details' && details !== null && <div className="flex flex-col gap-6 p-4">{details}</div>}
                 {tab === 'runs' &&
                     (runId !== null ? (
                         <RunView runId={runId} stepId={stepId} panelRun={panelRun} toolNames={toolNames} onBack={onCloseRun} />
@@ -145,21 +147,21 @@ function WorkList({ work }: { work: AgentWork }) {
     }
 
     return (
-        <div className="flex flex-col gap-5 p-3">
+        <div className="flex flex-col gap-4 p-2">
             {work.approvals.length > 0 && (
                 <section className="flex flex-col gap-2">
-                    <h3 className="px-1 text-xs font-medium text-muted-foreground">Aprovações à espera · {work.approvals.length}</h3>
+                    <h3 className="px-2 pt-1 text-xs font-medium text-muted-foreground">Aprovações à espera · {work.approvals.length}</h3>
                     {/* A short row each: they are decided where they open (the task, or Aprovações), with the whole context. */}
                     <ul className="divide-y overflow-hidden rounded-xl border bg-card">
                         {work.approvals.map((approval) => (
                             <li key={approval.id}>
                                 <Link
                                     href={approval.task_id !== null ? `/tasks/${approval.task_id}` : '/approvals'}
-                                    className="flex items-start gap-2.5 px-3 py-2.5 transition-colors hover:bg-accent/50"
+                                    className="flex items-start gap-2 px-2.5 py-2 transition-colors hover:bg-accent/50"
                                 >
                                     <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-status-warning" />
                                     <span className="min-w-0 flex-1">
-                                        <span className="line-clamp-2 text-sm leading-snug">
+                                        <span className="line-clamp-2 text-[13px] leading-snug">
                                             {approvalTitle(approval.action_type, approval.payload, approval.action_summary)}
                                         </span>
                                         <span className="mt-0.5 block text-xs text-muted-foreground">
@@ -175,17 +177,37 @@ function WorkList({ work }: { work: AgentWork }) {
             )}
             {work.tasks.length > 0 && (
                 <section className="flex flex-col gap-2">
-                    <h3 className="flex items-center justify-between px-1 text-xs font-medium text-muted-foreground">
+                    <h3 className="flex items-center justify-between px-2 pt-1 text-xs font-medium text-muted-foreground">
                         As suas tarefas com este agente
                         <Link href="/tasks" className="font-normal hover:text-foreground">
                             Todas as tarefas
                         </Link>
                     </h3>
-                    <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                    {/* One line each, as in the chat's side panel of Claude: the task page has the rest. */}
+                    <ul className="flex flex-col">
                         {work.tasks.map((task) => (
-                            <TaskRow key={task.id} task={task} compact />
+                            <li key={task.id}>
+                                <Link
+                                    href={`/tasks/${task.id}`}
+                                    title={`${task.title} · ${task.status_label}`}
+                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60"
+                                >
+                                    <TaskStatusIcon status={task.status} label={task.status_label} className="size-3.5" />
+                                    <span
+                                        className={cn(
+                                            'min-w-0 flex-1 truncate text-[13px]',
+                                            (task.status === 'done' || task.status === 'cancelled') && 'text-muted-foreground',
+                                        )}
+                                    >
+                                        {task.title}
+                                    </span>
+                                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                                        {ago(task.last_activity_at ?? task.created_at)}
+                                    </span>
+                                </Link>
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 </section>
             )}
         </div>
@@ -205,7 +227,7 @@ function RunList({ runs, toolNames, onOpenRun }: { runs: RunSummary[]; toolNames
 
     return (
         <div className="flex flex-col">
-            <div className="flex items-center justify-between px-4 pt-3 pb-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between px-4 pt-3 pb-1.5 text-xs text-muted-foreground">
                 <span>
                     {runs.length} {runs.length === 1 ? 'execução' : 'execuções'}
                 </span>
@@ -213,28 +235,28 @@ function RunList({ runs, toolNames, onOpenRun }: { runs: RunSummary[]; toolNames
                     {usd(spent)}
                 </span>
             </div>
-            <ul className="flex flex-col gap-1 px-2 pb-3">
+            {/* One line each: what it was and when. Status, duration and cost are in the tooltip and the run itself. */}
+            <ul className="flex flex-col px-2 pb-3">
                 {runs.map((run) => (
                     <li key={run.id}>
                         <button
                             type="button"
                             onClick={() => onOpenRun(run.id)}
-                            className="flex w-full flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-accent/60"
+                            title={[
+                                `#${run.id}`,
+                                run.status_label,
+                                run.duration_ms !== null ? duration(run.duration_ms) : null,
+                                usd(run.cost_usd),
+                                dateTime(run.created_at),
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60"
                         >
-                            <span className="flex w-full items-center gap-2">
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">#{run.id}</span>
-                                <span className="min-w-0 flex-1 truncate text-sm">{run.title ?? runTitle(run.input, toolNames)}</span>
-                            </span>
-                            <span className="flex w-full items-center gap-2 text-[11px] text-muted-foreground">
-                                <RunStatusBadge status={run.status} label={run.status_label} />
-                                <span className="flex-1" />
-                                {run.duration_ms !== null && <span className="tabular-nums">{duration(run.duration_ms)}</span>}
-                                <span className="tabular-nums" title={dateTime(run.created_at)}>
-                                    {new Date(run.created_at).toDateString() === new Date().toDateString()
-                                        ? time(run.created_at)
-                                        : dateTime(run.created_at)}
-                                </span>
-                                <span className="w-12 text-right tabular-nums">{usd(run.cost_usd)}</span>
+                            <StatusDot tone={runTone(run.status)} />
+                            <span className="min-w-0 flex-1 truncate text-[13px]">{run.title ?? runTitle(run.input, toolNames)}</span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                                {new Date(run.created_at).toDateString() === new Date().toDateString() ? time(run.created_at) : ago(run.created_at)}
                             </span>
                         </button>
                     </li>
@@ -399,6 +421,8 @@ function Metric({ label, value, title }: { label: string; value: string; title?:
 }
 
 function FilesList({ messages }: { messages: ChatMessage[] }) {
+    const [query, setQuery] = useState('');
+
     if (messages.length === 0) {
         return (
             <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
@@ -408,16 +432,48 @@ function FilesList({ messages }: { messages: ChatMessage[] }) {
         );
     }
 
+    // By file name, type or who sent it, without accents ("relatorio" finds "Relatório").
+    const fold = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    const words = fold(query).split(/\s+/).filter(Boolean);
+    const found = [...messages]
+        .reverse()
+        .map((message) => ({
+            message,
+            attachments: message.attachments.filter((file) =>
+                words.every((word) => fold(`${file.name} ${file.extension} ${message.author}`).includes(word)),
+            ),
+        }))
+        .filter(({ attachments }) => attachments.length > 0);
+
     return (
-        <div className="flex flex-col gap-5 p-4">
-            {[...messages].reverse().map((message) => (
-                <div key={message.id} className="flex flex-col gap-2">
-                    <p className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground/80">{message.author}</span> · {dateTime(message.created_at)}
-                    </p>
-                    <MessageAttachments attachments={message.attachments} />
+        <div className="flex flex-col">
+            <div className="sticky top-0 z-10 border-b bg-background/95 p-2 backdrop-blur">
+                <label className="flex h-8 items-center gap-2 rounded-md border bg-card px-2.5 text-sm focus-within:ring-2 focus-within:ring-ring/50">
+                    <Search className="size-3.5 shrink-0 text-muted-foreground" />
+                    <input
+                        type="search"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Procurar ficheiros"
+                        aria-label="Procurar ficheiros"
+                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+                    />
+                </label>
+            </div>
+            {found.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhum ficheiro com «{query.trim()}».</p>
+            ) : (
+                <div className="flex flex-col gap-4 p-3">
+                    {found.map(({ message, attachments }) => (
+                        <div key={message.id} className="flex flex-col gap-1.5">
+                            <p className="text-[11px] text-muted-foreground">
+                                <span className="font-medium text-foreground/80">{message.author}</span> · {dateTime(message.created_at)}
+                            </p>
+                            <MessageAttachments attachments={attachments} />
+                        </div>
+                    ))}
                 </div>
-            ))}
+            )}
         </div>
     );
 }
