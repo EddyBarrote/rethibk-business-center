@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { ProductShowcase } from '@/Components/auth/ProductShowcase';
 import { PRODUCT_NAME, RethinkMark } from '@/Components/RethinkMark';
 import { Button } from '@/Components/ui/button';
 import { type Appearance, useAppearance } from '@/lib/appearance';
@@ -19,8 +20,8 @@ const nextAppearance: Record<Appearance, { next: Appearance; label: string; icon
 };
 
 /**
- * Every sign-in screen: the illustrated product panel on the left (large
- * screens only) and the form on the right, under the tenant's own brand.
+ * Every sign-in screen: the product panel on the left (large screens only),
+ * drawn with components, and the form on the right, under the tenant's own brand.
  */
 export function AuthLayout({
     title,
@@ -76,22 +77,22 @@ export function AuthLayout({
 
 function ProductPanel() {
     return (
-        <aside className="relative hidden overflow-hidden border-r bg-[#F4EEE4] lg:block dark:bg-[#2B2A27]">
-            <img src="/images/auth/login-hero.webp" alt="" className="absolute inset-0 size-full object-cover object-top dark:hidden" />
-            <img src="/images/auth/login-hero-dark.webp" alt="" className="absolute inset-0 hidden size-full object-cover object-top dark:block" />
-            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#F4EEE4] via-[#F4EEE4]/80 to-transparent dark:from-[#2B2A27] dark:via-[#2B2A27]/80" />
+        <aside className="relative hidden overflow-hidden border-r bg-muted/60 lg:block dark:bg-sidebar">
+            <div className="absolute inset-0 bg-[radial-gradient(var(--border)_1px,transparent_1px)] [mask-image:linear-gradient(to_bottom,black,transparent_85%)] bg-[size:20px_20px]" />
 
-            <div className="relative flex h-full flex-col justify-between p-10 xl:p-12">
+            <div className="relative flex h-full flex-col justify-between gap-10 p-10 xl:p-12">
                 <div className="flex items-center gap-2.5">
                     <RethinkMark className="size-8" />
-                    <span className="font-semibold tracking-tight text-stone-900 dark:text-stone-50">{PRODUCT_NAME}</span>
+                    <span className="font-semibold tracking-tight">{PRODUCT_NAME}</span>
                 </div>
 
+                <ProductShowcase className="[@media(max-height:46rem)]:hidden" />
+
                 <div className="max-w-md space-y-6">
-                    <p className="text-3xl leading-tight font-semibold tracking-tight text-balance text-stone-900 xl:text-4xl dark:text-stone-50">
+                    <p className="text-3xl leading-tight font-semibold tracking-tight text-balance xl:text-4xl">
                         A sua equipa de agentes, a trabalhar consigo.
                     </p>
-                    <ul className="space-y-2.5 text-sm text-stone-700 dark:text-stone-300">
+                    <ul className="space-y-2.5 text-sm text-muted-foreground">
                         {[
                             'Agentes que tratam tarefas, documentos e propostas',
                             'Aprovações humanas onde importa',
