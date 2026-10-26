@@ -221,3 +221,44 @@ it('drafts the whole flow from a description, keeping what the person chose and 
 
     expect(asTenant($this->tenant, fn () => Workflow::query()->count()))->toBe($count);
 });
+
+it('describes a flow on its own page, shows each stage and step as it goes, and opens the draft in the editor unsaved', function () {
+    $count = asTenant($this->tenant, fn () => Workflow::query()->count());
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'settings/workflows/describe?category=lead'))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Workflows/Describe')->where('category.value', 'lead'));
+
+    WorkflowDrafter::fake([[
+        'name' => 'Qualificar leads novos',
+        'trigger' => 'email',
+        'agent' => 'client_manager',
+        'steps' => [
+            ['ref' => 'ver', 'type' => 'agent', 'label' => 'Ver se já é cliente', 'next' => 'aprovar'],
+            ['ref' => 'aprovar', 'type' => 'approval', 'label' => 'Aprovar a resposta', 'approved' => 'end', 'rejected' => 'end'],
+        ],
+    ]]);
+
+    $response = $this->actingAs($this->owner)->post(tenantUrl($this->tenant, 'settings/workflows/draft/stream'), [
+        'description' => 'Quando chega um lead novo, ver se já é cliente e pedir aprovação da resposta.',
+        'email_category' => 'lead',
+    ])->assertOk();
+
+    $lines = collect(explode("\n", trim($response->streamedContent())))->map(fn ($line) => json_decode($line, true));
+
+    expect($lines->where('type', 'stage')->pluck('text')->join(' '))->toContain('agentes activos', 'Nome: Qualificar leads novos', 'Verificado')
+        ->and($lines->where('type', 'step')->pluck('label')->all())->toBe(['Ver se já é cliente', 'Aprovar a resposta'])
+        ->and($lines->last()['type'])->toBe('draft');
+
+    $token = $lines->last()['token'];
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "settings/workflows/new?draft={$token}"))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Workflows/Edit')->where('from_draft', true)
+            ->where('initial.name', 'Qualificar leads novos')->where('initial.email_category', 'lead')
+            ->where('initial.agent_id', $this->manager->id));
+
+    // Another person cannot open someone else's draft.
+    $this->actingAs($this->ana)->get(tenantUrl($this->tenant, "settings/workflows/new?draft={$token}"))
+        ->assertInertia(fn (Assert $page) => $page->where('from_draft', false));
+
+    expect(asTenant($this->tenant, fn () => Workflow::query()->count()))->toBe($count);
+});
