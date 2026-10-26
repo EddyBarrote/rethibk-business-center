@@ -162,3 +162,16 @@ it('sends a price proposal to a known client only with a person\'s decision', fu
             ->and($send->ceilingReason($internal, $context))->toBeNull();
     });
 });
+
+it('hands a client\'s email to the Chief of Staff when the company has no Gestor de Clientes', function () {
+    asTenant($this->tenant, function () {
+        $this->manager->forceFill(['status' => 'suspended'])->save();
+        $chief = templateAgent('chief_of_staff');
+
+        $route = app(App\Workflows\EmailRouter::class)->route(EmailCategory::ClientRequest);
+
+        expect($route['agent']?->id)->toBe($chief->id)->and($route['source'])->toBe('default')
+            // Kinds with no handler still stay with triage.
+            ->and(app(App\Workflows\EmailRouter::class)->route(EmailCategory::Newsletter)['agent'])->toBeNull();
+    });
+});

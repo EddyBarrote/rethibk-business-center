@@ -13,8 +13,9 @@ use App\Models\Workflow;
  * Who handles a kind of email after triage (docs/DECISOES.md, "Fluxos de
  * trabalho"): the agent of the active flow for it; else the agent of the rule
  * in Definições › Regras de email; else the default for the category
- * (EmailCategory::handlerRole()). A rule without an agent keeps the email with
- * triage and the person it was routed to.
+ * (EmailCategory::handlerRole()), or the Chief of Staff when the company has no
+ * agent in that role (a tenant without a Gestor de Clientes). A rule without an
+ * agent keeps the email with triage and the person it was routed to.
  */
 final class EmailRouter
 {
@@ -40,7 +41,7 @@ final class EmailRouter
         }
 
         $role = $category->handlerRole();
-        $agent = $role !== null ? $this->agents->forRole($role) : null;
+        $agent = $role !== null ? ($this->agents->forRole($role) ?? $this->agents->forRole('chief_of_staff')) : null;
 
         return ['agent' => $agent, 'workflow' => null, 'fallback' => null, 'source' => $agent !== null ? 'default' : 'none'];
     }
