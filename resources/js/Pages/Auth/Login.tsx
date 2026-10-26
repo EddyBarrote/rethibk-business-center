@@ -8,10 +8,15 @@ export default function Login({ brand }: { brand: LoginBrand | null }) {
     const { flash } = usePage<SharedProps>().props;
 
     return (
-        <AuthLayout title="Entrar" brand={brand} heading="Bem-vindo de volta" description="Entre com o email e a palavra-passe da sua conta.">
+        <AuthLayout
+            title="Entrar"
+            brand={brand}
+            heading="Bem-vindo de volta"
+            description="Entre com o email e a palavra-passe da sua conta."
+            note="Não tem conta? Peça acesso ao administrador da sua empresa."
+        >
             <AuthStatus message={flash.success} />
             <SignInForm />
-            <p className="mt-6 text-center text-xs text-muted-foreground">Não tem conta? Peça acesso ao administrador da sua empresa.</p>
         </AuthLayout>
     );
 }

@@ -2,7 +2,6 @@ import { Head } from '@inertiajs/react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { ProductShowcase } from '@/Components/auth/ProductShowcase';
 import { PRODUCT_NAME, RethinkMark } from '@/Components/RethinkMark';
 import { Button } from '@/Components/ui/button';
 import { type Appearance, useAppearance } from '@/lib/appearance';
@@ -20,8 +19,9 @@ const nextAppearance: Record<Appearance, { next: Appearance; label: string; icon
 };
 
 /**
- * Every sign-in screen: the product panel on the left (large screens only),
- * drawn with components, and the form on the right, under the tenant's own brand.
+ * Every sign-in screen: one card in the middle of the page, under a soft glow
+ * of the theme's primary colour, with the company's logo above it (the
+ * product mark when it has none). The same on a phone and on a large screen.
  */
 export function AuthLayout({
     title,
@@ -29,6 +29,7 @@ export function AuthLayout({
     description,
     brand,
     eyebrow,
+    note,
     children,
 }: {
     title: string;
@@ -36,87 +37,54 @@ export function AuthLayout({
     description: ReactNode;
     brand?: LoginBrand | null;
     eyebrow?: ReactNode;
+    /** A line under the card, such as the way back or how to get an account. */
+    note?: ReactNode;
     children: ReactNode;
 }) {
     return (
-        <div className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] xl:grid-cols-2">
+        <div className="relative flex min-h-svh flex-col overflow-hidden bg-background px-4 sm:px-8">
             <Head title={title} />
-            <ProductPanel />
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent)]"
+            />
 
-            <div className="flex min-h-svh flex-col px-4 py-6 sm:px-10">
-                <header className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 lg:invisible">
-                        <RethinkMark className="size-7" />
-                        <span className="text-sm font-semibold tracking-tight">{PRODUCT_NAME}</span>
+            <header className="relative mx-auto flex w-full max-w-6xl justify-end py-5">
+                <AppearanceToggle />
+            </header>
+
+            <main className="relative flex flex-1 items-center justify-center py-8">
+                <div className="w-full max-w-[400px]">
+                    <div className="flex flex-col items-center text-center">
+                        {brand?.logo_url ? (
+                            <img src={brand.logo_url} alt="" className="h-12 max-w-48 object-contain" />
+                        ) : (
+                            <RethinkMark className="size-14 rounded-2xl shadow-[0_10px_30px_-8px_color-mix(in_oklch,var(--primary)_60%,transparent)]" />
+                        )}
+                        {eyebrow && <div className="mt-6 -mb-2">{eyebrow}</div>}
+                        <h1 className="mt-6 text-3xl font-semibold tracking-tight">{heading}</h1>
+                        <p className="mt-2 text-[15px] text-balance text-muted-foreground">{description}</p>
                     </div>
-                    <AppearanceToggle />
-                </header>
 
-                <main className="flex flex-1 items-center justify-center py-10">
-                    <div className="w-full max-w-sm">
-                        {eyebrow}
-                        {brand && <TenantIdentity brand={brand} />}
-                        <div className="mb-8 space-y-2">
-                            <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
-                            <p className="text-sm text-muted-foreground">{description}</p>
-                        </div>
+                    <div className="mt-8 rounded-3xl border bg-card p-6 shadow-[0_20px_60px_-20px_rgb(15_23_42/0.18)] sm:p-8 dark:shadow-none">
                         {children}
                     </div>
-                </main>
 
-                <footer className="flex flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
+                    {note && <div className="mt-6 text-center text-sm text-muted-foreground">{note}</div>}
+                </div>
+            </main>
+
+            <footer className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 border-t py-5 text-xs text-muted-foreground sm:flex-row">
+                <span className="flex items-center gap-2 text-center sm:text-left">
+                    <RethinkMark className="hidden size-5 rounded-[5px] sm:flex" />
                     <span>
-                        Desenvolvido por <span className="font-medium text-foreground">Rethink Technologies</span>
+                        {PRODUCT_NAME} · Desenvolvido por <span className="font-medium text-foreground">Rethink Technologies</span>
                     </span>
-                    <span className="font-mono">© {new Date().getFullYear()}</span>
-                </footer>
-            </div>
+                </span>
+                <span className="font-mono">© {new Date().getFullYear()}</span>
+            </footer>
         </div>
     );
-}
-
-function ProductPanel() {
-    return (
-        <aside className="relative hidden overflow-hidden border-r bg-muted/60 lg:block dark:bg-sidebar">
-            <div className="absolute inset-0 bg-[radial-gradient(var(--border)_1px,transparent_1px)] [mask-image:linear-gradient(to_bottom,black,transparent_85%)] bg-[size:20px_20px]" />
-
-            <div className="relative flex h-full flex-col justify-between gap-10 p-10 xl:p-12">
-                <div className="flex items-center gap-2.5">
-                    <RethinkMark className="size-8" />
-                    <span className="font-semibold tracking-tight">{PRODUCT_NAME}</span>
-                </div>
-
-                <ProductShowcase className="[@media(max-height:38rem)]:hidden" />
-
-                <div className="max-w-md space-y-6">
-                    <p className="text-3xl leading-tight font-semibold tracking-tight text-balance xl:text-4xl">
-                        A sua equipa de agentes, a trabalhar consigo.
-                    </p>
-                    <ul className="space-y-2.5 text-sm text-muted-foreground">
-                        {[
-                            'Agentes que tratam tarefas, documentos e propostas',
-                            'Aprovações humanas onde importa',
-                            'Ligado ao seu ERP, email e base de conhecimento',
-                        ].map((line) => (
-                            <li key={line} className="flex items-center gap-2.5">
-                                <span className="size-1.5 rounded-full bg-primary" />
-                                {line}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
-        </aside>
-    );
-}
-
-/** The company's own logo (Definições › Marca), when it has one; never its name. */
-function TenantIdentity({ brand }: { brand: LoginBrand }) {
-    if (!brand.logo_url) {
-        return null;
-    }
-
-    return <img src={brand.logo_url} alt="" className="mb-8 h-10 max-w-40 object-contain" />;
 }
 
 function AppearanceToggle() {

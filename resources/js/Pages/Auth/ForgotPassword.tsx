@@ -33,6 +33,12 @@ export default function ForgotPassword({
             eyebrow={admin ? <AdminBadge /> : undefined}
             heading="Recuperar acesso"
             description="Indique o email da sua conta e enviamos um link para definir uma nova palavra-passe."
+            note={
+                <Link href="/login" className="inline-flex items-center gap-1.5 hover:text-foreground">
+                    <ArrowLeft className="size-3.5" />
+                    Voltar a entrar
+                </Link>
+            }
         >
             <AuthStatus message={status} />
             {dev_reset_url && (
@@ -69,11 +75,6 @@ export default function ForgotPassword({
                     Enviar link
                 </Button>
             </form>
-
-            <Link href="/login" className="mt-8 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="size-3.5" />
-                Voltar a entrar
-            </Link>
         </AuthLayout>
     );
 }
