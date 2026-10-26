@@ -266,7 +266,8 @@ final class Handoffs
             ->whereBetween('created_at', [$run->started_at ?? $run->created_at, $run->finished_at ?? now()])
             ->with(['assigneeAgent:id,name', 'assigneeUser:id,name'])->get()
             ->map(fn (Task $t) => "deu a tarefa «{$t->title}» a ".($t->assigneeAgent->name ?? $t->assigneeUser->name ?? '?'));
-        $done = $passed->merge($tasks);
+        // toBase(): an empty Eloquent collection would merge the strings as models.
+        $done = $passed->toBase()->merge($tasks);
 
         return ($done->isEmpty()
             ? "Segundo os registos, {$name} não passou trabalho a ninguém nesta resposta."

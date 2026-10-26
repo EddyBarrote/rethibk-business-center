@@ -138,6 +138,24 @@ it('passes a request to a colleague, who works on it in the person\'s conversati
     });
 });
 
+it('tells the agent that passed the request about the tasks the colleague gave out while answering', function () {
+    asTenant($this->tenant, function () {
+        $threads = app(TaskThread::class);
+        $cosChat = $threads->conversation($this->edy, $this->chief);
+        $threads->post($cosChat, $this->edy, 'Prepara a resposta ao concurso');
+        $cosRun = runningIn($cosChat);
+        sendTo($cosRun, 'gestor_comercial', 'Prepara a resposta ao concurso.');
+        finish($cosRun, 'Passei ao Gestor Comercial.');
+
+        $salesRun = runningIn(Task::query()->where('chat_key', TaskThread::chatKey($this->edy, $this->sales))->sole());
+        Task::factory()->create(['title' => 'Preços dos equipamentos', 'created_by_agent_id' => $this->sales->id, 'assignee_agent_id' => $this->finance->id, 'user_id' => $this->edy->id]);
+        finish($salesRun, 'Pedi os preços às Finanças.');
+
+        expect(AgentRun::query()->where('task_id', $cosChat->id)->latest('id')->first()->input)
+            ->toContain('Gestor Comercial deu a tarefa «Preços dos equipamentos» a Finanças');
+    });
+});
+
 it('tells the agent that passed the request when the colleague could not finish', function () {
     asTenant($this->tenant, function () {
         $threads = app(TaskThread::class);
