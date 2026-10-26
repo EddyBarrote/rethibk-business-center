@@ -11,6 +11,8 @@ use App\Enums\AttachmentKind;
 use App\Enums\TriggerType;
 use App\Models\Agent;
 use App\Models\AuditLog;
+use App\Models\EmailAttachment;
+use App\Models\EmailMessage;
 use App\Models\MessageAttachment;
 use App\Models\Skill;
 use App\Models\Task;
@@ -213,4 +215,43 @@ it('stops code that runs too long', function () {
     config(['agents.code_execution.timeout' => 2]);
 
     expect(runCode($this, ['code' => "while True:\n    pass"])->content)->toContain('Parou: passou do tempo');
+})->skip(fn () => ! app(Sandbox::class)->available(), 'sem caixa para correr código (php artisan sandbox:install)');
+
+function emailTable(object $test, bool $shared): EmailAttachment
+{
+    return asTenant($test->tenant, function () use ($test, $shared) {
+        Storage::disk('local')->put('mail/recargas.csv', RECARGAS);
+        $email = EmailMessage::factory()->create();
+        // Shared by the person in the conversation, or only somewhere in the mailbox.
+        TaskMessage::factory()->create(['task_id' => $test->task->id, 'email_message_id' => $shared ? $email->id : null]);
+
+        return EmailAttachment::factory()->create([
+            'email_message_id' => $email->id, 'filename' => 'recargas.csv', 'mime_type' => 'text/csv',
+            'size_bytes' => strlen(RECARGAS), 'disk' => 'local', 'path' => 'mail/recargas.csv',
+        ]);
+    });
+}
+
+it('adds up a table attached to an email shared in the conversation, and no other email\'s', function () {
+    $shared = emailTable($this, shared: true);
+
+    expect(analyze($this, ['email_attachment_id' => $shared->id, 'group_by' => ['metodo de pagamento'], 'sum' => ['Valor da Recarga']]))
+        ->toContain('M-Pesa')->toContain('1 555,50');
+
+    $other = emailTable($this, shared: false);
+    expect(analyze($this, ['email_attachment_id' => $other->id]))->toContain('Anexo não encontrado nesta conversa');
+
+    // Passed as a file of the conversation, the agent is told where it goes.
+    expect(analyze($this, ['attachment_id' => $shared->id]))->toContain('email_attachment_id');
+});
+
+it('runs code over a spreadsheet attached to an email shared in the conversation', function () {
+    $shared = emailTable($this, shared: true);
+    $other = emailTable($this, shared: false);
+
+    expect(runCode($this, ['email_attachment_ids' => [$shared->id], 'code' => 'print(open("recargas.csv").read().count("M-Pesa"))'])->content)
+        ->toContain('Ficheiros na pasta: «recargas.csv». Terminou sem erros.')->toContain('4');
+
+    expect(runCode($this, ['email_attachment_ids' => [$other->id], 'code' => 'print(1)'])->content)->toContain('Anexos de email que não estão nesta conversa');
+    expect(runCode($this, ['attachment_ids' => [$shared->id], 'code' => 'print(1)'])->content)->toContain('email_attachment_ids');
 })->skip(fn () => ! app(Sandbox::class)->available(), 'sem caixa para correr código (php artisan sandbox:install)');

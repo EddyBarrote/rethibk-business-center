@@ -6,6 +6,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Attachments\TableReader;
+use App\Models\EmailAttachment;
 use App\Models\MessageAttachment;
 use App\Tasks\TaskThread;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -40,7 +41,7 @@ final class AnalyzeAttachment extends LocalCapability
 
     public function description(): string
     {
-        return 'Conta linhas, soma colunas e agrupa um anexo CSV ou Excel desta conversa, percorrendo o ficheiro todo. '
+        return 'Conta linhas, soma colunas e agrupa um anexo CSV ou Excel desta conversa ou de um email dela, percorrendo o ficheiro todo. '
             .'Usa-o para qualquer total, contagem ou quebra (por dia, por método, por pessoa) em vez de ler a tabela por partes com files.read: '
             .'contas feitas sobre partes estão erradas. Sem filtros nem grupos, devolve as colunas, quantas linhas há e os valores que cada coluna toma. '
             .'Filtra com where (coluna, operador, valor) e com date_column + from/to (datas AAAA-MM-DD, inclusive); agrupa com group_by (até 2 colunas, '
@@ -50,7 +51,8 @@ final class AnalyzeAttachment extends LocalCapability
     public function schema(JsonSchema $schema): array
     {
         return [
-            'attachment_id' => $schema->integer()->required(),
+            'attachment_id' => $schema->integer()->description('Anexo desta conversa.'),
+            'email_attachment_id' => $schema->integer()->description('Em vez de attachment_id: anexo de um email desta conversa (o número que email.read mostra em «anexo #»).'),
             'sheet' => $schema->string()->description('Folha do Excel (nome ou número a partir de 1). Por defeito, a primeira.'),
             'header_row' => $schema->integer()->min(1)->description('Linha com os nomes das colunas, se não for encontrada sozinha.'),
             'where' => $schema->array()->items($schema->object([
@@ -70,7 +72,8 @@ final class AnalyzeAttachment extends LocalCapability
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
         $data = Validator::make($arguments, [
-            'attachment_id' => 'required|integer',
+            'attachment_id' => 'required_without:email_attachment_id|nullable|integer',
+            'email_attachment_id' => 'nullable|integer',
             'sheet' => 'nullable',
             'header_row' => 'nullable|integer|min:1',
             'where' => 'nullable|array|max:10',
@@ -87,18 +90,24 @@ final class AnalyzeAttachment extends LocalCapability
             'sum.*' => 'string',
         ])->validate();
 
-        $attachment = $context->run->task_id === null ? null : MessageAttachment::query()
-            ->ready()
-            ->whereIn('task_id', app(TaskThread::class)->readableTaskIds($context->run))
-            ->whereNotNull('task_message_id')
-            ->find($data['attachment_id']);
+        $attachment = match (true) {
+            isset($data['email_attachment_id']) => EmailAttachment::query()
+                ->whereIn('email_message_id', app(TaskThread::class)->readableEmailIds($context->run))
+                ->find($data['email_attachment_id']),
+            $context->run->task_id === null => null,
+            default => MessageAttachment::query()
+                ->ready()
+                ->whereIn('task_id', app(TaskThread::class)->readableTaskIds($context->run))
+                ->whereNotNull('task_message_id')
+                ->find($data['attachment_id']),
+        };
 
         if ($attachment === null) {
-            return CapabilityResult::error('Anexo não encontrado nesta conversa.');
+            return CapabilityResult::error('Anexo não encontrado nesta conversa.'.(isset($data['email_attachment_id']) ? '' : ' Se é anexo de um email, passa-o em email_attachment_id.'));
         }
 
-        if (! TableReader::handles($attachment->filename, (string) $attachment->mime_type)) {
-            return CapabilityResult::error("O {$attachment->reference()} ({$attachment->filename}) não é uma tabela CSV ou Excel. Lê-o com files.read.");
+        if (! TableReader::handles($attachment->fileName(), $attachment->mimeType())) {
+            return CapabilityResult::error("O {$attachment->reference()} ({$attachment->fileName()}) não é uma tabela CSV ou Excel. Lê-o com files.read.");
         }
 
         $path = $attachment->storagePath();
@@ -107,7 +116,7 @@ final class AnalyzeAttachment extends LocalCapability
             return CapabilityResult::error("O ficheiro do {$attachment->reference()} já não está disponível.");
         }
 
-        $table = $this->reader->read(Storage::disk($attachment->diskName())->path($path), $attachment->filename, $data['sheet'] ?? null, $data['header_row'] ?? null);
+        $table = $this->reader->read(Storage::disk($attachment->diskName())->path($path), $attachment->fileName(), $data['sheet'] ?? null, $data['header_row'] ?? null);
 
         if (is_string($table)) {
             return CapabilityResult::error($table);
@@ -135,7 +144,7 @@ final class AnalyzeAttachment extends LocalCapability
             return CapabilityResult::error('Para from, to ou group_by_day indica a date_column.');
         }
 
-        $head = "{$attachment->reference()} {$attachment->filename}".($table['sheets'] !== [] ? ' · folhas: '.implode(', ', $table['sheets']) : '')
+        $head = "{$attachment->reference()} {$attachment->fileName()}".($table['sheets'] !== [] ? ' · folhas: '.implode(', ', $table['sheets']) : '')
             .' · '.count($table['rows'])." linhas de dados (cabeçalho na linha {$table['header_row']})";
 
         $plain = $table['plain_numbers'];
@@ -246,7 +255,7 @@ final class AnalyzeAttachment extends LocalCapability
 
     public function summarise(array $arguments): string
     {
-        return 'Contas ao anexo #'.($arguments['attachment_id'] ?? '?');
+        return isset($arguments['email_attachment_id']) ? 'Contas ao anexo de email #'.$arguments['email_attachment_id'] : 'Contas ao anexo #'.($arguments['attachment_id'] ?? '?');
     }
 
     /**

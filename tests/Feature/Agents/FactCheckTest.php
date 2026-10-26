@@ -155,5 +155,74 @@ it('points out amounts with no source in the reply itself', function () {
 it('tells every agent to ask instead of inventing', function () {
     asTenant($this->tenant, fn () => expect(app(InstructionComposer::class)->for($this->agent))
         ->toContain('Nunca inventes nem estimes factos de negócio')
-        ->toContain('company.propose_fact'));
+        ->toContain('company.propose_fact')
+        ->toContain('faz-se com files.analyze ou code.run')->toContain('diz que não podes validar contra o ERP'));
+});
+
+const MAPA_CLIENTES = <<<'TXT'
+Anexo #81 Apuramento de IVA.xlsx
+Descrição Nº Ordem Diário Nº Diário Factura Cliente NUIT Valor da factura Vendas líquidas IVA Liquidado Diferença
+Bilhetes 1 64 46266 Triple Vision Entretenimento 400563470 2107 1816.38 290.62080000000003 0
+Cashless 2 65 46266 Pay-Produtor de conteudo 144441079 26117.4 22515 3602.4 0
+Bilhetes 3 66 46273 SHIP TO 401361685 9250 7974.14 1275.8624 0
+Bilhetes 4 67 46273 Triple Vision Entretenimento 400563470 1624 1400 224 0
+Bilhetes 5 68 46273 SHIP TO 401361685 9625 8297.41 1327.5856000000001 0
+Total 48723.4 42002.93 6720.4688 0
+TXT;
+
+function vatRun(object $test): AgentRun
+{
+    $run = app(AgentRunner::class)->create($test->agent, 'Vê se este apuramento de IVA está conforme.', TriggerType::Manual);
+    app(RunRecorder::class)->step($run, StepType::ToolResult, ['ok' => true, 'content' => MAPA_CLIENTES], 'documents.read_attachment');
+
+    return $run;
+}
+
+it('takes a client\'s rows of a table the run read, added up, as found', function () {
+    asTenant($this->tenant, function () {
+        $reply = "Clientes facturados:\n* **Triple Vision Entretenimento:** 3 731,00 MZN (Vendas líquidas: 3 216,38 MZN | IVA: 514,62 MZN)\n"
+            ."* **SHIP TO:** 18 875,00 MZN (Vendas líquidas: 16 271,55 MZN | IVA: 2 603,45 MZN)\n* **Pay-Produtor de conteudo:** 26 117,40 MZN\n\nTotal: 48 723,40 MZN.";
+
+        expect(app(FactCheck::class)->annotate($reply, vatRun($this)))->toBe($reply);
+    });
+});
+
+it('points out sums that do not add up, and totals no source has, so a wrong check is never passed as validated', function () {
+    asTenant($this->tenant, function () {
+        // SHIP TO added wrong; the lines no longer make the total next to them.
+        $reply = "#### Vendas\n* **Volume Total Faturado:** 48 723,40 MZN\n\n*Clientes:*\n"
+            ."* **SHIP TO:** 28 875,00 MZN faturados (Vendas líquidas: 16 271,55 MZN | IVA: 2 603,45 MZN)\n"
+            ."* **Triple Vision Entretenimento:** 3 731,00 MZN faturados (Vendas líquidas: 3 216,38 MZN | IVA: 514,62 MZN)\n"
+            ."* **Pay-Produtor de conteudo:** 26 117,40 MZN faturados (Vendas líquidas: 22 515,00 MZN | IVA: 3 602,40 MZN)\n\n"
+            .'IVA liquidado: $42\\,002,93 \\times 16\\% = \\mathbf{6\\,820,47\\text{ MZN}}$, logo está **correcto**.';
+
+        $text = app(FactCheck::class)->annotate($reply, vatRun($this));
+
+        expect($text)->toContain('há contas nesta resposta que não batem')
+            ->toContain('28 875,00 não é 16 271,55 + 2 603,45 (dá 18 875,00)')
+            ->toContain('as linhas listadas somam 58 723,40 e o total indicado é 48 723,40')->not->toContain('somam 42 002,93')
+            ->toContain('42 002,93 × 16% dá 6 720,47, não 6 820,47')
+            ->toContain('não encontrei nas fontes desta conversa os dados 28 875,00 MZN, 6 820,47 MZN');
+    });
+});
+
+it('checks the equations a reply writes out', function () {
+    $check = app(FactCheck::class);
+
+    expect($check->inconsistencies('IVA a pagar = 57 855,21 MZN − 656,55 MZN = 57 198,66 MZN'))->toBe([])
+        ->and($check->inconsistencies('Total: $464,8272 + 191,7248 = \\mathbf{656,55\\text{ MZN}}$'))->toBe([])
+        ->and($check->inconsistencies('361 595,05 × 16% = 57 855,21 MZN'))->toBe([])
+        ->and($check->inconsistencies('Saldo: 574 725,00 MZN − 25 900,00 MZN = 558 825,00 MZN'))->toBe(['574 725,00 MZN − 25 900,00 MZN dá 548 825,00, não 558 825,00']);
+});
+
+it('takes only the whole of a long list of records as a total, since any amount is the sum of some of them', function () {
+    asTenant($this->tenant, function () {
+        $run = app(AgentRunner::class)->create($this->agent, 'Persegue os recebimentos.', TriggerType::Schedule);
+        $invoices = ['items' => array_map(fn ($i) => ['number' => "INV-{$i}", 'total' => (string) (1000 + $i * 137.25)], range(1, 30))];
+        app(RunRecorder::class)->step($run, StepType::ToolResult, ['ok' => true, 'content' => json_encode($invoices)], 'erp.list_invoices');
+        $whole = array_sum(array_column($invoices['items'], 'total'));
+
+        expect(app(FactCheck::class)->ungrounded('Em dívida: '.number_format($whole, 2, ',', ' ').' MZN.', $run))->toBe([])
+            ->and(app(FactCheck::class)->ungrounded('Em dívida: 12 345,67 MZN.', $run))->toBe(['12 345,67 MZN']);
+    });
 });

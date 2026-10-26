@@ -387,6 +387,23 @@ final class TaskThread
     }
 
     /**
+     * The emails the agent of this run may work on the files of: the ones
+     * people shared in its threads, the one that started the run, and the
+     * one its task came from.
+     *
+     * @return list<int>
+     */
+    public function readableEmailIds(AgentRun $run): array
+    {
+        $email = (new EmailMessage)->getMorphClass();
+        $ids = TaskMessage::query()->whereIn('task_id', $this->readableTaskIds($run))->whereNotNull('email_message_id')->pluck('email_message_id')
+            ->push($run->trigger_source_type === $email ? $run->trigger_source_id : null)
+            ->push($run->task?->source_type === $email ? $run->task->source_id : null);
+
+        return $ids->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
+    /**
      * The heartbeat: a platform note in the thread wakes its agent to pick
      * the work back up.
      */

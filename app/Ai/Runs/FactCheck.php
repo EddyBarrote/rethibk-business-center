@@ -20,6 +20,10 @@ use App\Models\TaskMessage;
  * on: its instructions and the company memory, the task, the people's
  * messages and answers, and what its tools returned. Totals, quantities and
  * taxes worked out from those count as found. Anything else is a guess.
+ *
+ * A reply's own sums are checked too: an equation that does not add up, a
+ * gross that is not net plus tax, or listed lines that do not make the total
+ * next to them are pointed out, so a wrong sum is never passed as validated.
  */
 final class FactCheck
 {
@@ -34,6 +38,9 @@ final class FactCheck
 
     /** Fields of ERP records whose values a total adds up. */
     private const SUMMED_KEYS = '/^(total|amount|valor|balance|amount_due|outstanding|total_left_to_pay|left_to_pay|open_amount)$/i';
+
+    /** Records of a list beyond which a total over some of them proves nothing. */
+    private const SUBSET_LIMIT = 16;
 
     private const CURRENCY = '(?:MZN|MTn|MT|Mt|meticais|USD|US\$|EUR|ZAR|€|\$)';
 
@@ -80,10 +87,42 @@ final class FactCheck
     public function annotate(string $reply, AgentRun $run): string
     {
         $missing = $this->ungrounded($reply, $run, percentages: false);
+        $wrong = $this->inconsistencies($reply);
+        $notes = [];
 
-        return $missing === [] ? $reply
-            : rtrim($reply)."\n\n> Nota da plataforma: não encontrei nas fontes desta conversa ".$this->describe($missing).'. Se não '
+        if ($wrong !== []) {
+            $notes[] = 'Nota da plataforma: há contas nesta resposta que não batem: '.implode('; ', array_slice($wrong, 0, 6))
+                .(count($wrong) > 6 ? '; e outras' : '').'. Não dê estes valores como validados sem os conferir.';
+        }
+
+        if ($missing !== []) {
+            $notes[] = 'Nota da plataforma: não encontrei nas fontes desta conversa '.$this->describe($missing).'. Se não '
                 .(count($missing) === 1 ? 'é uma conta feita' : 'são contas feitas').' sobre dados das fontes, não '.(count($missing) === 1 ? 'está confirmado' : 'estão confirmados').'.';
+        }
+
+        return $notes === [] ? $reply : rtrim($reply)."\n\n".implode("\n\n", array_map(fn (string $note) => "> {$note}", $notes));
+    }
+
+    /**
+     * The sums of a text that do not add up: an equation, a gross that is not
+     * net plus tax, listed lines that do not make the total next to them.
+     *
+     * @return list<string>
+     */
+    public function inconsistencies(string $text): array
+    {
+        $lines = preg_split('/\R/u', $this->plain($text)) ?: [];
+        $found = [];
+
+        foreach ($lines as $line) {
+            $found = [...$found, ...$this->wrongEquations($line)];
+
+            if (($gross = $this->wrongGross($line)) !== null) {
+                $found[] = $gross;
+            }
+        }
+
+        return array_values(array_unique([...$found, ...$this->wrongTotals($lines)]));
     }
 
     /**
@@ -94,6 +133,7 @@ final class FactCheck
      */
     public function ungrounded(string $text, AgentRun $run, array $extraMoney = [], bool $percentages = true): array
     {
+        $text = $this->plain($text);
         $claims = $this->claims($text);
 
         if (! $percentages) {
@@ -109,7 +149,8 @@ final class FactCheck
         }
 
         ['text' => $corpus, 'lists' => $lists] = $this->corpus($run);
-        $known = $this->numbers($corpus);
+        // The totals per name of a table the run read (a client's invoices added up).
+        $known = [...$this->numbers($corpus), ...$this->groupTotals($text, $corpus)];
         // A rate needs a rate in the sources: any 50 is not 50%.
         preg_match_all('/(\d{1,3}(?:[.,]\d{1,2})?)\s?(?:%|por cento)/u', $corpus, $rateMatches);
         $percents = array_map(fn ($r) => (float) str_replace(',', '.', $r), $rateMatches[1]);
@@ -238,8 +279,9 @@ final class FactCheck
     }
 
     /**
-     * Whether the amount is a total of some of the records of one list.
-     * A list too long to check is given the benefit of the doubt.
+     * Whether the amount is a total of some of the records of one list. In a
+     * long list almost any amount is the sum of some of its records, which
+     * proves nothing: there only the total of the whole list counts.
      *
      * @param  list<list<float>>  $lists
      */
@@ -249,6 +291,14 @@ final class FactCheck
 
         foreach ($lists as $list) {
             if (count($list) < 2) {
+                continue;
+            }
+
+            if (count($list) > self::SUBSET_LIMIT) {
+                if (abs((int) round(array_sum($list) * 100) - $target) <= count($list)) {
+                    return true;
+                }
+
                 continue;
             }
 
@@ -269,9 +319,6 @@ final class FactCheck
                     }
                 }
 
-                if (count($reachable) > 200_000) {
-                    return true;
-                }
             }
         }
 
@@ -440,7 +487,8 @@ final class FactCheck
 
     private function same(float $a, float $b): bool
     {
-        return abs($a - $b) <= max(0.01, abs($b) * 0.0005);
+        // Rounding, not a different amount: at most 50 centavos.
+        return abs($a - $b) <= max(0.01, min(abs($b) * 0.0005, 0.5));
     }
 
     /**
@@ -500,6 +548,247 @@ final class FactCheck
     private function unique(array $claims): array
     {
         return array_values(collect($claims)->unique(fn ($c) => round($c['value'], 2))->all());
+    }
+
+    /**
+     * For each line of the text that names something (a client, a supplier),
+     * the column totals of the source rows with that name: what adding up its
+     * rows of a table gives.
+     *
+     * @return list<float>
+     */
+    private function groupTotals(string $text, string $corpus): array
+    {
+        $rows = preg_split('/\R/u', mb_strtolower($corpus)) ?: [];
+        $totals = [];
+
+        foreach (preg_split('/\R/u', $this->plain($text)) ?: [] as $line) {
+            $label = trim((string) preg_replace('/[*_`#|>\-•]+/u', ' ', (string) preg_split('/[:(\d]/u', $line)[0]));
+            $label = mb_strtolower((string) preg_replace('/\s+/u', ' ', $label));
+
+            // A name, not a heading word that every table has.
+            if (mb_strlen($label) < 4 || ! preg_match('/\p{L}{3}/u', $label)
+                || preg_match('/^(total|subtotal|soma|grande|iva|valor|montante|campo|vendas|compras|imposto|base|resumo|saldo)\b/u', $label)) {
+                continue;
+            }
+
+            $columns = [];
+            foreach ($rows as $row) {
+                if (($at = mb_strpos($row, $label)) === false) {
+                    continue;
+                }
+
+                $numbers = array_values(array_map(fn ($t) => $this->parse($t), array_filter(
+                    preg_split('/\s+/u', mb_substr($row, $at + mb_strlen($label))) ?: [],
+                    fn ($t) => preg_match('/^\d[\d.,]*$/', $t) === 1,
+                )));
+
+                // Rows of the same table have the same columns.
+                $columns[count($numbers)][] = $numbers;
+            }
+
+            foreach ($columns as $width => $group) {
+                if (count($group) < 2) {
+                    continue;
+                }
+
+                for ($k = 0; $k < $width; $k++) {
+                    $totals[] = array_sum(array_column($group, $k));
+                }
+            }
+        }
+
+        return $totals;
+    }
+
+    /**
+     * The text with LaTeX maths spelled out: ×, thin spaces as spaces, no braces.
+     */
+    private function plain(string $text): string
+    {
+        // $…$ and $$…$$ with commands in them are maths, not dollars.
+        $text = (string) preg_replace_callback('/\$\$?([^$]*\\\\[A-Za-z]+[^$]*)\$\$?/u', fn ($m) => $m[1], $text);
+        $text = str_replace(['\times', '\cdot', '\,', '\;', '\%', '\rightarrow', '\to'], ['×', '×', ' ', ' ', '%', '→', '→'], $text);
+
+        return (string) preg_replace(['/\\\\(?:mathbf|text|textbf|mathrm|operatorname)\s*/', '/[{}]/'], ['', ''], $text);
+    }
+
+    /**
+     * The amounts of a line, in the order written: with a currency, decimals
+     * after a comma or thousands grouped. A rate (16%) and a code (FT 248147) are not.
+     *
+     * @return list<float>
+     */
+    private function amounts(string $line): array
+    {
+        preg_match_all('/(?<![\d.,\p{L}])(\d{1,3}(?:[ \x{00A0}\x{202F}.]\d{3})+(?:,\d{1,4})?|\d+(?:,\d{1,4})?)(\s?(?:MZN|MTn|MT|Mt|meticais|USD|EUR|ZAR)(?![A-Za-z]))?(?![\d%])/u', $line, $matches, PREG_SET_ORDER);
+        $amounts = [];
+
+        foreach ($matches as $match) {
+            if (($match[2] ?? '') !== '' || str_contains($match[1], ',') || preg_match('/[ \x{00A0}\x{202F}.]\d{3}/u', $match[1])) {
+                $amounts[] = $this->parse($match[1]);
+            }
+        }
+
+        return $amounts;
+    }
+
+    /**
+     * Equations written in the line (a + b = c, a × 16% = c, a − b = c) whose sides differ.
+     *
+     * @return list<string>
+     */
+    private function wrongEquations(string $line): array
+    {
+        $number = '\d{1,3}(?:[ \x{00A0}\x{202F}]\d{3})+(?:[.,]\d{1,4})?|\d{1,3}(?:\.\d{3})+,\d{1,4}|\d+(?:[.,]\d{1,4})?';
+        $term = '(?:'.$number.')\s*%?\s*(?:MZN|MTn|MT|meticais)?';
+        preg_match_all('/((?:'.$term.')(?:\s*[+−–\-×*]\s*(?:'.$term.'))+)\s*=\s*('.$number.')/u', $line, $matches, PREG_SET_ORDER);
+        $wrong = [];
+
+        foreach ($matches as $match) {
+            preg_match_all('/([+−–\-×*])?\s*('.$number.')\s*(%)?/u', $match[1], $parts, PREG_SET_ORDER);
+            $sum = 0.0;
+            $product = null;
+            $sign = 1;
+
+            foreach ($parts as $part) {
+                $value = $this->parse($part[2]) / (($part[3] ?? '') === '%' ? 100 : 1);
+                $op = $part[1];
+
+                if (in_array($op, ['×', '*'], true) && $product !== null) {
+                    $product *= $value;
+
+                    continue;
+                }
+
+                if ($product !== null) {
+                    $sum += $sign * $product;
+                }
+
+                $sign = in_array($op, ['−', '–', '-'], true) ? -1 : 1;
+                $product = $value;
+            }
+
+            $result = $sum + $sign * (float) $product;
+            $stated = $this->parse($match[2]);
+
+            if (abs($result - $stated) > 0.01 * count($parts) + abs($stated) * 0.0001) {
+                $wrong[] = trim(preg_replace('/\s+/u', ' ', $match[1]) ?? '').' dá '.$this->format($result).', não '.$this->format($stated);
+            }
+        }
+
+        return $wrong;
+    }
+
+    /**
+     * A line with a gross, a net and a tax (IVA) where the gross is not net plus tax.
+     */
+    private function wrongGross(string $line): ?string
+    {
+        $amounts = array_values(array_unique($this->amounts($line), SORT_REGULAR));
+
+        if (count($amounts) !== 3 || str_contains($line, '=') || ! preg_match('/\b(IVA|imposto)/iu', $line)
+            || ! preg_match('/l[ií]quid|base|sem IVA|brut|fatur|factur|com IVA/iu', $line)) {
+            return null;
+        }
+
+        rsort($amounts);
+        [$gross, $a, $b] = $amounts;
+
+        return $this->closes($a + $b, $gross, 2) ? null
+            : $this->format($gross).' não é '.$this->format($a).' + '.$this->format($b).' (dá '.$this->format($a + $b).')';
+    }
+
+    /**
+     * Listed lines (bullets or table rows) whose amounts do not add up to the
+     * total stated beside them, in the same section.
+     *
+     * @param  list<string>  $lines
+     * @return list<string>
+     */
+    private function wrongTotals(array $lines): array
+    {
+        $isTotal = fn (string $line) => preg_match('/\b(total|soma|subtotal)\b/iu', $line) === 1;
+        $isItem = fn (string $line) => preg_match('/^\s*(?:[*\-•]\s|\d+[.)]\s|\|)/u', $line) === 1 && ! preg_match('/^\s*\|[\s:|-]+\|?\s*$/', $line);
+        $wrong = [];
+
+        // Sections: between headings and rules.
+        $sections = [[]];
+        foreach ($lines as $line) {
+            if (preg_match('/^\s*(#{1,6}\s|-{3,}\s*$|\*{3,}\s*$)/u', $line)) {
+                $sections[] = [];
+            } else {
+                $sections[count($sections) - 1][] = $line;
+            }
+        }
+
+        foreach ($sections as $section) {
+            // Runs of consecutive items, and the total lines of the section.
+            $runs = [[]];
+            foreach ($section as $line) {
+                if ($isItem($line) && ! $isTotal($line)) {
+                    $runs[count($runs) - 1][] = $line;
+                } elseif ($runs[count($runs) - 1] !== []) {
+                    $runs[] = [];
+                }
+            }
+
+            $totals = [];
+            foreach ($section as $line) {
+                if ($isTotal($line)) {
+                    $totals = [...$totals, ...$this->amounts($line)];
+                }
+            }
+
+            if ($totals === []) {
+                continue;
+            }
+
+            foreach ($runs as $run) {
+                $rows = array_values(array_filter(array_map(fn ($line) => $this->amounts($line), $run)));
+                $width = count($rows[0] ?? []);
+
+                // Only a list whose lines all carry the same columns.
+                if (count($rows) < 2 || $width === 0 || collect($rows)->contains(fn ($row) => count($row) !== $width)) {
+                    continue;
+                }
+
+                // A total that one column makes is that column's; the others are compared with what is left.
+                $sums = array_map(fn ($k) => array_sum(array_column($rows, $k)), range(0, $width - 1));
+                $left = $totals;
+
+                foreach ($sums as $k => $sum) {
+                    foreach ($left as $i => $total) {
+                        if ($this->closes($sum, $total, count($rows))) {
+                            unset($left[$i], $sums[$k]);
+
+                            break;
+                        }
+                    }
+                }
+
+                // Each total left goes with the largest column near it (a gross before its net), once.
+                rsort($left);
+                foreach ($left as $total) {
+                    $near = collect($sums)->filter(fn ($sum) => $total > 0 && abs($total - $sum) <= $total * 0.25)->sortDesc();
+
+                    if ($near->isNotEmpty()) {
+                        $wrong[] = 'as linhas listadas somam '.$this->format($near->first()).' e o total indicado é '.$this->format($total);
+                        unset($sums[$near->keys()->first()]);
+                    }
+                }
+            }
+        }
+
+        return $wrong;
+    }
+
+    /**
+     * Two amounts equal but for the rounding of the parts that make one.
+     */
+    private function closes(float $a, float $b, int $parts): bool
+    {
+        return abs($a - $b) <= 0.01 * max(1, $parts) + abs($b) * 0.00001;
     }
 
     private function format(float $value): string
