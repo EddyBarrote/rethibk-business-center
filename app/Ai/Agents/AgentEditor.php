@@ -51,7 +51,8 @@ final class AgentEditor
             'status' => ['required', Rule::enum(AgentStatus::class)],
             'autonomy_level' => ['required', Rule::enum(AutonomyLevel::class)],
             'provider' => ['nullable', 'string', Rule::in(array_keys((array) config('ai.providers')))],
-            'model' => ['nullable', 'string', 'max:255'],
+            // One of the list (or the value it already has, so an old agent still saves).
+            'model' => ['nullable', 'string', 'max:255', Rule::in([...array_column(self::models(), 'model'), ...($agent?->model !== null ? [$agent->model] : [])])],
             'temperature' => ['nullable', 'numeric', 'between:0,2'],
             'max_tokens' => ['nullable', 'integer', 'between:1,200000'],
             'max_steps' => ['nullable', 'integer', 'between:1,50'],
@@ -172,8 +173,26 @@ final class AgentEditor
             'levels' => AutonomyLevel::options(),
             'statuses' => array_map(fn (AgentStatus $status) => ['value' => $status->value, 'label' => $status->label()], AgentStatus::cases()),
             'providers' => array_keys((array) config('ai.providers')),
+            'models' => self::models(),
             'defaultProvider' => config('ai.default'),
             'defaultCapabilities' => Capability::query()->whereIn('key', CapabilityRegistry::ON_BY_DEFAULT)->pluck('id'),
         ];
+    }
+
+    /**
+     * The models of config agents.models whose provider has a key, with their price.
+     *
+     * @return list<array{provider: string, model: string, label: string, hint: string, input: float|null, output: float|null}>
+     */
+    public static function models(): array
+    {
+        return array_values(array_map(fn (array $m) => [
+            'provider' => (string) $m['provider'],
+            'model' => (string) $m['model'],
+            'label' => (string) $m['label'],
+            'hint' => (string) ($m['hint'] ?? ''),
+            'input' => config("agents.pricing.{$m['provider']}:{$m['model']}.input"),
+            'output' => config("agents.pricing.{$m['provider']}:{$m['model']}.output"),
+        ], array_filter((array) config('agents.models'), fn (array $m) => filled(config("ai.providers.{$m['provider']}.key")))));
     }
 }

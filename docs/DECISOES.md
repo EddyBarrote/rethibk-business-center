@@ -1467,3 +1467,8 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - As páginas de definição (agente, skill e agente do super admin) deixam de ter secções em caixas. Cada secção é separada da seguinte por espaço e uma linha fina. Em ecrãs muito largos, o título e a explicação ficam à esquerda e os campos à direita, como numa página de definições.
 - As capacidades aparecem agrupadas por área (Trabalho e equipa, Email e comunicação, Conhecimento, Finanças, Clientes e vendas, Compras, Pessoas, ERP, Conectores). Cada grupo mostra quantas estão escolhidas e tem «Escolher todas» / «Tirar todas». Os grupos sem nenhuma escolhida começam fechados. Há procura (também pela descrição) e «Só as escolhidas».
 - O nível de autonomia escolhe-se numa lista com os cinco níveis visíveis, em vez de um select.
+
+## Agentes: escolher o modelo (27.10.2026)
+
+- Na configuração do agente, o modelo escolhe-se de uma lista (`config('agents.models')`) e deixa de se escrever. A primeira opção é «Por omissão da plataforma» e as seguintes são os modelos cujo provedor tem chave, cada um com uma frase e o preço por milhão de tokens (de `agents.pricing`). Hoje são o Gemini 3.6 Flash e o Gemini 3.1 Flash-Lite.
+- A validação só aceita modelos da lista, ou o modelo que o agente já tinha, para um agente antigo continuar a gravar. A página do agente mostra o modelo pelo nome.

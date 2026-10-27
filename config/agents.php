@@ -72,6 +72,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | The models an agent can be given (docs/DECISOES.md, "Agentes: escolher o modelo")
+    |--------------------------------------------------------------------------
+    |
+    | Chosen from a list on the agent's page, never typed. A model shows only
+    | when its provider has a key. Its price comes from `pricing` below.
+    |
+    */
+
+    'models' => [
+        ['provider' => 'gemini', 'model' => 'gemini-3.6-flash', 'label' => 'Gemini 3.6 Flash', 'hint' => 'Bom a raciocinar e a usar ferramentas. É o modelo por omissão.'],
+        ['provider' => 'gemini', 'model' => 'gemini-3.1-flash-lite', 'label' => 'Gemini 3.1 Flash-Lite', 'hint' => 'Mais rápido e cerca de 6 vezes mais barato. Para triagem e tarefas simples.'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Prices, in USD per million tokens (section 14.3)
     |--------------------------------------------------------------------------
     |

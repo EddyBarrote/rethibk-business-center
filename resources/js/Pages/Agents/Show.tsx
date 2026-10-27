@@ -27,6 +27,7 @@ interface Props {
         personality: string | null;
         provider: string;
         model: string;
+        model_label?: string;
         assignees: { id: number; name: string; level: 'chat' | 'work' }[];
     };
     capabilities: { key: string; name: string; is_mutating: boolean; risk: number; ceiling: boolean }[];
@@ -473,9 +474,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                     <Property label="Departamento">{agent.department}</Property>
                     <Property label="Responde a">{agent.reports_to}</Property>
                     <Property label="Modelo">
-                        <span className="font-mono text-xs">
-                            {agent.provider} · {agent.model}
-                        </span>
+                        <span className="text-sm">{agent.model_label ?? `${agent.provider} · ${agent.model}`}</span>
                     </Property>
                     <Property label="Chave">
                         <span className="font-mono text-xs">{agent.key}</span>

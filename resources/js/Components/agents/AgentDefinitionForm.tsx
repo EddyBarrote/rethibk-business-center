@@ -105,6 +105,8 @@ export interface AgentFormOptions {
     statuses: Option[];
     providers: string[];
     defaultProvider: string;
+    /** The models an agent can be given (config agents.models), with their price per million tokens. */
+    models?: { provider: string; model: string; label: string; hint: string; input: number | null; output: number | null }[];
     /** Ticked on a new agent: searching and reading the internet. */
     defaultCapabilities?: number[];
 }
@@ -138,7 +140,7 @@ export default function AgentDefinitionForm({
     skillsHref?: string;
     capabilitiesHref?: string;
 }) {
-    const { departments, users, agents, capabilities, skills, levels, statuses, providers, defaultProvider } = options;
+    const { departments, users, agents, capabilities, skills, levels, statuses, defaultProvider, models = [] } = options;
     const seed = agent ?? draft;
     const form = useForm({
         key: seed?.key ?? '',
@@ -413,26 +415,66 @@ export default function AgentDefinitionForm({
                                 {errors.autonomy_level && <p className="text-sm text-destructive">{errors.autonomy_level}</p>}
                             </fieldset>
                             <p className="-mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Modelo</p>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Field id="provider" label="Provedor" error={errors.provider}>
-                                    <NativeSelect id="provider" value={form.data.provider} onChange={(e) => form.setData('provider', e.target.value)}>
-                                        <option value="">Por omissão ({defaultProvider})</option>
-                                        {providers.map((provider) => (
-                                            <option key={provider} value={provider}>
-                                                {provider}
-                                            </option>
-                                        ))}
-                                    </NativeSelect>
-                                </Field>
-                                <Field id="model" label="Modelo" error={errors.model} hint="Vazio: o modelo por omissão do provedor.">
-                                    <Input
-                                        id="model"
-                                        className="font-mono"
-                                        value={form.data.model}
-                                        onChange={(e) => form.setData('model', e.target.value)}
-                                    />
-                                </Field>
-                            </div>
+                            <fieldset className="flex flex-col gap-1">
+                                <legend className="sr-only">Modelo</legend>
+                                {[
+                                    {
+                                        provider: '',
+                                        model: '',
+                                        label: `Por omissão da plataforma`,
+                                        hint: `Hoje: ${models[0]?.label ?? defaultProvider}. Muda quando a plataforma mudar.`,
+                                        input: null,
+                                        output: null,
+                                    },
+                                    ...models,
+                                    // A model set before the list existed stays choosable.
+                                    ...(form.data.model && !models.some((m) => m.model === form.data.model)
+                                        ? [
+                                              {
+                                                  provider: form.data.provider,
+                                                  model: form.data.model,
+                                                  label: form.data.model,
+                                                  hint: 'Fora da lista.',
+                                                  input: null,
+                                                  output: null,
+                                              },
+                                          ]
+                                        : []),
+                                ].map((option) => {
+                                    const chosen = form.data.model === option.model && (option.model !== '' || form.data.provider === '');
+
+                                    return (
+                                        <label
+                                            key={option.model || 'default'}
+                                            className={cn(
+                                                'flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
+                                                chosen && 'bg-accent',
+                                            )}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="model"
+                                                checked={chosen}
+                                                onChange={() => form.setData((data) => ({ ...data, provider: option.provider, model: option.model }))}
+                                                className="mt-1 accent-primary"
+                                            />
+                                            <span className="min-w-0 flex-1">
+                                                <span className={cn('block', chosen && 'font-medium')}>{option.label}</span>
+                                                <span className="block text-xs text-muted-foreground">{option.hint}</span>
+                                            </span>
+                                            {option.input !== null && option.output !== null && (
+                                                <span
+                                                    className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
+                                                    title="US$ por milhão de tokens: entrada / saída"
+                                                >
+                                                    {option.input.toLocaleString('pt-PT')} / {option.output.toLocaleString('pt-PT')} US$
+                                                </span>
+                                            )}
+                                        </label>
+                                    );
+                                })}
+                                {(errors.model || errors.provider) && <p className="text-sm text-destructive">{errors.model ?? errors.provider}</p>}
+                            </fieldset>
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Field id="temperature" label="Temperatura" error={errors.temperature}>
                                     <Input

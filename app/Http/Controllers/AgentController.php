@@ -74,6 +74,8 @@ class AgentController extends Controller
                 'personality' => $agent->personality,
                 'provider' => $agent->provider ?: config('ai.default'),
                 'model' => $agent->model ?: (config('agents.model') ?: 'por omissão'),
+                // The model by its name (docs/DECISOES.md, "Agentes: escolher o modelo").
+                'model_label' => collect((array) config('agents.models'))->firstWhere('model', $agent->model ?: config('agents.model') ?: collect((array) config('agents.models'))->first()['model'] ?? null)['label'] ?? ($agent->model ?: 'Por omissão'),
                 'assignees' => AgentAssignment::query()->where('agent_id', $agent->id)->with('user:id,name')->get()
                     ->filter(fn (AgentAssignment $row) => $row->user !== null)
                     ->sortBy(fn (AgentAssignment $row) => $row->user->name)
