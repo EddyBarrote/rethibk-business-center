@@ -1495,3 +1495,9 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - A lista de modelos (`config('agents.models')`) passa a incluir vários provedores: Google Gemini, Anthropic (API directa), OpenAI, OpenRouter, DeepSeek, xAI e Mistral (`config('agents.providers')`). Os ids dos modelos são os do laravel/ai.
 - No separador Modelo, os modelos aparecem agrupados por provedor e só os provedores com chave no .env se podem escolher. Os outros aparecem em «Outros provedores, por ligar», com o nome da linha do .env que falta. As chaves são escritas pelo dono no servidor e nunca na aplicação.
 - Ao gravar, o provedor do agente fica sempre o do modelo escolhido. Um modelo sem preço em `agents.pricing` mostra «preço por definir» e é cobrado ao preço de segurança (`fallback_pricing`), até alguém acrescentar o preço.
+
+## Selects com pesquisa (27.10.2026)
+
+- Todas as escolhas de uma lista na plataforma passam a abrir uma lista com um campo de procura no topo (`Components/ui/search-list.tsx`). A procura ignora acentos e maiúsculas e encontra também pelo nome do grupo («Agentes», «Colegas»).
+- A troca foi feita nos dois componentes partilhados, com a mesma API: `NativeSelect` (com value, onChange e `<option>`/`<optgroup>`) e `Select` (a API do shadcn). As páginas que os usam não mudaram. O `NativeSelect` com `name` leva um campo escondido para os formulários normais.
+- Funciona dentro de diálogos, porque a lista abre como popover modal.
