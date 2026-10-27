@@ -65,7 +65,7 @@ export default function ReportShow({
             />
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] print:block">
-                <article className="min-w-0 rounded-xl border bg-card px-4 py-4 sm:px-6 sm:py-5 print:border-0 print:p-0">
+                <article className="min-w-0">
                     <Markdown>{report.content}</Markdown>
                 </article>
 
@@ -116,8 +116,8 @@ export default function ReportShow({
                     {report.run_id && (
                         <>
                             <Property label="Execução">
-                                <Link href={`/settings/runs/${report.run_id}`} className="font-mono text-xs text-primary hover:underline">
-                                    #{report.run_id}
+                                <Link href={`/settings/runs/${report.run_id}`} className="text-primary hover:underline">
+                                    Ver execução
                                 </Link>
                             </Property>
                             <Link href={`/settings/runs/${report.run_id}`} className="mt-2 border-t pt-3 text-xs text-primary hover:underline">
