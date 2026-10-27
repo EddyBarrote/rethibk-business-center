@@ -1,5 +1,5 @@
-import { Link, useForm } from '@inertiajs/react';
-import { Check, ChevronRight, Code2, Loader2, Lock, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { Link, useForm, usePage } from '@inertiajs/react';
+import { Check, CheckCheck, ChevronRight, Code2, Loader2, Lock, ShieldAlert, ShieldQuestion, Sparkles, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -16,7 +16,7 @@ import { Textarea } from '@/Components/ui/textarea';
 import { approvalFacts, approvalRecipient, approvalTitle } from '@/lib/approvals';
 import { ago, dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { ApprovalSummary } from '@/types';
+import type { ApprovalSummary, SharedProps } from '@/types';
 
 export const executionLabel = { not_executed: 'por executar', executed: 'executada', failed: 'falhou' };
 
@@ -40,7 +40,17 @@ export function PayloadView({ payload }: { payload: Record<string, unknown> | nu
     );
 }
 
-/** Why a person has to decide: the absolute ceiling, or the agent's level below what the action needs. */
+/**
+ * «Permitir sempre» (docs/DECISOES.md, "Regras de aprovação"): offered to who
+ * configures agents, on actions a rule may let through.
+ */
+export function useCanAllowAlways(approval: { can_always?: boolean }) {
+    const permissions = usePage<SharedProps>().props.auth.user?.permissions ?? [];
+
+    return approval.can_always === true && permissions.includes('agents.manage');
+}
+
+/** Why a person has to decide: the absolute ceiling, a standing rule, or the agent's level below what the action needs. */
 export function Reason({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
     if (approval.ceiling_reason) {
         return short ? (
@@ -56,6 +66,22 @@ export function Reason({ approval, short = false }: { approval: ApprovalSummary;
                 <Lock className="mt-0.5 size-3.5 shrink-0" />
                 <span className="min-w-0 break-words">
                     <span className="font-medium">Tecto absoluto: decide sempre uma pessoa.</span> {approval.ceiling_reason}
+                </span>
+            </p>
+        );
+    }
+
+    if (approval.rule_label) {
+        return short ? (
+            <span className="inline-flex min-w-0 items-center gap-1" title={`Regra: ${approval.rule_label}`}>
+                <ShieldQuestion className="size-3 shrink-0" />
+                <span className="truncate">Regra: perguntar sempre</span>
+            </span>
+        ) : (
+            <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                <ShieldQuestion className="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                    Pedida pela regra <span className="text-foreground">{approval.rule_label}</span>.
                 </span>
             </p>
         );
@@ -151,8 +177,9 @@ export function ApprovalCard({
     const title = approvalTitle(approval.action_type, approval.payload, approval.action_summary);
     const recipient = approvalRecipient(approval.action_type, approval.payload);
 
-    const decide = (action: 'approve' | 'reject') =>
-        form.post(`/approvals/${approval.id}/${action}`, {
+    const canAlways = useCanAllowAlways(approval);
+    const decide = (action: 'approve' | 'reject', always = false) =>
+        form.post(`/approvals/${approval.id}/${action}${always ? '?always=1' : ''}`, {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
@@ -220,11 +247,23 @@ export function ApprovalCard({
                     <>
                         <Button size="sm" disabled={form.processing} onClick={() => decide('approve')}>
                             {form.processing && !rejecting ? <Loader2 className="animate-spin" /> : <Check />}
-                            Aprovar
+                            Permitir uma vez
                         </Button>
+                        {canAlways && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={form.processing}
+                                onClick={() => decide('approve', true)}
+                                title={`Daqui em diante ${approval.agent.name} faz esta acção sem perguntar`}
+                            >
+                                <CheckCheck />
+                                Permitir sempre
+                            </Button>
+                        )}
                         <Button size="sm" variant="outline" disabled={form.processing} onClick={() => setRejecting(true)}>
                             <X />
-                            Rejeitar
+                            Recusar
                         </Button>
                     </>
                 ) : (
@@ -263,13 +302,13 @@ export function ApprovalCard({
                         form.clearErrors();
                     }
                 }}
-                title="Rejeitar esta acção?"
+                title="Recusar esta acção?"
                 description={
                     <>
                         {approval.agent.name} fica a saber porquê e não executa: <span className="text-foreground">{title}</span>
                     </>
                 }
-                submitLabel="Rejeitar"
+                submitLabel="Recusar"
                 processing={form.processing}
                 disabled={form.data.note.trim() === ''}
                 onSubmit={() => decide('reject')}
@@ -332,7 +371,7 @@ export function ApprovalCard({
                                 id={`note-${approval.id}`}
                                 label="Nota"
                                 error={form.errors.note}
-                                hint="Opcional ao aprovar; obrigatória ao rejeitar."
+                                hint="Opcional ao permitir; obrigatória ao recusar."
                             >
                                 <Textarea
                                     id={`note-${approval.id}`}
@@ -377,11 +416,17 @@ export function ApprovalCard({
                             <div className="flex flex-col-reverse gap-2 sm:flex-row">
                                 <Button variant="outline" disabled={form.processing || form.data.note.trim() === ''} onClick={() => decide('reject')}>
                                     <X />
-                                    Rejeitar
+                                    Recusar
                                 </Button>
+                                {canAlways && (
+                                    <Button variant="outline" disabled={form.processing} onClick={() => decide('approve', true)}>
+                                        <CheckCheck />
+                                        Permitir sempre
+                                    </Button>
+                                )}
                                 <Button disabled={form.processing} onClick={() => decide('approve')}>
                                     {form.processing ? <Loader2 className="animate-spin" /> : <Check />}
-                                    Aprovar
+                                    Permitir uma vez
                                 </Button>
                             </div>
                         )}

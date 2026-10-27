@@ -2,6 +2,7 @@
 
 namespace App\Http\Presenters;
 
+use App\Ai\Autonomy\ApprovalRules;
 use App\Email\EmailReferences;
 use App\Enums\TaskKind;
 use App\Models\Agent;
@@ -159,6 +160,9 @@ final class Present
             'required_level' => $approval->required_level->value,
             'agent_level' => $approval->agent_level->value,
             'ceiling_reason' => $approval->ceiling_reason,
+            // The standing rule that asked (docs/DECISOES.md, "Regras de aprovação"), and whether one may come out of it.
+            'rule_label' => $approval->rule_label,
+            'can_always' => ApprovalRules::canAllowAlways($approval),
             'status' => $approval->status->value,
             'status_label' => $approval->status->label(),
             'assigned_to' => $approval->assignedTo?->name,

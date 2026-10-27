@@ -5,27 +5,40 @@ namespace App\Ai\Autonomy;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityRegistry;
 use App\Enums\AutonomyLevel;
+use App\Enums\RuleEffect;
 use App\Models\Capability;
 
 /**
- * The autonomy gate (section 12.2). The absolute ceiling (section 12.3) is
- * checked first and no autonomy level gets past it; then read-only capabilities
- * pass, and a mutating capability passes only when the agent's level reaches the
- * capability's risk.
+ * The autonomy gate (section 12.2). A rule that refuses comes first; then the
+ * absolute ceiling (section 12.3), which no level and no rule gets past; then
+ * the standing rules (docs/DECISOES.md, "Regras de aprovação"): «Permitir
+ * sempre» lets the action through, «Perguntar sempre» holds it. Without a
+ * rule, read-only capabilities pass, and a mutating capability passes only
+ * when the agent's level reaches the capability's risk.
  */
 final class AutonomyGate
 {
-    public function __construct(private readonly CapabilityRegistry $registry) {}
+    public function __construct(private readonly CapabilityRegistry $registry, private readonly ApprovalRules $rules) {}
 
     /**
      * @param  array<string, mixed>  $arguments
      */
     public function evaluate(Capability $capability, array $arguments, CapabilityContext $context): GateDecision
     {
+        $rule = $this->rules->for($context->agent, $capability->key);
+
+        if ($rule?->effect === RuleEffect::Deny) {
+            return new GateDecision(false, $capability->risk, rule: $rule, denied: true);
+        }
+
         $ceiling = $this->ceilingReason($capability, $arguments, $context);
 
         if ($ceiling !== null) {
-            return new GateDecision(false, AutonomyLevel::ExecuteAndReport, $ceiling);
+            return new GateDecision(false, AutonomyLevel::ExecuteAndReport, $ceiling, $rule?->effect === RuleEffect::Ask ? $rule : null);
+        }
+
+        if ($rule !== null) {
+            return new GateDecision($rule->effect === RuleEffect::Allow, $capability->risk, rule: $rule);
         }
 
         if (! $capability->is_mutating) {

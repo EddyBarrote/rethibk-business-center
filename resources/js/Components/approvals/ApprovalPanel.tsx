@@ -3,6 +3,7 @@ import {
     Activity,
     ArrowUpRight,
     Check,
+    CheckCheck,
     ChevronDown,
     ChevronRight,
     ChevronUp,
@@ -19,7 +20,7 @@ import {
 import { useEffect } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { executionLabel, PayloadView, Reason, Review } from '@/Components/ApprovalCard';
+import { executionLabel, PayloadView, Reason, Review, useCanAllowAlways } from '@/Components/ApprovalCard';
 import { approvalTone, StatusBadge, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/Components/ui/collapsible';
@@ -145,8 +146,9 @@ function Body({
     const decidable = approval.can_decide && pending;
     const full = 'task' in approval ? approval : null;
 
-    const decide = (action: 'approve' | 'reject') =>
-        form.post(`/approvals/${approval.id}/${action}`, {
+    const canAlways = useCanAllowAlways(approval);
+    const decide = (action: 'approve' | 'reject', always = false) =>
+        form.post(`/approvals/${approval.id}/${action}${always ? '?always=1' : ''}`, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
@@ -297,7 +299,7 @@ function Body({
                 <div className="flex shrink-0 flex-col gap-3 border-t bg-sidebar/40 px-5 py-4">
                     <div className="grid gap-1.5">
                         <label htmlFor={`panel-note-${approval.id}`} className="text-xs font-medium">
-                            Nota <span className="font-normal text-muted-foreground">· opcional ao aprovar, obrigatória ao rejeitar</span>
+                            Nota <span className="font-normal text-muted-foreground">· opcional ao permitir, obrigatória ao recusar</span>
                         </label>
                         <Textarea
                             id={`panel-note-${approval.id}`}
@@ -309,14 +311,25 @@ function Body({
                         />
                         {form.errors.note && <p className="text-xs text-destructive">{form.errors.note}</p>}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                    <div className="flex flex-wrap justify-end gap-2">
                         <Button variant="outline" disabled={form.processing || form.data.note.trim() === ''} onClick={() => decide('reject')}>
                             <X />
-                            Rejeitar
+                            Recusar
                         </Button>
+                        {canAlways && (
+                            <Button
+                                variant="outline"
+                                disabled={form.processing}
+                                onClick={() => decide('approve', true)}
+                                title={`Daqui em diante ${approval.agent.name} faz esta acção sem perguntar`}
+                            >
+                                <CheckCheck />
+                                Permitir sempre
+                            </Button>
+                        )}
                         <Button disabled={form.processing} onClick={() => decide('approve')}>
                             {form.processing ? <Loader2 className="animate-spin" /> : <Check />}
-                            Aprovar
+                            Permitir uma vez
                         </Button>
                     </div>
                 </div>

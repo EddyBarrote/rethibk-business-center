@@ -17,6 +17,7 @@ import {
     Puzzle,
     Route,
     ShieldCheck,
+    ShieldQuestion,
     SunMoon,
     UserRound,
     Users,
@@ -143,6 +144,13 @@ export const settingsGroups: SettingsGroup[] = [
                 icon: Puzzle,
                 description: 'O que os agentes conseguem fazer, e o risco de cada acção.',
                 permissions: ['catalog.manage'],
+            },
+            {
+                label: 'Regras de aprovação',
+                href: '/settings/approval-rules',
+                icon: ShieldQuestion,
+                description: 'Acções que um agente faz sem perguntar, pergunta sempre, ou nunca faz.',
+                permissions: ['agents.manage'],
             },
             {
                 label: 'Skills',

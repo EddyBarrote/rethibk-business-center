@@ -59,6 +59,8 @@ final class ApprovalService
             'required_level' => $decision->requiredLevel,
             'agent_level' => $agent->autonomy_level,
             'ceiling_reason' => $decision->ceilingReason,
+            'rule_id' => $decision->rule?->id,
+            'rule_label' => $decision->rule?->describe(),
             'status' => ApprovalStatus::Pending,
             'assigned_to_user_id' => $agent->reports_to_user_id,
         ]);
@@ -67,6 +69,7 @@ final class ApprovalService
             'agent_run_id' => $context->run->id,
             'arguments' => $arguments,
             'approval_id' => $approval->id,
+            'rule_id' => $decision->rule?->id,
             'reason' => $decision->reason(),
         ], AuditResult::Denied, $approval);
 

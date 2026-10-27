@@ -30,6 +30,8 @@ use Illuminate\Support\Carbon;
  * @property AutonomyLevel $required_level
  * @property AutonomyLevel $agent_level
  * @property string|null $ceiling_reason
+ * @property int|null $rule_id
+ * @property string|null $rule_label
  * @property ApprovalStatus $status
  * @property int|null $assigned_to_user_id
  * @property int|null $decided_by_user_id
@@ -47,7 +49,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'agent_run_id', 'agent_id', 'capability_id', 'action_type', 'action_summary', 'payload', 'required_level', 'agent_level',
-    'ceiling_reason', 'status', 'assigned_to_user_id', 'decided_by_user_id', 'decided_at', 'decision_note', 'expires_at',
+    'ceiling_reason', 'rule_id', 'rule_label', 'status', 'assigned_to_user_id', 'decided_by_user_id', 'decided_at', 'decision_note', 'expires_at',
     'execution_status', 'execution_result', 'executed_at', 'review_stage', 'review_agent_id', 'decided_by_agent_id', 'review_note',
 ])]
 class Approval extends Model

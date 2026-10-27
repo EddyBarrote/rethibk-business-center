@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Agents\NewColleagues;
+use App\Ai\Autonomy\ApprovalRules;
 use App\Ai\Runs\AgentNow;
 use App\Attachments\AttachmentLimits;
 use App\Attachments\AttachmentStore;
@@ -533,6 +534,7 @@ class TaskController extends Controller
             'panel_run' => fn () => $this->panelRun($request, $task, $user),
             'tool_names' => fn () => Capability::query()->pluck('name', 'key'),
             'approvals' => Approval::query()
+                ->with('agent:id,name')
                 ->whereIn('agent_run_id', $task->runs()->select('id'))
                 ->where('status', ApprovalStatus::Pending)
                 ->orderBy('id')
@@ -544,6 +546,9 @@ class TaskController extends Controller
                     'action_type' => $approval->action_type,
                     'payload' => $approval->payload,
                     'ceiling_reason' => $approval->ceiling_reason,
+                    'rule_label' => $approval->rule_label,
+                    'can_always' => ApprovalRules::canAllowAlways($approval),
+                    'agent' => $approval->agent->name ?? '',
                     'can_decide' => $user->can('decide', $approval),
                     // A new agent or skill the Chief of Staff prepared, as a card to confirm (docs/DECISOES.md).
                     'proposal' => $this->buildProposal($approval),

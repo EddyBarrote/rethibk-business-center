@@ -33,6 +33,7 @@ use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\Settings\AccessRoleController;
 use App\Http\Controllers\Settings\AgentMemoryController;
 use App\Http\Controllers\Settings\AiProviderController;
+use App\Http\Controllers\Settings\ApprovalRuleController;
 use App\Http\Controllers\Settings\AttachmentSettingsController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\CompanyMemoryController;
@@ -294,6 +295,10 @@ Route::middleware('auth')->group(function () {
         Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
         Route::get('usage', UsageController::class)->name('settings.usage');
         Route::get('email-rules', [EmailRuleController::class, 'index'])->name('settings.email-rules.index');
+        Route::get('approval-rules', [ApprovalRuleController::class, 'index'])->name('settings.approval-rules.index');
+        Route::post('approval-rules', [ApprovalRuleController::class, 'store'])->name('settings.approval-rules.store');
+        Route::put('approval-rules/{rule}', [ApprovalRuleController::class, 'update'])->name('settings.approval-rules.update');
+        Route::delete('approval-rules/{rule}', [ApprovalRuleController::class, 'destroy'])->name('settings.approval-rules.destroy');
         Route::put('email-rules/{category}', [EmailRuleController::class, 'update'])->name('settings.email-rules.update');
 
         // A minha conta

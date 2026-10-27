@@ -1533,3 +1533,19 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 
 - Pedido do Barrote: ver em cada execução o modelo usado. Na página do agente, a lista de execuções mostra o modelo a seguir à origem (por exemplo «Manual · Gemini 3.6 Flash»). O painel da execução mostra «Modelo: …» por baixo do título, e a página inteira mostra-o com o nome do provedor. Ao passar o rato aparece o provedor e o id exacto.
 - O nome vem do catálogo (`agents.models`), por `Present::modelLabels()`. Um modelo que já saiu do catálogo aparece pelo id, para nunca esconder o que correu de facto.
+
+## Regras de aprovação (27.10.2026)
+
+Ideia vinda do OpenDuet. O Barrote aprovou todos os pontos da proposta.
+
+- **Os botões:** cada aprovação tem três botões: «Permitir uma vez», «Permitir sempre» e «Recusar». «Permitir sempre» aprova e deixa uma regra para que aquele agente faça aquela acção sem perguntar. Só o vê quem configura agentes (permissão `agents.manage`). Não aparece no tecto absoluto (pagamentos, emails para fora, contratos) nem nas acções que uma permissão decide (orçamento, confiança, agentes e skills novos).
+- **As regras:** ficam em `approval_rules`, por empresa, capacidade e agente (sem agente quer dizer todos os agentes). Há três efeitos: «Permitir sempre», «Perguntar sempre» e «Recusar sempre». Estão por cima dos níveis N0 a N4, sem os substituir.
+- **A ordem no porteiro (`AutonomyGate`):**
+  - Primeiro a regra que recusa. O agente recebe «Recusado» e ninguém é chamado.
+  - Depois o tecto absoluto, que nenhuma regra levanta.
+  - Depois «Permitir sempre» e «Perguntar sempre».
+  - Sem regra, vale o nível como antes.
+  - A regra do agente vale antes da regra para todos.
+- **Que regra pediu:** cada aprovação guarda a regra que a pediu (`rule_id`, `rule_label`), e o cartão diz «Pedida pela regra …». A auditoria regista a regra que decidiu (`rule_id`) nas acções executadas, recusadas e enviadas para aprovação. Também regista quem criou ou retirou cada regra.
+- **A página:** em Definições › Regras de aprovação vêem-se as regras, muda-se o efeito, retiram-se e criam-se à mão.
+- **Os nomes:** «Aprovar» e «Rejeitar» passam a «Permitir uma vez» e «Recusar» em todos os sítios onde se decide.

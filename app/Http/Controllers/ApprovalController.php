@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Autonomy\ApprovalRules;
 use App\Ai\Runs\ApprovalService;
 use App\Ai\Runs\RecipientSources;
 use App\Enums\ApprovalArea;
@@ -11,6 +12,7 @@ use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Approval;
+use App\Models\AuditLog;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -82,18 +84,29 @@ class ApprovalController extends Controller
         ]);
     }
 
-    public function approve(Request $request, Approval $approval, ApprovalService $approvals): RedirectResponse
+    public function approve(Request $request, Approval $approval, ApprovalService $approvals, ApprovalRules $rules): RedirectResponse
     {
         Gate::authorize('decide', $approval);
-        $data = $request->validate(['note' => ['nullable', 'string', 'max:2000']]);
+        $user = $this->user($request);
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:2000'], 'always' => ['sometimes', 'boolean']]);
+        // «Permitir sempre» (docs/DECISOES.md, "Regras de aprovação"): who configures agents leaves a standing rule.
+        $always = (bool) ($data['always'] ?? false);
+        abort_if($always && (! $user->hasPermission(Permission::ManageAgents) || ! ApprovalRules::canAllowAlways($approval)), 403);
 
         try {
-            $approvals->approve($approval, $this->user($request), $data['note'] ?? null);
+            $approvals->approve($approval, $user, $data['note'] ?? null);
         } catch (LogicException) {
             return back()->with('error', 'Esta acção já tinha sido decidida.');
         }
 
-        return back()->with('success', 'Aprovado. A acção vai ser executada.');
+        if ($always) {
+            $rule = $rules->allowAlways($approval, $user);
+            AuditLog::record($user, 'approval_rule.saved', ['rule_id' => $rule->id, 'rule' => $rule->describe(), 'approval_id' => $approval->id], subject: $approval);
+
+            return back()->with('success', "Permitido. Daqui em diante {$approval->agent->name} faz «".ApprovalService::actionName($approval).'» sem perguntar.');
+        }
+
+        return back()->with('success', 'Permitido uma vez. A acção vai ser executada.');
     }
 
     /**

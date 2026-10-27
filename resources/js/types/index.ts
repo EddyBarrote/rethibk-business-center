@@ -104,6 +104,10 @@ export interface ApprovalSummary {
     required_level: number;
     agent_level: number;
     ceiling_reason: string | null;
+    /** The standing rule that asked for it (docs/DECISOES.md, "Regras de aprovação"). */
+    rule_label: string | null;
+    /** Whether «Permitir sempre» may come out of it: not under the ceiling nor decided by a permission. */
+    can_always: boolean;
     status: 'pending' | 'approved' | 'rejected' | 'expired';
     status_label: string;
     assigned_to: string | null;

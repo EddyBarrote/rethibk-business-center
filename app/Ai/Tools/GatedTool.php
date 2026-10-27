@@ -130,6 +130,19 @@ final class GatedTool implements Tool
 
         $decision = app(AutonomyGate::class)->evaluate($this->capability, $arguments, $this->context);
 
+        if ($decision->denied) {
+            $refused = "Recusado: {$decision->reason()} Não tentes de novo nem de outra forma; diz na resposta que esta acção está proibida por uma regra e quem a pode mudar (Definições › Regras de aprovação).";
+            $recorder->step($run, StepType::Error, ['ok' => false, 'content' => $refused], $this->capability->key);
+            AuditLog::record($this->context->agent, $this->capability->key, [
+                'agent_run_id' => $run->id,
+                'arguments' => $arguments,
+                'rule_id' => $decision->rule?->id,
+                'reason' => $decision->reason(),
+            ], AuditResult::Denied);
+
+            return $refused;
+        }
+
         if (! $decision->allowed) {
             $approval = app(ApprovalService::class)->request($this->capability, $arguments, $decision, $this->context);
 
@@ -146,6 +159,7 @@ final class GatedTool implements Tool
             AuditLog::record($this->context->agent, $this->capability->key, [
                 'agent_run_id' => $run->id,
                 'arguments' => $arguments,
+                'rule_id' => $decision->rule?->id,
                 'result' => $result->ok ? Str::limit($result->content, 2000) : null,
                 'error' => $result->ok ? null : $result->content,
             ], $result->ok ? AuditResult::Ok : AuditResult::Error);

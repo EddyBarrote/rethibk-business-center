@@ -2,6 +2,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, RotateCcw, Route, Send, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
+import { useCanAllowAlways } from '@/Components/ApprovalCard';
 import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { type NowRun, stepLabel, workTitle } from '@/Components/agents/AgentNow';
@@ -117,6 +118,9 @@ interface PendingApproval {
     action_type: string;
     payload: Record<string, unknown> | null;
     ceiling_reason: string | null;
+    rule_label: string | null;
+    can_always: boolean;
+    agent: string;
     can_decide: boolean;
     /** A new agent or skill prepared by the Chief of Staff. */
     proposal: BuildProposal | null;
@@ -1037,8 +1041,9 @@ function InlineSelect({
 function ApprovalCard({ approval }: { approval: PendingApproval }) {
     const [rejecting, setRejecting] = useState(false);
     const form = useForm({ note: '' });
-    const decide = (action: 'approve' | 'reject') =>
-        form.post(`/approvals/${approval.id}/${action}`, { preserveScroll: true, only: [...reloadProps, 'flash'] });
+    const canAlways = useCanAllowAlways(approval);
+    const decide = (action: 'approve' | 'reject', always = false) =>
+        form.post(`/approvals/${approval.id}/${action}${always ? '?always=1' : ''}`, { preserveScroll: true, only: [...reloadProps, 'flash'] });
 
     return (
         <div className="flex gap-3 rounded-xl border border-status-warning/40 bg-[color-mix(in_oklch,var(--status-warning)_10%,var(--card))] px-4 py-3">
@@ -1046,14 +1051,18 @@ function ApprovalCard({ approval }: { approval: PendingApproval }) {
             <div className="min-w-0 flex-1 space-y-2 text-sm">
                 <p className="font-medium">À espera de aprovação</p>
                 <p className="break-words text-muted-foreground">{approvalTitle(approval.action_type, approval.payload, approval.summary)}</p>
-                {approval.ceiling_reason && <p className="text-xs text-muted-foreground">Decide sempre uma pessoa: {approval.ceiling_reason}</p>}
+                {approval.ceiling_reason ? (
+                    <p className="text-xs text-muted-foreground">Decide sempre uma pessoa: {approval.ceiling_reason}</p>
+                ) : (
+                    approval.rule_label && <p className="text-xs text-muted-foreground">Pedida pela regra: {approval.rule_label}</p>
+                )}
                 {approval.can_decide ? (
                     rejecting ? (
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <Textarea
                                 rows={1}
                                 autoFocus
-                                placeholder="Motivo da rejeição"
+                                placeholder="Porque recusa"
                                 value={form.data.note}
                                 onChange={(e) => form.setData('note', e.target.value)}
                                 className="min-h-9 bg-background"
@@ -1065,7 +1074,7 @@ function ApprovalCard({ approval }: { approval: PendingApproval }) {
                                     disabled={form.processing || form.data.note.trim() === ''}
                                     onClick={() => decide('reject')}
                                 >
-                                    Rejeitar
+                                    Recusar
                                 </Button>
                                 <Button size="sm" variant="ghost" onClick={() => setRejecting(false)}>
                                     Cancelar
@@ -1075,10 +1084,21 @@ function ApprovalCard({ approval }: { approval: PendingApproval }) {
                     ) : (
                         <div className="flex gap-2">
                             <Button size="sm" disabled={form.processing} onClick={() => decide('approve')}>
-                                Aprovar
+                                Permitir uma vez
                             </Button>
+                            {canAlways && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={form.processing}
+                                    onClick={() => decide('approve', true)}
+                                    title={`Daqui em diante ${approval.agent} faz esta acção sem perguntar`}
+                                >
+                                    Permitir sempre
+                                </Button>
+                            )}
                             <Button size="sm" variant="outline" disabled={form.processing} onClick={() => setRejecting(true)}>
-                                Rejeitar…
+                                Recusar…
                             </Button>
                         </div>
                     )
