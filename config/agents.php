@@ -98,21 +98,22 @@ return [
     'models' => [
         ['provider' => 'gemini', 'model' => 'gemini-3.6-flash', 'label' => 'Gemini 3.6 Flash', 'hint' => 'Bom a raciocinar e a usar ferramentas. É o modelo por omissão.'],
         ['provider' => 'gemini', 'model' => 'gemini-3.1-flash-lite', 'label' => 'Gemini 3.1 Flash-Lite', 'hint' => 'Mais rápido e cerca de 6 vezes mais barato. Para triagem e tarefas simples.'],
-        ['provider' => 'anthropic', 'model' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'hint' => 'O mais capaz da Anthropic, para análise e escrita exigentes. O mais caro.'],
-        ['provider' => 'anthropic', 'model' => 'claude-sonnet-5', 'label' => 'Claude Sonnet 5', 'hint' => 'Equilibrado: muito bom com ferramentas, a um custo médio.'],
-        ['provider' => 'anthropic', 'model' => 'claude-haiku-4-5-20251001', 'label' => 'Claude Haiku 4.5', 'hint' => 'Rápido e barato, para triagem e respostas curtas.'],
-        ['provider' => 'openai', 'model' => 'gpt-6-astra', 'label' => 'GPT-6 Astra', 'hint' => 'O mais capaz da OpenAI.'],
+        ['provider' => 'gemini', 'model' => 'gemini-4-argon', 'label' => 'Gemini 4 Argon', 'hint' => 'O mais capaz da Google, para raciocínio exigente.'],
+        ['provider' => 'anthropic', 'model' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'hint' => 'O mais capaz da Anthropic, para análise e escrita exigentes.'],
+        ['provider' => 'anthropic', 'model' => 'claude-sonnet-5-5', 'label' => 'Claude Sonnet 5.5', 'hint' => 'Equilibrado: muito bom com ferramentas, a um custo médio.'],
+        ['provider' => 'anthropic', 'model' => 'claude-haiku-5-5', 'label' => 'Claude Haiku 5.5', 'hint' => 'Rápido e muito barato, para triagem e respostas curtas (acima de 100 mil tokens por pedido custa 5 vezes mais).'],
+        ['provider' => 'openai', 'model' => 'gpt-6-astra', 'label' => 'GPT-6 Astra', 'hint' => 'O mais capaz da OpenAI, e o mais caro.'],
         ['provider' => 'openai', 'model' => 'gpt-6-sol', 'label' => 'GPT-6 Sol', 'hint' => 'O modelo equilibrado da OpenAI.'],
         ['provider' => 'openai', 'model' => 'gpt-6-luna', 'label' => 'GPT-6 Luna', 'hint' => 'O mais rápido e barato da OpenAI.'],
-        ['provider' => 'openrouter', 'model' => 'anthropic/claude-opus-5', 'label' => 'Claude Opus 5 (via OpenRouter)', 'hint' => 'Claude pela OpenRouter: uma só chave para vários fornecedores.'],
-        ['provider' => 'openrouter', 'model' => 'anthropic/claude-sonnet-5', 'label' => 'Claude Sonnet 5 (via OpenRouter)', 'hint' => 'Claude pela OpenRouter: uma só chave para vários fornecedores.'],
-        ['provider' => 'openrouter', 'model' => 'anthropic/claude-haiku-4.5', 'label' => 'Claude Haiku 4.5 (via OpenRouter)', 'hint' => 'Rápido e barato, pela OpenRouter.'],
+        ['provider' => 'openrouter', 'model' => 'anthropic/claude-opus-5.5', 'label' => 'Claude Opus 5.5 (via OpenRouter)', 'hint' => 'Claude pela OpenRouter: uma só chave para vários fornecedores.'],
+        ['provider' => 'openrouter', 'model' => 'anthropic/claude-sonnet-5.5', 'label' => 'Claude Sonnet 5.5 (via OpenRouter)', 'hint' => 'Claude pela OpenRouter: uma só chave para vários fornecedores.'],
+        ['provider' => 'openrouter', 'model' => 'anthropic/claude-haiku-5.5', 'label' => 'Claude Haiku 5.5 (via OpenRouter)', 'hint' => 'Rápido e muito barato, pela OpenRouter.'],
         ['provider' => 'deepseek', 'model' => 'deepseek-v4-pro', 'label' => 'DeepSeek V4 Pro', 'hint' => 'O mais capaz da DeepSeek.'],
-        ['provider' => 'deepseek', 'model' => 'deepseek-v4-flash', 'label' => 'DeepSeek V4 Flash', 'hint' => 'Rápido e barato.'],
+        ['provider' => 'deepseek', 'model' => 'deepseek-flash', 'label' => 'DeepSeek Flash (V4.1)', 'hint' => 'Rápido e muito barato.'],
         ['provider' => 'xai', 'model' => 'grok-4.3', 'label' => 'Grok 4.3', 'hint' => 'O mais capaz da xAI.'],
-        ['provider' => 'xai', 'model' => 'grok-4.20-non-reasoning', 'label' => 'Grok 4.20', 'hint' => 'Rápido, sem raciocínio longo.'],
-        ['provider' => 'mistral', 'model' => 'mistral-large-2512', 'label' => 'Mistral Large', 'hint' => 'O modelo principal da Mistral.'],
-        ['provider' => 'mistral', 'model' => 'mistral-small-2603', 'label' => 'Mistral Small', 'hint' => 'Rápido e barato.'],
+        ['provider' => 'xai', 'model' => 'grok-4.20-0309-non-reasoning', 'label' => 'Grok 4.20', 'hint' => 'Rápido, sem raciocínio longo.'],
+        ['provider' => 'mistral', 'model' => 'mistral-large-2512', 'label' => 'Mistral Large 3', 'hint' => 'O modelo principal da Mistral, e barato.'],
+        ['provider' => 'mistral', 'model' => 'mistral-small-2603', 'label' => 'Mistral Small 4', 'hint' => 'Rápido e barato.'],
     ],
 
     /*
@@ -127,10 +128,37 @@ return [
     */
 
     'pricing' => [
-        // Gemini (ai.google.dev/gemini-api/docs/pricing, 04.10.2026). 3.6 Flash
-        // at the price from 1 January 2027 (until then it is half).
+        // Prices checked on 27.10.2026, from each provider's page unless noted.
+        // Gemini (ai.google.dev/gemini-api/docs/pricing). 3.6 Flash at the price
+        // from 1 January 2027 (until then it is half); 4 Argon at the price from
+        // 1 December 2026 (until then it is half).
         'gemini:gemini-3.6-flash' => ['input' => 1.50, 'output' => 7.50],
         'gemini:gemini-3.1-flash-lite' => ['input' => 0.25, 'output' => 1.50],
+        'gemini:gemini-4-argon' => ['input' => 4.00, 'output' => 20.00],
+        // Anthropic (platform.claude.com/docs/en/about-claude/pricing). Haiku 5.5
+        // up to 100k tokens of prompt; above that 0.50 / 2.50.
+        'anthropic:claude-opus-5-5' => ['input' => 4.00, 'output' => 20.00],
+        'anthropic:claude-sonnet-5-5' => ['input' => 2.00, 'output' => 10.00],
+        'anthropic:claude-haiku-5-5' => ['input' => 0.10, 'output' => 0.50],
+        // No longer offered, but agents chosen before keep it: Haiku 4.5.
+        'anthropic:claude-haiku-4-5-20251001' => ['input' => 1.00, 'output' => 5.00],
+        // OpenRouter passes Anthropic's prices through.
+        'openrouter:anthropic/claude-opus-5.5' => ['input' => 4.00, 'output' => 20.00],
+        'openrouter:anthropic/claude-sonnet-5.5' => ['input' => 2.00, 'output' => 10.00],
+        'openrouter:anthropic/claude-haiku-5.5' => ['input' => 0.10, 'output' => 0.50],
+        // OpenAI (developers.openai.com/api/docs/pricing), up to 272k tokens of prompt.
+        'openai:gpt-6-astra' => ['input' => 10.00, 'output' => 50.00],
+        'openai:gpt-6-sol' => ['input' => 2.00, 'output' => 10.00],
+        'openai:gpt-6-luna' => ['input' => 0.10, 'output' => 0.50],
+        // xAI (docs.x.ai/docs/models), under 200k tokens of prompt.
+        'xai:grok-4.3' => ['input' => 1.25, 'output' => 2.50],
+        'xai:grok-4.20-0309-non-reasoning' => ['input' => 1.25, 'output' => 2.50],
+        // Mistral (mistral.ai/pricing). Small 4 has no published price: fallback.
+        'mistral:mistral-large-2512' => ['input' => 0.50, 'output' => 1.50],
+        // DeepSeek: the official page did not show prices; these are the list
+        // prices reported by third parties (V4 Pro without its promotion).
+        'deepseek:deepseek-flash' => ['input' => 0.14, 'output' => 0.28],
+        'deepseek:deepseek-v4-pro' => ['input' => 1.74, 'output' => 3.48],
     ],
 
     /*
