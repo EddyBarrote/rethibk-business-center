@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // Google Calendar per person (docs/DECISOES.md, "Google Calendar por pessoa"). An OAuth
+    // client of type "Web application"; its one redirect URI is on the central domain, so
+    // every tenant shares it. Without a client id the option does not show.
+    'google_calendar' => [
+        'client_id' => env('GOOGLE_CALENDAR_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CALENDAR_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_CALENDAR_REDIRECT_URI'),
+    ],
+
 ];

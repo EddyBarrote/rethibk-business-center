@@ -3,6 +3,7 @@ import {
     Bot,
     CalendarClock,
     CalendarPlus,
+    CalendarSync,
     Check,
     ChevronLeft,
     ChevronRight,
@@ -15,7 +16,8 @@ import {
     User,
     X,
 } from 'lucide-react';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import { ConfirmDialog, FormDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
@@ -30,7 +32,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { cn } from '@/lib/utils';
 import type { SharedProps } from '@/types';
 
-type Kind = 'follow_up' | 'task' | 'routine';
+type Kind = 'follow_up' | 'task' | 'routine' | 'google';
 
 interface AgendaEvent {
     key: string;
@@ -45,6 +47,8 @@ interface AgendaEvent {
     by: string | null;
     context: string | null;
     link: string | null;
+    /** A Google Calendar event: its page on Google. */
+    url?: string | null;
     follow_up_id: number | null;
     can_edit: boolean;
     can_delete: boolean;
@@ -62,23 +66,41 @@ interface Props {
     timezone: string;
     has_feed: boolean;
     feed_url: string | null;
+    /** Null when the platform has no Google client. */
+    google: GoogleCalendar | null;
+    google_result: 'ligado' | 'cancelado' | 'erro' | 'sem-permissoes' | null;
     filters: Filters;
     people: { key: string; kind: 'user' | 'agent'; name: string; count: number }[];
 }
 
+interface GoogleCalendar {
+    connected: boolean;
+    email: string | null;
+    synced_at: string | null;
+    error: string | null;
+}
+
 interface Filters {
-    tipo: 'seguimentos' | 'prazos' | 'rotinas' | null;
+    tipo: 'seguimentos' | 'prazos' | 'rotinas' | 'google' | null;
     pessoa: string | null;
     estado: 'por-fazer' | 'em-atraso' | 'feitos' | null;
 }
 
 /** The «tipo» filter, as the address writes it. */
-const kindFilter: Record<Kind, NonNullable<Filters['tipo']>> = { follow_up: 'seguimentos', task: 'prazos', routine: 'rotinas' };
+const kindFilter: Record<Kind, NonNullable<Filters['tipo']>> = { follow_up: 'seguimentos', task: 'prazos', routine: 'rotinas', google: 'google' };
 
 const kinds: Record<Kind, { label: string; chip: string; dot: string }> = {
     follow_up: { label: 'Seguimento', chip: 'bg-status-warning/15 text-foreground hover:bg-status-warning/25', dot: 'bg-status-warning' },
     task: { label: 'Prazo de tarefa', chip: 'bg-primary/10 text-foreground hover:bg-primary/20', dot: 'bg-primary' },
     routine: { label: 'Rotina', chip: 'bg-muted text-muted-foreground hover:bg-muted/70', dot: 'bg-muted-foreground/60' },
+    google: { label: 'Google Calendar', chip: 'bg-status-success/12 text-foreground hover:bg-status-success/20', dot: 'bg-status-success' },
+};
+
+const googleResults: Record<NonNullable<Props['google_result']>, [ok: boolean, message: string]> = {
+    ligado: [true, 'Google Calendar ligado. Os eventos aparecem dentro de momentos.'],
+    cancelado: [false, 'A ligação ao Google Calendar foi cancelada.'],
+    erro: [false, 'Não foi possível ligar o Google Calendar. Tente de novo.'],
+    'sem-permissoes': [false, 'Faltou dar ao Google as duas permissões do calendário. Tente de novo e deixe-as marcadas.'],
 };
 
 const weekdayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -105,6 +127,19 @@ export default function AgendaIndex(props: Props) {
     const [selected, setSelected] = useState<AgendaEvent | null>(null);
     const [creating, setCreating] = useState<string | null>(null);
     const [feedOpen, setFeedOpen] = useState(props.feed_url !== null);
+    const [googleOpen, setGoogleOpen] = useState(false);
+
+    // Back from Google: say how it went once, and take the word out of the address.
+    useEffect(() => {
+        if (props.google_result === null) {
+            return;
+        }
+        const [ok, message] = googleResults[props.google_result];
+        (ok ? toast.success : toast.error)(message);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('google');
+        window.history.replaceState(window.history.state, '', url);
+    }, [props.google_result]);
 
     const dayOf = useMemo(() => {
         const format = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -162,7 +197,7 @@ export default function AgendaIndex(props: Props) {
             ? new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(toDate(date))
             : `${new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(toDate(from))} – ${new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(toDate(to))}`;
 
-    const openCount = events.filter((e) => e.kind !== 'routine' && !e.done).length;
+    const openCount = events.filter((e) => e.kind !== 'routine' && e.kind !== 'google' && !e.done).length;
     const overdueCount = events.filter((e) => e.overdue).length;
 
     return (
@@ -173,6 +208,21 @@ export default function AgendaIndex(props: Props) {
                 description="Seguimentos, prazos das tarefas e rotinas, das pessoas e dos agentes."
                 actions={
                     <>
+                        {props.google &&
+                            (props.google.connected ? (
+                                <Button variant="outline" size="sm" onClick={() => setGoogleOpen(true)}>
+                                    <span className={cn('size-2 rounded-full', props.google.error ? 'bg-status-danger' : kinds.google.dot)} />
+                                    Google Calendar
+                                </Button>
+                            ) : (
+                                <Button variant="outline" size="sm" asChild>
+                                    {/* A full page load: Google's consent page is not an Inertia visit. */}
+                                    <a href="/agenda/google/connect">
+                                        <CalendarSync />
+                                        Ligar o Google Calendar
+                                    </a>
+                                </Button>
+                            ))}
                         <Button variant="outline" size="sm" onClick={() => setFeedOpen(true)}>
                             <Link2 />
                             Ver no Google ou Outlook
@@ -218,26 +268,28 @@ export default function AgendaIndex(props: Props) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-                {(Object.keys(kinds) as Kind[]).map((kind) => {
-                    const on = filters.tipo === kindFilter[kind];
+                {(Object.keys(kinds) as Kind[])
+                    .filter((kind) => kind !== 'google' || props.google?.connected)
+                    .map((kind) => {
+                        const on = filters.tipo === kindFilter[kind];
 
-                    return (
-                        <button
-                            key={kind}
-                            type="button"
-                            aria-pressed={on}
-                            onClick={() => go({ tipo: on ? null : kindFilter[kind] })}
-                            className={cn(
-                                'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors',
-                                on ? 'border-foreground/30 bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60',
-                                filters.tipo !== null && !on && 'opacity-60',
-                            )}
-                        >
-                            <span className={cn('size-2 rounded-full', kinds[kind].dot)} />
-                            {kinds[kind].label}
-                        </button>
-                    );
-                })}
+                        return (
+                            <button
+                                key={kind}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => go({ tipo: on ? null : kindFilter[kind] })}
+                                className={cn(
+                                    'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors',
+                                    on ? 'border-foreground/30 bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60',
+                                    filters.tipo !== null && !on && 'opacity-60',
+                                )}
+                            >
+                                <span className={cn('size-2 rounded-full', kinds[kind].dot)} />
+                                {kinds[kind].label}
+                            </button>
+                        );
+                    })}
                 <NativeSelect
                     aria-label="Pessoa ou agente"
                     className="h-8 w-auto min-w-44 text-xs"
@@ -406,6 +458,7 @@ export default function AgendaIndex(props: Props) {
 
             <EventDialog event={selected} hour={selected ? hourOf(selected) : null} dayOf={dayOf} onClose={() => setSelected(null)} />
             <NewReminder day={creating} onClose={() => setCreating(null)} />
+            {props.google?.connected && <GoogleDialog open={googleOpen} onOpenChange={setGoogleOpen} google={props.google} />}
             <FeedDialog open={feedOpen} onOpenChange={setFeedOpen} hasFeed={props.has_feed} url={props.feed_url} flash={flash?.success ?? null} />
         </AppLayout>
     );
@@ -439,7 +492,13 @@ function Card({ event, hour, onClick }: { event: AgendaEvent; hour: string | nul
             className={cn(
                 'grid gap-1 rounded-lg border-l-2 px-2 py-1.5 text-left text-xs',
                 kinds[event.kind].chip,
-                event.kind === 'follow_up' ? 'border-l-status-warning' : event.kind === 'task' ? 'border-l-primary' : 'border-l-muted-foreground/40',
+                event.kind === 'follow_up'
+                    ? 'border-l-status-warning'
+                    : event.kind === 'task'
+                      ? 'border-l-primary'
+                      : event.kind === 'google'
+                        ? 'border-l-status-success'
+                        : 'border-l-muted-foreground/40',
                 event.done && 'opacity-60',
                 event.overdue && 'ring-1 ring-status-danger/60',
             )}
@@ -525,7 +584,9 @@ function EventDialog({
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
                     {event.who && (
                         <>
-                            <dt className="text-muted-foreground">{event.kind === 'follow_up' ? 'Para' : 'Quem trata'}</dt>
+                            <dt className="text-muted-foreground">
+                                {event.kind === 'follow_up' ? 'Para' : event.kind === 'google' ? 'Calendário de' : 'Quem trata'}
+                            </dt>
                             <dd>
                                 <Who who={event.who} />
                             </dd>
@@ -588,6 +649,14 @@ function EventDialog({
                         )}
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
+                        {event.url && (
+                            <Button variant="outline" size="sm" asChild>
+                                <a href={event.url} target="_blank" rel="noreferrer noopener">
+                                    <ExternalLink />
+                                    Abrir no Google
+                                </a>
+                            </Button>
+                        )}
                         {event.link && (
                             <Button variant="outline" size="sm" asChild>
                                 <Link href={event.link}>
@@ -788,6 +857,71 @@ function FeedDialog({
                         <CalendarPlus />
                         {hasFeed || url ? 'Gerar um link novo' : 'Gerar o link'}
                     </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+/** The person's Google Calendar: what is kept in step, when it last was, and the way out. */
+function GoogleDialog({ open, onOpenChange, google }: { open: boolean; onOpenChange: (open: boolean) => void; google: GoogleCalendar }) {
+    const [busy, setBusy] = useState(false);
+    const options = { preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false) };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Google Calendar</DialogTitle>
+                    <DialogDescription>
+                        Ligado a <span className="font-medium text-foreground">{google.email ?? 'a sua conta Google'}</span>.
+                        {google.synced_at && (
+                            <> Sincronizado {new Date(google.synced_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}.</>
+                        )}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <ul className="grid gap-2 text-sm">
+                    <li className="flex gap-2">
+                        <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', kinds.google.dot)} />
+                        <span>
+                            Os eventos do seu calendário principal aparecem aqui na Agenda.{' '}
+                            <span className="text-muted-foreground">Só para si: nem os admins nem os agentes os vêem.</span>
+                        </span>
+                    </li>
+                    <li className="flex gap-2">
+                        <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', kinds.follow_up.dot)} />
+                        <span>
+                            Os seus seguimentos e prazos vão para um calendário à parte que a plataforma criou na sua conta.{' '}
+                            <span className="text-muted-foreground">O seu calendário principal nunca é alterado.</span>
+                        </span>
+                    </li>
+                    <li className="text-xs text-muted-foreground">Sincroniza a cada 5 minutos e quando abre a Agenda.</li>
+                </ul>
+
+                {google.error && <p className="rounded-lg bg-status-danger/10 p-3 text-sm text-status-danger">{google.error}</p>}
+
+                <DialogFooter className="gap-2 sm:justify-between">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-status-danger"
+                        disabled={busy}
+                        onClick={() => router.delete('/agenda/google', { ...options, onSuccess: () => onOpenChange(false) })}
+                    >
+                        Desligar
+                    </Button>
+                    <div className="flex gap-2">
+                        {google.error && (
+                            <Button variant="outline" size="sm" asChild>
+                                <a href="/agenda/google/connect">Voltar a ligar</a>
+                            </Button>
+                        )}
+                        <Button size="sm" disabled={busy} onClick={() => router.post('/agenda/google/sync', {}, options)}>
+                            <CalendarSync />
+                            Sincronizar agora
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

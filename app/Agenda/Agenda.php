@@ -7,6 +7,7 @@ use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
+use App\Models\CalendarEvent;
 use App\Models\EmailMessage;
 use App\Models\FollowUp;
 use App\Models\Task;
@@ -32,7 +33,7 @@ final class Agenda
     /**
      * @return list<array<string, mixed>>
      */
-    public function events(User $user, Carbon $from, Carbon $to, bool $everyone = false, bool $routines = true): array
+    public function events(User $user, Carbon $from, Carbon $to, bool $everyone = false, bool $routines = true, bool $google = true): array
     {
         $everyone = $everyone && self::canSeeEveryone($user);
         $agents = Agent::query()->where('reports_to_user_id', $user->id)->pluck('id')->all();
@@ -41,6 +42,7 @@ final class Agenda
             ...$this->followUps($user, $agents, $from, $to, $everyone),
             ...$this->tasks($user, $agents, $from, $to, $everyone),
             ...($routines ? $this->routines($user, $agents, $from, $to, $everyone) : []),
+            ...($google ? $this->google($user, $from, $to) : []),
         ];
 
         usort($events, fn (array $a, array $b) => [$a['at'], $a['all_day'] ? 0 : 1] <=> [$b['at'], $b['all_day'] ? 0 : 1]);
@@ -219,6 +221,44 @@ final class Agenda
      * A time at midnight (or the end of the day) in Maputo is a date without
      * an hour; so is midnight UTC, how a task keeps a due date given as a day.
      */
+    /**
+     * The person's own Google Calendar events (docs/DECISOES.md, "Google
+     * Calendar por pessoa"): only theirs, never in "everyone" for anyone else.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function google(User $user, Carbon $from, Carbon $to): array
+    {
+        return CalendarEvent::query()
+            ->where('user_id', $user->id)
+            ->where('direction', CalendarEvent::IN)
+            ->where('starts_at', '<=', $to)
+            ->where(fn (Builder $q) => $q->where('ends_at', '>=', $from)->orWhere(fn (Builder $q) => $q->whereNull('ends_at')->where('starts_at', '>=', $from)))
+            ->orderBy('starts_at')
+            ->get()
+            ->map(fn (CalendarEvent $event): array => [
+                'key' => "google-{$event->id}",
+                'kind' => 'google',
+                'title' => (string) $event->title,
+                'note' => $event->location,
+                'at' => $event->starts_at?->toIso8601String(),
+                'ends_at' => $event->ends_at?->toIso8601String(),
+                'all_day' => $event->all_day,
+                'done' => false,
+                'overdue' => false,
+                'who' => ['kind' => 'user', 'id' => $user->id, 'name' => $user->name],
+                'by' => null,
+                'context' => null,
+                'link' => null,
+                'url' => $event->html_link,
+                'follow_up_id' => null,
+                'can_edit' => false,
+                'can_delete' => false,
+            ])
+            ->values()
+            ->all();
+    }
+
     private function allDay(Carbon $at, string $timezone): bool
     {
         $local = $at->copy()->setTimezone($timezone)->format('H:i');

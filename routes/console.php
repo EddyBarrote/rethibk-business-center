@@ -22,6 +22,7 @@ Schedule::command('attachments:prune')->hourly();
 Schedule::command('agents:scan-tenders')->hourly()->withoutOverlapping();
 Schedule::command('agents:watch-deadlines')->hourly()->withoutOverlapping();
 Schedule::command('followups:notify')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('calendar:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('agents:daily-briefing')->weekdays()->at('06:30')->timezone('Africa/Maputo');
 Schedule::command('agents:daily-briefing --weekly')->mondays()->at('07:00')->timezone('Africa/Maputo');
 Schedule::command('agents:chase-receivables')->weekdays()->at('09:00')->timezone('Africa/Maputo');

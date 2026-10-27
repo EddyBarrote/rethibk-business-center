@@ -18,7 +18,7 @@ final class IcsFeed
 
     public function render(User $user, string $baseUrl): string
     {
-        $events = $this->agenda->events($user, now()->subDays(60), now()->addYear(), routines: false);
+        $events = $this->agenda->events($user, now()->subDays(60), now()->addYear(), routines: false, google: false);
         $tenant = Tenant::current()->name ?? config('app.name');
         $timezone = (string) config('agents.schedule_timezone');
         $stamp = now()->utc()->format('Ymd\THis\Z');
@@ -36,14 +36,7 @@ final class IcsFeed
 
         foreach ($events as $event) {
             $at = Carbon::parse($event['at']);
-            $label = $event['kind'] === 'task' ? 'Prazo' : 'Seguimento';
-            $who = $event['who']['name'] ?? null;
-            $description = collect([
-                $event['context'] !== null ? "{$label} · {$event['context']}" : $label,
-                $who !== null ? "Quem trata: {$who}" : null,
-                $event['note'] ?? null,
-                $event['link'] !== null ? $baseUrl.$event['link'] : null,
-            ])->filter()->implode("\n");
+            $description = self::description($event, $baseUrl);
 
             $lines[] = 'BEGIN:VEVENT';
             $lines[] = "UID:{$event['key']}@".parse_url($baseUrl, PHP_URL_HOST);
@@ -73,6 +66,24 @@ final class IcsFeed
         $lines[] = 'END:VCALENDAR';
 
         return implode("\r\n", array_map($this->fold(...), $lines))."\r\n";
+    }
+
+    /**
+     * What a calendar shows under the title: the kind and the task, who
+     * handles it, the reminder's note and the link back. Also for Google.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    public static function description(array $event, string $baseUrl): string
+    {
+        $label = $event['kind'] === 'task' ? 'Prazo' : 'Seguimento';
+
+        return collect([
+            $event['context'] !== null ? "{$label} · {$event['context']}" : $label,
+            ($event['who']['name'] ?? null) !== null ? "Quem trata: {$event['who']['name']}" : null,
+            $event['note'] ?? null,
+            $event['link'] !== null ? $baseUrl.$event['link'] : null,
+        ])->filter()->implode("\n");
     }
 
     private function text(string $value): string

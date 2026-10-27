@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GoogleCalendarController;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTenantFromRoute;
 use App\Http\Middleware\TrackLastSeen;
@@ -31,6 +32,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->domain((string) config('tenancy.admin_domain'))
                 ->name('admin.')
                 ->group(base_path('routes/admin.php'));
+
+            // Google Calendar sends every tenant back here, on the central domain; the
+            // state names the tenant (docs/DECISOES.md, "Google Calendar por pessoa").
+            Route::domain((string) config('tenancy.central_domain'))
+                ->middleware('throttle:30,1')
+                ->get('/oauth/google/callback', [GoogleCalendarController::class, 'callback'])
+                ->name('oauth.google.callback');
 
             Route::middleware('web')->group(base_path('routes/web.php'));
         },

@@ -924,6 +924,23 @@ Pergunta do Barrote: o Agente de Finanças disse «agendei um seguimento para 19
 
 Testes: `tests/Feature/AgendaTest.php`.
 
+## Google Calendar por pessoa (27.10.2026)
+
+Pedido do Barrote: «cada utilizador pode conectar com o seu Google Calendar, para sincronizar as actividades». Segue o que a Agenda deixara para depois: por pessoa, com o consentimento dela, e um agente nunca escreve na agenda de ninguém.
+
+| Decisão | Onde |
+|---|---|
+| **Ligar na Agenda**: «Ligar o Google Calendar» leva ao consentimento do Google; depois o botão «Google Calendar» mostra a conta, a última sincronização, «Sincronizar agora» e «Desligar». Sem cliente OAuth no `.env` a opção não aparece. | `GoogleCalendarController`, `Pages/Agenda/Index.tsx` (`GoogleDialog`) |
+| **Permissões mínimas**: ler eventos (`calendar.events.readonly`) e gerir só os calendários que a plataforma cria (`calendar.app.created`), mais o email da conta. Se a pessoa desmarcar uma das duas do calendário, a ligação é recusada e o acesso devolvido. | `GoogleCalendar::SCOPES` |
+| **Um só endereço de regresso**, no domínio central (`/oauth/google/callback`), para todos os tenants: o `state` é aleatório, guardado 10 minutos em cache com o tenant e a pessoa, e só serve uma vez. O Google não tem de conhecer cada subdomínio. | `bootstrap/app.php`, `GoogleCalendar::redirectUri()` |
+| **Do Google para a Agenda**: os eventos do calendário principal, de 60 dias atrás a um ano à frente, lidos por incrementos (`syncToken`; se o Google o esquecer, lê-se tudo de novo). Aparecem com a etiqueta «Google Calendar» só a essa pessoa, nem em «Toda a empresa» nem aos agentes, e não contam como «por fazer». | `CalendarSync::pull()`, `Agenda::google()` |
+| **Da plataforma para o Google**: os seguimentos e prazos de «O meu» (o mesmo que o link .ics, sem rotinas) vão para um calendário «Agenda · <empresa>» que a plataforma cria na conta da pessoa; o calendário principal nunca é alterado. Só se reenvia o que mudou (hash); o que deixa de estar na Agenda sai do Google. Se a pessoa apagar esse calendário, é criado de novo. Os eventos do Google nunca voltam para lá nem para o .ics. | `CalendarSync::push()` |
+| **De 5 em 5 minutos** (`calendar:sync`), quando a pessoa liga, e ao abrir a Agenda se a última vez foi há mais de 2 minutos. Acesso retirado no Google: fica a mensagem «Volte a ligar o Google Calendar». | `SyncCalendars`, `SyncCalendar`, `AgendaController::google()` |
+| **Desligar** apaga o calendário da plataforma na conta, devolve o acesso ao Google e apaga a ligação e os eventos guardados. Ligar e desligar ficam na auditoria. Os tokens ficam encriptados. | `CalendarSync::disconnect()`, tabelas `calendar_connections`, `calendar_events` |
+| **Credenciais fora do repositório**: um cliente OAuth «Aplicação Web» do Google Cloud, com a Google Calendar API activa, em `GOOGLE_CALENDAR_CLIENT_ID`/`_SECRET` (e `GOOGLE_CALENDAR_REDIRECT_URI` se o endereço não for o do domínio central). | `config/services.php`, `.env.example` |
+
+Testes: `tests/Feature/GoogleCalendarTest.php`.
+
 ## Mensagens entre agentes (16.10.2026)
 
 Pedido do Barrote, com quatro capturas do Grok: os agentes coordenam-se sozinhos. Ele pergunta ao Chief of Staff «O que há para hoje?», responde «Caça leads agora», e o Chief of Staff passa o pedido ao Gestor Comercial («Messaged Gestor Comercial»). Na conversa dele com o Gestor Comercial aparece «Message from Chief of Staff», o Gestor Comercial fala-lhe ali enquanto trabalha e, no fim, manda o resultado a ele e ao Chief of Staff («Messaged Chief of Staff»), que o transmite. Construído de ponta a ponta com as escolhas por omissão abaixo.

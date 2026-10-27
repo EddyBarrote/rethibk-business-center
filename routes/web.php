@@ -16,6 +16,7 @@ use App\Http\Controllers\ConnectorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\GoalController;
+use App\Http\Controllers\GoogleCalendarController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Knowledge\DomainController;
@@ -113,6 +114,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('agenda/follow-ups/{followUp}', [AgendaController::class, 'destroy'])->name('agenda.follow-ups.destroy');
     Route::post('agenda/feed', [AgendaController::class, 'createFeed'])->middleware('throttle:10,1')->name('agenda.feed.create');
     Route::delete('agenda/feed', [AgendaController::class, 'destroyFeed'])->name('agenda.feed.destroy');
+    // Google Calendar per person (docs/DECISOES.md, "Google Calendar por pessoa"); Google answers on the central domain (bootstrap/app.php).
+    Route::get('agenda/google/connect', [GoogleCalendarController::class, 'connect'])->middleware('throttle:10,1')->name('agenda.google.connect');
+    Route::post('agenda/google/sync', [GoogleCalendarController::class, 'sync'])->middleware('throttle:10,1')->name('agenda.google.sync');
+    Route::delete('agenda/google', [GoogleCalendarController::class, 'destroy'])->name('agenda.google.destroy');
     Route::get('goals', [GoalController::class, 'index'])->name('goals.index');
     Route::post('goals', [GoalController::class, 'store'])->name('goals.store');
     Route::put('goals/{goal}', [GoalController::class, 'update'])->name('goals.update');

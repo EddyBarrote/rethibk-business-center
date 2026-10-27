@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Agenda\Agenda;
 use App\Agenda\IcsFeed;
+use App\Calendar\GoogleCalendar;
+use App\Jobs\SyncCalendar;
 use App\Models\AuditLog;
+use App\Models\CalendarConnection;
 use App\Models\FollowUp;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -23,7 +26,7 @@ use Inertia\Response;
 class AgendaController extends Controller
 {
     /** The «tipo» filter, as the address writes it. */
-    private const KINDS = ['seguimentos' => 'follow_up', 'prazos' => 'task', 'rotinas' => 'routine'];
+    private const KINDS = ['seguimentos' => 'follow_up', 'prazos' => 'task', 'rotinas' => 'routine', 'google' => 'google'];
 
     public function __construct(private readonly Agenda $agenda) {}
 
@@ -65,7 +68,35 @@ class AgendaController extends Controller
             'timezone' => $timezone,
             'has_feed' => User::query()->whereKey($user->id)->whereNotNull('calendar_token')->exists(),
             'feed_url' => $request->session()->get('calendar_feed_url'),
+            'google' => $this->google($user),
+            'google_result' => in_array($request->query('google'), ['ligado', 'cancelado', 'erro', 'sem-permissoes'], true) ? (string) $request->query('google') : null,
         ]);
+    }
+
+    /**
+     * The person's Google Calendar, if the platform has a Google client. A
+     * connection not read for a few minutes is read again in the background.
+     *
+     * @return array{connected: bool, email: string|null, synced_at: string|null, error: string|null}|null
+     */
+    private function google(User $user): ?array
+    {
+        if (! GoogleCalendar::configured()) {
+            return null;
+        }
+
+        $connection = CalendarConnection::query()->where('user_id', $user->id)->where('provider', 'google')->first();
+
+        if ($connection !== null && $connection->refresh_token !== null && ($connection->last_synced_at === null || $connection->last_synced_at->lt(now()->subMinutes(2)))) {
+            SyncCalendar::dispatch($connection->tenant_id, $connection->id);
+        }
+
+        return [
+            'connected' => $connection !== null,
+            'email' => $connection?->account_email,
+            'synced_at' => $connection?->last_synced_at?->toIso8601String(),
+            'error' => $connection?->last_error,
+        ];
     }
 
     /**
@@ -183,7 +214,7 @@ class AgendaController extends Controller
         return array_values(array_filter($events, fn (array $event) => ($filters['tipo'] === null || $event['kind'] === self::KINDS[$filters['tipo']])
             && ($filters['pessoa'] === null || ($event['who'] !== null && "{$event['who']['kind']}-{$event['who']['id']}" === $filters['pessoa']))
             && match ($filters['estado']) {
-                'por-fazer' => ! $event['done'] && $event['kind'] !== 'routine',
+                'por-fazer' => ! $event['done'] && ! in_array($event['kind'], ['routine', 'google'], true),
                 'em-atraso' => $event['overdue'],
                 'feitos' => $event['done'],
                 default => true,
