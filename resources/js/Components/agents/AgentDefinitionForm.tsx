@@ -216,6 +216,10 @@ export default function AgentDefinitionForm({
             }
         };
         window.addEventListener('hashchange', onHash);
+        // The browser jumps to #modelo; with tabs the page starts at the top.
+        if (ids.includes(window.location.hash.slice(1))) {
+            requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+        }
 
         return () => window.removeEventListener('hashchange', onHash);
         // eslint-disable-next-line react-hooks/exhaustive-deps
