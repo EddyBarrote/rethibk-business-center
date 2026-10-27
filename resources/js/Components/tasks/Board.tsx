@@ -213,7 +213,7 @@ export function TaskPlanner({ board, onWeek }: { board: BoardData; onWeek: (week
 
     const drag = useDrag((taskId, key) => {
         const task = board.tasks.find((t) => t.id === taskId);
-        if (!task || (key === 'sem' ? task.due_at === null : dayOf(task) === key)) {
+        if (!task || key === 'atraso' || (key === 'sem' ? task.due_at === null : dayOf(task) === key)) {
             return;
         }
         router.patch(`/tasks/${taskId}`, { due_at: key === 'sem' ? null : `${key} 18:00` }, { preserveScroll: true, preserveState: true });
@@ -231,7 +231,10 @@ export function TaskPlanner({ board, onWeek }: { board: BoardData; onWeek: (week
         );
     };
 
+    // In the current week, what is late waits on its own lane for a new day.
+    const late = board.tasks.filter((task) => (dayOf(task) ?? '9') < board.week.from);
     const lanesOf = [
+        ...(late.length > 0 ? [{ key: 'atraso', label: 'Em atraso' }] : []),
         { key: 'sem', label: 'Sem data' },
         ...days.map((day, index) => ({ key: day, label: `${weekdays[index]} ${Number(day.slice(8))}` })),
     ];
@@ -265,27 +268,34 @@ export function TaskPlanner({ board, onWeek }: { board: BoardData; onWeek: (week
             </div>
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
                 {lanesOf.map((lane) => {
-                    const items = board.tasks.filter((task) => (lane.key === 'sem' ? task.due_at === null : dayOf(task) === lane.key));
+                    const items =
+                        lane.key === 'atraso'
+                            ? late
+                            : board.tasks.filter((task) => (lane.key === 'sem' ? task.due_at === null : dayOf(task) === lane.key));
                     const today = lane.key === board.week.today;
 
                     return (
                         <div key={lane.key} className="w-52 shrink-0 2xl:w-auto 2xl:flex-1">
                             <Lane
-                                title={<span className={cn(today && 'text-primary')}>{lane.label}</span>}
+                                title={
+                                    <span className={cn(today && 'text-primary', lane.key === 'atraso' && 'text-status-danger')}>{lane.label}</span>
+                                }
                                 count={items.length}
                                 active={drag.over === lane.key}
                                 extra={
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setAdding(lane.key);
-                                            setTitle('');
-                                        }}
-                                        className="inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
-                                        aria-label={`Nova tarefa: ${lane.label}`}
-                                    >
-                                        <Plus className="size-3.5" />
-                                    </button>
+                                    lane.key !== 'atraso' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAdding(lane.key);
+                                                setTitle('');
+                                            }}
+                                            className="inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+                                            aria-label={`Nova tarefa: ${lane.label}`}
+                                        >
+                                            <Plus className="size-3.5" />
+                                        </button>
+                                    )
                                 }
                                 {...drag.lane(lane.key)}
                             >

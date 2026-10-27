@@ -81,12 +81,13 @@ it('shows the board and the week to plan', function () {
         Task::factory()->create(['title' => 'Sem data', 'user_id' => $this->member->id, 'due_at' => null]);
         Task::factory()->create(['title' => 'Quinta', 'user_id' => $this->member->id, 'due_at' => Carbon::parse('2026-10-29 18:00', config('agents.schedule_timezone'))]);
         Task::factory()->create(['title' => 'Próxima semana', 'user_id' => $this->member->id, 'due_at' => Carbon::parse('2026-11-04 18:00', config('agents.schedule_timezone'))]);
+        Task::factory()->create(['title' => 'Atrasada', 'user_id' => $this->member->id, 'due_at' => Carbon::parse('2026-10-20 18:00', config('agents.schedule_timezone'))]);
         Task::factory()->create(['title' => 'De outra pessoa', 'user_id' => $this->colleague->id, 'created_by_user_id' => $this->colleague->id]);
     });
 
     $titles = fn (string $query) => collect($this->actingAs($this->member)->get(tenantUrl($this->tenant, "tasks?{$query}"))->viewData('page')['props']['board']['tasks'])->pluck('title')->all();
 
-    expect($titles('modo=planear'))->toEqualCanonicalizing(['Sem data', 'Quinta'])
+    expect($titles('modo=planear'))->toEqualCanonicalizing(['Sem data', 'Quinta', 'Atrasada'])
         ->and($titles('modo=planear&semana=2026-11-02'))->toEqualCanonicalizing(['Sem data', 'Próxima semana'])
-        ->and($titles('modo=quadro'))->toEqualCanonicalizing(['Sem data', 'Quinta', 'Próxima semana']);
+        ->and($titles('modo=quadro'))->toEqualCanonicalizing(['Sem data', 'Quinta', 'Próxima semana', 'Atrasada']);
 });

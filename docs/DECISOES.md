@@ -1459,5 +1459,5 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 
 - Em Tarefas, o botão «Lista · Quadro · Planear» muda a vista (`modo` no endereço) e mantém os filtros e a vista do lado (Minhas, Todas…).
 - **Quadro:** colunas Por fazer, Em curso, Por rever e Feito (feito na última semana). Arrastar um cartão muda o estado.
-- **Planear:** os sete dias da semana (`semana`, de segunda a domingo, com navegação) e a coluna «Sem data». Arrastar um cartão dá-lhe esse dia (ou tira-lhe a data), e o «+» de cada coluna cria uma tarefa já com esse dia.
+- **Planear:** os sete dias da semana (`semana`, de segunda a domingo, com navegação), a coluna «Sem data» e, na semana actual, «Em atraso» com o que passou do prazo. Arrastar um cartão dá-lhe esse dia (ou tira-lhe a data), e o «+» de cada coluna cria uma tarefa já com esse dia.
 - Os cartões mostram a prioridade, o prazo (a vermelho se passou), «a trabalhar», as caras dos colaboradores (com um ponto quando a parte está pronta ou feita) e o responsável. São no máximo 300 cartões.

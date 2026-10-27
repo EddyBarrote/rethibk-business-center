@@ -808,8 +808,9 @@ class TaskController extends Controller
     /**
      * The cards of Quadro and Planear: the open tasks of the view with the
      * page's filters, and those done in the last week (Quadro) or in the
-     * week shown (Planear). Planear also has the week and the tasks without
-     * a date. A card moved on the board is saved with tasks.update.
+     * week shown (Planear). Planear also has the week, the tasks without a
+     * date and, in the current week, the late ones. A card moved on the
+     * board is saved with tasks.update.
      *
      * @param  Closure(Builder<Task>): Builder<Task>  $narrow
      * @return array<string, mixed>
@@ -824,7 +825,9 @@ class TaskController extends Controller
             ->where('kind', TaskKind::Task)
             ->when($view === 'mine', fn (Builder $q) => $q->needing($user))
             ->where(fn (Builder $q) => $mode === 'planear'
-                ? $q->where(fn (Builder $open) => $open->open()->where(fn (Builder $d) => $d->whereNull('due_at')->orWhereBetween('due_at', [$from->copy()->utc(), $to->copy()->utc()])))
+                ? $q->where(fn (Builder $open) => $open->open()->where(fn (Builder $d) => $d->whereNull('due_at')->orWhereBetween('due_at', [$from->copy()->utc(), $to->copy()->utc()])
+                    // In the current week, what is late too: it still has to find a day.
+                    ->when($from->lte(now()) && $to->gte(now()), fn (Builder $late) => $late->orWhere('due_at', '<', $from->copy()->utc()))))
                     ->orWhere(fn (Builder $done) => $done->where('status', TaskStatus::Done)->whereBetween('due_at', [$from->copy()->utc(), $to->copy()->utc()]))
                 : $q->open()->orWhere(fn (Builder $done) => $done->where('status', TaskStatus::Done)->where('completed_at', '>=', now()->subDays(7))))
             ->with([...Present::TASK_RELATIONS, 'collaborators.agent:id,name,avatar_path', 'collaborators.user:id,name', 'collaborators.subtask:id,status'])
