@@ -135,15 +135,17 @@ function split(keys: string[]) {
 function DocumentKind({ document }: { document: GeneratedDocument }) {
     return document.kind === 'report' ? (
         <>
-            <span className="rounded bg-muted px-1 py-px text-[10px] text-muted-foreground">Relatório</span>
+            <span className="shrink-0 rounded bg-muted px-1 py-px text-[10px] whitespace-nowrap text-muted-foreground">Relatório</span>
             {document.status === 'draft' && (
-                <span className="rounded bg-status-warning/15 px-1 py-px text-[10px] font-medium text-status-warning">Por rever</span>
+                <span className="shrink-0 rounded bg-status-warning/15 px-1 py-px text-[10px] font-medium whitespace-nowrap text-status-warning">
+                    Por rever
+                </span>
             )}
         </>
     ) : (
         <>
             <ExtensionTag extension={document.format} />
-            {document.size !== null && <span className="tabular-nums">{bytes(document.size)}</span>}
+            {document.size !== null && <span className="shrink-0 whitespace-nowrap tabular-nums">{bytes(document.size)}</span>}
         </>
     );
 }
@@ -747,9 +749,9 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                         </div>
                                         <div className="mt-auto flex flex-col gap-1.5 text-xs text-muted-foreground">
                                             <DocumentAuthor document={d} />
-                                            <span className="flex items-center gap-1.5">
+                                            <span className="flex min-w-0 items-center gap-1.5">
                                                 <DocumentKind document={d} />
-                                                <span className="ml-auto" title={dateTime(d.created_at)}>
+                                                <span className="ml-auto min-w-0 truncate whitespace-nowrap" title={dateTime(d.created_at)}>
                                                     {ago(d.created_at)}
                                                 </span>
                                             </span>
