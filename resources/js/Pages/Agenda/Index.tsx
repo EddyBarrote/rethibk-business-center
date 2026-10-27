@@ -11,12 +11,13 @@ import {
     ExternalLink,
     Link2,
     Plus,
+    Repeat,
     Trash2,
     Undo2,
     User,
     X,
 } from 'lucide-react';
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { ConfirmDialog, FormDialog } from '@/Components/Dialogs';
@@ -26,6 +27,7 @@ import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { NativeSelect } from '@/Components/ui/native-select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/Components/ui/popover';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
@@ -355,15 +357,15 @@ export default function AgendaIndex(props: Props) {
                             const items = byDay.get(day) ?? [];
                             const outside = day.slice(0, 7) !== date.slice(0, 7);
                             if (outside && items.length === 0) {
-                                return <div key={day} className="hidden min-h-24 border-r border-b bg-muted/20 last:border-r-0 sm:block" />;
+                                return <div key={day} className="hidden min-h-28 border-r border-b bg-muted/20 last:border-r-0 sm:block" />;
                             }
 
                             return (
                                 <div
                                     key={day}
                                     className={cn(
-                                        'group relative min-h-24 border-b p-1.5 sm:border-r sm:[&:nth-child(7n)]:border-r-0',
-                                        outside && 'bg-muted/20',
+                                        'group relative min-h-28 border-b p-1.5 sm:border-r sm:[&:nth-child(7n)]:border-r-0',
+                                        (outside || [6, 0].includes(toDate(day).getUTCDay())) && 'bg-muted/20',
                                         items.length === 0 && 'hidden sm:block',
                                     )}
                                 >
@@ -373,8 +375,8 @@ export default function AgendaIndex(props: Props) {
                                             onClick={() => go({ vista: 'semana', data: day })}
                                             className={cn(
                                                 'inline-flex size-6 items-center justify-center rounded-full text-xs tabular-nums hover:bg-muted',
-                                                day === today && 'bg-primary font-semibold text-primary-foreground hover:bg-primary',
                                                 outside && 'text-muted-foreground',
+                                                day === today && 'bg-primary font-semibold !text-primary-foreground hover:bg-primary/90',
                                             )}
                                             title="Ver a semana"
                                         >
@@ -397,20 +399,18 @@ export default function AgendaIndex(props: Props) {
                                             <Plus className="size-3.5" />
                                         </button>
                                     </div>
-                                    <div className="grid gap-0.5">
-                                        {items.slice(0, 3).map((event) => (
-                                            <Chip key={event.key} event={event} hour={hourOf(event)} onClick={() => setSelected(event)} />
-                                        ))}
-                                        {items.length > 3 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => go({ vista: 'semana', data: day })}
-                                                className="px-1.5 text-left text-xs text-muted-foreground hover:text-foreground"
-                                            >
-                                                +{items.length - 3} mais
-                                            </button>
-                                        )}
-                                    </div>
+                                    <DayLines
+                                        items={items}
+                                        showRoutines={filters.tipo === 'rotinas'}
+                                        hourOf={hourOf}
+                                        onOpen={setSelected}
+                                        label={new Intl.DateTimeFormat('pt-PT', {
+                                            weekday: 'long',
+                                            day: 'numeric',
+                                            month: 'long',
+                                            timeZone: 'UTC',
+                                        }).format(toDate(day))}
+                                    />
                                 </div>
                             );
                         })}
@@ -464,6 +464,160 @@ export default function AgendaIndex(props: Props) {
     );
 }
 
+/** The part of a title that repeats ("Seguimento de cobrança - Olankha" → "Seguimento de cobrança"). */
+const baseTitle = (title: string) => title.split(/\s[-–—:|]\s/)[0].trim();
+
+interface Line {
+    key: string;
+    kind: Kind;
+    label: string;
+    events: AgendaEvent[];
+}
+
+/**
+ * A day of the month view, made to be read at a glance: what is late comes
+ * first, items of the same kind and title fold into one line («Seguimento de
+ * cobrança · 3»), and the routines that run every day become one quiet line
+ * at the bottom (shown in full when the «Rotina» filter is on). A folded line
+ * opens the list of its items.
+ */
+function DayLines({
+    items,
+    showRoutines,
+    hourOf,
+    onOpen,
+    label,
+}: {
+    items: AgendaEvent[];
+    showRoutines: boolean;
+    hourOf: (event: AgendaEvent) => string | null;
+    onOpen: (event: AgendaEvent) => void;
+    label: string;
+}) {
+    const routines = showRoutines ? [] : items.filter((event) => event.kind === 'routine');
+    const lines: Line[] = [];
+    items
+        .filter((event) => showRoutines || event.kind !== 'routine')
+        .forEach((event) => {
+            const key = `${event.kind}:${baseTitle(event.title).toLowerCase()}`;
+            const line = lines.find((l) => l.key === key);
+            if (line) {
+                line.events.push(event);
+            } else {
+                lines.push({ key, kind: event.kind, label: baseTitle(event.title), events: [event] });
+            }
+        });
+    // Late first, then by the hour of the first item.
+    lines.sort((a, b) => Number(b.events.some((e) => e.overdue)) - Number(a.events.some((e) => e.overdue)));
+
+    const shown = lines.slice(0, 3);
+    const rest = lines.slice(3).flatMap((line) => line.events);
+
+    return (
+        <div className="grid gap-0.5">
+            {shown.map((line) =>
+                line.events.length === 1 ? (
+                    <Chip key={line.key} event={line.events[0]} hour={hourOf(line.events[0])} onClick={() => onOpen(line.events[0])} />
+                ) : (
+                    <DayList key={line.key} title={`${line.label} · ${line.events.length}`} events={line.events} hourOf={hourOf} onOpen={onOpen}>
+                        <LineButton kind={line.kind} overdue={line.events.filter((e) => e.overdue).length}>
+                            <span className="line-clamp-2 min-w-0 flex-1">{line.label}</span>
+                            <span className="shrink-0 rounded-full bg-background/70 px-1.5 text-[10px] font-medium tabular-nums">
+                                {line.events.length}
+                            </span>
+                        </LineButton>
+                    </DayList>
+                ),
+            )}
+            {rest.length > 0 && (
+                <DayList title={label} events={rest} hourOf={hourOf} onOpen={onOpen}>
+                    <button type="button" className="px-1.5 text-left text-xs text-muted-foreground hover:text-foreground">
+                        +{rest.length} mais
+                    </button>
+                </DayList>
+            )}
+            {routines.length > 0 && (
+                <DayList title={`Rotinas · ${label}`} events={routines} hourOf={hourOf} onOpen={onOpen}>
+                    <button
+                        type="button"
+                        className="mt-0.5 inline-flex items-center gap-1 px-1.5 text-left text-[11px] text-muted-foreground/80 hover:text-foreground"
+                    >
+                        <Repeat className="size-3 shrink-0" />
+                        {routines.length === 1 ? '1 rotina' : `${routines.length} rotinas`}
+                    </button>
+                </DayList>
+            )}
+        </div>
+    );
+}
+
+function LineButton({ kind, overdue, children, ...props }: { kind: Kind; overdue: number; children: ReactNode } & ComponentProps<'button'>) {
+    return (
+        <button
+            type="button"
+            {...props}
+            className={cn('flex min-w-0 items-start gap-1.5 rounded px-1.5 py-0.5 text-left text-xs leading-snug', kinds[kind].chip)}
+        >
+            <span className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', overdue > 0 ? 'bg-status-danger' : kinds[kind].dot)} />
+            {children}
+        </button>
+    );
+}
+
+/** The items behind a folded line, in a small list; one click opens an item. */
+function DayList({
+    title,
+    events,
+    hourOf,
+    onOpen,
+    children,
+}: {
+    title: string;
+    events: AgendaEvent[];
+    hourOf: (event: AgendaEvent) => string | null;
+    onOpen: (event: AgendaEvent) => void;
+    children: ReactNode;
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>{children}</PopoverTrigger>
+            <PopoverContent align="start" className="w-80 p-0">
+                <p className="border-b px-3 py-2 text-xs font-medium first-letter:uppercase">{title}</p>
+                <ul className="max-h-80 overflow-y-auto py-1">
+                    {events.map((event) => (
+                        <li key={event.key}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOpen(false);
+                                    onOpen(event);
+                                }}
+                                className={cn(
+                                    'flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted',
+                                    event.done && 'opacity-60',
+                                )}
+                            >
+                                <span
+                                    className={cn('mt-1 size-1.5 shrink-0 rounded-full', event.overdue ? 'bg-status-danger' : kinds[event.kind].dot)}
+                                />
+                                <span className={cn('w-10 shrink-0 tabular-nums', event.overdue ? 'text-status-danger' : 'text-muted-foreground')}>
+                                    {hourOf(event) ?? 'Dia'}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className={cn('block', event.done && 'line-through')}>{event.title}</span>
+                                    {event.who && <span className="block truncate text-muted-foreground">{event.who.name}</span>}
+                                </span>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 function Chip({ event, hour, onClick }: { event: AgendaEvent; hour: string | null; onClick: () => void }) {
     return (
         <button
@@ -471,15 +625,16 @@ function Chip({ event, hour, onClick }: { event: AgendaEvent; hour: string | nul
             onClick={onClick}
             title={event.title}
             className={cn(
-                'flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs',
+                'flex min-w-0 items-start gap-1.5 rounded px-1.5 py-0.5 text-left text-xs leading-snug',
                 kinds[event.kind].chip,
                 event.done && 'line-through opacity-60',
-                event.overdue && 'ring-1 ring-status-danger/60',
             )}
         >
-            <span className={cn('size-1.5 shrink-0 rounded-full', kinds[event.kind].dot)} />
-            {hour && <span className="shrink-0 tabular-nums text-muted-foreground">{hour}</span>}
-            <span className="truncate">{event.title}</span>
+            <span className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', event.overdue ? 'bg-status-danger' : kinds[event.kind].dot)} />
+            <span className="line-clamp-2 min-w-0 flex-1">
+                {hour && <span className={cn('mr-1 tabular-nums', event.overdue ? 'text-status-danger' : 'text-muted-foreground')}>{hour}</span>}
+                {event.title}
+            </span>
         </button>
     );
 }
