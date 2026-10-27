@@ -1412,3 +1412,7 @@ Testes: `tests/Feature/Email/AcknowledgementTest.php`.
 - Em Ficheiros (`/documents`), grelha e lista têm uma caixa por ficheiro; a caixa do cabeçalho escolhe todos os da página (Ctrl/Cmd+A faz o mesmo), Shift+clique escolhe o intervalo e Esc larga a selecção. Enquanto há ficheiros escolhidos, um clique num ficheiro junta-o ou tira-o em vez de o abrir.
 - Com ficheiros escolhidos, a linha do título passa a barra de acções: Mover para (pastas, Tirar da pasta), Descarregar (um ZIP com nomes repetidos numerados), Arquivar no conhecimento (domínio e pasta, os já arquivados ficam como estão) e Apagar (com confirmação). Arrastar um ficheiro escolhido para uma pasta leva todos os escolhidos.
 - Rotas `documents/bulk/*`: cada acção só toca os ficheiros que a pessoa vê; apagar só apaga os dela (um gestor, todos) e a mensagem diz quantos ficaram. Os domínios do conhecimento só se carregam quando se abre «Arquivar» (`knowledge`, prop opcional).
+
+## Definições: menu lateral que colapsa (27.10.2026)
+
+- Em ecrã grande, o menu das Definições tem no topo um botão para colapsar e expandir. Colapsado, fica uma coluna de ícones (o nome aparece ao passar o rato) e a página ganha a largura. A escolha fica no browser (`settings.nav.collapsed`).
