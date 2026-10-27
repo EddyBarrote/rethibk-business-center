@@ -22,6 +22,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/Components/ui/sheet';
 import { Textarea } from '@/Components/ui/textarea';
 import { useAttachments } from '@/hooks/useAttachments';
 import { useLive } from '@/hooks/useLive';
+import { type Collaborator, Collaborators } from '@/Components/tasks/Collaborators';
 import AppLayout from '@/Layouts/AppLayout';
 import { approvalTitle } from '@/lib/approvals';
 import type { AttachmentLimits } from '@/lib/attachments';
@@ -42,6 +43,7 @@ interface Props extends TaskFormOptions {
         parent: { id: number; ref: string; title: string } | null;
         source: { label: string; href: string } | null;
         agent: AgentSummary | null;
+        collaborators: Collaborator[];
     };
     messages: ChatMessage[];
     children: TaskSummary[];
@@ -189,6 +191,7 @@ export default function TaskShow({
     projects,
     statuses,
     priorities,
+    collaborator_roles: collaboratorRoles = [],
 }: Props) {
     const { tenant, auth } = usePage<SharedProps>().props;
     const form = useForm({ body: '', mode: 'message' as 'message' | 'action', attachment_ids: [] as number[] });
@@ -515,6 +518,16 @@ export default function TaskShow({
                                         title: 'Quem teve o caso, cada passagem e o tempo de cada uma',
                                     },
                                 ]}
+                            />
+                        )}
+                        {!task.is_conversation && task.kind === 'task' && (can.update || task.collaborators.length > 0) && (
+                            <Collaborators
+                                taskId={task.id}
+                                collaborators={task.collaborators}
+                                agents={agents}
+                                people={people}
+                                roles={collaboratorRoles}
+                                canEdit={can.update && !isClosed}
                             />
                         )}
                         {!task.is_conversation && task.kind === 'task' && can.update && (

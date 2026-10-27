@@ -8,7 +8,8 @@ use App\Models\User;
 
 /**
  * Owners and admins see every task. Everyone else sees the threads they are
- * part of and the work of the agents they answer for or work with.
+ * part of, the tasks they were invited to, and the work of the agents they
+ * answer for or work with.
  */
 class TaskPolicy
 {
@@ -40,7 +41,12 @@ class TaskPolicy
 
         $agent = $task->assigneeAgent;
 
-        return $agent !== null && ($agent->reports_to_user_id === $actor->id || $agent->assignees()->whereKey($actor->id)->exists());
+        if ($agent !== null && ($agent->reports_to_user_id === $actor->id || $agent->assignees()->whereKey($actor->id)->exists())) {
+            return true;
+        }
+
+        // A colleague invited to work on it (docs/DECISOES.md, "Tarefas: colaborar com agentes e colegas").
+        return $task->collaborators()->where('user_id', $actor->id)->exists();
     }
 
     /**

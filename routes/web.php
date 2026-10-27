@@ -96,6 +96,8 @@ Route::middleware('auth')->group(function () {
     Route::post('tasks/bulk', [TaskController::class, 'bulk'])->name('tasks.bulk');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+    Route::post('tasks/{task}/collaborators', [TaskController::class, 'invite'])->name('tasks.collaborators.store');
+    Route::delete('tasks/{task}/collaborators/{collaborator}', [TaskController::class, 'uninvite'])->name('tasks.collaborators.destroy');
     Route::post('tasks/{task}/close', [TaskController::class, 'close'])->name('tasks.close');
     Route::post('tasks/{task}/reopen', [TaskController::class, 'reopen'])->name('tasks.reopen');
     Route::post('tasks/{task}/messages', [TaskController::class, 'message'])->middleware('throttle:30,1')->name('tasks.message');

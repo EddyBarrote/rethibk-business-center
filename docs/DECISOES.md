@@ -1438,3 +1438,26 @@ Testes: `tests/Feature/Email/AcknowledgementTest.php`.
 - A semana passa a ser uma grelha como a de um calendário: os dias em colunas, as horas à esquerda (das 8h às 18h, alargando se houver algo fora disso) e uma linha «Dia todo» no topo. Deixa de haver uma caixa por dia e um botão «Lembrete» em cada coluna; o «+» aparece ao passar pelo dia.
 - Cada hora de cada dia lista os seus itens, agrupados como no mês (até duas linhas e «+N mais»). Uma hora cheia torna a linha mais alta em vez de tapar a seguinte, o que corrige o item de dia todo que passava para o dia ao lado.
 - As rotinas ficam na linha «Dia todo» como «↻ 3 rotinas» (com o filtro «Rotina» vão para as suas horas). No telefone, a semana é uma lista de dias.
+
+## Tarefas: gestor de trabalho (27.10.2026)
+
+Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fila do que os agentes fazem, e cada tarefa pode ser feita com agentes e com colegas. Esta é a parte 1. A repetição de tarefas e os resumos do Chief of Staff (do dia e da semana) ficam para a parte 2.
+
+### Tarefas: criação rápida
+
+- Em Tarefas há uma linha «Nova tarefa: «Ligar à Mozal sexta» e Enter». O dia é lido da frase (`App\Tasks\QuickDate`): hoje, amanhã, depois de amanhã, os dias da semana (o próximo), «dia 5» e 5/11. O prazo fica às 18h desse dia e o resto da frase é o título.
+- Qualquer pessoa pode criar as suas próprias tarefas, sem responsável ou atribuídas a si. Dar uma tarefa a outra pessoa, ou a um agente a partir daqui, continua reservado às chefias (realinhamento L5). Os agentes entram nas tarefas de cada pessoa através do «Com quem?».
+
+### Tarefas: colaborar com agentes e colegas
+
+- Numa tarefa, o botão «Com quem?» convida um agente ou um colega com uma função: Preparar, Rascunhar, Acompanhar, Fazer ou Rever (`App\Enums\CollaboratorRole`). Pode juntar-se uma nota.
+- A parte de cada um é uma subtarefa da tarefa (`task_collaborators.subtask_id`), com o título «Preparar: …» e, no topo, o que a função pede. Um agente começa logo e um colega é avisado. Quando a subtarefa fica feita, reporta na conversa da tarefa principal (`TaskThread::reportToParent`). As funções dos agentes dizem-lhes que nada sai em nome de ninguém sem aprovação.
+- Um colega convidado passa a ver a tarefa principal (na política e no `visibleTo`), e ela entra nas «Minhas» dele. Retirar alguém cancela a subtarefa que ainda estiver aberta.
+- No cabeçalho da tarefa aparecem as caras de quem colabora, e o diálogo mostra a função e o estado da parte de cada um (Convidado, A trabalhar, Pronto para rever, Feito).
+
+### Tarefas: quadro e planear
+
+- Em Tarefas, o botão «Lista · Quadro · Planear» muda a vista (`modo` no endereço) e mantém os filtros e a vista do lado (Minhas, Todas…).
+- **Quadro:** colunas Por fazer, Em curso, Por rever e Feito (feito na última semana). Arrastar um cartão muda o estado.
+- **Planear:** os sete dias da semana (`semana`, de segunda a domingo, com navegação) e a coluna «Sem data». Arrastar um cartão dá-lhe esse dia (ou tira-lhe a data), e o «+» de cada coluna cria uma tarefa já com esse dia.
+- Os cartões mostram a prioridade, o prazo (a vermelho se passou), «a trabalhar», as caras dos colaboradores (com um ponto quando a parte está pronta ou feita) e o responsável. São no máximo 300 cartões.

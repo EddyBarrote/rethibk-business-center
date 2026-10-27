@@ -4,16 +4,19 @@ import {
     ArrowDown,
     ArrowUp,
     CalendarClock,
+    CalendarRange,
     CalendarX2,
     CheckCheck,
     ChevronRight,
     CircleAlert,
     CircleDashed,
+    Columns3,
     Flag,
     FolderKanban,
     Hand,
     Inbox,
     Layers,
+    List,
     ListTodo,
     type LucideIcon,
     MessageSquare,
@@ -52,6 +55,8 @@ import { NativeSelect } from '@/Components/ui/native-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
+import { type BoardData, TaskBoard, TaskPlanner } from '@/Components/tasks/Board';
+import type { CollaboratorRoleOption } from '@/Components/tasks/Collaborators';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, deadline, number, plural } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -94,6 +99,7 @@ export interface TaskFormOptions {
     people: { id: number; name: string }[];
     statuses: Option[];
     priorities: Option[];
+    collaborator_roles?: CollaboratorRoleOption[];
 }
 
 /** Order in which status groups appear: what needs a person first, closed last. */
@@ -251,7 +257,16 @@ interface Filters {
     ordenar: Sort;
     agrupar: Group;
     por_pagina: number;
+    modo?: Mode;
+    semana?: string | null;
 }
+
+type Mode = 'lista' | 'quadro' | 'planear';
+const modes: { key: Mode; label: string; icon: LucideIcon }[] = [
+    { key: 'lista', label: 'Lista', icon: List },
+    { key: 'quadro', label: 'Quadro', icon: Columns3 },
+    { key: 'planear', label: 'Planear', icon: CalendarRange },
+];
 
 interface Props extends TaskFormOptions {
     tasks: Paginated<TaskSummary>;
@@ -261,10 +276,13 @@ interface Props extends TaskFormOptions {
     status_counts: Record<TaskStatus, number>;
     waiting_total: number;
     overdue_total: number;
+    mode: Mode;
+    /** The cards of Quadro and Planear; null in Lista. */
+    board: BoardData | null;
 }
 
 const NONE = 'none';
-const live = ['tasks', 'counts', 'status_counts', 'waiting_total', 'overdue_total'];
+const live = ['tasks', 'counts', 'status_counts', 'waiting_total', 'overdue_total', 'board'];
 
 const views: { key: View; label: string; icon: LucideIcon; hint: string }[] = [
     { key: 'mine', label: 'Minhas', icon: Inbox, hint: 'Abertas consigo: suas, pedidas por si ou com uma aprovação sua' },
@@ -306,6 +324,8 @@ export default function TasksIndex({
     status_counts,
     waiting_total,
     overdue_total,
+    mode,
+    board,
     agents,
     people,
     goals,
@@ -346,6 +366,9 @@ export default function TasksIndex({
         if (merged.ordenar !== 'actividade') params.ordenar = merged.ordenar;
         if (merged.agrupar !== 'estado') params.agrupar = merged.agrupar;
         if (merged.por_pagina !== per_page_options[0]) params.por_pagina = merged.por_pagina;
+        const nextMode = merged.modo ?? mode;
+        if (nextMode !== 'lista') params.modo = nextMode;
+        if (nextMode === 'planear' && merged.semana) params.semana = merged.semana;
         router.get('/tasks', params, { preserveState: true, preserveScroll: true, replace: next.q !== undefined });
     };
 
@@ -636,7 +659,34 @@ export default function TasksIndex({
                         </div>
                     )}
 
-                    {tasks.data.length === 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <QuickTask />
+                        <div className="flex h-8 items-center rounded-md bg-muted/60 p-0.5" role="group" aria-label="Como ver">
+                            {modes.map((m) => (
+                                <button
+                                    key={m.key}
+                                    type="button"
+                                    aria-pressed={mode === m.key}
+                                    onClick={() => go({ modo: m.key, semana: null })}
+                                    className={cn(
+                                        'inline-flex h-full items-center gap-1.5 rounded px-2.5 text-xs transition-colors [&_svg]:size-3.5',
+                                        mode === m.key
+                                            ? 'bg-background font-medium text-foreground shadow-xs'
+                                            : 'text-muted-foreground hover:text-foreground',
+                                    )}
+                                >
+                                    <m.icon />
+                                    {m.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {board && mode === 'quadro' ? (
+                        <TaskBoard board={board} />
+                    ) : board && mode === 'planear' ? (
+                        <TaskPlanner board={board} onWeek={(semana) => go({ semana })} />
+                    ) : tasks.data.length === 0 ? (
                         <EmptyState
                             icon={filtered ? SearchX : filters.view === 'chats' ? MessagesSquare : filters.view === 'waiting' ? CheckCheck : ListTodo}
                             title={filtered ? 'Nada encontrado' : emptyCopy[filters.view].title}
@@ -1274,5 +1324,49 @@ function NewTaskDialog({
                 </form>
             </DialogContent>
         </Dialog>
+    );
+}
+
+/**
+ * A task in one line, with its day in the words: «Ligar à Mozal sexta»
+ * (docs/DECISOES.md, "Tarefas: criação rápida"). It is the person's own.
+ */
+function QuickTask() {
+    const [title, setTitle] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    const submit = (event: FormEvent) => {
+        event.preventDefault();
+        if (title.trim() === '') {
+            return;
+        }
+        router.post(
+            '/tasks',
+            { kind: 'task', title: title.trim(), quick: true },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onStart: () => setBusy(true),
+                onSuccess: () => setTitle(''),
+                onFinish: () => setBusy(false),
+            },
+        );
+    };
+
+    return (
+        <form
+            onSubmit={submit}
+            className="flex h-8 min-w-60 flex-1 items-center gap-2 rounded-md bg-muted/50 px-2.5 focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/40"
+        >
+            <Plus className="size-4 shrink-0 text-muted-foreground" />
+            <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                disabled={busy}
+                placeholder="Nova tarefa: «Ligar à Mozal sexta» e Enter"
+                aria-label="Nova tarefa numa linha"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+        </form>
     );
 }

@@ -8,6 +8,7 @@ use App\Attachments\AttachmentLimits;
 use App\Attachments\AttachmentStore;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
+use App\Enums\CollaboratorRole;
 use App\Enums\EmailStatus;
 use App\Enums\GoalStatus;
 use App\Enums\Permission;
@@ -28,18 +29,23 @@ use App\Models\Goal;
 use App\Models\MessageAttachment;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\TaskCollaborator;
 use App\Models\TaskMessage;
 use App\Models\User;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowStep;
 use App\Tasks\Handoffs;
+use App\Tasks\QuickDate;
+use App\Tasks\TaskCollaboration;
 use App\Tasks\TaskJourney;
 use App\Tasks\TaskThread;
 use App\Tenancy\TenantRule;
 use App\Workflows\WorkflowGraph;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -83,8 +89,12 @@ class TaskController extends Controller
             'ordenar' => ['nullable', Rule::in(['actividade', 'prioridade', 'prazo', 'criacao'])],
             'agrupar' => ['nullable', Rule::in(['estado', 'prioridade', 'responsavel', 'nenhum'])],
             'por_pagina' => ['nullable', 'integer', Rule::in(self::PER_PAGE)],
+            // Lista, Quadro or Planear (docs/DECISOES.md, "Tarefas: quadro e planear").
+            'modo' => ['nullable', Rule::in(['lista', 'quadro', 'planear'])],
+            'semana' => ['nullable', 'date_format:Y-m-d'],
         ]);
         $view = $filters['view'] ?? 'mine';
+        $mode = $filters['modo'] ?? 'lista';
 
         // Conversations are opened from the agents in the sidebar (docs/DECISOES.md, "Conversas a partir dos agentes").
         if ($view === 'chats') {
@@ -141,6 +151,8 @@ class TaskController extends Controller
                 'por_pagina' => $perPage,
             ],
             'per_page_options' => self::PER_PAGE,
+            'mode' => $mode,
+            'board' => $mode === 'lista' ? null : $this->board($user, $narrow, $view, $mode, $filters['semana'] ?? null),
             // Counted with the same rule and filters as the list, so a view never promises rows it does not show.
             'counts' => collect(['mine', 'waiting', 'all', 'closed'])->mapWithKeys(fn (string $in) => [$in => $base($in)->count()]),
             'status_counts' => collect(self::STATUS_ORDER)->mapWithKeys(fn (string $s) => [$s => (int) ($byStatus[$s] ?? 0)]),
@@ -314,7 +326,14 @@ class TaskController extends Controller
             'goal_id' => ['nullable', 'integer', TenantRule::exists('goals')],
             'project_id' => ['nullable', 'integer', TenantRule::exists('projects')],
             'due_at' => ['nullable', 'date'],
+            // One line, with the day in it: «Ligar à Mozal sexta» (docs/DECISOES.md, "Tarefas: criação rápida").
+            'quick' => ['nullable', 'boolean'],
         ]);
+
+        if (($data['quick'] ?? false) && $data['kind'] === TaskKind::Task->value) {
+            [$data['title'], $day] = QuickDate::parse((string) $data['title'], now((string) config('agents.schedule_timezone'))->startOfDay());
+            $data['due_at'] ??= $day?->setTime(18, 0)->utc()->toIso8601String();
+        }
 
         $agent = isset($data['assignee_agent_id']) ? Agent::query()->find($data['assignee_agent_id']) : null;
         $kind = TaskKind::from($data['kind']);
@@ -328,8 +347,11 @@ class TaskController extends Controller
 
         // Work is asked for in the conversation with an agent; chefias may also
         // open a task directly, for instance for a person (realinhamento L5).
-        abort_if($kind === TaskKind::Task && ! $user->isManager(), 403, 'Peça trabalho na conversa com o agente.');
         $person = isset($data['assignee_user_id']) ? User::query()->where('is_active', true)->find($data['assignee_user_id']) : null;
+        // Everyone plans their own work; giving it to someone else, or to an agent from here, is for chefias
+        // (agents join someone's task through «Com quem?», docs/DECISOES.md, "Tarefas: colaborar com agentes e colegas").
+        $own = $agent === null && ($person === null || $person->id === $user->id);
+        abort_if($kind === TaskKind::Task && ! $own && ! $user->isManager(), 403, 'Peça trabalho na conversa com o agente.');
 
         // A chat is the one conversation with that agent, never a new one.
         if ($kind === TaskKind::Chat && $agent !== null) {
@@ -353,7 +375,45 @@ class TaskController extends Controller
             'due_at' => $data['due_at'] ?? null,
         ], $user, $kind === TaskKind::Chat ? $message : null);
 
-        return to_route('tasks.show', $task);
+        return ($data['quick'] ?? false) ? back()->with('success', "Tarefa criada: «{$task->title}».") : to_route('tasks.show', $task);
+    }
+
+    /**
+     * «Com quem?» on a task: an agent or a colleague joins with a role, and
+     * their part becomes a sub-task (docs/DECISOES.md, "Tarefas: colaborar com
+     * agentes e colegas").
+     */
+    public function invite(Request $request, Task $task, TaskCollaboration $collaboration): RedirectResponse
+    {
+        Gate::authorize('update', $task);
+        abort_if($task->kind !== TaskKind::Task || $task->status->isClosed(), 422, 'Só se convida para tarefas abertas.');
+        $user = $this->user($request);
+        $data = $request->validate([
+            'agent_id' => ['nullable', 'required_without:user_id', 'integer', TenantRule::exists('agents')],
+            'user_id' => ['nullable', 'prohibits:agent_id', 'integer', TenantRule::exists('users')],
+            'role' => ['required', Rule::enum(CollaboratorRole::class)],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $who = isset($data['agent_id'])
+            ? Agent::query()->where('status', AgentStatus::Active)->findOrFail($data['agent_id'])
+            : User::query()->where('is_active', true)->findOrFail($data['user_id']);
+        if ($who instanceof Agent) {
+            Gate::authorize('requestWork', $who);
+        }
+
+        $collaboration->invite($task, $who, CollaboratorRole::from($data['role']), $user, $data['note'] ?? null);
+
+        return back()->with('success', "{$who->name} está na tarefa.");
+    }
+
+    public function uninvite(Request $request, Task $task, TaskCollaborator $collaborator, TaskCollaboration $collaboration): RedirectResponse
+    {
+        Gate::authorize('update', $task);
+        abort_unless($collaborator->task_id === $task->id, 404);
+        $collaboration->remove($collaborator, $this->user($request));
+
+        return back();
     }
 
     /**
@@ -431,6 +491,7 @@ class TaskController extends Controller
                 'closed_by' => $task->status->isClosed() ? ($task->closed_by_user_id !== null ? $task->closedByUser->name : ($task->closed_by_agent_id !== null ? $task->closedByAgent->name : null)) : null,
                 'parent' => $task->parent ? ['id' => $task->parent->id, 'ref' => $task->parent->identifier(), 'title' => $task->parent->title] : null,
                 'source' => $this->source($task),
+                'collaborators' => $this->collaborators($task),
                 // The agent who answers here: the assigned one, or the one that gave a person this task.
                 'agent' => ($agent = app(TaskThread::class)->agentOf($task)) ? Present::agent($agent) : null,
             ],
@@ -745,6 +806,76 @@ class TaskController extends Controller
     }
 
     /**
+     * The cards of Quadro and Planear: the open tasks of the view with the
+     * page's filters, and those done in the last week (Quadro) or in the
+     * week shown (Planear). Planear also has the week and the tasks without
+     * a date. A card moved on the board is saved with tasks.update.
+     *
+     * @param  Closure(Builder<Task>): Builder<Task>  $narrow
+     * @return array<string, mixed>
+     */
+    private function board(User $user, Closure $narrow, string $view, string $mode, ?string $week): array
+    {
+        $timezone = (string) config('agents.schedule_timezone');
+        $from = ($week !== null ? Carbon::parse($week, $timezone) : now($timezone))->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $to = $from->copy()->addDays(6)->endOfDay();
+
+        $tasks = $this->visible(Task::query(), $user)->tap($narrow)
+            ->where('kind', TaskKind::Task)
+            ->when($view === 'mine', fn (Builder $q) => $q->needing($user))
+            ->where(fn (Builder $q) => $mode === 'planear'
+                ? $q->where(fn (Builder $open) => $open->open()->where(fn (Builder $d) => $d->whereNull('due_at')->orWhereBetween('due_at', [$from->copy()->utc(), $to->copy()->utc()])))
+                    ->orWhere(fn (Builder $done) => $done->where('status', TaskStatus::Done)->whereBetween('due_at', [$from->copy()->utc(), $to->copy()->utc()]))
+                : $q->open()->orWhere(fn (Builder $done) => $done->where('status', TaskStatus::Done)->where('completed_at', '>=', now()->subDays(7))))
+            ->with([...Present::TASK_RELATIONS, 'collaborators.agent:id,name,avatar_path', 'collaborators.user:id,name', 'collaborators.subtask:id,status'])
+            ->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end")
+            ->orderByRaw('due_at is null')
+            ->orderBy('due_at')
+            ->latest('id')
+            ->limit(300)
+            ->get();
+        $running = AgentRun::query()->whereIn('task_id', $tasks->modelKeys())->working()->pluck('task_id')->flip();
+
+        return [
+            'tasks' => $tasks->map(fn (Task $task) => [
+                ...Present::task($task),
+                'working' => isset($running[$task->id]),
+                'collaborators' => $task->collaborators->map(fn (TaskCollaborator $c) => [
+                    'id' => $c->id,
+                    'kind' => $c->agent_id !== null ? 'agent' : 'user',
+                    'name' => $c->agent->name ?? $c->user->name ?? '—',
+                    'avatar_url' => $c->agent?->avatarUrl(),
+                    'role_label' => $c->role->label(),
+                    'status' => $c->subtask?->status->value,
+                ])->values(),
+            ])->values(),
+            'week' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'today' => now($timezone)->toDateString()],
+            'timezone' => $timezone,
+        ];
+    }
+
+    /**
+     * Who works on the task with its owner, and how their part is going.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function collaborators(Task $task): array
+    {
+        return $task->collaborators()->with(['agent:id,name,avatar_path', 'user:id,name', 'subtask:id,status,tenant_id,number'])->orderBy('id')->get()
+            ->map(fn (TaskCollaborator $c) => [
+                'id' => $c->id,
+                'kind' => $c->agent_id !== null ? 'agent' : 'user',
+                'name' => $c->agent->name ?? $c->user->name ?? '—',
+                'avatar_url' => $c->agent?->avatarUrl(),
+                'role' => $c->role->value,
+                'role_label' => $c->role->label(),
+                'subtask_id' => $c->subtask_id,
+                'status' => $c->subtask?->status->value,
+                'status_label' => $c->subtask?->status->label(),
+            ])->all();
+    }
+
+    /**
      * Choices for the new-task dialog and the properties panel.
      *
      * @return array<string, mixed>
@@ -761,6 +892,7 @@ class TaskController extends Controller
             'projects' => Project::query()->whereIn('status', [ProjectStatus::Planned, ProjectStatus::Active])->orderBy('name')->get(['id', 'name', 'goal_id']),
             'statuses' => collect(TaskStatus::cases())->map(fn (TaskStatus $s) => ['value' => $s->value, 'label' => $s->label()]),
             'priorities' => collect(TaskPriority::cases())->map(fn (TaskPriority $p) => ['value' => $p->value, 'label' => $p->label()]),
+            'collaborator_roles' => CollaboratorRole::options(),
         ];
     }
 

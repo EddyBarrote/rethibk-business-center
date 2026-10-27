@@ -119,7 +119,8 @@ it('delivers work a person asked for into review, and the person accepts it or s
 });
 
 it('lets managers give a task to a person directly, and keeps others asking through the conversation', function () {
-    $this->actingAs($this->clerk)->post(tenantUrl($this->tenant, 'tasks'), ['kind' => 'task', 'title' => 'Algo'])->assertForbidden();
+    // Everyone writes their own tasks (docs/DECISOES.md, "Tarefas: criação rápida"); giving one to someone else is for chefias.
+    $this->actingAs($this->clerk)->post(tenantUrl($this->tenant, 'tasks'), ['kind' => 'task', 'title' => 'Algo', 'assignee_user_id' => $this->boss->id])->assertForbidden();
 
     $this->actingAs($this->boss)->post(tenantUrl($this->tenant, 'tasks'), ['kind' => 'task', 'title' => 'Arquivar contratos', 'assignee_user_id' => $this->clerk->id])->assertRedirect();
 

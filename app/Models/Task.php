@@ -121,6 +121,7 @@ class Task extends Model
             ->where('user_id', $user->id)
             ->orWhere('created_by_user_id', $user->id)
             ->orWhere('assignee_user_id', $user->id)
+            ->orWhereHas('collaborators', fn (Builder $c) => $c->where('user_id', $user->id))
             ->orWhereHas('runs.approvals', fn (Builder $approvals) => $approvals->pending()->visibleTo($user)));
     }
 
@@ -150,7 +151,8 @@ class Task extends Model
         $query->where(fn (Builder $q) => $q->where('user_id', $user->id)
             ->orWhere('created_by_user_id', $user->id)
             ->orWhere('assignee_user_id', $user->id)
-            ->orWhereIn('assignee_agent_id', $agents));
+            ->orWhereIn('assignee_agent_id', $agents)
+            ->orWhereHas('collaborators', fn (Builder $c) => $c->where('user_id', $user->id)));
     }
 
     /**
@@ -290,6 +292,16 @@ class Task extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Task::class, 'parent_id');
+    }
+
+    /**
+     * The agents and colleagues working on this task with its owner.
+     *
+     * @return HasMany<TaskCollaborator, $this>
+     */
+    public function collaborators(): HasMany
+    {
+        return $this->hasMany(TaskCollaborator::class);
     }
 
     /**
