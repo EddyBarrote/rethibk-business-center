@@ -420,10 +420,10 @@ export default function TaskShow({
                             {/* The agent's name opens its page (and editing it from there); its description is the tooltip. */}
                             {task.assignee ? (
                                 <Link href={`/agents/${task.assignee.id}`} title={task.agent?.description ?? `Ver ${agentName}`} className="shrink-0">
-                                    <AgentAvatar name={agentName} className="size-8 rounded-lg text-xs" />
+                                    <AgentAvatar name={agentName} className="size-10 rounded-xl text-xs" />
                                 </Link>
                             ) : (
-                                <AgentAvatar name={agentName} className="size-8 rounded-lg text-xs" />
+                                <AgentAvatar name={agentName} className="size-10 rounded-xl text-xs" />
                             )}
                             <div className="min-w-0 flex-1">
                                 <h1 className="truncate text-sm font-semibold">

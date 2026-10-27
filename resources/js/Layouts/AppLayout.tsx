@@ -219,7 +219,11 @@ function AgentsGroup({ url, lite }: { url: string; lite: boolean }) {
                 >
                     <Link href={href} title={hint}>
                         <span className="relative shrink-0">
-                            <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-4 rounded-[5px] text-[8px]" />
+                            <AgentAvatar
+                                name={agent.name}
+                                url={agent.avatar_url}
+                                className="size-6 rounded-md text-[9px] group-data-[collapsible=icon]:size-4 group-data-[collapsible=icon]:rounded-[5px]"
+                            />
                             {/* Collapsed to icons, the dot still says it needs you. */}
                             {(agent.unread > 0 || agent.chat_waiting) && (
                                 <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-primary ring-2 ring-sidebar group-data-[collapsible=icon]:block" />

@@ -272,9 +272,9 @@ function AgentBubble({
     return (
         <div className={cn('flex gap-2.5', continued ? 'mt-1' : 'mt-4')}>
             {!continued ? (
-                <AgentAvatar name={message.author} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" />
+                <AgentAvatar name={message.author} className="mt-0.5 size-9 shrink-0 rounded-xl text-[11px]" />
             ) : (
-                <span className="w-7 shrink-0" />
+                <span className="w-9 shrink-0" />
             )}
             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                 {!continued && (
@@ -432,7 +432,7 @@ export function WorkingBubble({
     return (
         <div className="mt-4 flex gap-2.5">
             <span className="relative mt-0.5 h-fit shrink-0">
-                <AgentAvatar name={agent} className="size-7 rounded-lg text-[10px]" />
+                <AgentAvatar name={agent} className="size-9 rounded-xl text-[11px]" />
                 <StatusDot tone="running" className="absolute -right-0.5 -bottom-0.5" />
             </span>
             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
@@ -537,7 +537,7 @@ function EventLine({ message, onOpenRun }: { message: ChatMessage; onOpenRun: Op
 
 function ReportCard({ message, onOpenRun }: { message: ChatMessage; onOpenRun: OpenRun }) {
     return (
-        <details className="group mt-4 ml-9.5 rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground">
+        <details className="group mt-4 ml-11.5 rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground">
             <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
                 <FileText className="size-3.5 shrink-0" />
                 <span className="min-w-0 flex-1 truncate">
