@@ -60,7 +60,6 @@ final class MorningSummary
         return [
             'date' => $today->toDateString(),
             'from' => $chief === null ? null : ['name' => $chief->name, 'avatar_url' => $chief->avatarUrl()],
-            'greeting' => ($today->hour < 12 ? 'Bom dia' : ($today->hour < 19 ? 'Boa tarde' : 'Boa noite')).', '.Str::before($user->name, ' ').'.',
             'needs' => $needs,
             'can_wait' => $this->canWait($user),
             'agenda' => $this->agenda($user, $today),

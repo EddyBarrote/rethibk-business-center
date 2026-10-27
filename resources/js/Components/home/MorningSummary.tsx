@@ -16,7 +16,6 @@ interface Line {
 export interface Morning {
     date: string;
     from: { name: string; avatar_url: string | null } | null;
-    greeting: string;
     needs: Line[];
     can_wait: Line[];
     agenda: { time: string | null; title: string; href: string }[];
@@ -49,10 +48,8 @@ export function MorningSummary({ morning }: { morning: Morning }) {
             {morning.from && <AgentAvatar name={morning.from.name} url={morning.from.avatar_url} className="mt-0.5 size-8 rounded-lg text-[10px]" />}
             <div className="min-w-0 flex-1 space-y-4 text-sm">
                 <div className="flex items-start justify-between gap-2">
-                    <p>
-                        <span className="font-medium">{morning.greeting}</span>{' '}
-                        {empty ? 'Hoje não há nada à sua espera.' : 'Isto é o que tem para hoje.'}
-                    </p>
+                    {/* The page already greets: the message goes straight to the day. */}
+                    <p>{empty ? 'Hoje não há nada à sua espera.' : 'Isto é o que tem para hoje.'}</p>
                     <Button
                         type="button"
                         variant="ghost"

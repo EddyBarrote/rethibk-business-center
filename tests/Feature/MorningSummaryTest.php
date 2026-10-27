@@ -46,7 +46,6 @@ it('shows the Chief of Staff\'s summary of the day on the entry screen until it 
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant))
         ->assertInertia(fn (Assert $page) => $page
             ->where('morning.from.name', 'Chief of Staff')
-            ->where('morning.greeting', 'Bom dia, Dona.')
             ->where('morning.needs.0.title', '1 acção à espera da sua decisão')
             ->where('morning.needs.1.kind', 'email')
             ->where('morning.needs.1.title', 'Carmélia Buque: «Proposta para a obra da EN7»')
