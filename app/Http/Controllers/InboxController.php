@@ -214,11 +214,21 @@ class InboxController extends Controller
         try {
             $sent = $client->send($draft, $user, $fields['to'], $fields['cc'], $fields['bcc'], $fields['subject'], $fields['body']);
         } catch (RuntimeException $e) {
+            // From the conversation's email card: the card says it, the page stays.
+            if ($request->boolean('stay')) {
+                return back()->withErrors(['send' => 'Não foi enviado: '.$e->getMessage()]);
+            }
+
             return back()->with('error', 'Não foi enviado: '.$e->getMessage())
                 ->with('draft_saved', ['id' => $draft->id, 'attachments' => $draft->attachments()->get()->map(fn (EmailAttachment $a) => $this->file($a))->values()->all()]);
         }
 
         AuditLog::record($user, 'email.sent_by_user', ['email_id' => $sent->id, 'to' => $fields['to'], 'subject' => $fields['subject']], subject: $sent);
+
+        // Sent from the email card in a conversation (docs/DECISOES.md, "Enviar a partir da conversa"): it stays there.
+        if ($request->boolean('stay')) {
+            return back()->with('success', 'Email enviado.');
+        }
 
         return to_route('inbox.index', array_filter([
             'mailbox' => $mailbox->id,

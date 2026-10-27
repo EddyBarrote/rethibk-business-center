@@ -439,3 +439,16 @@ it('takes the open email to a conversation with an agent, which can then read it
     $this->actingAs($this->ana->fresh())->get(tenantUrl($this->tenant, 'tasks/'.asTenant($this->tenant, fn () => TaskMessage::query()->where('email_message_id', $email->id)->value('task_id'))))
         ->assertInertia(fn ($page) => $page->where('messages.0.email.subject', 'Pedido de cotação'));
 });
+
+it('sends a draft from the email card in a conversation and stays there', function () {
+    $this->actingAs($this->ana)->post(tenantUrl($this->tenant, 'inbox/drafts'), [
+        'mailbox_id' => $this->mailbox->id, 'to' => ['cliente@fora.test'], 'subject' => 'Proposta', 'body' => 'Segue a proposta.',
+    ]);
+    $draft = asTenant($this->tenant, fn () => EmailMessage::query()->where('status', EmailStatus::Draft)->sole());
+
+    $this->actingAs($this->ana)->from(tenantUrl($this->tenant, 'tasks/1'))->post(tenantUrl($this->tenant, "inbox/{$draft->id}/send"), [
+        'to' => ['cliente@fora.test'], 'subject' => 'Proposta', 'body' => 'Segue a proposta.', 'stay' => true,
+    ])->assertRedirect(tenantUrl($this->tenant, 'tasks/1'))->assertSessionHas('success', 'Email enviado.');
+
+    Mail::assertSent(AgentMessage::class, fn (AgentMessage $mail) => $mail->hasTo('cliente@fora.test'));
+});

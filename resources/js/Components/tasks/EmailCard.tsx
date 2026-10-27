@@ -75,6 +75,38 @@ function EmailCard({ email }: { email: ProposedEmail }) {
     };
     const discard = () => router.delete(`/inbox/${email.id}`, { preserveScroll: true, preserveState: true });
 
+    // Sent from here, without leaving the conversation (docs/DECISOES.md, "Enviar a partir da conversa").
+    const [sending, setSending] = useState(false);
+    const [justSent, setJustSent] = useState(false);
+    const [sendError, setSendError] = useState<string | null>(null);
+    const send = () => {
+        setSending(true);
+        setSendError(null);
+        router.post(
+            `/inbox/${email.id}/send`,
+            {
+                mailbox_id: email.mailbox_id,
+                to: email.to,
+                cc: email.cc,
+                subject: email.subject,
+                body: email.body,
+                keep: email.attachments.map((file) => file.id),
+                stay: true,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: (page) => {
+                    if (!(page.props.errors as Record<string, string> | undefined)?.send) {
+                        setJustSent(true);
+                    }
+                },
+                onError: (errors) => setSendError(errors.send ?? Object.values(errors)[0] ?? 'Não foi enviado.'),
+                onFinish: () => setSending(false),
+            },
+        );
+    };
+
     const copy = () => {
         void navigator.clipboard.writeText(`Assunto: ${email.subject}\n\n${email.body}`);
         setCopied(true);
@@ -82,7 +114,15 @@ function EmailCard({ email }: { email: ProposedEmail }) {
     };
 
     return (
-        <article className="w-full max-w-2xl overflow-hidden rounded-xl border bg-card text-sm shadow-xs">
+        <article
+            className={cn(
+                'relative w-full max-w-2xl overflow-hidden rounded-xl border bg-card text-sm shadow-xs transition-colors',
+                sending && 'border-primary/40',
+                justSent && sent && 'border-status-success/40',
+            )}
+        >
+            {/* While it goes: a bar runs along the top of the card. */}
+            {sending && <span className="email-sending absolute inset-x-0 top-0 h-0.5 bg-primary" aria-hidden="true" />}
             <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2">
                 {email.agent ? (
                     <AgentMark name={email.agent.name} url={email.agent.avatar_url} className="size-5 rounded text-[8px]" />
@@ -90,11 +130,20 @@ function EmailCard({ email }: { email: ProposedEmail }) {
                     <Mail className="size-4 shrink-0 text-muted-foreground" />
                 )}
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/85">{title}</span>
-                {sent ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-status-success">
+                {sending ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-primary" role="status">
+                        <Send className="email-plane size-3" />A enviar…
+                    </span>
+                ) : sent ? (
+                    <span
+                        className={cn('inline-flex shrink-0 items-center gap-1 text-[11px] text-status-success', justSent && 'email-sent')}
+                        role="status"
+                    >
                         <Check className="size-3" />
                         Enviado{email.sent_at && ` às ${time(email.sent_at)}`}
                     </span>
+                ) : sendError ? (
+                    <span className="shrink-0 text-[11px] text-status-danger">Não foi enviado</span>
                 ) : draft ? (
                     <span className="shrink-0 text-[11px] text-muted-foreground">Não enviado</span>
                 ) : null}
@@ -141,12 +190,22 @@ function EmailCard({ email }: { email: ProposedEmail }) {
                     <footer className="flex flex-wrap items-center gap-1.5 border-t bg-muted/20 px-3 py-2">
                         {draft && email.can_edit && (
                             <>
-                                <Button size="sm" asChild>
-                                    <Link href={`/inbox/${email.id}?rever=${email.id}`}>
-                                        <Send />
-                                        Rever e enviar
-                                    </Link>
-                                </Button>
+                                <ConfirmDialog
+                                    title="Enviar este email?"
+                                    description={`Para ${email.to.join(', ')}${email.cc.length > 0 ? `, com cópia a ${email.cc.join(', ')}` : ''}: «${email.subject || '(sem assunto)'}». Sai${email.from ? ` de ${email.from}` : ''} e não se pode desfazer.`}
+                                    confirmLabel="Enviar"
+                                    onConfirm={send}
+                                    trigger={
+                                        <Button
+                                            size="sm"
+                                            disabled={sending || email.to.length === 0}
+                                            title={email.to.length === 0 ? 'Falta o endereço: use Editar.' : undefined}
+                                        >
+                                            <Send className={cn(sending && 'email-plane')} />
+                                            {sending ? 'A enviar…' : sendError ? 'Tentar de novo' : 'Enviar'}
+                                        </Button>
+                                    }
+                                />
                                 {email.proposal && (
                                     <Button size="sm" variant="outline" disabled={keeping} onClick={keep}>
                                         <Save />
@@ -191,7 +250,8 @@ function EmailCard({ email }: { email: ProposedEmail }) {
                                 {email.from ? `Rascunho na caixa ${email.from}; só quem a gere o envia.` : 'Só quem gere a caixa o envia.'}
                             </span>
                         )}
-                        {draft && email.can_edit && (
+                        {draft && email.can_edit && sendError && <span className="ml-auto text-[11px] text-status-danger">{sendError}</span>}
+                        {draft && email.can_edit && !sendError && (
                             <span className="ml-auto text-[11px] text-muted-foreground">
                                 {email.proposal ? 'Ainda não está nos Rascunhos.' : 'Está nos Rascunhos do Email.'}
                             </span>

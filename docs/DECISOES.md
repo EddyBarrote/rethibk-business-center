@@ -1384,3 +1384,12 @@ Pedido do Barrote: o Início «deve mostrar de uma forma intuitiva os agentes qu
 | **«A trabalhar agora»**: «Agente de Finanças está a tratar de Cobrança de facturas em atraso», com o passo e quando começou, ao vivo. **«Concluído nas últimas 24 horas»**: até 8, «tratou de …» ou «não terminou …», quando, «Ver o resultado». Sem caixas, só linhas. As conversas não entram no concluído (a resposta está na conversa) e as de outra pessoa não entram de todo. | `AgentNow::overview()`, prop `agents_now` em `HomeController` |
 | **Cada linha abre o trabalho na conversa da pessoa com esse agente**, com o passo a passo no painel lateral (ou na tarefa, se for de uma tarefa); nunca na página de Execuções, a menos que a pessoa ainda não tenha conversa com o agente. | `HomeAgents` (`href`) |
 
+## Enviar a partir da conversa (27.10.2026)
+
+Pedido do Barrote (tarefa 64 da Rethink): ao carregar em enviar no email da conversa, «deve mostrar uma animação e o estado mesmo no chat, não precisa sair».
+
+| Decisão | Onde |
+|---|---|
+| **O cartão de email tem «Enviar»** (antes «Rever e enviar», que levava ao Email): pede confirmação (para quem, cópia, assunto, de que caixa; não se desfaz) e envia dali, pelo mesmo `inbox/{email}/send`, com `stay`, que volta à conversa em vez de ir para a caixa. Sem endereço, o botão fica desligado e diz para usar Editar. Continua a ser uma pessoa a enviar; o agente nunca envia. | `EmailCard` (`send`), `InboxController::send()` |
+| **Enquanto vai**: uma barra corre no topo do cartão, o avião do botão levanta e o cabeçalho diz «A enviar…». **Enviado**: «Enviado às 10:42» aparece com uma pequena animação. **Falhou**: «Não foi enviado» no cabeçalho, o motivo no rodapé e o botão passa a «Tentar de novo». Sem animação para quem pede menos movimento. | `.email-sending`, `.email-plane`, `.email-sent` |
+
