@@ -17,7 +17,7 @@ import {
     User,
     X,
 } from 'lucide-react';
-import { type ComponentProps, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, type FormEvent, Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { ConfirmDialog, FormDialog } from '@/Components/Dialogs';
@@ -199,6 +199,7 @@ export default function AgendaIndex(props: Props) {
             ? new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(toDate(date))
             : `${new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(toDate(from))} – ${new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(toDate(to))}`;
 
+    const showRoutines = filters.tipo === 'rotinas';
     const openCount = events.filter((e) => e.kind !== 'routine' && e.kind !== 'google' && !e.done).length;
     const overdueCount = events.filter((e) => e.overdue).length;
 
@@ -400,8 +401,8 @@ export default function AgendaIndex(props: Props) {
                                         </button>
                                     </div>
                                     <DayLines
-                                        items={items}
-                                        showRoutines={filters.tipo === 'rotinas'}
+                                        items={showRoutines ? items : items.filter((event) => event.kind !== 'routine')}
+                                        routines={showRoutines ? [] : items.filter((event) => event.kind === 'routine')}
                                         hourOf={hourOf}
                                         onOpen={setSelected}
                                         label={new Intl.DateTimeFormat('pt-PT', {
@@ -417,35 +418,15 @@ export default function AgendaIndex(props: Props) {
                     </div>
                 </div>
             ) : (
-                <div className="grid gap-3 lg:grid-cols-7">
-                    {days.map((day, index) => {
-                        const items = byDay.get(day) ?? [];
-
-                        return (
-                            <div key={day} className={cn('flex min-h-32 flex-col rounded-xl border', day === today && 'border-primary/60')}>
-                                <div className="flex items-center justify-between border-b px-3 py-2">
-                                    <span className="text-xs text-muted-foreground">{weekdayNames[index]}</span>
-                                    <span className={cn('text-sm font-semibold tabular-nums', day === today && 'text-primary')}>
-                                        {Number(day.slice(8))}
-                                    </span>
-                                </div>
-                                <div className="grid flex-1 content-start gap-1.5 p-2">
-                                    {items.map((event) => (
-                                        <Card key={event.key} event={event} hour={hourOf(event)} onClick={() => setSelected(event)} />
-                                    ))}
-                                    <button
-                                        type="button"
-                                        onClick={() => setCreating(day)}
-                                        className="mt-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                                    >
-                                        <Plus className="size-3.5" />
-                                        Lembrete
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                <WeekGrid
+                    days={days}
+                    byDay={byDay}
+                    today={today}
+                    showRoutines={showRoutines}
+                    hourOf={hourOf}
+                    onOpen={setSelected}
+                    onCreate={setCreating}
+                />
             )}
 
             {events.length === 0 && (
@@ -483,35 +464,37 @@ interface Line {
  */
 function DayLines({
     items,
-    showRoutines,
+    routines = [],
+    max = 3,
     hourOf,
     onOpen,
     label,
 }: {
     items: AgendaEvent[];
-    showRoutines: boolean;
+    /** Routines folded into the quiet line at the bottom. */
+    routines?: AgendaEvent[];
+    max?: number;
     hourOf: (event: AgendaEvent) => string | null;
     onOpen: (event: AgendaEvent) => void;
     label: string;
 }) {
-    const routines = showRoutines ? [] : items.filter((event) => event.kind === 'routine');
     const lines: Line[] = [];
-    items
-        .filter((event) => showRoutines || event.kind !== 'routine')
-        .forEach((event) => {
-            const key = `${event.kind}:${baseTitle(event.title).toLowerCase()}`;
-            const line = lines.find((l) => l.key === key);
-            if (line) {
-                line.events.push(event);
-            } else {
-                lines.push({ key, kind: event.kind, label: baseTitle(event.title), events: [event] });
-            }
-        });
+    items.forEach((event) => {
+        const key = `${event.kind}:${baseTitle(event.title).toLowerCase()}`;
+        const line = lines.find((l) => l.key === key);
+        if (line) {
+            line.events.push(event);
+        } else {
+            lines.push({ key, kind: event.kind, label: baseTitle(event.title), events: [event] });
+        }
+    });
     // Late first, then by the hour of the first item.
     lines.sort((a, b) => Number(b.events.some((e) => e.overdue)) - Number(a.events.some((e) => e.overdue)));
 
-    const shown = lines.slice(0, 3);
-    const rest = lines.slice(3).flatMap((line) => line.events);
+    // A «+1 mais» would take the room of the line it hides.
+    const cut = lines.length > max ? max - 1 : max;
+    const shown = lines.slice(0, cut);
+    const rest = lines.slice(cut).flatMap((line) => line.events);
 
     return (
         <div className="grid gap-0.5">
@@ -618,6 +601,137 @@ function DayList({
     );
 }
 
+const longDay = (day: string) =>
+    new Intl.DateTimeFormat('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(toDate(day));
+
+/**
+ * The week as a grid of hours, like a calendar: the days across, the hours
+ * down, what has no hour (and the routines, folded) in the row at the top.
+ * Each hour of a day lists its items, grouped like the month; a busy hour
+ * makes its row taller instead of covering the next one. On a phone the
+ * week is a list of its days.
+ */
+function WeekGrid({
+    days,
+    byDay,
+    today,
+    showRoutines,
+    hourOf,
+    onOpen,
+    onCreate,
+}: {
+    days: string[];
+    byDay: Map<string, AgendaEvent[]>;
+    today: string;
+    showRoutines: boolean;
+    hourOf: (event: AgendaEvent) => string | null;
+    onOpen: (event: AgendaEvent) => void;
+    onCreate: (day: string) => void;
+}) {
+    const visible = (day: string) => (byDay.get(day) ?? []).filter((event) => showRoutines || event.kind !== 'routine');
+    const routinesOf = (day: string) => (showRoutines ? [] : (byDay.get(day) ?? []).filter((event) => event.kind === 'routine'));
+    const hourNum = (event: AgendaEvent) => Number((hourOf(event) ?? '00').slice(0, 2));
+    const timed = days.flatMap((day) => visible(day).filter((event) => !event.all_day));
+    const first = Math.min(8, ...timed.map(hourNum));
+    const last = Math.max(18, ...timed.map(hourNum));
+    const hours = Array.from({ length: last - first + 1 }, (_, index) => first + index);
+    const weekend = (index: number) => index >= 5;
+    const column = (day: string, index: number) => cn(weekend(index) && 'bg-muted/25', day === today && 'bg-primary/[0.04]');
+
+    return (
+        <>
+            <div className="hidden grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] lg:grid">
+                {/* The days */}
+                <div />
+                {days.map((day, index) => (
+                    <div key={day} className={cn('group flex items-center gap-2 px-2 pt-1 pb-2', column(day, index))}>
+                        <span className="text-xs text-muted-foreground">{weekdayNames[index]}</span>
+                        <span
+                            className={cn(
+                                'inline-flex size-7 items-center justify-center rounded-full text-sm font-semibold tabular-nums',
+                                day === today && 'bg-primary text-primary-foreground',
+                            )}
+                        >
+                            {Number(day.slice(8))}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => onCreate(day)}
+                            className="ml-auto inline-flex size-6 items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted focus-visible:opacity-100"
+                            aria-label={`Novo lembrete: ${longDay(day)}`}
+                            title="Novo lembrete"
+                        >
+                            <Plus className="size-3.5" />
+                        </button>
+                    </div>
+                ))}
+
+                {/* What has no hour, and the routines */}
+                <div className="border-t border-border/60 pt-1.5 pr-2 text-right text-[11px] text-muted-foreground">Dia todo</div>
+                {days.map((day, index) => (
+                    <div key={day} className={cn('min-w-0 border-t border-border/60 p-1', column(day, index))}>
+                        <DayLines
+                            items={visible(day).filter((event) => event.all_day)}
+                            routines={routinesOf(day)}
+                            hourOf={hourOf}
+                            onOpen={onOpen}
+                            label={longDay(day)}
+                        />
+                    </div>
+                ))}
+
+                {/* The hours */}
+                {hours.map((hour) => (
+                    <Fragment key={hour}>
+                        <div className="-mt-2 pr-2 text-right text-[11px] text-muted-foreground tabular-nums">{String(hour).padStart(2, '0')}:00</div>
+                        {days.map((day, index) => (
+                            <div key={day} className={cn('min-h-11 min-w-0 border-t border-border/60 p-0.5', column(day, index))}>
+                                <DayLines
+                                    items={visible(day).filter((event) => !event.all_day && hourNum(event) === hour)}
+                                    max={2}
+                                    hourOf={hourOf}
+                                    onOpen={onOpen}
+                                    label={`${longDay(day)}, ${String(hour).padStart(2, '0')}h`}
+                                />
+                            </div>
+                        ))}
+                    </Fragment>
+                ))}
+            </div>
+
+            <div className="flex flex-col gap-4 lg:hidden">
+                {days.map((day) => {
+                    const items = visible(day);
+                    const routines = routinesOf(day);
+
+                    return (
+                        <section key={day} className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                                <h3 className={cn('text-sm font-semibold first-letter:uppercase', day === today && 'text-primary')}>
+                                    {longDay(day)}
+                                </h3>
+                                <button
+                                    type="button"
+                                    onClick={() => onCreate(day)}
+                                    className="ml-auto inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                                    aria-label={`Novo lembrete: ${longDay(day)}`}
+                                >
+                                    <Plus className="size-4" />
+                                </button>
+                            </div>
+                            {items.length + routines.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">Nada marcado.</p>
+                            ) : (
+                                <DayLines items={items} routines={routines} max={20} hourOf={hourOf} onOpen={onOpen} label={longDay(day)} />
+                            )}
+                        </section>
+                    );
+                })}
+            </div>
+        </>
+    );
+}
+
 function Chip({ event, hour, onClick }: { event: AgendaEvent; hour: string | null; onClick: () => void }) {
     return (
         <button
@@ -635,35 +749,6 @@ function Chip({ event, hour, onClick }: { event: AgendaEvent; hour: string | nul
                 {hour && <span className={cn('mr-1 tabular-nums', event.overdue ? 'text-status-danger' : 'text-muted-foreground')}>{hour}</span>}
                 {event.title}
             </span>
-        </button>
-    );
-}
-
-function Card({ event, hour, onClick }: { event: AgendaEvent; hour: string | null; onClick: () => void }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={cn(
-                'grid gap-1 rounded-lg border-l-2 px-2 py-1.5 text-left text-xs',
-                kinds[event.kind].chip,
-                event.kind === 'follow_up'
-                    ? 'border-l-status-warning'
-                    : event.kind === 'task'
-                      ? 'border-l-primary'
-                      : event.kind === 'google'
-                        ? 'border-l-status-success'
-                        : 'border-l-muted-foreground/40',
-                event.done && 'opacity-60',
-                event.overdue && 'ring-1 ring-status-danger/60',
-            )}
-        >
-            <span className="flex items-center gap-1 text-muted-foreground">
-                {hour ?? 'Dia todo'}
-                {event.context && event.kind !== 'routine' && <span className="truncate">· {event.context}</span>}
-            </span>
-            <span className={cn('line-clamp-3 font-medium', event.done && 'line-through')}>{event.title}</span>
-            {event.who && <Who who={event.who} />}
         </button>
     );
 }
