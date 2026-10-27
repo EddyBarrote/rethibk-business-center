@@ -14,6 +14,7 @@ use App\Http\Controllers\BriefingController;
 use App\Http\Controllers\CapabilityController;
 use App\Http\Controllers\ConnectorController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DictationController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\GoogleCalendarController;
@@ -78,6 +79,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', HomeController::class)->name('home');
     Route::post('morning-summary/close', [HomeController::class, 'closeMorning'])->name('home.morning.close');
+    Route::post('dictation', DictationController::class)->middleware('throttle:30,1')->name('dictation');
     Route::post('initiatives/{initiative}/start', [InitiativeController::class, 'start'])->middleware('throttle:20,1')->name('initiatives.start');
     Route::post('initiatives/{initiative}/hide', [InitiativeController::class, 'hide'])->name('initiatives.hide');
     Route::get('painel', DashboardController::class)->name('dashboard');

@@ -2,6 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Lock, Loader2, MessageSquare, Pencil, Send } from 'lucide-react';
 import type { FormEvent } from 'react';
 
+import { DictateControl } from '@/Components/attachments/Dictate';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
 import { InputError } from '@/Components/InputError';
@@ -93,6 +94,11 @@ export default function AgentChat({
                     <InputError message={form.errors.message ?? form.errors.attachment_ids} />
                     <div className="flex flex-wrap items-center gap-2">
                         <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
+                        <DictateControl
+                            onText={(text) =>
+                                form.setData('message', form.data.message.trim() === '' ? text : `${form.data.message.trimEnd()} ${text}`)
+                            }
+                        />
                         {attachment_limits.types.includes('audio') && (
                             <RecordControl maxSeconds={attachment_limits.audio_max_seconds} onRecorded={(file) => files.add([file], 'recording')} />
                         )}

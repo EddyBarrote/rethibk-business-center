@@ -1677,3 +1677,12 @@ Ideia vinda do OpenDuet. Como a proposta dizia, a página Documentos chega.
 - **O que faltava:** ver o que um agente fez.
   - A página do agente tem agora «O que fez», que abre Documentos com `?agente=` e mostra os ficheiros e os relatórios desse agente.
   - Em Documentos aparece o filtro «Só …», que se tira com um clique.
+
+## Falar em vez de escrever (27.10.2026)
+
+Ideia vinda do OpenDuet.
+
+- **O botão:** ao lado de «Gravar áudio», nas caixas de escrita do Início, da conversa com um agente e das tarefas, há «Ditar». A pessoa fala até 2 minutos e o texto aparece na caixa, para ler e corrigir antes de enviar.
+- **O que o distingue de «Gravar áudio»:** «Gravar áudio» anexa a gravação. «Ditar» não anexa nada e a gravação não fica guardada.
+- **Como transcreve:** com o modelo que já ouve áudio (Gemini, o mais barato: `agents.suggestions_model`), sem fornecedor novo, por `POST /dictation`. O custo entra no orçamento (`dictation`). Tira as hesitações sem mudar o sentido.
+- **Quando não há modelo:** sem chave ou sem orçamento, o botão diz que não está disponível.

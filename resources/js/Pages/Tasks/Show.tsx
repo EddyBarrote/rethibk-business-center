@@ -2,6 +2,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, RotateCcw, Route, Send, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
+import { DictateControl } from '@/Components/attachments/Dictate';
 import { type Initiative, Initiatives } from '@/Components/home/Initiatives';
 import { useCanAllowAlways } from '@/Components/ApprovalCard';
 import { PersonAvatar } from '@/Components/PersonAvatar';
@@ -768,6 +769,11 @@ export default function TaskShow({
                                         />
                                         <div className="flex items-center gap-1.5 px-2 pb-2 sm:gap-2">
                                             <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
+                                            <DictateControl
+                                                onText={(text) =>
+                                                    form.setData('body', form.data.body.trim() === '' ? text : `${form.data.body.trimEnd()} ${text}`)
+                                                }
+                                            />
                                             {attachment_limits.types.includes('audio') && (
                                                 <RecordControl
                                                     maxSeconds={attachment_limits.audio_max_seconds}

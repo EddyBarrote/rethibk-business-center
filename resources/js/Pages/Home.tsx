@@ -2,6 +2,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowUp, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { type FormEvent, Fragment, useRef, useState } from 'react';
 
+import { DictateControl } from '@/Components/attachments/Dictate';
 import { type Initiative, Initiatives } from '@/Components/home/Initiatives';
 import { type Morning, MorningSummary } from '@/Components/home/MorningSummary';
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -168,6 +169,11 @@ export default function Home({
                     <InputError message={form.errors.message ?? form.errors.attachment_ids} />
                     <div className="flex items-center gap-2">
                         <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
+                        <DictateControl
+                            onText={(text) =>
+                                form.setData('message', form.data.message.trim() === '' ? text : `${form.data.message.trimEnd()} ${text}`)
+                            }
+                        />
                         {attachment_limits.types.includes('audio') && (
                             <RecordControl maxSeconds={attachment_limits.audio_max_seconds} onRecorded={(file) => files.add([file], 'recording')} />
                         )}
