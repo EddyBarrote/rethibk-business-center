@@ -108,7 +108,7 @@ export function FormSection({
     return (
         <section
             id={id}
-            className="grid scroll-mt-20 gap-x-10 gap-y-4 border-t border-border/60 pt-8 first:border-t-0 first:pt-0 xl:grid-cols-[14rem_minmax(0,1fr)]"
+            className="grid scroll-mt-20 gap-x-10 gap-y-4 border-t border-border/60 pt-8 first:border-t-0 first:pt-0 2xl:grid-cols-[13rem_minmax(0,1fr)]"
         >
             <header className="flex min-w-0 flex-col gap-3">
                 <div className="space-y-1">
