@@ -136,6 +136,7 @@ Route::middleware('auth')->group(function () {
     Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::put('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
+    Route::post('projects/{project}/channel', [ProjectController::class, 'channel'])->middleware('throttle:10,1')->name('projects.channel');
     Route::get('org', [OrgController::class, 'index'])->name('org.index');
     Route::put('org', [OrgController::class, 'update'])->name('org.update');
     // Fluxos de trabalho (docs/DECISOES.md): the map, and the editor (canvas and list).

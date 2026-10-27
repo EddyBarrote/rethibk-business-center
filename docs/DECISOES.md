@@ -1632,3 +1632,16 @@ Ideia vinda do OpenDuet.
   - dados de saúde (VIH/SIDA, diagnósticos, baixa ou atestado médico, gravidez, resultados de análises).
 - **O que acontece:** se encontra alguma destas coisas, a acção fica à espera de uma pessoa, como no tecto absoluto. O motivo diz o que foi encontrado («Leva uma palavra-passe: uma pessoa vê antes de sair»). Nenhum nível e nenhuma regra «Permitir sempre» passam por cima.
 - **O que não se procura:** o NIB e o NUIT, porque as facturas levam-nos de propósito.
+
+## Canais por projecto (27.10.2026)
+
+Ideia vinda do OpenDuet. A ideia é ter um canal por trabalho, por exemplo um por evento da Reactive.
+
+- **Um projecto é um canal:** os projectos que já existem passam a ser os canais, sem criar uma coisa nova.
+  - Cada projecto tem um ícone (8 à escolha) e uma cor (8 à escolha).
+  - As tarefas do projecto mostram a cor como uma pinta ao lado do título, na Lista e no Foco.
+  - A descrição passa a chamar-se «Objectivo», porque é o que o agente lê.
+- **«Canal»:** no projecto, abre a conversa do projecto (`POST /projects/{id}/channel`). Na primeira vez cria-a:
+  - é uma tarefa «Canal: …» do projecto, do agente responsável (ou do Chief of Staff, se o responsável for uma pessoa);
+  - o agente começa logo: apresenta-se em poucas linhas e sugere três coisas concretas para começar, sem criar tarefas nem enviar nada até lhe dizerem por onde começar.
+  - Nas vezes seguintes abre o mesmo canal. Quem gere projectos é quem o abre pela primeira vez.

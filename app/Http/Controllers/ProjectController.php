@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Runs\AgentDirectory;
 use App\Enums\GoalStatus;
 use App\Enums\Permission;
 use App\Enums\ProjectStatus;
 use App\Enums\TaskKind;
+use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Models\Agent;
 use App\Models\AuditLog;
@@ -13,6 +15,7 @@ use App\Models\Goal;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
+use App\Tasks\TaskThread;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,10 +25,17 @@ use Inertia\Response;
 
 /**
  * Projects between goals and tasks (docs/DECISOES.md, realinhamento L12).
- * Everyone sees them; managers create and edit them, like goals.
+ * Everyone sees them; managers create and edit them, like goals. Each can be
+ * a channel (docs/DECISOES.md, "Canais por projecto"): an icon and a colour
+ * its tasks wear, and a conversation where its agent introduces itself and
+ * suggests where to start.
  */
 class ProjectController extends Controller
 {
+    public const COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'pink', 'teal', 'slate'];
+
+    public const ICONS = ['folder', 'building', 'hard-hat', 'truck', 'calendar', 'briefcase', 'ticket', 'megaphone'];
+
     public function index(Request $request): Response
     {
         $user = $this->user($request);
@@ -42,6 +52,9 @@ class ProjectController extends Controller
                 'id' => $project->id,
                 'name' => $project->name,
                 'description' => $project->description,
+                'color' => $project->color,
+                'icon' => $project->icon,
+                'channel_task_id' => $project->channel_task_id,
                 'status' => $project->status->value,
                 'status_label' => $project->status->label(),
                 'goal' => $project->goal ? ['id' => $project->goal->id, 'title' => $project->goal->title] : null,
@@ -84,6 +97,47 @@ class ProjectController extends Controller
     }
 
     /**
+     * The project's channel: opened the first time, with its agent (the lead
+     * when it is an agent, else the Chief of Staff), which introduces itself
+     * and suggests three things to start with.
+     */
+    public function channel(Request $request, Project $project, TaskThread $threads, AgentDirectory $agents): RedirectResponse
+    {
+        $user = $this->user($request);
+
+        if ($project->channel_task_id !== null && Task::query()->whereKey($project->channel_task_id)->exists()) {
+            return to_route('tasks.show', $project->channel_task_id);
+        }
+
+        abort_unless($user->hasPermission(Permission::ManageProjects), 403);
+        $agent = $project->leadAgent ?? $agents->forRole('chief_of_staff');
+
+        if ($agent === null) {
+            return back()->with('error', 'Escolha um agente como responsável do projecto para abrir o canal.');
+        }
+
+        $task = $threads->open([
+            'kind' => TaskKind::Task,
+            'title' => "Canal: {$project->name}",
+            'description' => trim("Canal do projecto «{$project->name}»."
+                .($project->description ? "\nObjectivo: {$project->description}" : '')
+                .($project->goal ? "\nServe o objectivo da empresa «{$project->goal->title}»." : '')
+                ."\n\nApresenta-te neste canal em poucas linhas: quem és e como vais ajudar neste projecto. Depois sugere três coisas concretas para começar, numa lista numerada, com o que farias em cada uma. Não cries tarefas nem envies nada ainda: espera que te digam por onde começar."),
+            'status' => TaskStatus::InProgress,
+            'priority' => TaskPriority::Normal,
+            'assignee_agent_id' => $agent->id,
+            'user_id' => $user->id,
+            'project_id' => $project->id,
+            'goal_id' => $project->goal_id,
+        ], $user);
+
+        $project->forceFill(['channel_task_id' => $task->id])->save();
+        AuditLog::record($user, 'project.channel_opened', ['project_id' => $project->id, 'task_id' => $task->id], subject: $project);
+
+        return to_route('tasks.show', $task);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function validated(Request $request): array
@@ -91,6 +145,8 @@ class ProjectController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:4000'],
+            'color' => ['nullable', Rule::in(self::COLORS)],
+            'icon' => ['nullable', Rule::in(self::ICONS)],
             'status' => ['required', Rule::enum(ProjectStatus::class)],
             'goal_id' => ['nullable', 'integer', TenantRule::exists('goals')],
             'lead_user_id' => ['nullable', 'integer', TenantRule::exists('users')],

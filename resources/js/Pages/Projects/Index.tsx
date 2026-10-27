@@ -1,5 +1,5 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowUpRight, CalendarDays, FolderKanban, Pencil, Plus } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { ArrowUpRight, CalendarDays, FolderKanban, MessagesSquare, Pencil, Plus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { PersonAvatar } from '@/Components/PersonAvatar';
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout';
 import { date } from '@/lib/format';
+import { colorOf, projectColors, projectIcons } from '@/lib/projects';
 import { cn } from '@/lib/utils';
 import type { Option } from '@/types';
 
@@ -22,6 +23,9 @@ interface Project {
     id: number;
     name: string;
     description: string | null;
+    color: string | null;
+    icon: string | null;
+    channel_task_id: number | null;
     status: 'planned' | 'active' | 'done' | 'cancelled';
     status_label: string;
     goal: { id: number; title: string } | null;
@@ -101,7 +105,12 @@ export default function ProjectsIndex({ projects, goals, agents, people, statuse
             ) : (
                 <div className="divide-y overflow-hidden rounded-xl border bg-card">
                     {projects.map((project) => (
-                        <ProjectRow key={project.id} project={project} onEdit={can_manage ? () => setEditing(project) : undefined} />
+                        <ProjectRow
+                            key={project.id}
+                            project={project}
+                            canManage={can_manage}
+                            onEdit={can_manage ? () => setEditing(project) : undefined}
+                        />
                     ))}
                 </div>
             )}
@@ -121,13 +130,18 @@ export default function ProjectsIndex({ projects, goals, agents, people, statuse
     );
 }
 
-function ProjectRow({ project, onEdit }: { project: Project; onEdit?: () => void }) {
+function ProjectRow({ project, canManage, onEdit }: { project: Project; canManage: boolean; onEdit?: () => void }) {
     const percent = project.tasks_total > 0 ? Math.round((project.tasks_done / project.tasks_total) * 100) : 0;
     const tasksHref = `/tasks?view=all&project=${project.id}`;
+    const Icon = (project.icon && projectIcons[project.icon]) || FolderKanban;
+    const color = colorOf(project.color);
 
     return (
         <div className="group flex items-center gap-3 px-4 py-3">
-            <FolderKanban className={cn('size-4 shrink-0', project.status === 'active' ? 'text-primary' : 'text-muted-foreground')} />
+            <Icon
+                className={cn('size-4 shrink-0', !color && (project.status === 'active' ? 'text-primary' : 'text-muted-foreground'))}
+                style={color ? { color } : undefined}
+            />
             <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
                     <Link
@@ -182,6 +196,26 @@ function ProjectRow({ project, onEdit }: { project: Project; onEdit?: () => void
                 <StatusBadge tone={projectTone(project.status)} className="hidden sm:inline-flex">
                     {project.status_label}
                 </StatusBadge>
+                {(project.channel_task_id !== null || canManage) && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-muted-foreground"
+                        title={
+                            project.channel_task_id !== null
+                                ? 'Abrir o canal do projecto'
+                                : 'Abrir um canal: o agente apresenta-se e sugere por onde começar'
+                        }
+                        onClick={() =>
+                            project.channel_task_id !== null
+                                ? router.visit(`/tasks/${project.channel_task_id}`)
+                                : router.post(`/projects/${project.id}/channel`)
+                        }
+                    >
+                        <MessagesSquare />
+                        Canal
+                    </Button>
+                )}
                 <Button variant="ghost" size="icon" className="size-7" asChild>
                     <Link href={tasksHref} aria-label="Ver tarefas">
                         <ArrowUpRight />
@@ -219,6 +253,8 @@ function ProjectDialog({
         goal_id: project?.goal ? String(project.goal.id) : '',
         lead: project?.lead_agent_id ? `agent:${project.lead_agent_id}` : project?.lead_user_id ? `user:${project.lead_user_id}` : '',
         target_date: project?.target_date ?? '',
+        color: project?.color ?? '',
+        icon: project?.icon ?? '',
     });
 
     const submit = (event: FormEvent) => {
@@ -230,6 +266,8 @@ function ProjectDialog({
             lead_agent_id: lead.startsWith('agent:') ? Number(lead.slice(6)) : null,
             lead_user_id: lead.startsWith('user:') ? Number(lead.slice(5)) : null,
             target_date: data.target_date || null,
+            color: data.color || null,
+            icon: data.icon || null,
         }));
         const options = { preserveScroll: true, onSuccess: onClose };
         if (project) {
@@ -257,7 +295,52 @@ function ProjectDialog({
                         />
                     </Field>
 
-                    <Field id="description" label="Descrição" error={form.errors.description} hint="Opcional.">
+                    <div className="flex flex-col gap-2">
+                        <span className="text-sm font-medium">Ícone e cor</span>
+                        <div className="flex flex-wrap gap-1" role="group" aria-label="Ícone">
+                            {Object.entries(projectIcons).map(([key, Icon]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    aria-pressed={form.data.icon === key}
+                                    onClick={() => form.setData('icon', form.data.icon === key ? '' : key)}
+                                    className={cn(
+                                        'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent',
+                                        form.data.icon === key && 'bg-accent text-foreground',
+                                    )}
+                                >
+                                    <Icon
+                                        className="size-4"
+                                        style={form.data.icon === key && form.data.color ? { color: colorOf(form.data.color) } : undefined}
+                                    />
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Cor">
+                            {Object.entries(projectColors).map(([key, hex]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    aria-pressed={form.data.color === key}
+                                    aria-label={key}
+                                    onClick={() => form.setData('color', form.data.color === key ? '' : key)}
+                                    className={cn(
+                                        'size-6 rounded-full ring-offset-2 ring-offset-background',
+                                        form.data.color === key && 'ring-2 ring-foreground/60',
+                                    )}
+                                    style={{ background: hex }}
+                                />
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">As tarefas do projecto ficam com esta cor.</p>
+                    </div>
+
+                    <Field
+                        id="description"
+                        label="Objectivo"
+                        error={form.errors.description}
+                        hint="Para que serve o projecto. O agente lê-o no canal."
+                    >
                         <Textarea
                             id="description"
                             rows={3}

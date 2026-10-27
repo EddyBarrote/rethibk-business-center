@@ -200,7 +200,7 @@ final class Present
     }
 
     /** Relations Present::task() reads; eager-load them with the tasks. */
-    public const TASK_RELATIONS = ['assigneeAgent:id,name', 'assigneeUser:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name', 'tenant:id,slug'];
+    public const TASK_RELATIONS = ['assigneeAgent:id,name', 'assigneeUser:id,name', 'user:id,name', 'createdByAgent:id,name', 'createdByUser:id,name', 'goal:id,title', 'project:id,name,color', 'tenant:id,slug'];
 
     /** Relations Present::approval() reads. */
     public const APPROVAL_RELATIONS = ['agent', 'run:id,task_id', 'assignedTo:id,name', 'decidedBy:id,name', 'decidedByAgent:id,name', 'reviewAgent:id,name'];
@@ -253,7 +253,7 @@ final class Present
             'created_by' => $task->createdByAgent->name ?? $task->createdByUser->name ?? null,
             'created_by_agent' => $task->created_by_agent_id !== null,
             'goal' => $task->goal ? ['id' => $task->goal->id, 'title' => $task->goal->title] : null,
-            'project' => $task->project ? ['id' => $task->project->id, 'name' => $task->project->name] : null,
+            'project' => $task->project ? ['id' => $task->project->id, 'name' => $task->project->name, 'color' => $task->project->color] : null,
             'messages_count' => $task->messages_count ?? null,
             'due_at' => $task->due_at?->toIso8601String(),
             'last_activity_at' => $task->last_activity_at?->toIso8601String(),

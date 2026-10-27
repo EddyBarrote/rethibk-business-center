@@ -21,13 +21,16 @@ use Illuminate\Support\Carbon;
  * @property int|null $goal_id
  * @property string $name
  * @property string|null $description
+ * @property string|null $color
+ * @property string|null $icon
+ * @property int|null $channel_task_id
  * @property ProjectStatus $status
  * @property int|null $lead_user_id
  * @property int|null $lead_agent_id
  * @property Carbon|null $target_date
  * @property Carbon $created_at
  */
-#[Fillable(['goal_id', 'name', 'description', 'status', 'lead_user_id', 'lead_agent_id', 'target_date'])]
+#[Fillable(['goal_id', 'name', 'description', 'color', 'icon', 'status', 'lead_user_id', 'lead_agent_id', 'target_date'])]
 class Project extends Model
 {
     /** @use HasFactory<ProjectFactory> */

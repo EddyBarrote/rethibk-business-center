@@ -8,6 +8,7 @@ import { PersonAvatar } from '@/Components/PersonAvatar';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { ago, dateTime } from '@/lib/format';
+import { colorOf } from '@/lib/projects';
 import { cn } from '@/lib/utils';
 import { TaskStatusIcon, type TaskSummary } from '@/Pages/Tasks/Index';
 
@@ -92,8 +93,15 @@ function FocusRow({ task, failed }: { task: FocusTask; failed: boolean }) {
         <li className="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-accent/40">
             <TaskStatusIcon status={task.status} label={task.status_label} className="mt-0.5 size-4 shrink-0" />
             <div className="min-w-0 flex-1">
-                <Link href={`/tasks/${task.id}`} className="block truncate text-sm font-medium underline-offset-4 hover:underline">
-                    {task.title}
+                <Link href={`/tasks/${task.id}`} className="flex min-w-0 items-center gap-2 text-sm font-medium underline-offset-4 hover:underline">
+                    <span className="truncate">{task.title}</span>
+                    {task.project?.color && (
+                        <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ background: colorOf(task.project.color) }}
+                            title={`Projecto: ${task.project.name}`}
+                        />
+                    )}
                 </Link>
                 {task.next && (
                     <p className={cn('line-clamp-2 text-xs', failed ? 'text-status-danger' : 'text-muted-foreground')}>

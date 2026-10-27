@@ -61,6 +61,7 @@ import { type FocusData, TaskFocus } from '@/Components/tasks/Focus';
 import type { CollaboratorRoleOption } from '@/Components/tasks/Collaborators';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, deadline, number, plural } from '@/lib/format';
+import { colorOf } from '@/lib/projects';
 import { cn } from '@/lib/utils';
 import type { Option, Paginated, SharedProps } from '@/types';
 
@@ -86,7 +87,7 @@ export interface TaskSummary {
     created_by: string | null;
     created_by_agent: boolean;
     goal: { id: number; title: string } | null;
-    project: { id: number; name: string } | null;
+    project: { id: number; name: string; color?: string | null } | null;
     messages_count: number | null;
     due_at?: string | null;
     last_activity_at: string | null;
@@ -1061,6 +1062,13 @@ export function TaskRow({
                         >
                             {task.title}
                         </Link>
+                        {task.project?.color && (
+                            <span
+                                className="size-2 shrink-0 rounded-full"
+                                style={{ background: colorOf(task.project.color) }}
+                                title={`Projecto: ${task.project.name}`}
+                            />
+                        )}
                         {task.kind === 'chat' && (
                             <span className="hidden shrink-0 @lg:inline-flex">
                                 <ChatBadge />
