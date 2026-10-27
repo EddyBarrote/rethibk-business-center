@@ -17,6 +17,8 @@ export interface SectionLink {
     label: string;
     icon: LucideIcon;
     count?: number;
+    /** A field of the section has an error (a red dot). */
+    error?: boolean;
 }
 
 /** The section whose heading was scrolled past last, for the sticky section nav. */
@@ -59,28 +61,59 @@ export function useActiveSection(ids: string[]) {
     return active;
 }
 
-export function SectionNav({ sections, active, note }: { sections: SectionLink[]; active: string; note?: string }) {
+export function SectionNav({
+    sections,
+    active,
+    note,
+    onSelect,
+}: {
+    sections: SectionLink[];
+    active: string;
+    note?: string;
+    /** As tabs: one section shown at a time, the link only says which. */
+    onSelect?: (id: string) => void;
+}) {
+    const link = (section: SectionLink, wide: boolean) => (
+        <a
+            key={section.id}
+            href={`#${section.id}`}
+            aria-current={active === section.id ? 'page' : undefined}
+            onClick={(event) => {
+                if (onSelect) {
+                    event.preventDefault();
+                    onSelect(section.id);
+                    window.history.replaceState(window.history.state, '', `#${section.id}`);
+                    window.scrollTo({ top: 0 });
+                }
+            }}
+            className={cn(
+                'flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground',
+                active === section.id && 'bg-accent font-medium text-foreground',
+            )}
+        >
+            <section.icon className="size-4 shrink-0" />
+            <span className={cn(wide && 'truncate')}>{section.label}</span>
+            {section.error && <span className="size-1.5 shrink-0 rounded-full bg-destructive" aria-label="Com erros" />}
+            {section.count !== undefined && <span className={cn('font-mono text-[11px] tabular-nums', wide && 'ml-auto')}>{section.count}</span>}
+        </a>
+    );
+
     return (
-        <nav className="hidden lg:block">
-            <div className="sticky top-20 flex flex-col gap-0.5">
-                <p className="mb-2 px-2.5 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">Secções</p>
-                {sections.map((section) => (
-                    <a
-                        key={section.id}
-                        href={`#${section.id}`}
-                        className={cn(
-                            'flex h-8 items-center gap-2 rounded-lg px-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground',
-                            active === section.id && 'bg-accent font-medium text-foreground',
-                        )}
-                    >
-                        <section.icon className="size-4 shrink-0" />
-                        <span className="truncate">{section.label}</span>
-                        {section.count !== undefined && <span className="ml-auto font-mono text-[11px] tabular-nums">{section.count}</span>}
-                    </a>
-                ))}
-                {note && <p className="mt-3 px-2.5 text-xs text-muted-foreground">{note}</p>}
-            </div>
-        </nav>
+        <>
+            {/* On a phone or tablet, a row of tabs above the form. */}
+            {onSelect && (
+                <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:hidden">
+                    {sections.filter((s) => s.id !== 'assistente').map((s) => link(s, false))}
+                </nav>
+            )}
+            <nav className="hidden lg:block">
+                <div className="sticky top-20 flex flex-col gap-0.5">
+                    <p className="mb-2 px-2.5 text-[10px] font-medium tracking-widest text-muted-foreground/70 uppercase">Secções</p>
+                    {sections.filter((s) => !onSelect || s.id !== 'assistente').map((s) => link(s, true))}
+                    {note && <p className="mt-3 px-2.5 text-xs text-muted-foreground">{note}</p>}
+                </div>
+            </nav>
+        </>
     );
 }
 

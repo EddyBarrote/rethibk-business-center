@@ -1,19 +1,9 @@
 import { Link, useForm } from '@inertiajs/react';
 import { BookOpen, Bot, Brain, ChevronRight, Cpu, Puzzle, Search } from 'lucide-react';
-import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import {
-    CeilingPill,
-    FormSection,
-    InputErrorList,
-    ScopePill,
-    SectionNav,
-    type SectionLink,
-    SourcePill,
-    str,
-    useActiveSection,
-} from '@/Components/agents/FormParts';
+import { CeilingPill, FormSection, InputErrorList, ScopePill, SectionNav, type SectionLink, SourcePill, str } from '@/Components/agents/FormParts';
 import { Field } from '@/Components/Field';
 import { StatusBadge, StatusDot } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
@@ -211,416 +201,472 @@ export default function AgentDefinitionForm({
         { id: 'skills', label: 'Skills', icon: BookOpen, count: form.data.skills.length },
         ...extraSections.filter((section) => section.id !== 'assistente'),
     ];
-    const active = useActiveSection(sections.map((section) => section.id));
+    // One section at a time, as tabs (docs/DECISOES.md, "Agentes: configuração em separadores"); the address keeps it (#modelo).
+    const ids = sections.map((section) => section.id).filter((id) => id !== 'assistente');
+    const [tab, setTab] = useState(() => {
+        const hash = typeof window === 'undefined' ? '' : window.location.hash.slice(1);
+        return ids.includes(hash) ? hash : ids[0];
+    });
+    useEffect(() => {
+        const onHash = () => {
+            const hash = window.location.hash.slice(1);
+            if (ids.includes(hash)) {
+                setTab(hash);
+                window.scrollTo({ top: 0 });
+            }
+        };
+        window.addEventListener('hashchange', onHash);
+
+        return () => window.removeEventListener('hashchange', onHash);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ids.join(',')]);
+
+    // A tab with an error after saving is marked, and the first one opens.
+    const fieldsOf: Record<string, string[]> = {
+        identidade: ['name', 'key', 'title', 'description', 'department_id', 'reports_to_user_id', 'reports_to_agent_id'],
+        personalidade: ['personality', 'instructions'],
+        modelo: ['status', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps'],
+        capacidades: ['capabilities'],
+        skills: ['skills'],
+    };
+    const withError = (id: string) => Object.keys(errors).some((key) => (fieldsOf[id] ?? []).includes(key.split('.')[0]));
+    const errorKeys = Object.keys(errors).join(',');
+    useEffect(() => {
+        const first = ids.find((id) => withError(id));
+        if (first && !withError(tab)) {
+            setTab(first);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [errorKeys]);
+    const tabs = sections.map((section) => ({ ...section, error: withError(section.id) }));
 
     return (
         <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
-            <SectionNav sections={sections} active={active} note={navNote} />
+            <SectionNav sections={tabs} active={tab} note={navNote} onSelect={(id) => setTab(id)} />
 
             <div className="flex min-w-0 flex-col gap-8">
-                {before}
+                {tab === ids[0] && before}
 
                 <form onSubmit={submit} className="flex flex-col gap-8">
-                    <FormSection id="identidade" title="Identidade" description="Quem é este colega, o que faz e a quem responde.">
-                        <div className={cn('grid gap-6', identityAside && 'md:grid-cols-[minmax(0,1fr)_11rem]')}>
+                    <div hidden={tab !== 'identidade'}>
+                        <FormSection id="identidade" title="Identidade" description="Quem é este colega, o que faz e a quem responde.">
+                            <div className={cn('grid gap-6', identityAside && 'md:grid-cols-[minmax(0,1fr)_11rem]')}>
+                                <div className="grid gap-4">
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <Field id="name" label="Nome" error={errors.name}>
+                                            <Input
+                                                id="name"
+                                                placeholder="Amélia"
+                                                value={form.data.name}
+                                                onChange={(e) => form.setData('name', e.target.value)}
+                                                required
+                                            />
+                                        </Field>
+                                        <Field id="key" label="Chave" error={errors.key} hint="Identificador único: comercial, apoio-cliente…">
+                                            <Input
+                                                id="key"
+                                                className="font-mono"
+                                                value={form.data.key}
+                                                onChange={(e) => form.setData('key', e.target.value)}
+                                                required
+                                            />
+                                        </Field>
+                                    </div>
+                                    <Field id="title" label="Função" error={errors.title}>
+                                        <Input
+                                            id="title"
+                                            placeholder="Gestora de Propostas Comerciais"
+                                            value={form.data.title}
+                                            onChange={(e) => form.setData('title', e.target.value)}
+                                        />
+                                    </Field>
+                                    <Field id="description" label="Descrição" error={errors.description}>
+                                        <Textarea
+                                            id="description"
+                                            rows={2}
+                                            value={form.data.description}
+                                            onChange={(e) => form.setData('description', e.target.value)}
+                                        />
+                                    </Field>
+                                    <div className="grid gap-4 sm:grid-cols-3">
+                                        <Field id="department_id" label="Departamento" error={errors.department_id}>
+                                            <NativeSelect
+                                                id="department_id"
+                                                value={form.data.department_id}
+                                                onChange={(e) => form.setData('department_id', e.target.value)}
+                                            >
+                                                <option value="">—</option>
+                                                {departments.map((department) => (
+                                                    <option key={department.id} value={department.id}>
+                                                        {department.name}
+                                                    </option>
+                                                ))}
+                                            </NativeSelect>
+                                        </Field>
+                                        <Field id="reports_to_user_id" label="Responde a (pessoa)" error={errors.reports_to_user_id}>
+                                            <NativeSelect
+                                                id="reports_to_user_id"
+                                                value={form.data.reports_to_user_id}
+                                                onChange={(e) => form.setData('reports_to_user_id', e.target.value)}
+                                            >
+                                                <option value="">—</option>
+                                                {users.map((user) => (
+                                                    <option key={user.id} value={user.id}>
+                                                        {user.name}
+                                                    </option>
+                                                ))}
+                                            </NativeSelect>
+                                        </Field>
+                                        <Field id="reports_to_agent_id" label="Chefia no organigrama" error={errors.reports_to_agent_id}>
+                                            <NativeSelect
+                                                id="reports_to_agent_id"
+                                                value={form.data.reports_to_agent_id}
+                                                onChange={(e) => form.setData('reports_to_agent_id', e.target.value)}
+                                            >
+                                                <option value="">—</option>
+                                                {agents.map((other) => (
+                                                    <option key={other.id} value={other.id}>
+                                                        {other.name}
+                                                        {other.title ? ` · ${other.title}` : ''}
+                                                    </option>
+                                                ))}
+                                            </NativeSelect>
+                                        </Field>
+                                    </div>
+                                </div>
+                                {identityAside}
+                            </div>
+                        </FormSection>
+                    </div>
+
+                    <div hidden={tab !== 'personalidade'}>
+                        <FormSection
+                            id="personalidade"
+                            title="Personalidade e instruções"
+                            description="Entram no prompt de sistema, depois da identidade e antes das regras da plataforma, que não se podem sobrepor."
+                        >
                             <div className="grid gap-4">
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <Field id="name" label="Nome" error={errors.name}>
-                                        <Input
-                                            id="name"
-                                            placeholder="Amélia"
-                                            value={form.data.name}
-                                            onChange={(e) => form.setData('name', e.target.value)}
-                                            required
-                                        />
-                                    </Field>
-                                    <Field id="key" label="Chave" error={errors.key} hint="Identificador único: comercial, apoio-cliente…">
-                                        <Input
-                                            id="key"
-                                            className="font-mono"
-                                            value={form.data.key}
-                                            onChange={(e) => form.setData('key', e.target.value)}
-                                            required
-                                        />
-                                    </Field>
-                                </div>
-                                <Field id="title" label="Função" error={errors.title}>
-                                    <Input
-                                        id="title"
-                                        placeholder="Gestora de Propostas Comerciais"
-                                        value={form.data.title}
-                                        onChange={(e) => form.setData('title', e.target.value)}
-                                    />
-                                </Field>
-                                <Field id="description" label="Descrição" error={errors.description}>
-                                    <Textarea
-                                        id="description"
-                                        rows={2}
-                                        value={form.data.description}
-                                        onChange={(e) => form.setData('description', e.target.value)}
-                                    />
-                                </Field>
-                                <div className="grid gap-4 sm:grid-cols-3">
-                                    <Field id="department_id" label="Departamento" error={errors.department_id}>
-                                        <NativeSelect
-                                            id="department_id"
-                                            value={form.data.department_id}
-                                            onChange={(e) => form.setData('department_id', e.target.value)}
-                                        >
-                                            <option value="">—</option>
-                                            {departments.map((department) => (
-                                                <option key={department.id} value={department.id}>
-                                                    {department.name}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                    </Field>
-                                    <Field id="reports_to_user_id" label="Responde a (pessoa)" error={errors.reports_to_user_id}>
-                                        <NativeSelect
-                                            id="reports_to_user_id"
-                                            value={form.data.reports_to_user_id}
-                                            onChange={(e) => form.setData('reports_to_user_id', e.target.value)}
-                                        >
-                                            <option value="">—</option>
-                                            {users.map((user) => (
-                                                <option key={user.id} value={user.id}>
-                                                    {user.name}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                    </Field>
-                                    <Field id="reports_to_agent_id" label="Chefia no organigrama" error={errors.reports_to_agent_id}>
-                                        <NativeSelect
-                                            id="reports_to_agent_id"
-                                            value={form.data.reports_to_agent_id}
-                                            onChange={(e) => form.setData('reports_to_agent_id', e.target.value)}
-                                        >
-                                            <option value="">—</option>
-                                            {agents.map((other) => (
-                                                <option key={other.id} value={other.id}>
-                                                    {other.name}
-                                                    {other.title ? ` · ${other.title}` : ''}
-                                                </option>
-                                            ))}
-                                        </NativeSelect>
-                                    </Field>
-                                </div>
-                            </div>
-                            {identityAside}
-                        </div>
-                    </FormSection>
-
-                    <FormSection
-                        id="personalidade"
-                        title="Personalidade e instruções"
-                        description="Entram no prompt de sistema, depois da identidade e antes das regras da plataforma, que não se podem sobrepor."
-                    >
-                        <div className="grid gap-4">
-                            <Field id="personality" label="Personalidade" error={errors.personality} hint="Como fala e se comporta, em 2 a 4 frases.">
-                                <Textarea
-                                    id="personality"
-                                    rows={3}
-                                    value={form.data.personality}
-                                    onChange={(e) => form.setData('personality', e.target.value)}
-                                />
-                            </Field>
-                            <Field
-                                id="instructions"
-                                label="Instruções"
-                                error={errors.instructions}
-                                hint="Markdown: o que faz, como faz, o que nunca faz."
-                            >
-                                <Textarea
-                                    id="instructions"
-                                    rows={14}
-                                    className="font-mono text-xs leading-relaxed"
-                                    value={form.data.instructions}
-                                    onChange={(e) => form.setData('instructions', e.target.value)}
-                                />
-                            </Field>
-                        </div>
-                    </FormSection>
-
-                    <FormSection
-                        id="modelo"
-                        title="Autonomia e modelo"
-                        description="O tecto absoluto (pagamentos, facturas, contratos, pessoas, permissões) pede sempre aprovação."
-                    >
-                        <div className="grid gap-6">
-                            <div className="grid gap-4 sm:grid-cols-2">
                                 <Field
-                                    id="status"
-                                    label="Estado"
-                                    error={errors.status}
-                                    hint="Em rascunho, o agente não trabalha nem aparece na equipa."
+                                    id="personality"
+                                    label="Personalidade"
+                                    error={errors.personality}
+                                    hint="Como fala e se comporta, em 2 a 4 frases."
                                 >
-                                    <NativeSelect id="status" value={form.data.status} onChange={(e) => form.setData('status', e.target.value)}>
-                                        {statuses.map((status) => (
-                                            <option key={status.value} value={status.value}>
-                                                {status.label}
-                                            </option>
-                                        ))}
-                                    </NativeSelect>
+                                    <Textarea
+                                        id="personality"
+                                        rows={3}
+                                        value={form.data.personality}
+                                        onChange={(e) => form.setData('personality', e.target.value)}
+                                    />
+                                </Field>
+                                <Field
+                                    id="instructions"
+                                    label="Instruções"
+                                    error={errors.instructions}
+                                    hint="Markdown: o que faz, como faz, o que nunca faz."
+                                >
+                                    <Textarea
+                                        id="instructions"
+                                        rows={14}
+                                        className="font-mono text-xs leading-relaxed"
+                                        value={form.data.instructions}
+                                        onChange={(e) => form.setData('instructions', e.target.value)}
+                                    />
                                 </Field>
                             </div>
-                            <fieldset className="flex flex-col gap-1">
-                                <legend className="mb-2 text-sm font-medium">Nível de autonomia</legend>
-                                {levels.map((option) => (
-                                    <label
-                                        key={option.value}
-                                        className={cn(
-                                            'flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
-                                            level === option.value && 'bg-accent',
-                                        )}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="autonomy_level"
-                                            value={option.value}
-                                            checked={level === option.value}
-                                            onChange={() => form.setData('autonomy_level', String(option.value))}
-                                            className="accent-primary"
-                                        />
-                                        <AutonomyBadge level={option.value} />
-                                        <span className={cn(level === option.value && 'font-medium')}>{option.label}</span>
-                                    </label>
-                                ))}
-                                {errors.autonomy_level && <p className="text-sm text-destructive">{errors.autonomy_level}</p>}
-                            </fieldset>
-                            <p className="-mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Modelo</p>
-                            <fieldset className="flex flex-col gap-1">
-                                <legend className="sr-only">Modelo</legend>
-                                {[
-                                    {
-                                        provider: '',
-                                        model: '',
-                                        label: `Por omissão da plataforma`,
-                                        hint: `Hoje: ${models[0]?.label ?? defaultProvider}. Muda quando a plataforma mudar.`,
-                                        input: null,
-                                        output: null,
-                                    },
-                                    ...models,
-                                    // A model set before the list existed stays choosable.
-                                    ...(form.data.model && !models.some((m) => m.model === form.data.model)
-                                        ? [
-                                              {
-                                                  provider: form.data.provider,
-                                                  model: form.data.model,
-                                                  label: form.data.model,
-                                                  hint: 'Fora da lista.',
-                                                  input: null,
-                                                  output: null,
-                                              },
-                                          ]
-                                        : []),
-                                ].map((option) => {
-                                    const chosen = form.data.model === option.model && (option.model !== '' || form.data.provider === '');
+                        </FormSection>
+                    </div>
 
-                                    return (
+                    <div hidden={tab !== 'modelo'}>
+                        <FormSection
+                            id="modelo"
+                            title="Autonomia e modelo"
+                            description="O tecto absoluto (pagamentos, facturas, contratos, pessoas, permissões) pede sempre aprovação."
+                        >
+                            <div className="grid gap-6">
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field
+                                        id="status"
+                                        label="Estado"
+                                        error={errors.status}
+                                        hint="Em rascunho, o agente não trabalha nem aparece na equipa."
+                                    >
+                                        <NativeSelect id="status" value={form.data.status} onChange={(e) => form.setData('status', e.target.value)}>
+                                            {statuses.map((status) => (
+                                                <option key={status.value} value={status.value}>
+                                                    {status.label}
+                                                </option>
+                                            ))}
+                                        </NativeSelect>
+                                    </Field>
+                                </div>
+                                <fieldset className="flex flex-col gap-1">
+                                    <legend className="mb-2 text-sm font-medium">Nível de autonomia</legend>
+                                    {levels.map((option) => (
                                         <label
-                                            key={option.model || 'default'}
+                                            key={option.value}
                                             className={cn(
-                                                'flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
-                                                chosen && 'bg-accent',
+                                                'flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
+                                                level === option.value && 'bg-accent',
                                             )}
                                         >
                                             <input
                                                 type="radio"
-                                                name="model"
-                                                checked={chosen}
-                                                onChange={() => form.setData((data) => ({ ...data, provider: option.provider, model: option.model }))}
-                                                className="mt-1 accent-primary"
+                                                name="autonomy_level"
+                                                value={option.value}
+                                                checked={level === option.value}
+                                                onChange={() => form.setData('autonomy_level', String(option.value))}
+                                                className="accent-primary"
                                             />
-                                            <span className="min-w-0 flex-1">
-                                                <span className={cn('block', chosen && 'font-medium')}>{option.label}</span>
-                                                <span className="block text-xs text-muted-foreground">{option.hint}</span>
-                                            </span>
-                                            {option.input !== null && option.output !== null && (
-                                                <span
-                                                    className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
-                                                    title="US$ por milhão de tokens: entrada / saída"
-                                                >
-                                                    {option.input.toLocaleString('pt-PT')} / {option.output.toLocaleString('pt-PT')} US$
-                                                </span>
-                                            )}
+                                            <AutonomyBadge level={option.value} />
+                                            <span className={cn(level === option.value && 'font-medium')}>{option.label}</span>
                                         </label>
-                                    );
-                                })}
-                                {(errors.model || errors.provider) && <p className="text-sm text-destructive">{errors.model ?? errors.provider}</p>}
-                            </fieldset>
-                            <div className="grid gap-4 sm:grid-cols-3">
-                                <Field id="temperature" label="Temperatura" error={errors.temperature}>
-                                    <Input
-                                        id="temperature"
-                                        type="number"
-                                        step="0.1"
-                                        min="0"
-                                        max="2"
-                                        className="font-mono"
-                                        value={form.data.temperature}
-                                        onChange={(e) => form.setData('temperature', e.target.value)}
-                                    />
-                                </Field>
-                                <Field id="max_tokens" label="Máx. tokens" error={errors.max_tokens}>
-                                    <Input
-                                        id="max_tokens"
-                                        type="number"
-                                        min="1"
-                                        className="font-mono"
-                                        value={form.data.max_tokens}
-                                        onChange={(e) => form.setData('max_tokens', e.target.value)}
-                                    />
-                                </Field>
-                                <Field id="max_steps" label="Máx. passos" error={errors.max_steps}>
-                                    <Input
-                                        id="max_steps"
-                                        type="number"
-                                        min="1"
-                                        max="50"
-                                        className="font-mono"
-                                        value={form.data.max_steps}
-                                        onChange={(e) => form.setData('max_steps', e.target.value)}
-                                    />
-                                </Field>
-                            </div>
-                        </div>
-                    </FormSection>
+                                    ))}
+                                    {errors.autonomy_level && <p className="text-sm text-destructive">{errors.autonomy_level}</p>}
+                                </fieldset>
+                                <p className="-mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Modelo</p>
+                                <fieldset className="flex flex-col gap-1">
+                                    <legend className="sr-only">Modelo</legend>
+                                    {[
+                                        {
+                                            provider: '',
+                                            model: '',
+                                            label: `Por omissão da plataforma`,
+                                            hint: `Hoje: ${models[0]?.label ?? defaultProvider}. Muda quando a plataforma mudar.`,
+                                            input: null,
+                                            output: null,
+                                        },
+                                        ...models,
+                                        // A model set before the list existed stays choosable.
+                                        ...(form.data.model && !models.some((m) => m.model === form.data.model)
+                                            ? [
+                                                  {
+                                                      provider: form.data.provider,
+                                                      model: form.data.model,
+                                                      label: form.data.model,
+                                                      hint: 'Fora da lista.',
+                                                      input: null,
+                                                      output: null,
+                                                  },
+                                              ]
+                                            : []),
+                                    ].map((option) => {
+                                        const chosen = form.data.model === option.model && (option.model !== '' || form.data.provider === '');
 
-                    <FormSection
-                        id="capacidades"
-                        title="Capacidades"
-                        description={
-                            <>
-                                O que o agente consegue <em>fazer</em>: ferramentas da plataforma, do ERP e de conectores.{' '}
-                                <span className="font-medium text-foreground tabular-nums">{form.data.capabilities.length}</span>{' '}
-                                {form.data.capabilities.length === 1 ? 'escolhida' : 'escolhidas'}. Uma capacidade que escreve só é usada sem
-                                aprovação se o nível do agente chegar ao risco dela.
-                            </>
-                        }
-                        action={
-                            <div className="flex w-full flex-col gap-2">
-                                <div className="relative w-full">
-                                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        className="h-8 pl-8"
-                                        placeholder="Procurar capacidade…"
-                                        value={filter}
-                                        onChange={(e) => setFilter(e.target.value)}
-                                    />
-                                </div>
-                                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                                    <Checkbox checked={onlyChosen} onCheckedChange={(on) => setOnlyChosen(on === true)} />
-                                    Só as escolhidas
-                                </label>
-                            </div>
-                        }
-                    >
-                        <InputErrorList errors={errors} prefix="capabilities" />
-                        {capabilities.length === 0 ? (
-                            <p className="py-6 text-sm text-muted-foreground">
-                                Ainda não há capacidades.{' '}
-                                {capabilitiesHref && (
-                                    <Link href={capabilitiesHref} className="text-primary underline">
-                                        Actualize o catálogo
-                                    </Link>
-                                )}
-                            </p>
-                        ) : (
-                            <CapabilityGroups
-                                capabilities={visibleCapabilities}
-                                selected={form.data.capabilities}
-                                level={level}
-                                filtering={filter !== '' || onlyChosen}
-                                onToggle={(id, on) => toggle('capabilities', id, on)}
-                                onToggleMany={(ids, on) =>
-                                    form.setData(
-                                        'capabilities',
-                                        on
-                                            ? [...new Set([...form.data.capabilities, ...ids])]
-                                            : form.data.capabilities.filter((id) => !ids.includes(id)),
-                                    )
-                                }
-                            />
-                        )}
-                    </FormSection>
-
-                    <FormSection
-                        id="skills"
-                        title="Skills"
-                        description={
-                            <>
-                                O que o agente <em>sabe</em>: instruções da organização para tipos de trabalho. O agente vê o nome e quando se aplica,
-                                e lê o resto só quando precisa.
-                            </>
-                        }
-                    >
-                        <InputErrorList errors={errors} prefix="skills" />
-                        {skills.length === 0 ? (
-                            <p className="py-6 text-sm text-muted-foreground">
-                                Ainda não há skills.{' '}
-                                {skillsHref && (
-                                    <Link href={skillsHref} className="text-primary underline">
-                                        Crie a primeira ou active uma global
-                                    </Link>
-                                )}
-                            </p>
-                        ) : (
-                            <ul className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
-                                {skills.map((skill) => {
-                                    const checked = form.data.skills.includes(skill.id);
-
-                                    return (
-                                        <li key={skill.id}>
+                                        return (
                                             <label
+                                                key={option.model || 'default'}
                                                 className={cn(
-                                                    'flex h-full cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-accent/50',
-                                                    checked && 'bg-primary/[0.04]',
-                                                    !skill.is_available && !checked && 'cursor-not-allowed opacity-60',
+                                                    'flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
+                                                    chosen && 'bg-accent',
                                                 )}
                                             >
-                                                <Checkbox
-                                                    checked={checked}
-                                                    disabled={!skill.is_available && !checked}
-                                                    onCheckedChange={(on) => toggle('skills', skill.id, on === true)}
-                                                    className="mt-0.5"
+                                                <input
+                                                    type="radio"
+                                                    name="model"
+                                                    checked={chosen}
+                                                    onChange={() =>
+                                                        form.setData((data) => ({ ...data, provider: option.provider, model: option.model }))
+                                                    }
+                                                    className="mt-1 accent-primary"
                                                 />
                                                 <span className="min-w-0 flex-1">
-                                                    <span className="flex flex-wrap items-center gap-1.5">
-                                                        <span className="text-sm font-medium">{skill.name}</span>
-                                                        <ScopePill scope={skill.scope} />
-                                                        {!skill.is_available && (
-                                                            <StatusBadge tone="idle" dot={false}>
-                                                                desligada
-                                                            </StatusBadge>
-                                                        )}
-                                                    </span>
-                                                    <span className="line-clamp-2 text-xs text-muted-foreground">{skill.description}</span>
+                                                    <span className={cn('block', chosen && 'font-medium')}>{option.label}</span>
+                                                    <span className="block text-xs text-muted-foreground">{option.hint}</span>
                                                 </span>
+                                                {option.input !== null && option.output !== null && (
+                                                    <span
+                                                        className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
+                                                        title="US$ por milhão de tokens: entrada / saída"
+                                                    >
+                                                        {option.input.toLocaleString('pt-PT')} / {option.output.toLocaleString('pt-PT')} US$
+                                                    </span>
+                                                )}
                                             </label>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        )}
-                        {draft && draft.suggested_skills.length > 0 && (
-                            <div className="mt-4 rounded-lg bg-muted/40 p-3">
-                                <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Skills que fariam falta</p>
-                                <ul className="mt-2 grid gap-2">
-                                    {draft.suggested_skills.map((suggestion) => (
-                                        <li key={suggestion.name} className="text-sm">
-                                            <span className="font-medium">{suggestion.name}</span>
-                                            <span className="text-muted-foreground"> · {suggestion.description}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                                {skillsHref && (
-                                    <Link href={`${skillsHref}/create`} className="mt-2 inline-block text-sm text-primary underline">
-                                        Criar uma skill
-                                    </Link>
-                                )}
+                                        );
+                                    })}
+                                    {(errors.model || errors.provider) && (
+                                        <p className="text-sm text-destructive">{errors.model ?? errors.provider}</p>
+                                    )}
+                                </fieldset>
+                                <div className="grid gap-4 sm:grid-cols-3">
+                                    <Field id="temperature" label="Temperatura" error={errors.temperature}>
+                                        <Input
+                                            id="temperature"
+                                            type="number"
+                                            step="0.1"
+                                            min="0"
+                                            max="2"
+                                            className="font-mono"
+                                            value={form.data.temperature}
+                                            onChange={(e) => form.setData('temperature', e.target.value)}
+                                        />
+                                    </Field>
+                                    <Field id="max_tokens" label="Máx. tokens" error={errors.max_tokens}>
+                                        <Input
+                                            id="max_tokens"
+                                            type="number"
+                                            min="1"
+                                            className="font-mono"
+                                            value={form.data.max_tokens}
+                                            onChange={(e) => form.setData('max_tokens', e.target.value)}
+                                        />
+                                    </Field>
+                                    <Field id="max_steps" label="Máx. passos" error={errors.max_steps}>
+                                        <Input
+                                            id="max_steps"
+                                            type="number"
+                                            min="1"
+                                            max="50"
+                                            className="font-mono"
+                                            value={form.data.max_steps}
+                                            onChange={(e) => form.setData('max_steps', e.target.value)}
+                                        />
+                                    </Field>
+                                </div>
                             </div>
-                        )}
-                    </FormSection>
+                        </FormSection>
+                    </div>
+
+                    <div hidden={tab !== 'capacidades'}>
+                        <FormSection
+                            id="capacidades"
+                            title="Capacidades"
+                            description={
+                                <>
+                                    O que o agente consegue <em>fazer</em>: ferramentas da plataforma, do ERP e de conectores.{' '}
+                                    <span className="font-medium text-foreground tabular-nums">{form.data.capabilities.length}</span>{' '}
+                                    {form.data.capabilities.length === 1 ? 'escolhida' : 'escolhidas'}. Uma capacidade que escreve só é usada sem
+                                    aprovação se o nível do agente chegar ao risco dela.
+                                </>
+                            }
+                            action={
+                                <div className="flex w-full flex-col gap-2">
+                                    <div className="relative w-full">
+                                        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            className="h-8 pl-8"
+                                            placeholder="Procurar capacidade…"
+                                            value={filter}
+                                            onChange={(e) => setFilter(e.target.value)}
+                                        />
+                                    </div>
+                                    <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                                        <Checkbox checked={onlyChosen} onCheckedChange={(on) => setOnlyChosen(on === true)} />
+                                        Só as escolhidas
+                                    </label>
+                                </div>
+                            }
+                        >
+                            <InputErrorList errors={errors} prefix="capabilities" />
+                            {capabilities.length === 0 ? (
+                                <p className="py-6 text-sm text-muted-foreground">
+                                    Ainda não há capacidades.{' '}
+                                    {capabilitiesHref && (
+                                        <Link href={capabilitiesHref} className="text-primary underline">
+                                            Actualize o catálogo
+                                        </Link>
+                                    )}
+                                </p>
+                            ) : (
+                                <CapabilityGroups
+                                    capabilities={visibleCapabilities}
+                                    selected={form.data.capabilities}
+                                    level={level}
+                                    filtering={filter !== '' || onlyChosen}
+                                    onToggle={(id, on) => toggle('capabilities', id, on)}
+                                    onToggleMany={(ids, on) =>
+                                        form.setData(
+                                            'capabilities',
+                                            on
+                                                ? [...new Set([...form.data.capabilities, ...ids])]
+                                                : form.data.capabilities.filter((id) => !ids.includes(id)),
+                                        )
+                                    }
+                                />
+                            )}
+                        </FormSection>
+                    </div>
+
+                    <div hidden={tab !== 'skills'}>
+                        <FormSection
+                            id="skills"
+                            title="Skills"
+                            description={
+                                <>
+                                    O que o agente <em>sabe</em>: instruções da organização para tipos de trabalho. O agente vê o nome e quando se
+                                    aplica, e lê o resto só quando precisa.
+                                </>
+                            }
+                        >
+                            <InputErrorList errors={errors} prefix="skills" />
+                            {skills.length === 0 ? (
+                                <p className="py-6 text-sm text-muted-foreground">
+                                    Ainda não há skills.{' '}
+                                    {skillsHref && (
+                                        <Link href={skillsHref} className="text-primary underline">
+                                            Crie a primeira ou active uma global
+                                        </Link>
+                                    )}
+                                </p>
+                            ) : (
+                                <ul className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
+                                    {skills.map((skill) => {
+                                        const checked = form.data.skills.includes(skill.id);
+
+                                        return (
+                                            <li key={skill.id}>
+                                                <label
+                                                    className={cn(
+                                                        'flex h-full cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-accent/50',
+                                                        checked && 'bg-primary/[0.04]',
+                                                        !skill.is_available && !checked && 'cursor-not-allowed opacity-60',
+                                                    )}
+                                                >
+                                                    <Checkbox
+                                                        checked={checked}
+                                                        disabled={!skill.is_available && !checked}
+                                                        onCheckedChange={(on) => toggle('skills', skill.id, on === true)}
+                                                        className="mt-0.5"
+                                                    />
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="flex flex-wrap items-center gap-1.5">
+                                                            <span className="text-sm font-medium">{skill.name}</span>
+                                                            <ScopePill scope={skill.scope} />
+                                                            {!skill.is_available && (
+                                                                <StatusBadge tone="idle" dot={false}>
+                                                                    desligada
+                                                                </StatusBadge>
+                                                            )}
+                                                        </span>
+                                                        <span className="line-clamp-2 text-xs text-muted-foreground">{skill.description}</span>
+                                                    </span>
+                                                </label>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                            {draft && draft.suggested_skills.length > 0 && (
+                                <div className="mt-4 rounded-lg bg-muted/40 p-3">
+                                    <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Skills que fariam falta</p>
+                                    <ul className="mt-2 grid gap-2">
+                                        {draft.suggested_skills.map((suggestion) => (
+                                            <li key={suggestion.name} className="text-sm">
+                                                <span className="font-medium">{suggestion.name}</span>
+                                                <span className="text-muted-foreground"> · {suggestion.description}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    {skillsHref && (
+                                        <Link href={`${skillsHref}/create`} className="mt-2 inline-block text-sm text-primary underline">
+                                            Criar uma skill
+                                        </Link>
+                                    )}
+                                </div>
+                            )}
+                        </FormSection>
+                    </div>
 
                     <div className="sticky bottom-0 z-10 -mx-1 flex items-center justify-between gap-3 border-t bg-background/85 px-1 py-3 backdrop-blur">
                         <Button variant="ghost" asChild>
