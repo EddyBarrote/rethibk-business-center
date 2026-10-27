@@ -47,7 +47,7 @@ export default function AgentMemory({ agents, agent_id, sections, entries }: Pro
                     <>
                         O que cada agente lembra de cada pessoa, em entradas por secção, para corrigir ou apagar. Cada pessoa vê a sua em{' '}
                         <Link href="/settings/memory" className="underline-offset-2 hover:underline">
-                            A minha memória
+                            O que sabem de mim
                         </Link>
                         .
                     </>

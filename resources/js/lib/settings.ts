@@ -186,7 +186,12 @@ export const settingsGroups: SettingsGroup[] = [
     {
         label: 'Memória',
         items: [
-            { label: 'A minha memória', href: '/settings/memory', icon: Brain, description: 'O que os agentes lembram de si, e como o usam.' },
+            {
+                label: 'O que sabem de mim',
+                href: '/settings/memory',
+                icon: Brain,
+                description: 'O que os agentes lembram de si: corrigir, apagar ou dizer-lhes algo.',
+            },
             {
                 label: 'Memória dos agentes',
                 href: '/settings/agent-memory',

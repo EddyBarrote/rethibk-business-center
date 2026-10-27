@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Brain, History, ShieldAlert, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
@@ -7,7 +7,11 @@ import { ConfirmDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { type MemoryEntry, MemoryEntries, type MemorySectionOption } from '@/Components/memory/MemoryEntries';
 import { PageHeader } from '@/Components/PageHeader';
+import { Field } from '@/Components/Field';
 import { Button } from '@/Components/ui/button';
+import { Input } from '@/Components/ui/input';
+import { NativeSelect } from '@/Components/ui/native-select';
+import { Textarea } from '@/Components/ui/textarea';
 import { Switch } from '@/Components/ui/switch';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago, plural } from '@/lib/format';
@@ -29,6 +33,8 @@ interface Props {
     sections: MemorySectionOption[];
     agents: AgentOption[];
     entries: MemoryEntry[];
+    /** The agents the person may tell something about themselves. */
+    can_tell: { id: number; name: string }[];
 }
 
 const switches: { key: PrefKey; label: string; description: string; icon: typeof Brain }[] = [
@@ -53,8 +59,8 @@ const switches: { key: PrefKey; label: string; description: string; icon: typeof
     },
 ];
 
-/** Definições › Memória › A minha memória: the switches, and what each agent remembers of the person (12.10.2026). */
-export default function MemorySettings({ prefs, sections, agents, entries }: Props) {
+/** Definições › Memória › O que sabem de mim: the switches, and what each agent remembers of the person (12.10.2026). */
+export default function MemorySettings({ prefs, sections, agents, entries, can_tell }: Props) {
     const [state, setState] = useState(prefs);
     const [agentId, setAgentId] = useState<number | null>(agents[0]?.id ?? null);
     const [forgetting, setForgetting] = useState(false);
@@ -68,10 +74,10 @@ export default function MemorySettings({ prefs, sections, agents, entries }: Pro
 
     return (
         <SettingsLayout>
-            <Head title="A minha memória" />
+            <Head title="O que os agentes sabem de si" />
             <PageHeader
-                title="A minha memória"
-                description="O que os agentes lembram de si, e como o usam. Só a sua memória com cada agente: os colegas não a vêem."
+                title="O que os agentes sabem de si"
+                description="O que lembram de si, e como o usam. Pode corrigir, apagar ou dizer-lhes o que quer que saibam. Só a sua memória com cada agente: os colegas não a vêem."
             />
 
             <div className="overflow-hidden rounded-xl border bg-card">
@@ -97,6 +103,8 @@ export default function MemorySettings({ prefs, sections, agents, entries }: Pro
                     ))}
                 </ul>
             </div>
+
+            {can_tell.length > 0 && <Tell agents={can_tell} sections={sections} />}
 
             {agents.length === 0 ? (
                 <EmptyState
@@ -179,5 +187,75 @@ export default function MemorySettings({ prefs, sections, agents, entries }: Pro
                 />
             )}
         </SettingsLayout>
+    );
+}
+
+/**
+ * «Dizer aos agentes» (docs/DECISOES.md, "O que sabem de mim"): a fact the
+ * person states about themselves, to one agent or to all they talk to.
+ */
+function Tell({ agents, sections }: { agents: { id: number; name: string }[]; sections: MemorySectionOption[] }) {
+    const form = useForm({ title: '', content: '', section: 'profile', agent_id: '' });
+
+    return (
+        <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+                event.preventDefault();
+                form.post('/settings/memory/tell', { preserveScroll: true, onSuccess: () => form.reset('title', 'content') });
+            }}
+        >
+            <div className="space-y-1">
+                <h2 className="text-sm font-semibold">Dizer aos agentes</h2>
+                <p className="text-sm text-muted-foreground">
+                    Algo sobre si que quer que saibam: como prefere as respostas, o que faz, com quem trabalha.
+                </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+                <Field id="tell-title" label="Sobre quê" error={form.errors.title}>
+                    <Input
+                        id="tell-title"
+                        value={form.data.title}
+                        onChange={(event) => form.setData('title', event.target.value)}
+                        placeholder="Ex.: Respostas curtas"
+                    />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                    <Field id="tell-section" label="Secção" error={form.errors.section}>
+                        <NativeSelect id="tell-section" value={form.data.section} onChange={(event) => form.setData('section', event.target.value)}>
+                            {sections.map((section) => (
+                                <option key={section.value} value={section.value}>
+                                    {section.label}
+                                </option>
+                            ))}
+                        </NativeSelect>
+                    </Field>
+                    <Field id="tell-agent" label="A quem" error={(form.errors as Record<string, string | undefined>).agent_id}>
+                        <NativeSelect id="tell-agent" value={form.data.agent_id} onChange={(event) => form.setData('agent_id', event.target.value)}>
+                            <option value="">Todos</option>
+                            {agents.map((agent) => (
+                                <option key={agent.id} value={String(agent.id)}>
+                                    {agent.name}
+                                </option>
+                            ))}
+                        </NativeSelect>
+                    </Field>
+                </div>
+            </div>
+            <Field id="tell-content" label="O que devem saber" error={form.errors.content}>
+                <Textarea
+                    id="tell-content"
+                    rows={3}
+                    value={form.data.content}
+                    onChange={(event) => form.setData('content', event.target.value)}
+                    placeholder="Ex.: Prefiro respostas curtas, com os números numa tabela. Decido as compras acima de 50 mil MZN."
+                />
+            </Field>
+            <div className="flex justify-end">
+                <Button type="submit" size="sm" disabled={form.processing || form.data.title.trim() === '' || form.data.content.trim() === ''}>
+                    Dizer
+                </Button>
+            </div>
+        </form>
     );
 }

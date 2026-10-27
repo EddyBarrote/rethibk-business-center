@@ -1658,3 +1658,13 @@ Ideia vinda do OpenDuet.
   - as tarefas com ela.
 - **O que o agente faz:** apresenta-se numa frase e diz quem acha que a pessoa é, só pelo que viu. Propõe três formas de ajudar nessa semana. No fim pergunta «Acertei?» com as opções «Está certo» e «Há algo errado» (`questions.ask`).
 - **Só uma vez:** acontece uma única vez por pessoa (`users.welcomed_at`). Quem já tinha entrado na plataforma antes desta mudança fica marcado como já recebido, e quem já fala com agentes não é recebido.
+
+## O que sabem de mim (27.10.2026)
+
+Ideia vinda do OpenDuet.
+
+- **O que já existia:** a página com o que cada agente guarda da pessoa (Definições › Memória), onde se lia, corrigia e apagava, e onde se podia mandar esquecer tudo.
+- **O nome novo:** a página passa a chamar-se «O que sabem de mim» («O que os agentes sabem de si»).
+- **«Dizer aos agentes»:** é o que faltava. A pessoa escreve algo sobre si (sobre quê, o quê e em que secção) e escolhe a quem: a um agente ou a todos com quem pode falar.
+  - Fica como uma entrada da memória dela com cada um desses agentes, escrita por ela, por isso conta como corrigida.
+  - Nas secções sobre a pessoa (preferências e perfil) é pessoal. Nas outras secções é de trabalho, e a memória do agente é republicada (`memory.told` na auditoria).

@@ -328,6 +328,7 @@ Route::middleware('auth')->group(function () {
         Route::post('company-memory/{fact}/approve', [CompanyMemoryController::class, 'approve'])->name('settings.company-memory.approve');
         Route::post('company-memory/{fact}/reject', [CompanyMemoryController::class, 'reject'])->name('settings.company-memory.reject');
         Route::put('memory/preferences', [MemoryController::class, 'preference'])->name('settings.memory.preference');
+        Route::post('memory/tell', [MemoryController::class, 'tell'])->middleware('throttle:30,1')->name('settings.memory.tell');
         Route::put('memory/{memory}', [MemoryController::class, 'update'])->name('settings.memory.update');
         Route::delete('memory/{memory}', [MemoryController::class, 'destroy'])->name('settings.memory.destroy');
         Route::delete('memory/agents/{agent}', [MemoryController::class, 'forget'])->name('settings.memory.forget');

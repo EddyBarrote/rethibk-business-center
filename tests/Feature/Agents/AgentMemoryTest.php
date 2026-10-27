@@ -426,3 +426,30 @@ it('tells the agent when older entries are left out of the index', function () {
         expect(app(MemoryConsolidator::class)->forPrompt($this->agent, $this->ana))->toContain('Há mais 3 entradas');
     });
 });
+
+it('lets a person tell the agents something about themselves, to one or to all they talk to', function () {
+    $sales = asTenant($this->tenant, function () {
+        $sales = Agent::factory()->create(['key' => 'sales', 'name' => 'Gestor de Clientes']);
+        $this->agent->assignees()->attach($this->ana->id, ['role' => 'chat']);
+        $sales->assignees()->attach($this->ana->id, ['role' => 'chat']);
+        Agent::factory()->create(['name' => 'Sem acesso']);
+
+        return $sales;
+    });
+
+    $this->actingAs($this->ana)->post(tenantUrl($this->tenant, 'settings/memory/tell'), [
+        'title' => 'Respostas curtas', 'content' => 'Prefiro respostas curtas, com os números numa tabela.', 'section' => 'preferences', 'agent_id' => '',
+    ])->assertSessionHas('success', 'Os 2 agentes ficam a saber.');
+
+    asTenant($this->tenant, function () use ($sales) {
+        $told = AgentMemory::query()->where('user_id', $this->ana->id)->orderBy('agent_id')->get();
+
+        expect($told->pluck('agent_id')->all())->toBe([$this->agent->id, $sales->id])
+            ->and($told->first()->kind)->toBe(AgentMemory::PERSONAL)
+            ->and($told->first()->edited_by_user_id)->toBe($this->ana->id);
+    });
+
+    $this->actingAs($this->ana)->post(tenantUrl($this->tenant, 'settings/memory/tell'), [
+        'title' => 'Compras', 'content' => 'Decido as compras acima de 50 mil MZN.', 'section' => 'profile', 'agent_id' => $sales->id,
+    ])->assertSessionHas('success', 'Gestor de Clientes fica a saber.');
+});

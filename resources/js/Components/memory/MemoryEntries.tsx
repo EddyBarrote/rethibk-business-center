@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 /*
  * What an agent remembers, as named entries in sections, like claude.ai
  * (docs/DECISOES.md, "Memória em entradas", 12.10.2026). Used by the person's
- * own page (Definições › Memória › A minha memória) and by the administrators (Memória dos agentes).
+ * own page (Definições › Memória › O que sabem de mim) and by the administrators (Memória dos agentes).
  */
 
 export interface MemoryEntry {
