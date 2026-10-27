@@ -1,5 +1,21 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Activity, BookOpen, Brain, Clock, ExternalLink, ListTodo, Lock, MessagesSquare, Pause, Pencil, Play, Send, Wrench, Zap } from 'lucide-react';
+import {
+    Activity,
+    BookOpen,
+    Brain,
+    Clock,
+    ExternalLink,
+    FileText,
+    ListTodo,
+    Lock,
+    MessagesSquare,
+    Pause,
+    Pencil,
+    Play,
+    Send,
+    Wrench,
+    Zap,
+} from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { PersonAvatar } from '@/Components/PersonAvatar';
@@ -118,6 +134,11 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                             </Link>
                         </Button>
                     )}
+                    <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/documents?agente=${agent.id}`} title="Os documentos e relatórios que este agente fez">
+                            <FileText />O que fez
+                        </Link>
+                    </Button>
                     {can.run && <ChatAction agent={agent} />}
                 </div>
             </div>

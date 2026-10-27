@@ -161,3 +161,21 @@ it('lists the reports agents drafted with the files, with «Por rever» and the 
     $this->actingAs($this->owner)->delete(tenantUrl($this->tenant, 'documents/bulk'), ['report_ids' => [$reviewed->id]])->assertSessionHas('success', '1 documento apagado.');
     expect(asTenant($this->tenant, fn () => Report::query()->count()))->toBe(1);
 });
+
+it('shows what one agent made, files and reports, from its page', function () {
+    $other = asTenant($this->tenant, function () {
+        $other = Agent::factory()->create(['name' => 'Gestor de Clientes']);
+        GeneratedDocument::factory()->create(['title' => 'Proposta AZUL', 'agent_id' => $other->id]);
+        Report::factory()->create(['title' => 'Fecho de Setembro', 'agent_id' => $this->agent->id, 'status' => 'reviewed']);
+
+        return $other;
+    });
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "documents?agente={$this->agent->id}"))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('agent_filter.name', 'Agente de Finanças')
+            ->where('documents.total', 3));
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "documents?agente={$other->id}"))
+        ->assertInertia(fn (Assert $page) => $page->where('documents.total', 1)->where('documents.data.0.title', 'Proposta AZUL'));
+});

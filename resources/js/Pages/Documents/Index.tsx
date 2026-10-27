@@ -84,11 +84,15 @@ interface Filters {
     autor: 'ia' | 'pessoas' | null;
     pasta: string | null;
     ordem: 'recentes' | 'antigos' | 'nome' | 'tamanho' | 'tipo';
+    /** Only what one agent made, from its page. */
+    agente: number | null;
 }
 
 interface Props {
     documents: Paginated<GeneratedDocument>;
     filters: Filters;
+    /** The agent of «agente», by name. */
+    agent_filter: { id: number; name: string } | null;
     folders: FolderSummary[];
     total: number;
     unfiled: number;
@@ -177,7 +181,19 @@ export function DocumentAuthor({ document, compact = false }: { document: Genera
     );
 }
 
-export default function DocumentsIndex({ documents, filters, folders, total, unfiled, to_review, formats, types, templates, knowledge }: Props) {
+export default function DocumentsIndex({
+    documents,
+    filters,
+    agent_filter: agentFilter,
+    folders,
+    total,
+    unfiled,
+    to_review,
+    formats,
+    types,
+    templates,
+    knowledge,
+}: Props) {
     const [creating, setCreating] = useState(false);
     const can = useCan();
     const manage = can('documents.create');
@@ -366,7 +382,7 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
               : folders.find((f) => String(f.id) === filters.pasta);
     const heading =
         current === null ? 'Todos os documentos' : current === 'sem' ? 'Sem pasta' : current === 'rever' ? 'Por rever' : (current?.name ?? 'Pasta');
-    const filtered = filters.q !== '' || filters.format !== null || filters.autor !== null;
+    const filtered = filters.q !== '' || filters.format !== null || filters.autor !== null || filters.agente !== null;
 
     const actions = (document: GeneratedDocument) => (
         <DropdownMenu>
@@ -556,7 +572,7 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                     key={label}
                                     type="button"
                                     aria-pressed={filters.autor === value}
-                                    onClick={() => go({ autor: value })}
+                                    onClick={() => go({ autor: value, agente: null })}
                                     className={cn(
                                         'inline-flex h-full items-center gap-1 rounded px-2.5 text-xs transition-colors',
                                         filters.autor === value
@@ -570,6 +586,18 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                 </button>
                             ))}
                         </div>
+                        {agentFilter && (
+                            <button
+                                type="button"
+                                onClick={() => go({ agente: null })}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium"
+                                title="Ver de todos"
+                            >
+                                <AgentAvatar name={agentFilter.name} className="size-4 rounded text-[7px]" />
+                                Só {agentFilter.name}
+                                <X className="size-3 text-muted-foreground" />
+                            </button>
+                        )}
                         <NativeSelect
                             aria-label="Ordenar"
                             className="h-9 w-auto text-sm"

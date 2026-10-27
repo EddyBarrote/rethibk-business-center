@@ -12,6 +12,7 @@ use App\Documents\DocumentTemplate;
 use App\Documents\DocumentType;
 use App\Enums\KnowledgeType;
 use App\Enums\Permission;
+use App\Models\Agent;
 use App\Models\AuditLog;
 use App\Models\DocumentFolder;
 use App\Models\GeneratedDocument;
@@ -74,12 +75,15 @@ class DocumentController extends Controller
             'autor' => in_array($request->query('autor'), ['ia', 'pessoas'], true) ? (string) $request->query('autor') : null,
             'pasta' => in_array($pasta, ['sem', 'rever'], true) || ctype_digit($pasta) ? $pasta : null,
             'ordem' => in_array($request->query('ordem'), self::SORTS, true) ? (string) $request->query('ordem') : 'recentes',
+            // What one agent made (docs/DECISOES.md, "Galeria do que os agentes fizeram"), from its page.
+            'agente' => ctype_digit((string) $request->query('agente')) ? (int) $request->query('agente') : null,
         ];
         $folder = ctype_digit((string) $filters['pasta']) ? (int) $filters['pasta'] : null;
 
         // Reports are written by agents and are never files of one format; «Por rever» holds only reports.
         $withFiles = $filters['format'] !== self::REPORT && $filters['pasta'] !== 'rever';
         $withReports = in_array($filters['format'], [null, self::REPORT], true) && $filters['autor'] !== 'pessoas';
+        $byAgent = fn ($q) => $q->when($filters['agente'] !== null, fn ($w) => $w->where('agent_id', $filters['agente']));
 
         $files = $this->visible($user)->toBase()
             ->selectRaw("'file' as kind, id, title, format, size_bytes as size, created_at")
@@ -90,13 +94,15 @@ class DocumentController extends Controller
             ->when($filters['autor'] === 'ia', fn ($q) => $q->whereNotNull('agent_id'))
             ->when($filters['autor'] === 'pessoas', fn ($q) => $q->whereNull('agent_id'))
             ->when($filters['pasta'] === 'sem', fn ($q) => $q->whereNull('document_folder_id'))
-            ->when($folder !== null, fn ($q) => $q->where('document_folder_id', $folder));
+            ->when($folder !== null, fn ($q) => $q->where('document_folder_id', $folder))
+            ->tap($byAgent);
         $reports = $this->reports->visible($user)->toBase()
             ->selectRaw("'report' as kind, id, title, '".self::REPORT."' as format, length(content) as size, created_at")
             ->when($filters['q'] !== '', fn ($q) => $q->where('title', 'like', '%'.$filters['q'].'%'))
             ->when($filters['pasta'] === 'sem', fn ($q) => $q->whereNull('document_folder_id'))
             ->when($filters['pasta'] === 'rever', fn ($q) => $q->where('status', 'draft'))
-            ->when($folder !== null, fn ($q) => $q->where('document_folder_id', $folder));
+            ->when($folder !== null, fn ($q) => $q->where('document_folder_id', $folder))
+            ->tap($byAgent);
 
         $union = match (true) {
             $withFiles && $withReports => $files->unionAll($reports),
@@ -131,6 +137,7 @@ class DocumentController extends Controller
         return Inertia::render('Documents/Index', [
             'documents' => $page,
             'filters' => $filters,
+            'agent_filter' => $filters['agente'] !== null ? Agent::query()->whereKey($filters['agente'])->first(['id', 'name']) : null,
             'folders' => DocumentFolder::query()->orderBy('name')->get(['id', 'name'])
                 ->map(fn (DocumentFolder $f) => ['id' => $f->id, 'name' => $f->name, 'count' => $count($f->id)]),
             'total' => (int) $counts->sum() + (int) $reportCounts->sum(),

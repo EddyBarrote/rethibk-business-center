@@ -1668,3 +1668,12 @@ Ideia vinda do OpenDuet.
 - **«Dizer aos agentes»:** é o que faltava. A pessoa escreve algo sobre si (sobre quê, o quê e em que secção) e escolhe a quem: a um agente ou a todos com quem pode falar.
   - Fica como uma entrada da memória dela com cada um desses agentes, escrita por ela, por isso conta como corrigida.
   - Nas secções sobre a pessoa (preferências e perfil) é pessoal. Nas outras secções é de trabalho, e a memória do agente é republicada (`memory.told` na auditoria).
+
+## Galeria do que os agentes fizeram (27.10.2026)
+
+Ideia vinda do OpenDuet. Como a proposta dizia, a página Documentos chega.
+
+- **O que já existia:** Documentos já tinha a grelha, o filtro por tipo e o filtro «Quem fez» (IA ou pessoas), com os ficheiros e os relatórios juntos.
+- **O que faltava:** ver o que um agente fez.
+  - A página do agente tem agora «O que fez», que abre Documentos com `?agente=` e mostra os ficheiros e os relatórios desse agente.
+  - Em Documentos aparece o filtro «Só …», que se tira com um clique.
