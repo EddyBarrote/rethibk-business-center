@@ -1371,6 +1371,6 @@ Pedido do Barrote: «seleccionar um texto e fazer quote no chat, com a possibili
 
 | Decisão | Onde |
 |---|---|
-| **Seleccionar texto numa mensagem** (do agente ou de uma pessoa) mostra «Citar» por cima da selecção; a citação vai para cima da caixa de escrita, com o nome de quem o escreveu e um campo «Comentar este ponto». Podem juntar-se várias, cada uma com o seu comentário, e tirar-se uma a uma. | `Components/tasks/Quotes.tsx` (`QuoteSelection`, `QuoteTray`), `data-quote-author` em `Chat.tsx` |
+| **Seleccionar texto numa mensagem** (do agente ou de uma pessoa) mostra «Citar» por cima da selecção; «Citar» abre ali mesmo uma caixa para o comentário (Enter guarda, Esc cancela). As citações guardadas ficam à parte («3 citações guardadas · 2 com comentário») até a pessoa carregar em «Anexar à mensagem»; aí vão para cima da caixa de escrita, onde o comentário ainda se muda e cada uma se tira. Pedido do Barrote: comentar no ponto, e só depois anexar tudo. | `Components/tasks/Quotes.tsx` (`QuoteSelection`, `QuoteTray`), `data-quote-author` em `Chat.tsx` |
 | **Chegam ao agente como markdown**, no início da mensagem: cada citação como bloco citado com o autor, o comentário por baixo, e depois o texto da mensagem. Na conversa aparecem como citações. Não muda nada no servidor. | `withQuotes()` |
 

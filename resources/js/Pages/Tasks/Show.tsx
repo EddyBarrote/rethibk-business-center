@@ -11,7 +11,7 @@ import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
 import { type ChatMessage, ChatThread, type LiveReply, type Thought, type ToolCall, WorkingBubble } from '@/Components/tasks/Chat';
 import { type BuildProposal, BuildProposalCard } from '@/Components/tasks/BuildProposalCard';
-import { type Quote, QuoteSelection, QuoteTray, withQuotes } from '@/Components/tasks/Quotes';
+import { type Quote, QuoteSelection, QuotesReady, QuoteTray, withQuotes } from '@/Components/tasks/Quotes';
 import { type ProposedEmail } from '@/Components/tasks/EmailCard';
 import { type Journey, JourneyView } from '@/Components/tasks/Journey';
 import { type AgentWork, type PanelRun, type PanelTab, SidePanel } from '@/Components/tasks/SidePanel';
@@ -194,6 +194,8 @@ export default function TaskShow({
     const form = useForm({ body: '', mode: 'message' as 'message' | 'action', attachment_ids: [] as number[] });
     // Parts of the thread quoted into the next message, each with a comment (docs/DECISOES.md, "Citar na conversa").
     const [quotes, setQuotes] = useState<Quote[]>([]);
+    // Quoted and commented in the thread, not yet attached to the message.
+    const [kept, setKept] = useState<Quote[]>([]);
     const thread = useRef<HTMLDivElement>(null);
     const composer = useRef<HTMLTextAreaElement>(null);
     const files = useAttachments(attachment_limits, { task_id: task.id });
@@ -614,10 +616,7 @@ export default function TaskShow({
 
                                     <QuoteSelection
                                         container={thread}
-                                        onQuote={(quote) => {
-                                            setQuotes((current) => [...current, { ...quote, id: Date.now(), comment: '' }]);
-                                            composer.current?.focus();
-                                        }}
+                                        onQuote={(quote) => setKept((current) => [...current, { ...quote, id: Date.now() }])}
                                     />
                                     <div ref={thread}>
                                         <ChatThread
@@ -703,79 +702,90 @@ export default function TaskShow({
                             {workflow?.decision && <WorkflowDecision decision={workflow.decision} />}
 
                             {can.reply ? (
-                                <form
-                                    onSubmit={send}
-                                    {...drop.dropProps}
-                                    className="relative rounded-2xl border bg-card shadow-sm focus-within:ring-[3px] focus-within:ring-ring/30"
-                                >
-                                    <DropOverlay show={drop.dragging} />
-                                    <AttachmentTray
-                                        items={files.items}
-                                        onRemove={files.remove}
-                                        notice={files.notice}
-                                        onDismissNotice={files.dismissNotice}
+                                <>
+                                    <QuotesReady
+                                        quotes={kept}
+                                        onDiscard={() => setKept([])}
+                                        onAttach={() => {
+                                            setQuotes((current) => [...current, ...kept]);
+                                            setKept([]);
+                                            composer.current?.focus();
+                                        }}
                                     />
-                                    <QuoteTray quotes={quotes} onChange={setQuotes} />
-                                    <Textarea
-                                        ref={composer}
-                                        rows={2}
-                                        value={form.data.body}
-                                        onChange={(e) => form.setData('body', e.target.value)}
-                                        onKeyDown={onKeyDown}
-                                        onPaste={drop.onPaste}
-                                        placeholder={
-                                            form.data.mode === 'action'
-                                                ? `Diga a ${agentName} o que executar agora…`
-                                                : task.status === 'waiting_human'
-                                                  ? 'Escreva a sua resposta…'
-                                                  : `Escreva a ${agentName}…`
-                                        }
-                                        className="max-h-60 min-h-14 resize-none border-0 bg-transparent px-4 pt-3 shadow-none focus-visible:ring-0 dark:bg-transparent"
-                                    />
-                                    <div className="flex items-center gap-1.5 px-2 pb-2 sm:gap-2">
-                                        <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
-                                        {attachment_limits.types.includes('audio') && (
-                                            <RecordControl
-                                                maxSeconds={attachment_limits.audio_max_seconds}
-                                                onRecorded={(file) => files.add([file], 'recording')}
-                                            />
-                                        )}
-                                        <Segmented
-                                            value={form.data.mode}
-                                            onChange={(mode) => form.setData('mode', mode)}
-                                            options={[
-                                                { value: 'message', label: 'Conversar', title: 'O agente responde e continua o trabalho' },
-                                                {
-                                                    value: 'action',
-                                                    label: (
-                                                        <>
-                                                            <Zap />
-                                                            Executar
-                                                        </>
-                                                    ),
-                                                    title: 'Acção directa: o agente executa já e reporta',
-                                                },
-                                            ]}
+                                    <form
+                                        onSubmit={send}
+                                        {...drop.dropProps}
+                                        className="relative rounded-2xl border bg-card shadow-sm focus-within:ring-[3px] focus-within:ring-ring/30"
+                                    >
+                                        <DropOverlay show={drop.dragging} />
+                                        <AttachmentTray
+                                            items={files.items}
+                                            onRemove={files.remove}
+                                            notice={files.notice}
+                                            onDismissNotice={files.dismissNotice}
                                         />
-                                        <span className="flex-1" />
-                                        <Button
-                                            type="submit"
-                                            size="sm"
-                                            className="rounded-lg"
-                                            disabled={!canSend}
-                                            aria-label={form.data.mode === 'action' ? 'Executar' : 'Enviar'}
-                                            title={files.uploading ? 'À espera que os ficheiros acabem de carregar' : undefined}
-                                        >
-                                            {form.data.mode === 'action' ? <Zap /> : <Send />}
-                                            <span className="hidden sm:inline">{form.data.mode === 'action' ? 'Executar' : 'Enviar'}</span>
-                                        </Button>
-                                    </div>
-                                    {(form.errors.body || form.errors.mode || form.errors.attachment_ids) && (
-                                        <div className="px-3 pb-2">
-                                            <InputError message={form.errors.body ?? form.errors.mode ?? form.errors.attachment_ids} />
+                                        <QuoteTray quotes={quotes} onChange={setQuotes} />
+                                        <Textarea
+                                            ref={composer}
+                                            rows={2}
+                                            value={form.data.body}
+                                            onChange={(e) => form.setData('body', e.target.value)}
+                                            onKeyDown={onKeyDown}
+                                            onPaste={drop.onPaste}
+                                            placeholder={
+                                                form.data.mode === 'action'
+                                                    ? `Diga a ${agentName} o que executar agora…`
+                                                    : task.status === 'waiting_human'
+                                                      ? 'Escreva a sua resposta…'
+                                                      : `Escreva a ${agentName}…`
+                                            }
+                                            className="max-h-60 min-h-14 resize-none border-0 bg-transparent px-4 pt-3 shadow-none focus-visible:ring-0 dark:bg-transparent"
+                                        />
+                                        <div className="flex items-center gap-1.5 px-2 pb-2 sm:gap-2">
+                                            <AttachButton extensions={attachment_limits.extensions} onFiles={files.add} />
+                                            {attachment_limits.types.includes('audio') && (
+                                                <RecordControl
+                                                    maxSeconds={attachment_limits.audio_max_seconds}
+                                                    onRecorded={(file) => files.add([file], 'recording')}
+                                                />
+                                            )}
+                                            <Segmented
+                                                value={form.data.mode}
+                                                onChange={(mode) => form.setData('mode', mode)}
+                                                options={[
+                                                    { value: 'message', label: 'Conversar', title: 'O agente responde e continua o trabalho' },
+                                                    {
+                                                        value: 'action',
+                                                        label: (
+                                                            <>
+                                                                <Zap />
+                                                                Executar
+                                                            </>
+                                                        ),
+                                                        title: 'Acção directa: o agente executa já e reporta',
+                                                    },
+                                                ]}
+                                            />
+                                            <span className="flex-1" />
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                className="rounded-lg"
+                                                disabled={!canSend}
+                                                aria-label={form.data.mode === 'action' ? 'Executar' : 'Enviar'}
+                                                title={files.uploading ? 'À espera que os ficheiros acabem de carregar' : undefined}
+                                            >
+                                                {form.data.mode === 'action' ? <Zap /> : <Send />}
+                                                <span className="hidden sm:inline">{form.data.mode === 'action' ? 'Executar' : 'Enviar'}</span>
+                                            </Button>
                                         </div>
-                                    )}
-                                </form>
+                                        {(form.errors.body || form.errors.mode || form.errors.attachment_ids) && (
+                                            <div className="px-3 pb-2">
+                                                <InputError message={form.errors.body ?? form.errors.mode ?? form.errors.attachment_ids} />
+                                            </div>
+                                        )}
+                                    </form>
+                                </>
                             ) : (
                                 <div className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
                                     <Lock className="size-4 shrink-0" />
