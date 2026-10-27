@@ -101,7 +101,7 @@ export function QuoteSelection({ container, onQuote }: { container: RefObject<HT
             // Above the selection, or below it when there is no room above.
             style={{
                 top: pending.top > 200 ? pending.top - 8 : pending.bottom + 8,
-                left: Math.min(Math.max(8, pending.left - 160), window.innerWidth - 328),
+                left: Math.min(Math.max((container.current?.getBoundingClientRect().left ?? 0) + 8, pending.left - 160), window.innerWidth - 328),
             }}
             className={cn(
                 'fixed z-50 flex w-80 flex-col gap-2 rounded-xl bg-popover p-3 text-popover-foreground shadow-xl ring-1 ring-foreground/10',
