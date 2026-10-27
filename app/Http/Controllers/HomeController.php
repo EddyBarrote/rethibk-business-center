@@ -6,6 +6,7 @@ use App\Ai\Runs\AgentNow;
 use App\Attachments\AttachmentLimits;
 use App\Enums\AgentStatus;
 use App\Enums\QuestionStatus;
+use App\Home\FirstDay;
 use App\Home\MorningSummary;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
@@ -41,6 +42,11 @@ class HomeController extends Controller
         // Nobody to talk to: the tasks.
         if ($agents->isEmpty()) {
             return to_route('tasks.index');
+        }
+
+        // The first time ever, the agent speaks first (docs/DECISOES.md, "Primeiro dia").
+        if (($welcome = app(FirstDay::class)->welcome($user)) !== null) {
+            return to_route('tasks.show', $welcome);
         }
 
         $latest = Task::query()

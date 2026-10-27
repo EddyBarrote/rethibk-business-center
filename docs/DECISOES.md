@@ -1640,8 +1640,21 @@ Ideia vinda do OpenDuet. A ideia é ter um canal por trabalho, por exemplo um po
 - **Um projecto é um canal:** os projectos que já existem passam a ser os canais, sem criar uma coisa nova.
   - Cada projecto tem um ícone (8 à escolha) e uma cor (8 à escolha).
   - As tarefas do projecto mostram a cor como uma pinta ao lado do título, na Lista e no Foco.
-  - A descrição passa a chamar-se «Objectivo», porque é o que o agente lê.
+  - A descrição passa a chamar-se «Para que serve», porque é o que o agente lê no canal.
 - **«Canal»:** no projecto, abre a conversa do projecto (`POST /projects/{id}/channel`). Na primeira vez cria-a:
   - é uma tarefa «Canal: …» do projecto, do agente responsável (ou do Chief of Staff, se o responsável for uma pessoa);
   - o agente começa logo: apresenta-se em poucas linhas e sugere três coisas concretas para começar, sem criar tarefas nem enviar nada até lhe dizerem por onde começar.
   - Nas vezes seguintes abre o mesmo canal. Quem gere projectos é quem o abre pela primeira vez.
+
+## Primeiro dia (27.10.2026)
+
+Ideia vinda do OpenDuet.
+
+- **Quando:** na primeira vez que uma pessoa abre a plataforma e ainda não falou com nenhum agente, o agente fala primeiro. A pessoa vai direta para a conversa com o Chief of Staff (ou, se não tiver acesso a ele, com o primeiro agente com quem pode falar), onde fica a nota «Primeiro dia de … na plataforma.». O agente começa logo a trabalhar.
+- **O que o agente recebe:** tudo o que a plataforma sabe da pessoa:
+  - cargo, papel e área;
+  - remetente e assunto dos emails dela das últimas duas semanas;
+  - a agenda desta semana e da próxima;
+  - as tarefas com ela.
+- **O que o agente faz:** apresenta-se numa frase e diz quem acha que a pessoa é, só pelo que viu. Propõe três formas de ajudar nessa semana. No fim pergunta «Acertei?» com as opções «Está certo» e «Há algo errado» (`questions.ask`).
+- **Só uma vez:** acontece uma única vez por pessoa (`users.welcomed_at`). Quem já tinha entrado na plataforma antes desta mudança fica marcado como já recebido, e quem já fala com agentes não é recebido.

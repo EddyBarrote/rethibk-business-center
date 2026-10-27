@@ -36,6 +36,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $last_seen_at
  * @property string|null $ui_mode
  * @property Carbon|null $morning_summary_seen_on
+ * @property Carbon|null $welcomed_at
  * @property string|null $calendar_token sha256 of the private agenda link
  */
 #[Fillable(['name', 'job_title', 'email', 'password', 'department_id', 'reports_to_user_id', 'reports_to_agent_id', 'role', 'access_role_id', 'permission_overrides', 'is_active'])]
@@ -167,6 +168,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'morning_summary_seen_on' => 'date',
+            'welcomed_at' => 'datetime',
             'password' => 'hashed',
             'role' => Role::class,
             'is_active' => 'boolean',

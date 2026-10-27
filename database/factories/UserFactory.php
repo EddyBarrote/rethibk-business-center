@@ -35,6 +35,8 @@ class UserFactory extends Factory
             'is_active' => true,
             'last_seen_at' => null,
             'remember_token' => Str::random(10),
+            // People made for tests already had their first day; FirstDayTest asks for it.
+            'welcomed_at' => now(),
         ];
     }
 
