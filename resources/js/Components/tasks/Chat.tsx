@@ -125,6 +125,7 @@ export function ChatThread({
     viewer,
     onOpenRun,
     background = [],
+    busySince = null,
 }: {
     messages: ChatMessage[];
     toolCalls: Record<number, ToolCall[]>;
@@ -135,6 +136,11 @@ export function ChatThread({
     onOpenRun: OpenRun;
     /** The agent's work elsewhere, placed in the thread where it began (docs/DECISOES.md, "Agente contínuo"). */
     background?: NowRun[];
+    /**
+     * When the agent's current turn began: what the person wrote after it waits
+     * its turn and is answered next, never across (docs/DECISOES.md, "Mensagens na fila").
+     */
+    busySince?: string | null;
 }) {
     const toolsShown = new Set<number>();
     // Each piece of background work goes before the first message written after it began.
@@ -189,7 +195,12 @@ export function ChatThread({
                         ) : message.kind === 'report' ? (
                             <ReportCard message={message} onOpenRun={onOpenRun} />
                         ) : isPerson(message) ? (
-                            <PersonBubble message={message} continued={continued} own={viewer === message.author} />
+                            <PersonBubble
+                                message={message}
+                                continued={continued}
+                                own={viewer === message.author}
+                                queued={busySince !== null && new Date(message.created_at) > new Date(busySince)}
+                            />
                         ) : (
                             <AgentBubble
                                 message={message}
@@ -237,7 +248,7 @@ function ActionBadge() {
     );
 }
 
-function PersonBubble({ message, continued, own }: { message: ChatMessage; continued: boolean; own: boolean }) {
+function PersonBubble({ message, continued, own, queued = false }: { message: ChatMessage; continued: boolean; own: boolean; queued?: boolean }) {
     return (
         <div className={cn('group flex justify-end gap-2.5 pl-10 sm:pl-16', continued ? 'mt-1' : 'mt-4')}>
             <div className="flex min-w-0 flex-col items-end gap-1">
@@ -269,7 +280,10 @@ function PersonBubble({ message, continued, own }: { message: ChatMessage; conti
                     </Link>
                 )}
                 {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} className="justify-end" />}
-                <Time value={message.created_at} className="px-1" />
+                <span className="flex items-center gap-2 px-1">
+                    {queued && <span className="text-[11px] text-muted-foreground">Na fila: responde a seguir</span>}
+                    <Time value={message.created_at} />
+                </span>
             </div>
             {!continued ? (
                 <PersonAvatar name={message.author} className="mt-0.5 size-7 shrink-0 rounded-full text-[10px]" />

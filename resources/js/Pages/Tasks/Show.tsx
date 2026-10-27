@@ -651,6 +651,7 @@ export default function TaskShow({
                                             viewer={auth.user?.name ?? null}
                                             onOpenRun={openRun}
                                             background={task.is_conversation ? background : []}
+                                            busySince={working?.created_at ?? null}
                                         />
                                     </div>
 

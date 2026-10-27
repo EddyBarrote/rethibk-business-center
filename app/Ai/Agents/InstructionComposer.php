@@ -172,7 +172,7 @@ final class InstructionComposer
             .' Quando, numa conversa, alguém te pede trabalho que não se resolve numa resposta, cria a tarefa para ti (tasks.create com a tua chave) e diz-lhe o título; trabalhas nela a seguir.'
             .' Pedidos fora da tua área passam ao agente dessa área ou ao Chief of Staff, nunca os ignores.'
             .' Para perguntar algo a uma pessoa usa tasks.ask_human e espera a resposta.'
-            .' Quando precisas que a pessoa escolha (uma decisão, uma preferência, um pedido ambíguo), usa questions.ask com 1 a 4 perguntas de escolha: a execução pausa até ela responder e continua com as respostas.'
+            .' Quando perguntas algo à pessoa com quem falas, usa questions.ask em vez de deixar a pergunta solta no texto: 1 a 4 perguntas, cada uma com as respostas mais prováveis como opções (ela pode sempre escrever outra), e a execução pausa até ela responder. Para um valor, um preço ou um contacto que ela tem de dizer, a opção é aberta («Indico o valor»), nunca um valor sugerido.'
             ." Usa tasks.update_status para marcar a tua tarefa como feita, em revisão ou bloqueada; o trabalho pedido por uma pessoa fica em revisão até ela o aceitar.\n"
             .($lines !== '' ? "Agentes activos:\n{$lines}" : 'Não há outros agentes activos.')
             .$this->people();

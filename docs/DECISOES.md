@@ -1686,3 +1686,13 @@ Ideia vinda do OpenDuet.
 - **O que o distingue de «Gravar áudio»:** «Gravar áudio» anexa a gravação. «Ditar» não anexa nada e a gravação não fica guardada.
 - **Como transcreve:** com o modelo que já ouve áudio (Gemini, o mais barato: `agents.suggestions_model`), sem fornecedor novo, por `POST /dictation`. O custo entra no orçamento (`dictation`). Tira as hesitações sem mudar o sentido.
 - **Quando não há modelo:** sem chave ou sem orçamento, o botão diz que não está disponível.
+
+## Detalhes vindos do OpenDuet: fila, respostas rápidas e avaliação da triagem (27.10.2026)
+
+- **Mensagens na fila:** já não havia respostas cruzadas, porque o que a pessoa escreve enquanto o agente trabalha espera e é respondido a seguir (`pickUpWaitingMessages`). Faltava dizê-lo. Na conversa, uma mensagem escrita depois de o agente começar a vez dele mostra «Na fila: responde a seguir».
+- **Respostas rápidas:** os agentes passam a perguntar sempre com `questions.ask`, em vez de deixar perguntas soltas no texto. Cada pergunta leva as respostas mais prováveis como botões, e a pessoa pode sempre escrever outra. Para um valor, um preço ou um contacto a opção continua aberta («Indico o valor»), nunca um valor sugerido.
+- **Avaliação da triagem (`php artisan triage:eval {empresa}`):**
+  - Usa 20 emails etiquetados em `database/eval/triage.json` (categoria e prioridade): pedidos de cotação, cotações e facturas de fornecedores, extracto, candidaturas, concurso, interno, newsletters, phishing, uma oportunidade e pedidos de clientes.
+  - Passa-os ao modelo do Agente de Triagem com as instruções dele, sem ferramentas, por isso nada é escrito, enviado nem criado.
+  - Mostra os falhados e a percentagem de acerto. Falha abaixo de `--min` (por omissão 80% na categoria).
+  - Custa uns cêntimos (`triage.eval` no orçamento). Corre-se antes e depois de mudar as instruções ou o modelo da triagem.
