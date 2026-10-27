@@ -16,7 +16,7 @@ final class EmailPrompt
 {
     public static function for(EmailMessage $message): string
     {
-        return "Chegou um email novo à tua caixa ({$message->mailbox->address}). Email #{$message->id}. ".self::thread($message)."\n"
+        return "Chegou um email novo à tua caixa ({$message->mailbox->address}). ".self::label($message).' '.self::thread($message)."\n"
             .'Faz a triagem: classifica-o com a capacidade de triagem, extrai os campos relevantes, encaminha para quem deve tratar e, se for uma oportunidade ou concurso, regista-a. '
             .'Usa também os anexos (PDF, imagens, áudio): muitas vezes o pedido, a referência ou o valor estão lá e não no texto.'
             .self::flows()
@@ -33,7 +33,7 @@ final class EmailPrompt
         $owners = $message->mailbox->owners()->orderBy('name')->get(['users.id', 'name', 'email']);
         $names = $owners->map(fn ($u) => "{$u->name} <{$u->email}>")->implode(', ') ?: '(sem dono)';
 
-        return "Chegou um email à caixa {$message->mailbox->address}, que é de {$names}. Email #{$message->id}. ".self::thread($message)."\n"
+        return "Chegou um email à caixa {$message->mailbox->address}, que é de {$names}. ".self::label($message).' '.self::thread($message)."\n"
             .'Trabalhas para quem é dono da caixa. Classifica-o e resume-o com a capacidade de triagem (não o encaminhes para outras áreas). '
             .'Se pedir alguma acção do dono, cria-lhe uma tarefa (tasks.create, indicando a pessoa pelo email). '
             .'Se pedir resposta, prepara um rascunho com email.draft_reply para o dono rever e enviar. '
@@ -52,7 +52,7 @@ final class EmailPrompt
         $owners = $message->mailbox->owners()->orderBy('name')->get(['users.id', 'name', 'email']);
         $names = $owners->map(fn ($u) => "{$u->name} <{$u->email}>")->implode(', ') ?: '(sem dono)';
 
-        return "Chegou um email à caixa {$message->mailbox->address}, de {$names}, que envia o email novo para a triagem. Email #{$message->id}. ".self::thread($message)."\n"
+        return "Chegou um email à caixa {$message->mailbox->address}, de {$names}, que envia o email novo para a triagem. ".self::label($message).' '.self::thread($message)."\n"
             .'Faz a triagem: classifica-o com a capacidade de triagem, extrai os campos relevantes e diz quem deve tratar; a plataforma entrega-o à área certa como tarefa. Se for uma oportunidade ou concurso, regista-a. '
             .'Usa também os anexos (PDF, imagens, áudio): muitas vezes o pedido, a referência ou o valor estão lá e não no texto. '
             .'Esta caixa é de pessoas: não respondas, não prepares rascunhos e nunca envies emails dela nem em nome dos donos. Quem trata a tarefa prepara a resposta para um dono rever e enviar.'
@@ -116,5 +116,18 @@ final class EmailPrompt
         {$self($attachments ?: '(nenhum)')}
         </email_externo_nao_confiavel>
         TXT;
+    }
+
+    /**
+     * How the prompt names the email: by who wrote it and its subject, with
+     * the number only for the tools, so the answer never says «email #354»
+     * (docs/DECISOES.md, "Emails por quem escreveu").
+     */
+    public static function label(EmailMessage $message): string
+    {
+        $who = trim((string) ($message->from_name ?: $message->from_address));
+        $subject = filled($message->subject) ? ' com o assunto «'.str($message->subject)->squish()->limit(100).'»' : '';
+
+        return "É o email de {$who}{$subject} (email_id {$message->id}, só para as ferramentas: na resposta fala dele por quem o escreveu e pelo assunto, nunca pelo número).";
     }
 }

@@ -6,6 +6,7 @@ use App\Ai\Runs\AgentDirectory;
 use App\Ai\Runs\AgentRunner;
 use App\Attachments\AttachmentLimits;
 use App\Attachments\ModelInput;
+use App\Email\EmailPrompt;
 use App\Email\MailboxSync;
 use App\Email\MailClient;
 use App\Enums\EmailCategory;
@@ -297,7 +298,7 @@ class InboxController extends Controller
         abort_unless($agent instanceof Agent && $agent->isActive(), 409, 'A caixa não tem um agente activo.');
 
         $message->forceFill(['status' => EmailStatus::Processing])->save();
-        $runner->dispatch($agent, "Volta a triar o email #{$message->id} (pedido de {$this->user($request)->name}). Lê-o com email.read e classifica-o.", TriggerType::Manual, $this->user($request), $message);
+        $runner->dispatch($agent, "Volta a triar este email (pedido de {$this->user($request)->name}). ".EmailPrompt::label($message).' Lê-o com email.read e classifica-o.', TriggerType::Manual, $this->user($request), $message);
 
         return back()->with('success', 'Enviado de novo para triagem.');
     }

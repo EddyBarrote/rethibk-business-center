@@ -243,7 +243,6 @@ function RunList({ runs, toolNames, onOpenRun }: { runs: RunSummary[]; toolNames
                             type="button"
                             onClick={() => onOpenRun(run.id)}
                             title={[
-                                `#${run.id}`,
                                 run.status_label,
                                 run.duration_ms !== null ? duration(run.duration_ms) : null,
                                 usd(run.cost_usd),
@@ -336,9 +335,7 @@ function RunView({
                     <div className="flex items-start gap-3">
                         <AgentAvatar name={run.agent.name} className="size-8 rounded-lg text-[10px]" />
                         <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-sm font-semibold" title={`#${run.id}`}>
-                                {run.title ?? runTitle(run.input, toolNames)}
-                            </p>
+                            <p className="line-clamp-2 text-sm font-semibold">{run.title ?? runTitle(run.input, toolNames)}</p>
                             <p className="truncate text-xs text-muted-foreground">
                                 {run.agent.name} · {run.trigger_label} · {dateTime(run.created_at)}
                             </p>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Presenters;
 
+use App\Email\EmailReferences;
 use App\Enums\TaskKind;
 use App\Models\Agent;
 use App\Models\AgentMemory;
@@ -54,7 +55,8 @@ final class Present
             'status' => $run->status->value,
             'status_label' => $run->status->label(),
             'input' => $run->input,
-            'output' => $run->output['text'] ?? null,
+            // Older runs said «email #354»: named the human way here too.
+            'output' => isset($run->output['text']) ? app(EmailReferences::class)->inText((string) $run->output['text']) : null,
             'requested_by' => $run->requestedBy?->name,
             'provider' => $run->provider,
             'model' => $run->model,

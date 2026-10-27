@@ -1483,3 +1483,9 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 
 - A configuração do agente passa a mostrar uma secção de cada vez, com separadores: Identidade, Personalidade e instruções, Autonomia, Modelo, Capacidades e Skills. O separador Modelo só tem a escolha do modelo; temperatura, máximo de tokens e de passos saíram do ecrã e ficam com os valores por omissão (os que já estavam gravados mantêm-se). Num ecrã largo ficam na coluna da esquerda; no telefone e no tablet, numa linha por cima. O endereço guarda o separador (`#modelo` abre «Modelo») e a barra «Guardar agente» continua fixa em baixo, para gravar tudo de uma vez.
 - Depois de gravar, um separador com erros fica com um ponto vermelho, e o primeiro desses separadores abre sozinho.
+
+## Emails sem número nas respostas dos agentes (27.10.2026)
+
+- O Barrote viu «A triagem do email #354 foi efetuada com sucesso». A regra «Emails por quem escreveu» só se aplicava às respostas nas conversas. Passa a aplicar-se também à resposta final de qualquer execução (`AgentRunner`, junto com a remoção das chaves internas dos agentes) e, para as execuções antigas, quando a execução é mostrada (`Present::run`).
+- Os prompts de email (triagem, caixa de uma pessoa, reenvio para triagem e «Voltar a triar») deixam de dizer «Email #354». Dizem «É o email de Celeste Nhantumbo com o assunto «…» (email_id 354, só para as ferramentas…)», para o modelo não repetir o número.
+- O painel lateral das execuções deixa de mostrar o número da execução nas dicas.

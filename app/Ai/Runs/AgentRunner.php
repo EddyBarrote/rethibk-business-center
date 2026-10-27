@@ -12,6 +12,7 @@ use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Tools\GatedTool;
 use App\Attachments\ModelInput;
+use App\Email\EmailReferences;
 use App\Enums\AuditResult;
 use App\Enums\QuestionStatus;
 use App\Enums\RunStatus;
@@ -164,6 +165,8 @@ final class AgentRunner
 
             // Amounts and contacts with no source are pointed out (docs/DECISOES.md, "Perguntar, nunca inventar").
             $text = app(FactCheck::class)->annotate($response->text, $run);
+            // What people read names emails and colleagues, never «email #354» or client_manager (docs/DECISOES.md, "Emails por quem escreveu").
+            $text = app(EmailReferences::class)->inText(app(TaskThread::class)->withoutAgentKeys($text), $agent);
 
             $this->recorder->step($run, StepType::Message, ['text' => $text]);
 
