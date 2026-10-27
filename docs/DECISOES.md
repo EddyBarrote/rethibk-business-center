@@ -1365,3 +1365,12 @@ O Barrote, na conversa com o Agente de Finanças, viu o cartão «A fazer agora,
 
 Testes: `tests/Feature/Agents/AgentConsoleTest.php` («puts the agent's work elsewhere in its conversation…»).
 
+## Citar na conversa (27.10.2026)
+
+Pedido do Barrote: «seleccionar um texto e fazer quote no chat, com a possibilidade de adicionar um comentário naquele ponto».
+
+| Decisão | Onde |
+|---|---|
+| **Seleccionar texto numa mensagem** (do agente ou de uma pessoa) mostra «Citar» por cima da selecção; a citação vai para cima da caixa de escrita, com o nome de quem o escreveu e um campo «Comentar este ponto». Podem juntar-se várias, cada uma com o seu comentário, e tirar-se uma a uma. | `Components/tasks/Quotes.tsx` (`QuoteSelection`, `QuoteTray`), `data-quote-author` em `Chat.tsx` |
+| **Chegam ao agente como markdown**, no início da mensagem: cada citação como bloco citado com o autor, o comentário por baixo, e depois o texto da mensagem. Na conversa aparecem como citações. Não muda nada no servidor. | `withQuotes()` |
+

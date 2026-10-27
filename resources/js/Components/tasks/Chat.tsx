@@ -248,7 +248,10 @@ function PersonBubble({ message, continued, own }: { message: ChatMessage; conti
                     </div>
                 )}
                 {message.body !== '' && (
-                    <div className="max-w-full rounded-2xl rounded-tr-md bg-muted px-4 py-2.5 text-sm break-words dark:bg-muted/70 [&_.prose]:text-sm [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0">
+                    <div
+                        data-quote-author={message.author}
+                        className="max-w-full rounded-2xl rounded-tr-md bg-muted px-4 py-2.5 text-sm break-words dark:bg-muted/70 [&_.prose]:text-sm [&>div>*:first-child]:mt-0 [&>div>*:last-child]:mb-0"
+                    >
                         <Markdown>{message.body}</Markdown>
                     </div>
                 )}
@@ -309,7 +312,9 @@ function AgentBubble({
                 {thought && thought.text !== '' && <ThoughtToggle thought={thought} />}
                 {message.body !== '' && (
                     // As in Claude, an agent's reply is not a bubble: it takes the chat's width, so tables and formulas fit.
-                    <Markdown className="w-full px-1 py-0.5">{message.body}</Markdown>
+                    <div data-quote-author={message.author} className="w-full">
+                        <Markdown className="w-full px-1 py-0.5">{message.body}</Markdown>
+                    </div>
                 )}
                 {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} />}
                 <EmailCards emails={emails} />

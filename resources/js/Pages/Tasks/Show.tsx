@@ -11,6 +11,7 @@ import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
 import { type ChatMessage, ChatThread, type LiveReply, type Thought, type ToolCall, WorkingBubble } from '@/Components/tasks/Chat';
 import { type BuildProposal, BuildProposalCard } from '@/Components/tasks/BuildProposalCard';
+import { type Quote, QuoteSelection, QuoteTray, withQuotes } from '@/Components/tasks/Quotes';
 import { type ProposedEmail } from '@/Components/tasks/EmailCard';
 import { type Journey, JourneyView } from '@/Components/tasks/Journey';
 import { type AgentWork, type PanelRun, type PanelTab, SidePanel } from '@/Components/tasks/SidePanel';
@@ -191,6 +192,10 @@ export default function TaskShow({
 }: Props) {
     const { tenant, auth } = usePage<SharedProps>().props;
     const form = useForm({ body: '', mode: 'message' as 'message' | 'action', attachment_ids: [] as number[] });
+    // Parts of the thread quoted into the next message, each with a comment (docs/DECISOES.md, "Citar na conversa").
+    const [quotes, setQuotes] = useState<Quote[]>([]);
+    const thread = useRef<HTMLDivElement>(null);
+    const composer = useRef<HTMLTextAreaElement>(null);
     const files = useAttachments(attachment_limits, { task_id: task.id });
     const drop = useFileDrop(files.add, can.reply);
     const bottom = useRef<HTMLDivElement>(null);
@@ -300,18 +305,20 @@ export default function TaskShow({
     const closeTask = () => router.post(`/tasks/${task.id}/close`, {}, { preserveScroll: true });
     const reopenTask = () => router.post(`/tasks/${task.id}/reopen`, {}, { preserveScroll: true });
 
-    const canSend = !form.processing && !files.uploading && !files.failed && (form.data.body.trim() !== '' || files.ids.length > 0);
+    const canSend =
+        !form.processing && !files.uploading && !files.failed && (form.data.body.trim() !== '' || files.ids.length > 0 || quotes.length > 0);
 
     const send = (event?: FormEvent) => {
         event?.preventDefault();
         if (!canSend) {
             return;
         }
-        form.transform((data) => ({ ...data, attachment_ids: files.ids }));
+        form.transform((data) => ({ ...data, body: withQuotes(data.body, quotes), attachment_ids: files.ids }));
         form.post(`/tasks/${task.id}/messages`, {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset('body');
+                setQuotes([]);
                 files.clear();
                 window.setTimeout(() => bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50);
             },
@@ -605,15 +612,24 @@ export default function TaskShow({
                                         />
                                     )}
 
-                                    <ChatThread
-                                        messages={messages}
-                                        toolCalls={toolCalls}
-                                        thinking={thinking}
-                                        emails={emails}
-                                        viewer={auth.user?.name ?? null}
-                                        onOpenRun={openRun}
-                                        background={task.is_conversation ? background : []}
+                                    <QuoteSelection
+                                        container={thread}
+                                        onQuote={(quote) => {
+                                            setQuotes((current) => [...current, { ...quote, id: Date.now(), comment: '' }]);
+                                            composer.current?.focus();
+                                        }}
                                     />
+                                    <div ref={thread}>
+                                        <ChatThread
+                                            messages={messages}
+                                            toolCalls={toolCalls}
+                                            thinking={thinking}
+                                            emails={emails}
+                                            viewer={auth.user?.name ?? null}
+                                            onOpenRun={openRun}
+                                            background={task.is_conversation ? background : []}
+                                        />
+                                    </div>
 
                                     {(working || stream) && (
                                         <WorkingBubble
@@ -699,7 +715,9 @@ export default function TaskShow({
                                         notice={files.notice}
                                         onDismissNotice={files.dismissNotice}
                                     />
+                                    <QuoteTray quotes={quotes} onChange={setQuotes} />
                                     <Textarea
+                                        ref={composer}
                                         rows={2}
                                         value={form.data.body}
                                         onChange={(e) => form.setData('body', e.target.value)}
