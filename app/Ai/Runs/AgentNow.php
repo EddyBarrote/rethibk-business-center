@@ -74,8 +74,9 @@ class AgentNow
      * (docs/DECISOES.md, "Agente contínuo"): what it did on its own or for
      * others since the conversation began (at most a week, the last 30),
      * oldest first, so the conversation reads as the agent's one timeline.
-     * Someone else's private conversation is left out; a task the person
-     * cannot open keeps its place without its title.
+     * Its other conversations are left out (they belong to whoever is in
+     * them, even when an admin may read them); a task the person cannot open
+     * keeps its place without its title.
      *
      * @return list<array<string, mixed>>
      */
@@ -88,7 +89,7 @@ class AgentNow
             ->latest('id')
             ->limit(30)
             ->get()
-            ->filter(fn (AgentRun $run) => $run->task === null || $run->task->kind !== TaskKind::Chat || $user->can('view', $run->task))
+            ->filter(fn (AgentRun $run) => $run->task === null || $run->task->kind !== TaskKind::Chat)
             ->reverse()
             ->values();
 
