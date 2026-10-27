@@ -107,8 +107,7 @@ const workNav: NavItem[] = [
     { label: 'Objectivos', href: '/goals', icon: Target },
     { label: 'Projectos', href: '/projects', icon: FolderKanban },
     { label: 'Briefings', href: '/briefings', icon: FileText },
-    { label: 'Documentos', href: '/reports', icon: Files },
-    { label: 'Ficheiros', href: '/documents', icon: FolderOpen },
+    { label: 'Documentos', href: '/documents', icon: Files },
     { label: 'Conhecimento', href: '/knowledge', icon: Library },
     { label: 'Organigrama', href: '/org', icon: Network },
 ];
@@ -428,6 +427,10 @@ export default function AppLayout({
         }
         if (href === '/tasks' && onConversation) {
             return false;
+        }
+        // A report opens inside Documentos.
+        if (href === '/documents' && url.startsWith('/reports/')) {
+            return true;
         }
 
         return url === href || url.startsWith(`${href}/`);

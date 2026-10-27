@@ -55,7 +55,6 @@ it('renders every console page for the owner', function (string $path, string $c
     ['notifications', 'Notifications/Index'],
     ['briefings', 'Briefings/Index'],
     ['briefings/{Briefing}', 'Briefings/Show'],
-    ['reports', 'Reports/Index'],
     ['reports/{Report}', 'Reports/Show'],
     ['settings', 'Settings/Index'],
     ['settings/brand', 'Settings/Brand'],

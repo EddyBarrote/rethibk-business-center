@@ -48,7 +48,6 @@ it('renders lists and details with several rows', function (string $path) {
     'inbox',
     'inbox/{EmailMessage}',
     'briefings',
-    'reports',
     'reports/{Report}',
     'documents',
     'notifications',

@@ -6,6 +6,7 @@ use App\Ai\Capabilities\Local\DraftReport;
 use App\Documents\DocumentFormat;
 use App\Enums\Permission;
 use App\Models\AuditLog;
+use App\Models\GeneratedDocument;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,22 +21,13 @@ use Inertia\Response;
  */
 class ReportController extends Controller
 {
-    public function index(Request $request): Response
+    /**
+     * Reports live in Documentos now (docs/DECISOES.md, "Documentos:
+     * relatórios e ficheiros juntos"); the old address opens them there.
+     */
+    public function index(): RedirectResponse
     {
-        $user = $this->user($request);
-        $type = $request->query('type');
-
-        return Inertia::render('Reports/Index', [
-            'reports' => $this->visible($user)
-                ->with(['agent:id,name', 'reviewer:id,name'])
-                ->when($type, fn ($q, $t) => $q->where('type', $t))
-                ->latest('id')
-                ->paginate(25)
-                ->withQueryString()
-                ->through(fn (Report $r) => $this->present($r)),
-            'types' => collect(DraftReport::TYPES)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
-            'filter' => $type,
-        ]);
+        return to_route('documents.index', ['format' => 'relatorio']);
     }
 
     public function show(Request $request, Report $report): Response
@@ -43,7 +35,15 @@ class ReportController extends Controller
         abort_unless($this->visible($this->user($request))->whereKey($report->id)->exists(), 403);
 
         return Inertia::render('Reports/Show', [
-            'report' => [...$this->present($report->load(['agent:id,name', 'reviewer:id,name'])), 'content' => $report->content, 'data' => $report->data],
+            'report' => [
+                ...$this->present($report->load(['agent:id,name', 'reviewer:id,name', 'folder:id,name'])),
+                'content' => $report->content,
+                'data' => $report->data,
+                'folder' => $report->folder ? ['id' => $report->folder->id, 'name' => $report->folder->name] : null,
+                // The files exported from it, newest first.
+                'files' => $report->files()->latest('id')->get(['id', 'title', 'format', 'created_at'])
+                    ->map(fn (GeneratedDocument $file) => ['id' => $file->id, 'title' => $file->title, 'format' => $file->format, 'created_at' => $file->created_at->toIso8601String()]),
+            ],
             'formats' => DocumentFormat::options(),
         ]);
     }
@@ -70,7 +70,7 @@ class ReportController extends Controller
      *
      * @return Builder<Report>
      */
-    private function visible(User $user): Builder
+    public function visible(User $user): Builder
     {
         return Report::query()->when(! $user->hasPermission(Permission::ReadAllReports), fn ($q) => $q->whereHas('agent', fn ($a) => $a
             ->where('reports_to_user_id', $user->id)

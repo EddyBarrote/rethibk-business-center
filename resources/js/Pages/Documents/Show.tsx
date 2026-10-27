@@ -29,7 +29,7 @@ import type { FolderOption } from '@/Pages/Knowledge/types';
 import type { Option } from '@/types';
 
 interface Props {
-    document: GeneratedDocument & { source: string };
+    document: GeneratedDocument & { source: string; report: { id: number; title: string } | null };
     formats: Option[];
     domains: { id: number; name: string }[];
     folders: FolderOption[];
@@ -47,7 +47,7 @@ export default function DocumentShow({ document, formats, domains, folders }: Pr
     };
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Ficheiros', href: '/documents' }, { label: document.title }]}>
+        <AppLayout breadcrumbs={[{ label: 'Documentos', href: '/documents' }, { label: document.title }]}>
             <Head title={document.title} />
             <PageHeader
                 title={document.title}
@@ -131,13 +131,20 @@ export default function DocumentShow({ document, formats, domains, folders }: Pr
                         </span>
                     </Detail>
                     <Detail label="Tamanho">
-                        <span className="tabular-nums">{bytes(document.size)}</span>
+                        <span className="tabular-nums">{bytes(document.size ?? 0)}</span>
                     </Detail>
                     <Detail label="Criado">
                         <span title={dateTime(document.created_at)}>
                             {dateTime(document.created_at)} <span className="text-muted-foreground">({ago(document.created_at)})</span>
                         </span>
                     </Detail>
+                    {document.report && (
+                        <Detail label="Exportado do relatório">
+                            <Link href={`/reports/${document.report.id}`} className="text-primary hover:underline">
+                                {document.report.title}
+                            </Link>
+                        </Detail>
+                    )}
                     <Detail label="Pasta">
                         {document.folder ? (
                             <Link href={`/documents?pasta=${document.folder.id}`} className="hover:underline">

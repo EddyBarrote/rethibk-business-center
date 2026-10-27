@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int|null $agent_id
  * @property int|null $agent_run_id
+ * @property int|null $document_folder_id
  * @property string $type
  * @property string $title
  * @property Carbon|null $period_start
@@ -29,7 +31,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $reviewed_at
  * @property Carbon $created_at
  */
-#[Fillable(['agent_id', 'agent_run_id', 'type', 'title', 'period_start', 'period_end', 'subject_ref', 'content', 'data', 'status', 'reviewed_by_user_id', 'reviewed_at'])]
+#[Fillable(['agent_id', 'agent_run_id', 'document_folder_id', 'type', 'title', 'period_start', 'period_end', 'subject_ref', 'content', 'data', 'status', 'reviewed_by_user_id', 'reviewed_at'])]
 class Report extends Model
 {
     /** @use HasFactory<ReportFactory> */
@@ -49,6 +51,24 @@ class Report extends Model
     public function run(): BelongsTo
     {
         return $this->belongsTo(AgentRun::class, 'agent_run_id');
+    }
+
+    /**
+     * @return BelongsTo<DocumentFolder, $this>
+     */
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(DocumentFolder::class, 'document_folder_id');
+    }
+
+    /**
+     * The files exported from this report.
+     *
+     * @return HasMany<GeneratedDocument, $this>
+     */
+    public function files(): HasMany
+    {
+        return $this->hasMany(GeneratedDocument::class);
     }
 
     /**

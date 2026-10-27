@@ -3,6 +3,7 @@
 use App\Models\Agent;
 use App\Models\DocumentFolder;
 use App\Models\GeneratedDocument;
+use App\Models\Report;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
@@ -91,7 +92,7 @@ it('moves, downloads and deletes many files at once', function () {
     });
 
     $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, 'documents/bulk/folder'), ['ids' => $ids, 'folder_id' => $this->folder->id])
-        ->assertRedirect()->assertSessionHas('success', '3 ficheiros em «Propostas».');
+        ->assertRedirect()->assertSessionHas('success', '3 documentos em «Propostas».');
     expect(asTenant($this->tenant, fn () => GeneratedDocument::query()->where('document_folder_id', $this->folder->id)->count()))->toBe(3);
 
     $zip = $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'documents/bulk/download?'.http_build_query(['ids' => $ids])))->assertOk();
@@ -101,7 +102,7 @@ it('moves, downloads and deletes many files at once', function () {
     $archive->close();
 
     $this->actingAs($this->owner)->delete(tenantUrl($this->tenant, 'documents/bulk'), ['ids' => array_slice($ids, 0, 2)])
-        ->assertRedirect()->assertSessionHas('success', '2 ficheiros apagados.');
+        ->assertRedirect()->assertSessionHas('success', '2 documentos apagados.');
     expect(asTenant($this->tenant, fn () => GeneratedDocument::query()->count()))->toBe(1);
 });
 
@@ -113,10 +114,50 @@ it('acts in bulk only on the files a person may touch', function () {
 
     // A file she cannot see is left alone; her own moves, and is deleted.
     $this->actingAs($this->member)->patch(tenantUrl($this->tenant, 'documents/bulk/folder'), ['ids' => [$mine->id, $iva->id], 'folder_id' => $this->folder->id])
-        ->assertSessionHas('success', '1 ficheiro em «Propostas».');
+        ->assertSessionHas('success', '1 documento em «Propostas».');
     expect(asTenant($this->tenant, fn () => [$mine->fresh()->document_folder_id, $iva->fresh()->document_folder_id]))->toBe([$this->folder->id, null]);
 
     $this->actingAs($this->member)->delete(tenantUrl($this->tenant, 'documents/bulk'), ['ids' => [$mine->id, $iva->id]])
-        ->assertSessionHas('success', '1 ficheiro apagado.');
+        ->assertSessionHas('success', '1 documento apagado.');
     expect(asTenant($this->tenant, fn () => [GeneratedDocument::query()->whereKey($mine->id)->exists(), $iva->fresh() !== null]))->toBe([false, true]);
+});
+
+it('lists the reports agents drafted with the files, with «Por rever» and the old address', function () {
+    [$draft, $reviewed] = asTenant($this->tenant, fn () => [
+        Report::factory()->create(['title' => 'Fecho de Setembro', 'agent_id' => $this->agent->id, 'status' => 'draft']),
+        Report::factory()->create(['title' => 'Mapa comparativo de cimento', 'agent_id' => $this->agent->id, 'status' => 'reviewed', 'document_folder_id' => $this->folder->id]),
+    ]);
+
+    expect(documentTitles($this, '?ordem=nome'))->toBe(['Apuramento de IVA', 'Ata da reunião', 'Fecho de Setembro', 'Mapa comparativo de cimento', 'Proposta Olankha'])
+        ->and(documentTitles($this, '?format=relatorio'))->toEqualCanonicalizing(['Fecho de Setembro', 'Mapa comparativo de cimento'])
+        ->and(documentTitles($this, '?format=docx'))->toBe(['Proposta Olankha'])
+        ->and(documentTitles($this, '?autor=pessoas'))->toBe(['Ata da reunião'])
+        ->and(documentTitles($this, '?pasta=rever'))->toBe(['Fecho de Setembro'])
+        ->and(documentTitles($this, "?pasta={$this->folder->id}&ordem=nome"))->toBe(['Mapa comparativo de cimento', 'Proposta Olankha']);
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'documents?ordem=nome'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('documents.data.2.kind', 'report')
+            ->where('documents.data.2.href', "/reports/{$draft->id}")
+            ->where('documents.data.2.status', 'draft')
+            ->where('documents.data.2.agent.name', 'Agente de Finanças')
+            ->where('to_review', 1)
+            ->where('total', 5)
+            ->where('folders.0.count', 2));
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'reports'))->assertRedirect('/documents?format=relatorio');
+
+    // Reports move, download as Markdown and are deleted with the files.
+    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, 'documents/bulk/folder'), ['report_ids' => [$draft->id], 'folder_id' => $this->folder->id])
+        ->assertSessionHas('success', '1 documento em «Propostas».');
+    expect(asTenant($this->tenant, fn () => $draft->fresh()->document_folder_id))->toBe($this->folder->id);
+
+    $zip = $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'documents/bulk/download?'.http_build_query(['report_ids' => [$draft->id, $reviewed->id]])))->assertOk();
+    $archive = new ZipArchive;
+    $archive->open($zip->baseResponse->getFile()->getPathname());
+    expect($archive->getNameIndex(0))->toEndWith('.md')->and($archive->numFiles)->toBe(2);
+    $archive->close();
+
+    $this->actingAs($this->owner)->delete(tenantUrl($this->tenant, 'documents/bulk'), ['report_ids' => [$reviewed->id]])->assertSessionHas('success', '1 documento apagado.');
+    expect(asTenant($this->tenant, fn () => Report::query()->count()))->toBe(1);
 });

@@ -159,7 +159,8 @@ it('lets a person generate, convert and file a document, and export a report', f
 
     $report = asTenant($this->tenant, fn () => Report::factory()->create(['title' => 'Mapa comparativo', 'content' => MONTH_CLOSE]));
     $this->actingAs($owner, 'web')->post(tenantUrl($this->tenant, "reports/{$report->id}/export"), ['format' => 'pptx'])->assertRedirect();
-    expect(asTenant($this->tenant, fn () => GeneratedDocument::query()->where('title', 'Mapa comparativo')->value('format')))->toBe('pptx');
+    expect(asTenant($this->tenant, fn () => GeneratedDocument::query()->where('title', 'Mapa comparativo')->value('format')))->toBe('pptx')
+        ->and(asTenant($this->tenant, fn () => GeneratedDocument::query()->where('title', 'Mapa comparativo')->value('report_id')))->toBe($report->id);
 });
 
 it('saves the brand that documents use', function () {

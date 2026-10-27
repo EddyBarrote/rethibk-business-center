@@ -2,27 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Capabilities\Local\DraftReport;
 use App\Ai\Knowledge\KnowledgeAccess;
+use App\Ai\Knowledge\KnowledgeBase;
 use App\Documents\DocumentFormat;
 use App\Documents\DocumentGenerator;
 use App\Documents\DocumentSpec;
 use App\Documents\DocumentTemplate;
 use App\Documents\DocumentType;
+use App\Enums\KnowledgeType;
 use App\Enums\Permission;
 use App\Models\AuditLog;
 use App\Models\DocumentFolder;
 use App\Models\GeneratedDocument;
 use App\Models\KnowledgeDomain;
 use App\Models\KnowledgeFolder;
+use App\Models\KnowledgeItem;
 use App\Models\Report;
 use App\Models\Skill;
 use App\Models\User;
 use App\Tenancy\TenantRule;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,60 +47,99 @@ class DocumentController extends Controller
     public function __construct(
         private readonly DocumentGenerator $generator,
         private readonly KnowledgeAccess $access,
+        private readonly ReportController $reports,
+        private readonly KnowledgeBase $knowledge,
     ) {}
+
+    /** The «format» of a report in the list, as the address writes it. */
+    private const REPORT = 'relatorio';
 
     /** The «ordem» of the list, as the address writes it. */
     private const SORTS = ['recentes', 'antigos', 'nome', 'tamanho', 'tipo'];
 
     /**
-     * The file manager (docs/DECISOES.md, "Gestor de ficheiros"): folders,
-     * search, author (an agent or a person), format and order, all in the
-     * address so a view can be shared.
+     * Documentos (docs/DECISOES.md, "Gestor de ficheiros" and "Documentos:
+     * relatórios e ficheiros juntos"): the files and the reports agents
+     * drafted, in one list with folders, search, author (an agent or a
+     * person), type and order, all in the address so a view can be shared.
      */
     public function index(Request $request): Response
     {
         $user = $this->user($request);
-        $formats = array_column(DocumentFormat::cases(), 'value');
+        $formats = [...array_column(DocumentFormat::cases(), 'value'), self::REPORT];
+        $pasta = (string) $request->query('pasta');
         $filters = [
             'q' => trim((string) $request->query('q', '')),
             'format' => in_array($request->query('format'), $formats, true) ? (string) $request->query('format') : null,
             'autor' => in_array($request->query('autor'), ['ia', 'pessoas'], true) ? (string) $request->query('autor') : null,
-            'pasta' => $request->query('pasta') === 'sem' || ctype_digit((string) $request->query('pasta')) ? (string) $request->query('pasta') : null,
+            'pasta' => in_array($pasta, ['sem', 'rever'], true) || ctype_digit($pasta) ? $pasta : null,
             'ordem' => in_array($request->query('ordem'), self::SORTS, true) ? (string) $request->query('ordem') : 'recentes',
         ];
+        $folder = ctype_digit((string) $filters['pasta']) ? (int) $filters['pasta'] : null;
 
-        $query = $this->visible($user)
-            ->with(['agent:id,name,avatar_path', 'creator:id,name', 'folder:id,name'])
-            ->when($filters['q'] !== '', fn (Builder $q) => $q->where(fn (Builder $w) => $w
+        // Reports are written by agents and are never files of one format; «Por rever» holds only reports.
+        $withFiles = $filters['format'] !== self::REPORT && $filters['pasta'] !== 'rever';
+        $withReports = in_array($filters['format'], [null, self::REPORT], true) && $filters['autor'] !== 'pessoas';
+
+        $files = $this->visible($user)->toBase()
+            ->selectRaw("'file' as kind, id, title, format, size_bytes as size, created_at")
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('title', 'like', '%'.$filters['q'].'%')
                 ->orWhere('filename', 'like', '%'.$filters['q'].'%')))
-            ->when($filters['format'] !== null, fn (Builder $q) => $q->where('format', $filters['format']))
-            ->when($filters['autor'] === 'ia', fn (Builder $q) => $q->whereNotNull('agent_id'))
-            ->when($filters['autor'] === 'pessoas', fn (Builder $q) => $q->whereNull('agent_id'))
-            ->when($filters['pasta'] === 'sem', fn (Builder $q) => $q->whereNull('document_folder_id'))
-            ->when($filters['pasta'] !== null && $filters['pasta'] !== 'sem', fn (Builder $q) => $q->where('document_folder_id', (int) $filters['pasta']));
+            ->when($filters['format'] !== null, fn ($q) => $q->where('format', $filters['format']))
+            ->when($filters['autor'] === 'ia', fn ($q) => $q->whereNotNull('agent_id'))
+            ->when($filters['autor'] === 'pessoas', fn ($q) => $q->whereNull('agent_id'))
+            ->when($filters['pasta'] === 'sem', fn ($q) => $q->whereNull('document_folder_id'))
+            ->when($folder !== null, fn ($q) => $q->where('document_folder_id', $folder));
+        $reports = $this->reports->visible($user)->toBase()
+            ->selectRaw("'report' as kind, id, title, '".self::REPORT."' as format, length(content) as size, created_at")
+            ->when($filters['q'] !== '', fn ($q) => $q->where('title', 'like', '%'.$filters['q'].'%'))
+            ->when($filters['pasta'] === 'sem', fn ($q) => $q->whereNull('document_folder_id'))
+            ->when($filters['pasta'] === 'rever', fn ($q) => $q->where('status', 'draft'))
+            ->when($folder !== null, fn ($q) => $q->where('document_folder_id', $folder));
 
-        match ($filters['ordem']) {
-            'antigos' => $query->oldest('id'),
-            'nome' => $query->orderBy('title')->orderBy('id'),
-            'tamanho' => $query->orderByDesc('size_bytes')->orderByDesc('id'),
-            'tipo' => $query->orderBy('format')->latest('id'),
-            default => $query->latest('id'),
+        $union = match (true) {
+            $withFiles && $withReports => $files->unionAll($reports),
+            $withReports => $reports,
+            default => $files,
         };
+        $query = DB::query()->fromSub($union, 'items');
+        match ($filters['ordem']) {
+            'antigos' => $query->orderBy('created_at')->orderBy('id'),
+            'nome' => $query->orderBy('title')->orderBy('id'),
+            'tamanho' => $query->orderByDesc('size')->orderByDesc('id'),
+            'tipo' => $query->orderBy('format')->orderByDesc('created_at'),
+            default => $query->orderByDesc('created_at')->orderByDesc('id'),
+        };
+        $page = $query->paginate(48)->withQueryString();
 
-        // How many of the files this person sees are in each folder.
+        // The rows of the page, read in full: one query for the files and one for the reports.
+        $rows = collect($page->items());
+        $fileModels = GeneratedDocument::query()->with(['agent:id,name,avatar_path', 'creator:id,name', 'folder:id,name'])
+            ->whereKey($rows->where('kind', 'file')->pluck('id'))->get()->keyBy('id');
+        $reportModels = Report::query()->with(['agent:id,name,avatar_path', 'folder:id,name'])
+            ->whereKey($rows->where('kind', 'report')->pluck('id'))->get()->keyBy('id');
+        $page->setCollection($rows->map(fn (object $row) => $row->kind === 'file'
+            ? $this->present($fileModels[$row->id])
+            : $this->presentReport($reportModels[$row->id]))->values());
+
+        // How many documents this person sees are in each folder.
         $counts = $this->visible($user)->toBase()->selectRaw('document_folder_id, count(*) as total')->groupBy('document_folder_id')->pluck('total', 'document_folder_id');
+        $reportCounts = $this->reports->visible($user)->toBase()->selectRaw('document_folder_id, count(*) as total')->groupBy('document_folder_id')->pluck('total', 'document_folder_id');
+        $count = fn (int|string $key): int => (int) ($counts[$key] ?? 0) + (int) ($reportCounts[$key] ?? 0);
 
         return Inertia::render('Documents/Index', [
-            'documents' => $query->paginate(48)->withQueryString()->through(fn (GeneratedDocument $d) => $this->present($d)),
+            'documents' => $page,
             'filters' => $filters,
             'folders' => DocumentFolder::query()->orderBy('name')->get(['id', 'name'])
-                ->map(fn (DocumentFolder $folder) => ['id' => $folder->id, 'name' => $folder->name, 'count' => (int) ($counts[$folder->id] ?? 0)]),
-            'total' => (int) $counts->sum(),
-            'unfiled' => (int) ($counts[''] ?? 0),
+                ->map(fn (DocumentFolder $f) => ['id' => $f->id, 'name' => $f->name, 'count' => $count($f->id)]),
+            'total' => (int) $counts->sum() + (int) $reportCounts->sum(),
+            'unfiled' => $count(''),
+            'to_review' => $this->reports->visible($user)->where('status', 'draft')->count(),
             'formats' => DocumentFormat::options(),
+            'types' => [...DocumentFormat::options(), ['value' => self::REPORT, 'label' => 'Relatório']],
             'templates' => DocumentTemplate::options(),
-            // Where the chosen files can be archived, loaded only when asked for.
+            // Where the chosen documents can be archived, loaded only when asked for.
             'knowledge' => Inertia::optional(fn () => $this->knowledgeTargets($user)),
         ]);
     }
@@ -156,7 +202,7 @@ class DocumentController extends Controller
     }
 
     /**
-     * Many files into a folder (or out of every folder) at once. Files the
+     * Many documents into a folder (or out of every folder) at once. Those the
      * person cannot see are left alone.
      */
     public function bulkMove(Request $request): RedirectResponse
@@ -164,47 +210,52 @@ class DocumentController extends Controller
         $user = $this->user($request);
         abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
         $data = $request->validate([...$this->bulkRules(), 'folder_id' => ['nullable', 'integer', TenantRule::exists('document_folders')]]);
+        [$files, $reports] = $this->chosen($user, $data);
 
-        $moved = $this->visible($user)->whereKey($data['ids'])->update(['document_folder_id' => $data['folder_id'] ?? null]);
+        $into = ['document_folder_id' => $data['folder_id'] ?? null];
+        $moved = ($files->isEmpty() ? 0 : GeneratedDocument::query()->whereKey($files->modelKeys())->update($into))
+            + ($reports->isEmpty() ? 0 : Report::query()->whereKey($reports->modelKeys())->update($into));
         $folder = isset($data['folder_id']) ? DocumentFolder::query()->whereKey($data['folder_id'])->value('name') : null;
-        $files = $this->files($moved);
+        $documents = $this->documents($moved);
 
-        return back()->with('success', $folder !== null ? "{$files} em «{$folder}»." : "{$files} fora das pastas.");
+        return back()->with('success', $folder !== null ? "{$documents} em «{$folder}»." : "{$documents} fora das pastas.");
     }
 
     /**
-     * Many files in one ZIP; two files with the same name get a number.
+     * Many documents in one ZIP: the files as they are, a report as its
+     * Markdown text; two with the same name get a number.
      */
     public function bulkDownload(Request $request): BinaryFileResponse
     {
         $user = $this->user($request);
-        $data = $request->validate($this->bulkRules());
-        $documents = $this->visible($user)->whereKey($data['ids'])->orderBy('title')->get();
-        abort_if($documents->isEmpty(), 404);
+        [$files, $reports] = $this->chosen($user, $request->validate($this->bulkRules()));
+        abort_if($files->isEmpty() && $reports->isEmpty(), 404);
 
-        $path = tempnam(sys_get_temp_dir(), 'ficheiros');
+        $entries = $files->map(function (GeneratedDocument $document) {
+            $disk = Storage::disk($document->disk);
+
+            return $disk->exists($document->path) ? [$document->filename, (string) $disk->get($document->path)] : null;
+        })->filter()->concat($reports->map(fn (Report $report) => [(Str::slug(Str::limit($report->title, 80, '')) ?: 'relatorio').'.md', $report->content]));
+
+        $path = (string) tempnam(sys_get_temp_dir(), 'documentos');
         $zip = new ZipArchive;
         $zip->open($path, ZipArchive::OVERWRITE);
         $names = [];
-        foreach ($documents as $document) {
-            $disk = Storage::disk($document->disk);
-            if (! $disk->exists($document->path)) {
-                continue;
-            }
-            $name = $document->filename;
+        foreach ($entries as [$filename, $content]) {
+            $name = $filename;
             for ($n = 2; isset($names[$name]); $n++) {
-                $name = pathinfo($document->filename, PATHINFO_FILENAME)."-{$n}.".pathinfo($document->filename, PATHINFO_EXTENSION);
+                $name = pathinfo($filename, PATHINFO_FILENAME)."-{$n}.".pathinfo($filename, PATHINFO_EXTENSION);
             }
             $names[$name] = true;
-            $zip->addFromString($name, (string) $disk->get($document->path));
+            $zip->addFromString($name, $content);
         }
         $zip->close();
 
-        return response()->download($path, 'ficheiros-'.now()->format('Y-m-d').'.zip', ['Content-Type' => 'application/zip'])->deleteFileAfterSend();
+        return response()->download($path, 'documentos-'.now()->format('Y-m-d').'.zip', ['Content-Type' => 'application/zip'])->deleteFileAfterSend();
     }
 
     /**
-     * Many files into the knowledge base; those already there are skipped.
+     * Many documents into the knowledge base; those already there are skipped.
      */
     public function bulkFile(Request $request): RedirectResponse
     {
@@ -218,45 +269,59 @@ class DocumentController extends Controller
         $domain = KnowledgeDomain::query()->findOrFail($data['domain_id']);
         abort_unless($this->access->canOpen($user, $domain), 403);
         $folder = isset($data['folder_id']) ? KnowledgeFolder::query()->where('knowledge_domain_id', $domain->id)->findOrFail($data['folder_id']) : null;
+        $place = ['knowledge_domain_id' => $domain->id, 'knowledge_folder_id' => $folder?->id];
+        [$files, $reports] = $this->chosen($user, $data);
 
         $filed = 0;
-        foreach ($this->visible($user)->whereKey($data['ids'])->whereNull('knowledge_item_id')->get() as $document) {
-            $item = $this->generator->fileInKnowledge($document, $user, ['knowledge_domain_id' => $domain->id, 'knowledge_folder_id' => $folder?->id]);
+        foreach ($files->whereNull('knowledge_item_id') as $document) {
+            $item = $this->generator->fileInKnowledge($document, $user, $place);
             AuditLog::record($user, 'documents.filed', ['title' => $document->title, 'domain' => $domain->name], subject: $item);
             $filed++;
         }
+        $archived = KnowledgeItem::query()->where('source_type', (new Report)->getMorphClass())->whereIn('source_id', $reports->modelKeys())->pluck('source_id')->all();
+        foreach ($reports->reject(fn (Report $report) => in_array($report->id, $archived)) as $report) {
+            $item = $this->knowledge->remember(KnowledgeType::Document, $report->title, $report->content, $user, [...$place, 'source_type' => $report->getMorphClass(), 'source_id' => $report->id]);
+            AuditLog::record($user, 'documents.filed', ['title' => $report->title, 'domain' => $domain->name], subject: $item);
+            $filed++;
+        }
 
-        return back()->with('success', $filed === 0 ? 'Esses ficheiros já estavam na base de conhecimento.' : "{$this->files($filed)} ".($filed === 1 ? 'arquivado' : 'arquivados')." em {$domain->name}.");
+        return back()->with('success', $filed === 0 ? 'Já estavam todos na base de conhecimento.' : "{$this->documents($filed)} ".($filed === 1 ? 'arquivado' : 'arquivados')." em {$domain->name}.");
     }
 
     /**
-     * Deletes the chosen files this person may delete (their own; a manager,
-     * any); the others stay and the message says how many.
+     * Deletes the chosen documents this person may delete (their own files; a
+     * manager, any file and the reports); the others stay and the message
+     * says how many.
      */
     public function bulkDestroy(Request $request): RedirectResponse
     {
         $user = $this->user($request);
-        $data = $request->validate($this->bulkRules());
-        $documents = $this->visible($user)->whereKey($data['ids'])->get();
-        $allowed = $documents->filter(fn (GeneratedDocument $d) => $user->isManager() || $d->created_by_user_id === $user->id);
+        [$files, $reports] = $this->chosen($user, $request->validate($this->bulkRules()));
+        $allowed = $files->filter(fn (GeneratedDocument $d) => $user->isManager() || $d->created_by_user_id === $user->id);
+        $allowedReports = $user->isManager() ? $reports : new EloquentCollection;
 
         foreach ($allowed as $document) {
             AuditLog::record($user, 'documents.deleted', ['title' => $document->title, 'format' => $document->format]);
             Storage::disk($document->disk)->delete($document->path);
             $document->delete();
         }
-
-        $kept = $documents->count() - $allowed->count();
-        $message = match ($allowed->count()) {
-            0 => 'Nenhum ficheiro apagado.',
-            1 => '1 ficheiro apagado.',
-            default => "{$allowed->count()} ficheiros apagados.",
-        };
-        if ($kept > 0) {
-            $message .= $kept === 1 ? ' 1 ficheiro não é seu e ficou.' : " {$kept} ficheiros não são seus e ficaram.";
+        foreach ($allowedReports as $report) {
+            AuditLog::record($user, 'report.deleted', ['title' => $report->title, 'type' => $report->type]);
+            $report->delete();
         }
 
-        return back()->with($allowed->isEmpty() ? 'error' : 'success', $message);
+        $deleted = $allowed->count() + $allowedReports->count();
+        $kept = $files->count() + $reports->count() - $deleted;
+        $message = match ($deleted) {
+            0 => 'Nenhum documento apagado.',
+            1 => '1 documento apagado.',
+            default => "{$deleted} documentos apagados.",
+        };
+        if ($kept > 0) {
+            $message .= $kept === 1 ? ' 1 documento não pode ser apagado por si e ficou.' : " {$kept} documentos não podem ser apagados por si e ficaram.";
+        }
+
+        return back()->with($deleted === 0 ? 'error' : 'success', $message);
     }
 
     public function show(Request $request, GeneratedDocument $document): Response
@@ -266,7 +331,11 @@ class DocumentController extends Controller
         ['domains' => $domains, 'folders' => $folders] = $this->knowledgeTargets($user);
 
         return Inertia::render('Documents/Show', [
-            'document' => [...$this->present($document->load(['agent:id,name,avatar_path', 'creator:id,name', 'knowledgeItem:id,title'])), 'source' => $document->source],
+            'document' => [
+                ...$this->present($document->load(['agent:id,name,avatar_path', 'creator:id,name', 'knowledgeItem:id,title', 'report:id,title'])),
+                'source' => $document->source,
+                'report' => $document->report ? ['id' => $document->report->id, 'title' => $document->report->title] : null,
+            ],
             'formats' => DocumentFormat::options(),
             'domains' => $domains,
             'folders' => $folders,
@@ -324,6 +393,7 @@ class DocumentController extends Controller
         $format = DocumentFormat::from($request->validate(['format' => ['required', Rule::enum(DocumentFormat::class)]])['format']);
 
         $document = $this->make($user, $format, new DocumentSpec($report->title, $report->content, DocumentTemplate::Report));
+        $document?->update(['report_id' => $report->id, 'document_folder_id' => $report->document_folder_id]);
 
         return $document === null ? back()->with('error', 'Não foi possível gerar o ficheiro.') : to_route('documents.show', $document)->with('success', "Exportado em {$format->label()}.");
     }
@@ -393,7 +463,24 @@ class DocumentController extends Controller
      */
     private function bulkRules(): array
     {
-        return ['ids' => ['required', 'array', 'min:1', 'max:200'], 'ids.*' => ['integer']];
+        return [
+            'ids' => ['array', 'max:200', 'required_without:report_ids'], 'ids.*' => ['integer'],
+            'report_ids' => ['array', 'max:200', 'required_without:ids'], 'report_ids.*' => ['integer'],
+        ];
+    }
+
+    /**
+     * The chosen files and reports that this person sees.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{0: EloquentCollection<int, GeneratedDocument>, 1: EloquentCollection<int, Report>}
+     */
+    private function chosen(User $user, array $data): array
+    {
+        return [
+            $this->visible($user)->whereKey($data['ids'] ?? [])->get(),
+            $this->reports->visible($user)->whereKey($data['report_ids'] ?? [])->get(),
+        ];
     }
 
     /**
@@ -413,9 +500,9 @@ class DocumentController extends Controller
         ];
     }
 
-    private function files(int $count): string
+    private function documents(int $count): string
     {
-        return $count === 1 ? '1 ficheiro' : "{$count} ficheiros";
+        return $count === 1 ? '1 documento' : "{$count} documentos";
     }
 
     private function canSee(User $user, GeneratedDocument $document): bool
@@ -447,6 +534,9 @@ class DocumentController extends Controller
 
         return [
             'id' => $d->id,
+            'kind' => 'file',
+            'key' => "file-{$d->id}",
+            'href' => "/documents/{$d->id}",
             'title' => $d->title,
             'format' => $format->value,
             'format_label' => $format->label(),
@@ -458,7 +548,38 @@ class DocumentController extends Controller
             'creator' => $d->creator?->name,
             'knowledge_item' => $d->knowledge_item_id !== null ? ['id' => $d->knowledge_item_id] : null,
             'folder' => $d->folder ? ['id' => $d->folder->id, 'name' => $d->folder->name] : null,
+            'status' => null,
             'created_at' => $d->created_at->toIso8601String(),
+        ];
+    }
+
+    /**
+     * A report in the list of Documentos, in the shape of a file.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentReport(Report $r): array
+    {
+        $type = DraftReport::TYPES[$r->type] ?? $r->type;
+
+        return [
+            'id' => $r->id,
+            'kind' => 'report',
+            'key' => "report-{$r->id}",
+            'href' => "/reports/{$r->id}",
+            'title' => $r->title,
+            'format' => self::REPORT,
+            'format_label' => 'Relatório',
+            'template' => $r->type,
+            'template_label' => $type,
+            'filename' => $type,
+            'size' => null,
+            'agent' => $r->agent ? ['id' => $r->agent->id, 'name' => $r->agent->name, 'avatar_url' => $r->agent->avatarUrl()] : null,
+            'creator' => null,
+            'knowledge_item' => null,
+            'folder' => $r->folder ? ['id' => $r->folder->id, 'name' => $r->folder->name] : null,
+            'status' => $r->status,
+            'created_at' => $r->created_at->toIso8601String(),
         ];
     }
 }

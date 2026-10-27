@@ -1416,3 +1416,12 @@ Testes: `tests/Feature/Email/AcknowledgementTest.php`.
 ## Definições: menu lateral que colapsa (27.10.2026)
 
 - Em ecrã grande, o menu das Definições tem no topo um botão para colapsar e expandir. Colapsado, fica uma coluna de ícones (o nome aparece ao passar o rato) e a página ganha a largura. A escolha fica no browser (`settings.nav.collapsed`).
+
+## Documentos: relatórios e ficheiros juntos (27.10.2026)
+
+- O menu tinha «Documentos» (os relatórios em `/reports`) e «Ficheiros» (`/documents`). Passa a haver só **Documentos**, em `/documents`: os relatórios que os agentes preparam para rever entram na mesma lista que os ficheiros, com ícone próprio, a etiqueta «Relatório» e «Por rever» enquanto estão em rascunho.
+- O filtro de tipo ganha «Relatório» (`format=relatorio`); a coluna das pastas ganha a vista **Por rever** (`pasta=rever`) com o número de relatórios à espera. «Pessoas» mostra só ficheiros, porque os relatórios são sempre de um agente.
+- A lista é uma união das duas tabelas (`generated_documents` e `reports`), paginada em conjunto e ordenada pelos mesmos critérios; o tamanho de um relatório é o do texto. Não se converteu nem se apagou nada.
+- Os relatórios vão para pastas (`reports.document_folder_id`) e entram nas acções em massa: mover, descarregar (no ZIP vão como `.md`), arquivar no conhecimento (como documento de texto, uma vez) e apagar (só gestores).
+- Exportar um relatório guarda a ligação no ficheiro (`generated_documents.report_id`) e põe-no na pasta do relatório; a página do relatório lista os ficheiros exportados e a do ficheiro diz de que relatório veio.
+- `/reports` redirecciona para `/documents?format=relatorio`; `/reports/{id}` continua a abrir o relatório (as notificações e os links dos agentes não mudam), com o menu em Documentos.
