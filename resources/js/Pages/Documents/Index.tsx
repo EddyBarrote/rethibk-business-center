@@ -536,14 +536,14 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                         </ul>
                     ) : (
                         <div className="overflow-hidden rounded-xl border bg-card">
-                            <table className="w-full text-sm">
+                            <table className="w-full table-fixed text-sm">
                                 <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
                                     <tr>
                                         <th className="px-3 py-2 font-medium">Nome</th>
-                                        <th className="hidden px-3 py-2 font-medium md:table-cell">Feito por</th>
-                                        <th className="hidden px-3 py-2 font-medium xl:table-cell">Pasta</th>
-                                        <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Tamanho</th>
-                                        <th className="px-3 py-2 text-right font-medium">Data</th>
+                                        <th className="hidden w-52 px-3 py-2 font-medium md:table-cell">Feito por</th>
+                                        <th className="hidden w-32 px-3 py-2 font-medium xl:table-cell">Pasta</th>
+                                        <th className="hidden w-20 px-3 py-2 text-right font-medium sm:table-cell">Tamanho</th>
+                                        <th className="w-24 px-3 py-2 text-right font-medium">Data</th>
                                         <th className="w-10" />
                                     </tr>
                                 </thead>
@@ -553,7 +553,7 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                             <td className="px-3 py-2">
                                                 <Link href={`/documents/${d.id}`} className="flex min-w-0 items-center gap-2.5">
                                                     <FileIcon extension={d.format} />
-                                                    <span className="min-w-0">
+                                                    <span className="min-w-0 flex-1">
                                                         <span className="block truncate font-medium">{d.title}</span>
                                                         <span className="block truncate font-mono text-[11px] text-muted-foreground">
                                                             {d.filename}
@@ -561,10 +561,12 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                                     </span>
                                                 </Link>
                                             </td>
-                                            <td className="hidden max-w-56 px-3 py-2 text-xs text-muted-foreground md:table-cell">
+                                            <td className="hidden px-3 py-2 text-xs text-muted-foreground md:table-cell">
                                                 <DocumentAuthor document={d} />
                                             </td>
-                                            <td className="hidden px-3 py-2 text-xs text-muted-foreground xl:table-cell">{d.folder?.name ?? '—'}</td>
+                                            <td className="hidden truncate px-3 py-2 text-xs text-muted-foreground xl:table-cell">
+                                                {d.folder?.name ?? '—'}
+                                            </td>
                                             <td className="hidden px-3 py-2 text-right font-mono text-xs text-muted-foreground tabular-nums sm:table-cell">
                                                 {bytes(d.size)}
                                             </td>
