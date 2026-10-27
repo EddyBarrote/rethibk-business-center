@@ -272,6 +272,28 @@
 }
 
 /*
+ * An agent at work (AgentAvatar): a ring that breathes around its face. An
+ * outline, so it follows the rounded corners without moving the layout.
+ */
+.agent-working {
+    outline: 2px solid var(--status-running);
+    outline-offset: 1.5px;
+    animation: agent-working 1.8s ease-in-out infinite;
+}
+
+@keyframes agent-working {
+    50% {
+        outline-color: color-mix(in oklch, var(--status-running) 20%, transparent);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agent-working {
+        animation: none;
+    }
+}
+
+/*
  * Markdown written by agents (Markdown.tsx). In components so a caller's
  * utilities (smaller text, no top margin) still win.
  */

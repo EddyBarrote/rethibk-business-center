@@ -4,12 +4,14 @@ namespace App\Ai\Runs;
 
 use App\Enums\RunStatus;
 use App\Enums\StepType;
+use App\Enums\TaskKind;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AgentRunStep;
 use App\Models\Task;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 /**
  * What an agent is doing right now: its live runs, each with its conversation
@@ -58,15 +60,60 @@ class AgentNow
             ? $agent->runs()->whereNotIn('status', [RunStatus::Queued, RunStatus::Running])->with(['agent:id,name', 'requestedBy:id,name', 'task'])->latest('id')->first()
             : null;
 
+        $present = $this->presenter($active, $user);
+
+        return [
+            'active' => $active->map($present)->values()->all(),
+            'last' => $last ? $present($last) : null,
+            'recent' => $recent->map($present)->values()->all(),
+        ];
+    }
+
+    /**
+     * The agent's work outside this conversation, for its thread
+     * (docs/DECISOES.md, "Agente contínuo"): what it did on its own or for
+     * others since the conversation began (at most a week, the last 30),
+     * oldest first, so the conversation reads as the agent's one timeline.
+     * Someone else's private conversation is left out; a task the person
+     * cannot open keeps its place without its title.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function background(Agent $agent, User $user, Task $conversation): array
+    {
+        $runs = $agent->runs()
+            ->where(fn ($q) => $q->whereNull('task_id')->orWhere('task_id', '!=', $conversation->id))
+            ->where('created_at', '>=', max($conversation->created_at, now()->subDays(7)))
+            ->with(['agent:id,name', 'requestedBy:id,name', 'task'])
+            ->latest('id')
+            ->limit(30)
+            ->get()
+            ->filter(fn (AgentRun $run) => $run->task === null || $run->task->kind !== TaskKind::Chat || $user->can('view', $run->task))
+            ->reverse()
+            ->values();
+
+        $present = $this->presenter($runs->filter(fn (AgentRun $run) => in_array($run->status, [RunStatus::Queued, RunStatus::Running], true)), $user);
+
+        return $runs->map($present)->values()->all();
+    }
+
+    /**
+     * How a run is shown, with the step a live one is on.
+     *
+     * @param  Collection<int, AgentRun>  $live
+     * @return \Closure(AgentRun): array<string, mixed>
+     */
+    private function presenter($live, User $user): \Closure
+    {
         $steps = AgentRunStep::query()
-            ->whereIn('agent_run_id', $active->pluck('id'))
+            ->whereIn('agent_run_id', $live->pluck('id'))
             ->whereIn('type', [StepType::ToolCall, StepType::Reasoning, StepType::Message, StepType::Approval])
             ->orderByDesc('seq')
             ->get()
             ->unique('agent_run_id')
             ->keyBy('agent_run_id');
 
-        $present = fn (AgentRun $run) => [
+        return fn (AgentRun $run) => [
             ...Present::run($run),
             'started_at' => $run->started_at?->toIso8601String(),
             'task' => $this->runTask($run->task, $user),
@@ -75,12 +122,6 @@ class AgentNow
                 'tool_name' => $steps[$run->id]->tool_name,
                 'at' => $steps[$run->id]->created_at->toIso8601String(),
             ] : null,
-        ];
-
-        return [
-            'active' => $active->map($present)->values()->all(),
-            'last' => $last ? $present($last) : null,
-            'recent' => $recent->map($present)->values()->all(),
         ];
     }
 

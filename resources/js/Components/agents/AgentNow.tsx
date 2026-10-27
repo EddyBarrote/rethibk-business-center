@@ -1,11 +1,13 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { ExternalLink, Wrench } from 'lucide-react';
+import { Activity, ChevronDown, ExternalLink, Wrench } from 'lucide-react';
 
+import { Markdown } from '@/Components/Markdown';
 import { StatusBadge, StatusDot, runTone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { useLive } from '@/hooks/useLive';
 import { useToolNames } from '@/hooks/useToolNames';
 import { ago, dateTime, plainText, runTitle } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import type { RunSummary, SharedProps } from '@/types';
 
 /** A live run with its conversation and the step it is on (App\\Ai\\Runs\\AgentNow). */
@@ -197,7 +199,8 @@ export function ElsewherePanel({ agent, active, done = [], reload }: { agent: st
                         <StatusDot tone="running" />A fazer agora, fora desta conversa
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                        {agent} está ocupado {active.length === 1 ? 'com outro trabalho' : `com ${active.length} trabalhos`}. Pode escrever-lhe na mesma.
+                        {agent} está ocupado {active.length === 1 ? 'com outro trabalho' : `com ${active.length} trabalhos`}. Pode escrever-lhe na
+                        mesma.
                     </p>
                     <ul className="flex flex-col divide-y divide-status-running/15">
                         {active.map((run) => (
@@ -217,5 +220,92 @@ export function ElsewherePanel({ agent, active, done = [], reload }: { agent: st
                 </section>
             )}
         </div>
+    );
+}
+
+/**
+ * The agent's work elsewhere, in its conversation (docs/DECISOES.md, "Agente
+ * contínuo"): a line in the thread where it began, «Comecei» while it runs
+ * (with the step it is on, live) and «Terminei» when it ends, opening to its
+ * answer. The steps open in the side panel, never on another page.
+ */
+export function BackgroundRow({ run, onOpenRun }: { run: NowRun; onOpenRun: (runId: number) => void }) {
+    const { tenant } = usePage<SharedProps>().props;
+    const toolNames = useToolNames();
+    const hidden = run.task !== null && !run.task.visible;
+    const live = run.status === 'queued' || run.status === 'running';
+    const result = run.status === 'failed' ? run.error : run.output;
+
+    useLive(tenant && live && !hidden ? `tenant.${tenant.id}.run.${run.id}` : null, ['AgentRunStepAdded'], () =>
+        router.reload({ only: ['agent_background', 'agent_elsewhere'] }),
+    );
+
+    const verb = live
+        ? run.status === 'queued'
+            ? 'Vou tratar de'
+            : 'Comecei'
+        : run.status === 'completed'
+          ? 'Terminei'
+          : run.status === 'failed'
+            ? 'Não terminei'
+            : 'Parei';
+
+    return (
+        <details className="group my-3 flex flex-col items-center">
+            <summary
+                className={cn(
+                    'mx-auto flex max-w-full cursor-pointer list-none flex-wrap items-center justify-center gap-x-1.5 gap-y-1 rounded-full border px-3 py-1 text-xs text-muted-foreground shadow-xs transition-colors hover:bg-accent/50 [&::-webkit-details-marker]:hidden',
+                    live ? 'border-status-running/40 bg-[color-mix(in_oklch,var(--status-running)_6%,var(--background))]' : 'bg-background',
+                )}
+            >
+                {live ? <StatusDot tone="running" /> : <StatusDot tone={runTone(run.status)} pulse={false} />}
+                <span className="font-medium text-foreground/85">{verb}:</span>
+                <span className="max-w-[22rem] truncate text-foreground/85">{workTitle(run, toolNames)}</span>
+                <span className="opacity-70">·</span>
+                {live ? (
+                    <span className="inline-flex items-center gap-1 text-status-running">
+                        {run.step?.type === 'tool_call' && <Wrench className="size-3" />}
+                        {stepLabel(run, toolNames)}
+                    </span>
+                ) : (
+                    <span title={dateTime(run.finished_at)}>{ago(run.finished_at ?? run.created_at)}</span>
+                )}
+                <ChevronDown className="size-3 shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mx-auto mt-2 w-full max-w-xl rounded-xl border border-dashed bg-card/60 px-4 py-3 text-sm">
+                <p className="mb-2 text-xs text-muted-foreground">
+                    {run.trigger_label}
+                    {run.requested_by && ` · a pedido de ${run.requested_by}`} ·{' '}
+                    <span title={dateTime(run.started_at ?? run.created_at)}>
+                        {run.status === 'queued' ? 'pedido' : 'começou'} {ago(run.started_at ?? run.created_at)}
+                    </span>
+                </p>
+                {hidden ? (
+                    <p className="text-xs text-muted-foreground">Foi num sítio a que não tem acesso.</p>
+                ) : (
+                    <>
+                        {!live && result && (
+                            <div className="max-h-48 overflow-hidden text-[13px] [mask-image:linear-gradient(to_bottom,black_75%,transparent)]">
+                                <Markdown>{result}</Markdown>
+                            </div>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenRun(run.id)}>
+                                <Activity />
+                                {live ? 'Acompanhar ao vivo' : 'Ver passo a passo'}
+                            </Button>
+                            {run.task?.id && (
+                                <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                                    <Link href={`/tasks/${run.task.id}`}>
+                                        <ExternalLink />
+                                        {run.task.kind === 'chat' ? 'Abrir a conversa' : 'Abrir a tarefa'}
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+        </details>
     );
 }

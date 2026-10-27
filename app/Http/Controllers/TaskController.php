@@ -498,6 +498,10 @@ class TaskController extends Controller
             'agent_elsewhere' => $elsewhere['active'],
             // What it finished there in the last half hour, with the result, so the card does not just vanish.
             'agent_elsewhere_done' => $elsewhere['recent'],
+            // In a conversation, the agent's work elsewhere since it began, in its thread (docs/DECISOES.md, "Agente contínuo").
+            'agent_background' => fn () => $task->kind === TaskKind::Chat && $task->assigneeAgent !== null
+                ? app(AgentNow::class)->background($task->assigneeAgent, $user, $task)
+                : [],
             'agent_work' => fn () => $mine && $task->assigneeAgent !== null ? $this->agentWork($task->assigneeAgent, $user) : null,
             'can' => [
                 'reply' => $user->can('reply', $task),
@@ -991,9 +995,15 @@ class TaskController extends Controller
     private function panelRun(Request $request, Task $task, User $user): ?array
     {
         $id = $request->integer('execucao');
-        $run = $id > 0 ? $task->runs()->with(['agent', 'requestedBy'])->find($id) : null;
+        $run = $id > 0 ? AgentRun::query()->with(['agent', 'requestedBy', 'task'])->find($id) : null;
 
-        if ($run === null || ! $user->can('view', $run->agent)) {
+        // A run of this conversation, or of its agent elsewhere (its background work, in the
+        // thread): then only when the person may open where it ran.
+        $here = $run !== null && $run->task_id === $task->id;
+        $elsewhere = $run !== null && ! $here && $task->kind === TaskKind::Chat && $run->agent_id === $task->assignee_agent_id
+            && ($run->task === null || $user->can('view', $run->task));
+
+        if ($run === null || ! ($here || $elsewhere) || ! $user->can('view', $run->agent)) {
             return null;
         }
 

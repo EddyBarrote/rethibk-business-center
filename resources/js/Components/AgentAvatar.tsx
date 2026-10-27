@@ -12,13 +12,20 @@ import type { SharedProps } from '@/types';
  */
 export function AgentAvatar({ name, url, className }: { name: string; url?: string | null; className?: string }) {
     const agents = usePage<SharedProps>().props.sidebar_agents ?? [];
-    const src = url === undefined ? agents.find((agent) => agent.name === name)?.avatar_url : url;
+    const agent = agents.find((candidate) => candidate.name === name);
+    const src = url === undefined ? agent?.avatar_url : url;
+    // Presence (docs/DECISOES.md, "Agente contínuo"): a breathing ring while the agent works, wherever its face is.
+    const working = (agent?.running ?? 0) > 0;
+    const presence = working ? 'agent-working' : undefined;
+    const title = working ? `${name} está a trabalhar` : undefined;
 
     if (!src) {
-        return <Monogram name={name} agent className={className} />;
+        return <Monogram name={name} agent className={cn(className, presence)} />;
     }
 
-    return <img src={src} alt="" className={cn('inline-block size-7 shrink-0 rounded-lg bg-muted object-cover', className)} />;
+    return (
+        <img src={src} alt="" title={title} className={cn('inline-block size-7 shrink-0 rounded-lg bg-muted object-cover', className, presence)} />
+    );
 }
 
 /**

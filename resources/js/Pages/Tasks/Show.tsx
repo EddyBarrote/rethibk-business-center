@@ -3,7 +3,7 @@ import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight,
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { ElsewherePanel, type NowRun } from '@/Components/agents/AgentNow';
+import { type NowRun, stepLabel, workTitle } from '@/Components/agents/AgentNow';
 import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
 import { ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
@@ -62,6 +62,8 @@ interface Props extends TaskFormOptions {
     /** In a conversation, the agent's live work outside it (App\\Ai\\Runs\\AgentNow). */
     agent_elsewhere: NowRun[];
     agent_elsewhere_done: NowRun[];
+    /** In a conversation, the agent's work elsewhere since it began, placed in its thread. */
+    agent_background: NowRun[];
 }
 
 /** The flow this task follows, or the decision of a flow's step it asks of a person (docs/DECISOES.md, "Fluxos de trabalho"). */
@@ -100,6 +102,7 @@ const reloadProps = [
     'agent_work',
     'agent_elsewhere',
     'agent_elsewhere_done',
+    'agent_background',
     'sidebar_agents',
 ];
 const PANEL_KEY = 'micomoc.conversa.painel';
@@ -171,7 +174,7 @@ export default function TaskShow({
     panel_run: panelRun,
     agent_work: agentWork,
     agent_elsewhere: elsewhere,
-    agent_elsewhere_done: elsewhereDone,
+    agent_background: background = [],
     tool_names: toolNames,
     approvals,
     workflow,
@@ -444,7 +447,19 @@ export default function TaskShow({
                                     {working ? (
                                         <span className="text-status-running"> · a trabalhar</span>
                                     ) : elsewhere.length > 0 ? (
-                                        <span className="text-status-running"> · a trabalhar noutro sítio</span>
+                                        <>
+                                            {' · '}
+                                            {/* What it is busy with, live; its steps open beside the conversation. */}
+                                            <button
+                                                type="button"
+                                                onClick={() => elsewhere[0].task?.visible !== false && openRun(elsewhere[0].id)}
+                                                className="text-status-running hover:underline"
+                                                title="Ver o passo a passo ao lado"
+                                            >
+                                                A tratar: {workTitle(elsewhere[0], toolNames)} · {stepLabel(elsewhere[0], toolNames).toLowerCase()}
+                                                {elsewhere.length > 1 && ` (+${elsewhere.length - 1})`}
+                                            </button>
+                                        </>
                                     ) : (
                                         ' · uma só conversa contínua, com todo o histórico'
                                     )}
@@ -597,6 +612,7 @@ export default function TaskShow({
                                         emails={emails}
                                         viewer={auth.user?.name ?? null}
                                         onOpenRun={openRun}
+                                        background={task.is_conversation ? background : []}
                                     />
 
                                     {(working || stream) && (
@@ -606,14 +622,6 @@ export default function TaskShow({
                                             live={stream}
                                             calls={toolCalls[working?.id ?? stream?.run_id ?? 0] ?? []}
                                             onOpenRun={openRun}
-                                        />
-                                    )}
-                                    {task.is_conversation && !working && !stream && (
-                                        <ElsewherePanel
-                                            agent={agentName}
-                                            active={elsewhere}
-                                            done={elsewhereDone}
-                                            reload={['agent_elsewhere', 'agent_elsewhere_done', 'sidebar_agents']}
                                         />
                                     )}
                                     <div ref={bottom} className="h-px" />

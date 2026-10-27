@@ -1352,3 +1352,16 @@ Pedido do Barrote, em Ficheiros (`/documents`): «deve ser mesmo um gestor de do
 
 Testes: `tests/Feature/Knowledge/DocumentManagerTest.php`.
 
+## Agente contínuo: o trabalho de fundo na conversa (27.10.2026)
+
+O Barrote, na conversa com o Agente de Finanças, viu o cartão «A fazer agora, fora desta conversa» e o botão «Ver execução» levou-o à página de Execuções: «a ideia é termos agentes persistentes, nesse caso a experiência não fica boa». Escolheu as três partes da proposta: a conversa é a linha do tempo única do agente e Execuções fica para auditoria e custos.
+
+| Decisão | Onde |
+|---|---|
+| **No cabeçalho**, em vez de «a trabalhar noutro sítio»: «A tratar: Cobrança de facturas em atraso · a usar Pesquisar emails», ao vivo; carregar abre o passo a passo no painel lateral. O cartão «A fazer agora, fora desta conversa» sai da conversa (fica na página do agente). | `Pages/Tasks/Show.tsx` |
+| **No fio da conversa**, cada trabalho do agente noutro sítio desde que a conversa começou (no máximo uma semana, os últimos 30) entra onde começou, como uma linha recolhível: «Comecei: …» com o passo em que vai, ao vivo, e «Terminei / Não terminei: …» quando acaba; ao abrir, quem pediu, a origem, a resposta, «Acompanhar ao vivo» / «Ver passo a passo» (no painel lateral) e «Abrir a tarefa». Não é gravado como mensagem: o agente não o recebe como conversa. A conversa privada de outra pessoa com o agente não entra; uma tarefa que a pessoa não pode abrir aparece sem título. | `AgentNow::background()`, prop `agent_background`, `BackgroundRow`, `ChatThread` |
+| **O painel lateral abre também execuções do agente fora da conversa**, se a pessoa pode ver onde correram; antes só abria as da própria conversa. | `TaskController::panelRun()` |
+| **Presença**: onde aparece a cara do agente (barra lateral, cabeçalho, chat, organigrama), um anel que respira enquanto ele trabalha, com «… está a trabalhar» ao passar o rato. Sem animação para quem pede menos movimento. | `AgentAvatar`, `.agent-working` |
+
+Testes: `tests/Feature/Agents/AgentConsoleTest.php` («puts the agent's work elsewhere in its conversation…»).
+

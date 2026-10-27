@@ -17,6 +17,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { BackgroundRow, type NowRun } from '@/Components/agents/AgentNow';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
 import { Monogram } from '@/Components/Blocks';
 import { EmailCards, type ProposedEmail } from '@/Components/tasks/EmailCard';
@@ -123,6 +124,7 @@ export function ChatThread({
     emails = {},
     viewer,
     onOpenRun,
+    background = [],
 }: {
     messages: ChatMessage[];
     toolCalls: Record<number, ToolCall[]>;
@@ -131,8 +133,22 @@ export function ChatThread({
     emails?: Record<number, ProposedEmail[]>;
     viewer: string | null;
     onOpenRun: OpenRun;
+    /** The agent's work elsewhere, placed in the thread where it began (docs/DECISOES.md, "Agente contínuo"). */
+    background?: NowRun[];
 }) {
     const toolsShown = new Set<number>();
+    // Each piece of background work goes before the first message written after it began.
+    const before = new Map<number, NowRun[]>();
+    const after: NowRun[] = [];
+    background.forEach((run) => {
+        const at = new Date(run.created_at).getTime();
+        const next = messages.find((message) => new Date(message.created_at).getTime() > at);
+        if (next) {
+            before.set(next.id, [...(before.get(next.id) ?? []), run]);
+        } else {
+            after.push(run);
+        }
+    });
 
     return (
         <div className="flex flex-col">
@@ -142,6 +158,7 @@ export function ChatThread({
                 // Messages in a row from the same author read as one block: the name and avatar show once.
                 const continued =
                     !newDay &&
+                    !before.has(message.id) &&
                     previous.kind !== 'event' &&
                     previous.kind !== 'report' &&
                     previous.kind !== 'handoff' &&
@@ -162,6 +179,9 @@ export function ChatThread({
                 return (
                     <div key={message.id} className="flex flex-col">
                         {newDay && <DaySeparator label={dayLabel(message.created_at)} />}
+                        {before.get(message.id)?.map((run) => (
+                            <BackgroundRow key={`run-${run.id}`} run={run} onOpenRun={onOpenRun} />
+                        ))}
                         {message.kind === 'handoff' && message.handoff ? (
                             <HandoffRow message={message} handoff={message.handoff} />
                         ) : message.kind === 'event' ? (
@@ -183,6 +203,9 @@ export function ChatThread({
                     </div>
                 );
             })}
+            {after.map((run) => (
+                <BackgroundRow key={`run-${run.id}`} run={run} onOpenRun={onOpenRun} />
+            ))}
         </div>
     );
 }

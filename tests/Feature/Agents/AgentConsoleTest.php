@@ -206,6 +206,31 @@ it('keeps in the conversation, with its result, what the agent just finished els
             ->where('agent_elsewhere_done.0.task', null));
 });
 
+it('puts the agent\'s work elsewhere in its conversation, and opens its steps beside it', function () {
+    [$chat, $routineRun, $private] = asTenant($this->a, function () {
+        $chat = Task::factory()->chat()->create(['user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->boss->id.':'.$this->agent->id, 'created_at' => now()->subDay()]);
+        $routineRun = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => null, 'status' => RunStatus::Completed, 'output' => ['text' => 'Cobranças enviadas.'], 'finished_at' => now()]);
+        // Someone else's conversation with the agent is theirs: not in the boss's thread.
+        $other = Task::factory()->chat()->create(['user_id' => $this->member->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->member->id.':'.$this->agent->id]);
+        $private = AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $other->id, 'status' => RunStatus::Completed]);
+        // Before the conversation began.
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => null, 'created_at' => now()->subDays(2)]);
+
+        return [$chat, $routineRun, $private];
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}"))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('agent_background', 1)
+            ->where('agent_background.0.id', $routineRun->id)
+            ->where('agent_background.0.output', 'Cobranças enviadas.'));
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}?execucao={$routineRun->id}"))
+        ->assertInertia(fn (Assert $page) => $page->where('panel_run.run.id', $routineRun->id));
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}?execucao={$private->id}"))
+        ->assertInertia(fn (Assert $page) => $page->where('panel_run', null));
+});
+
 it('stops showing a run that lost its worker as working, and closes it as failed', function () {
     $chat = asTenant($this->a, function () {
         $chat = Task::factory()->chat()->create(['user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->boss->id.':'.$this->agent->id]);
