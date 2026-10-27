@@ -1563,3 +1563,20 @@ Ideia vinda do OpenDuet.
 - **Sem modelo de IA:** `App\Home\MorningSummary` monta tudo a partir do que a plataforma sabe. Não custa nada e não inventa. Cada linha tem a ligação para onde se decide.
 - **«Começar»:** uma linha de email tem «Começar», que entrega o email ao agente que trata aquele tipo de email (`EmailRouter`) na conversa da pessoa com ele, pedindo que prepare o que for preciso sem enviar nada.
 - Enquanto o resumo está aberto, a linha «À sua espera» do Início fica escondida, para não repetir.
+
+## Iniciativas dos agentes (27.10.2026)
+
+Ideia vinda do OpenDuet. É o «batimento proactivo» proposto antes, e o Barrote aprovou-o com os outros pontos.
+
+- **O que é:** duas vezes por dia, nos dias úteis às 08:00 e às 14:00 de Maputo, cada agente activo com uma pessoa responsável propõe-lhe trabalho que pode fazer sozinho. O comando é `agents:initiatives` e o serviço é `App\Ai\Initiatives\OfferWork`.
+- **O modelo:** escreve-as o modelo mais barato (`agents.suggestions_model`, Gemini 3.1 Flash-Lite), e o custo entra no orçamento (`agents.heartbeat`).
+- **De onde vêm:** de evidências que a plataforma lhe dá numa lista com referências:
+  - os emails das últimas 48 horas da área do agente (pelas Regras de email e fluxos, ou da caixa do agente) que ainda não têm tarefa nem conversa;
+  - as tarefas do agente que estão bloqueadas.
+  - As tarefas só paradas ficam com o `agents:heartbeat` de hora a hora, que já acorda o agente para elas.
+- **Sem evidência não há iniciativa:** cada iniciativa tem de citar uma referência da lista. Uma referência inventada é descartada, e a mesma evidência não é proposta duas vezes na mesma semana. São no máximo 3 de cada vez, e nenhuma quando nada vale a pena. Uma iniciativa não decidida expira ao fim de 3 dias.
+- **Onde aparece:** no Início (por baixo do resumo da manhã) e na conversa da pessoa com esse agente, por cima da caixa de escrita. Mostra «Posso tratar disto: …», porquê, as evidências com ligação, e dois botões:
+  - «Começar» abre a tarefa para o agente, em nome da pessoa e com o email de origem. Põe-no a trabalhar com «Prepara tudo, mas nada sai para fora sem eu ver», e o agente responde «Vou tratar disso.».
+  - «Esconder» descarta a iniciativa.
+  - Só a pessoa a quem foi proposta decide.
+- **O nome:** o batimento de hora a hora (`agents:heartbeat`) continua igual. Para não se confundir com ele, este chama-se «iniciativas».

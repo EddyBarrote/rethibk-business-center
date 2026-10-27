@@ -2,6 +2,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowUp, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { type FormEvent, Fragment, useRef, useState } from 'react';
 
+import { type Initiative, Initiatives } from '@/Components/home/Initiatives';
 import { type Morning, MorningSummary } from '@/Components/home/MorningSummary';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { HomeAgents, type NowRun } from '@/Components/agents/AgentNow';
@@ -53,6 +54,7 @@ export default function Home({
     attachment_limits,
     agents_now: now,
     morning,
+    initiatives,
 }: {
     agents: HomeAgent[];
     agent_id: number;
@@ -61,6 +63,7 @@ export default function Home({
     attachment_limits: AttachmentLimits;
     agents_now: { active: NowRun[]; done: NowRun[] };
     morning: Morning | null;
+    initiatives: Initiative[];
 }) {
     const { auth } = usePage<SharedProps>().props;
     const [agentId, setAgentId] = useState(agent_id);
@@ -138,6 +141,7 @@ export default function Home({
                 </div>
 
                 {morning && <MorningSummary morning={morning} />}
+                <Initiatives initiatives={initiatives} />
 
                 <form onSubmit={submit} {...drop.dropProps} className="relative flex w-full flex-col gap-2 rounded-2xl border bg-card p-3">
                     <DropOverlay show={drop.dragging} />

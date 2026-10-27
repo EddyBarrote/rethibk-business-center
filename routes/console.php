@@ -14,6 +14,8 @@ Schedule::command('agents:run-routines')->everyMinute()->withoutOverlapping();
 Schedule::command('agents:heartbeat')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('agents:close-stale-runs')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('agents:suggest')->dailyAt('06:00')->timezone('Africa/Maputo')->withoutOverlapping();
+// What the agents offer to do: twice on working days (docs/DECISOES.md, "Iniciativas dos agentes").
+Schedule::command('agents:initiatives')->weekdays()->twiceDaily(8, 14)->timezone('Africa/Maputo')->withoutOverlapping();
 Schedule::command('agents:consolidate-memory')->dailyAt('21:00')->timezone('Africa/Maputo');
 Schedule::command('mail:fetch')->everyMinute()->withoutOverlapping();
 Schedule::command('mail:prune')->dailyAt('02:30');

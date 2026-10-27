@@ -2,6 +2,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, RotateCcw, Route, Send, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
+import { type Initiative, Initiatives } from '@/Components/home/Initiatives';
 import { useCanAllowAlways } from '@/Components/ApprovalCard';
 import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -54,6 +55,8 @@ interface Props extends TaskFormOptions {
     tool_calls: Record<number, ToolCall[]>;
     thinking: Record<number, Thought>;
     emails: Record<number, ProposedEmail[]>;
+    /** What this agent offers to do, in the person's conversation with it. */
+    initiatives?: Initiative[];
     panel_run: PanelRun | null;
     tool_names: Record<string, string>;
     approvals: PendingApproval[];
@@ -101,6 +104,7 @@ const reloadProps = [
     'tool_calls',
     'thinking',
     'emails',
+    'initiatives',
     'approvals',
     'workflow',
     'has_journey',
@@ -179,6 +183,7 @@ export default function TaskShow({
     tool_calls: toolCalls,
     thinking,
     emails,
+    initiatives = [],
     panel_run: panelRun,
     agent_work: agentWork,
     agent_elsewhere: elsewhere,
@@ -718,6 +723,8 @@ export default function TaskShow({
                             )}
 
                             {workflow?.decision && <WorkflowDecision decision={workflow.decision} />}
+
+                            <Initiatives initiatives={initiatives} showAgent={false} className="px-1" />
 
                             {can.reply ? (
                                 <>

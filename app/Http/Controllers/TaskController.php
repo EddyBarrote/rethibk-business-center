@@ -21,6 +21,7 @@ use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
+use App\Models\AgentInitiative;
 use App\Models\AgentRun;
 use App\Models\AgentRunStep;
 use App\Models\Approval;
@@ -530,6 +531,11 @@ class TaskController extends Controller
             'thinking' => $this->thinking($task),
             // The emails each turn proposed, as email cards (docs/DECISOES.md, "Email proposto na conversa").
             'emails' => $this->proposedEmails($task, $user),
+            // In the person's conversation with an agent, what that agent offers to do (docs/DECISOES.md, "Iniciativas dos agentes").
+            'initiatives' => fn () => $task->kind === TaskKind::Chat && $task->user_id === $user->id && $task->assignee_agent_id !== null
+                ? AgentInitiative::query()->offered()->where('user_id', $user->id)->where('agent_id', $task->assignee_agent_id)->with('agent')->latest('id')->limit(3)->get()
+                    ->map(fn (AgentInitiative $initiative) => Present::initiative($initiative))
+                : [],
             // The run open in the side panel (?execucao=), so "Ver execução" never leaves the conversation.
             'panel_run' => fn () => $this->panelRun($request, $task, $user),
             'tool_names' => fn () => Capability::query()->pluck('name', 'key'),

@@ -6,6 +6,7 @@ use App\Ai\Autonomy\ApprovalRules;
 use App\Email\EmailReferences;
 use App\Enums\TaskKind;
 use App\Models\Agent;
+use App\Models\AgentInitiative;
 use App\Models\AgentMemory;
 use App\Models\AgentRoutine;
 use App\Models\AgentRun;
@@ -177,6 +178,24 @@ final class Present
             'executed_at' => $approval->executed_at?->toIso8601String(),
             'created_at' => $approval->created_at->toIso8601String(),
             'can_decide' => $canDecide && $approval->status->value === 'pending',
+        ];
+    }
+
+    /**
+     * What an agent offers to do (docs/DECISOES.md, "Iniciativas dos agentes").
+     *
+     * @return array<string, mixed>
+     */
+    public static function initiative(AgentInitiative $initiative): array
+    {
+        return [
+            'id' => $initiative->id,
+            'agent' => ['id' => $initiative->agent_id, 'name' => $initiative->agent->name, 'avatar_url' => $initiative->agent->avatarUrl()],
+            'title' => $initiative->title,
+            'why' => $initiative->why,
+            'plan' => $initiative->plan,
+            'evidence' => $initiative->evidence,
+            'created_at' => $initiative->created_at->toIso8601String(),
         ];
     }
 

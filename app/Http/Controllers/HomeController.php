@@ -9,6 +9,7 @@ use App\Enums\QuestionStatus;
 use App\Home\MorningSummary;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
+use App\Models\AgentInitiative;
 use App\Models\AgentQuestion;
 use App\Models\Approval;
 use App\Models\Task;
@@ -82,6 +83,9 @@ class HomeController extends Controller
             'agents_now' => fn () => app(AgentNow::class)->overview($agents, $user),
             // Once a day, until closed (docs/DECISOES.md, "Resumo da manhã").
             'morning' => fn () => app(MorningSummary::class)->for($user),
+            // What the agents offer to do on their own (docs/DECISOES.md, "Iniciativas dos agentes").
+            'initiatives' => fn () => AgentInitiative::query()->offered()->where('user_id', $user->id)->with('agent')->latest('id')->limit(5)->get()
+                ->map(fn (AgentInitiative $initiative) => Present::initiative($initiative)),
         ]);
     }
 

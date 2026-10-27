@@ -19,6 +19,7 @@ use App\Http\Controllers\GoalController;
 use App\Http\Controllers\GoogleCalendarController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\InitiativeController;
 use App\Http\Controllers\Knowledge\DomainController;
 use App\Http\Controllers\Knowledge\FolderController;
 use App\Http\Controllers\KnowledgeController;
@@ -76,6 +77,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', HomeController::class)->name('home');
     Route::post('morning-summary/close', [HomeController::class, 'closeMorning'])->name('home.morning.close');
+    Route::post('initiatives/{initiative}/start', [InitiativeController::class, 'start'])->middleware('throttle:20,1')->name('initiatives.start');
+    Route::post('initiatives/{initiative}/hide', [InitiativeController::class, 'hide'])->name('initiatives.hide');
     Route::get('painel', DashboardController::class)->name('dashboard');
 
     Route::get('agents', [AgentController::class, 'index'])->name('agents.index');
