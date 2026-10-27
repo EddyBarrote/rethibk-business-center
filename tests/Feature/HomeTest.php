@@ -1,7 +1,9 @@
 <?php
 
+use App\Ai\Suggestions\SuggestionWriter;
 use App\Models\Agent;
 use App\Models\AgentQuestion;
+use App\Models\AiCharge;
 use App\Models\Approval;
 use App\Models\Capability;
 use App\Models\Tenant;
@@ -51,7 +53,7 @@ it('opens the entry screen with the agents the person can talk to, the latest co
     $this->actingAs($lonely)->get(tenantUrl($this->tenant))->assertRedirect(tenantUrl($this->tenant, 'tasks'));
 });
 
-it('suggests what the capabilities make possible until someone writes the suggestions', function () {
+it('suggests what the capabilities make possible until the AI writes the suggestions', function () {
     asTenant($this->tenant, function () {
         $capability = Capability::factory()->create(['key' => 'finance.month_summary']);
         $this->finance->capabilities()->attach($capability->id, ['enabled' => true]);
@@ -61,28 +63,23 @@ it('suggests what the capabilities make possible until someone writes the sugges
         ->assertInertia(fn (Assert $page) => $page
             ->where('agents.0.suggestions', ['Resumo financeiro deste mês', 'O que podes fazer por mim?', 'Resume o que fizeste esta semana']));
 
-    $this->finance->forceFill(['suggestions' => ['Quanto facturámos ontem?', '  ']])->save();
-
+    // The ones written this morning win, while they are at most a few days old.
+    $this->finance->forceFill(['settings' => ['daily_suggestions' => ['date' => now()->toDateString(), 'items' => ['Quanto facturámos ontem?']]]])->save();
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant))
         ->assertInertia(fn (Assert $page) => $page->where('agents.0.suggestions', ['Quanto facturámos ontem?']));
+
+    $this->finance->forceFill(['settings' => ['daily_suggestions' => ['date' => now()->subDays(5)->toDateString(), 'items' => ['Antiga']]]])->save();
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant))
+        ->assertInertia(fn (Assert $page) => $page->where('agents.0.suggestions.0', 'Resumo financeiro deste mês'));
 });
 
-it('saves the suggestions written on the agent, empty ones left out', function () {
-    $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "agents/{$this->finance->id}/edit"))
-        ->assertInertia(fn (Assert $page) => $page->where('agent.suggestions', [])->has('agent.suggested'));
+it('writes each agent new suggestions every morning, with the cheap model, charged to the budget', function () {
+    SuggestionWriter::fake([['suggestions' => ['Que facturas da Mozal estão por cobrar?', 'Resume a facturação de Outubro', ' ', 'Que facturas da Mozal estão por cobrar?']]]);
 
-    $data = [
-        ...$this->finance->only(['key', 'name']),
-        'status' => $this->finance->status->value,
-        'autonomy_level' => $this->finance->autonomy_level->value,
-        'suggestions' => ['Fluxo de caixa', '', null, 'Faturas em atraso'],
-    ];
+    $this->artisan('agents:suggest')->assertSuccessful();
 
-    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "agents/{$this->finance->id}"), $data)->assertSessionHasNoErrors();
-    expect($this->finance->fresh()->suggestions)->toBe(['Fluxo de caixa', 'Faturas em atraso']);
-
-    $this->actingAs($this->owner)->put(tenantUrl($this->tenant, "agents/{$this->finance->id}"), [...$data, 'suggestions' => ['', '']]);
-    expect($this->finance->fresh()->suggestions)->toBeNull();
+    expect($this->finance->fresh()->settings['daily_suggestions'])->toBe(['date' => now()->toDateString(), 'items' => ['Que facturas da Mozal estão por cobrar?', 'Resume a facturação de Outubro']])
+        ->and(asTenant($this->tenant, fn () => AiCharge::query()->where('purpose', 'agents.suggestions')->exists()))->toBeTrue();
 });
 
 it('shows the agents waiting on an answer from the person', function () {

@@ -80,6 +80,9 @@ return [
     |
     */
 
+    // The daily suggestions of the entry screen use the cheapest model.
+    'suggestions_model' => env('AI_SUGGESTIONS_MODEL', 'gemini-3.1-flash-lite'),
+
     'models' => [
         ['provider' => 'gemini', 'model' => 'gemini-3.6-flash', 'label' => 'Gemini 3.6 Flash', 'hint' => 'Bom a raciocinar e a usar ferramentas. É o modelo por omissão.'],
         ['provider' => 'gemini', 'model' => 'gemini-3.1-flash-lite', 'label' => 'Gemini 3.1 Flash-Lite', 'hint' => 'Mais rápido e cerca de 6 vezes mais barato. Para triagem e tarefas simples.'],

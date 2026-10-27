@@ -1,5 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
-import { BookOpen, Bot, Brain, ChevronRight, Cpu, Lightbulb, Puzzle, Search } from 'lucide-react';
+import { BookOpen, Bot, Brain, ChevronRight, Cpu, Puzzle, Search } from 'lucide-react';
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
@@ -161,7 +161,6 @@ export default function AgentDefinitionForm({
         max_steps: str(agent?.max_steps),
         capabilities: seed?.capabilities ?? options.defaultCapabilities ?? [],
         skills: seed?.skills ?? [],
-        suggestions: Array.from({ length: 4 }, (_, index) => agent?.suggestions?.[index] ?? ''),
     });
     const errors = form.errors as Record<string, string | undefined>;
     const [filter, setFilter] = useState('');
@@ -207,7 +206,6 @@ export default function AgentDefinitionForm({
         ...extraSections.filter((section) => section.id === 'assistente'),
         { id: 'identidade', label: 'Identidade', icon: Bot },
         { id: 'personalidade', label: 'Personalidade e instruções', icon: Brain },
-        { id: 'sugestoes', label: 'Sugestões', icon: Lightbulb },
         { id: 'modelo', label: 'Autonomia e modelo', icon: Cpu },
         { id: 'capacidades', label: 'Capacidades', icon: Puzzle, count: form.data.capabilities.length },
         { id: 'skills', label: 'Skills', icon: BookOpen, count: form.data.skills.length },
@@ -340,31 +338,6 @@ export default function AgentDefinitionForm({
                                     onChange={(e) => form.setData('instructions', e.target.value)}
                                 />
                             </Field>
-                        </div>
-                    </FormSection>
-
-                    <FormSection
-                        id="sugestoes"
-                        title="Sugestões"
-                        description="O que o ecrã de entrada propõe perguntar a este agente. Em branco, mostra as que as capacidades sugerem (em cinzento)."
-                    >
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            {form.data.suggestions.map((suggestion, index) => (
-                                <Field key={index} id={`suggestion-${index}`} label={`Sugestão ${index + 1}`} error={errors[`suggestions.${index}`]}>
-                                    <Input
-                                        id={`suggestion-${index}`}
-                                        maxLength={120}
-                                        placeholder={agent?.suggested?.[index] ?? ''}
-                                        value={suggestion}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'suggestions',
-                                                form.data.suggestions.map((value, position) => (position === index ? e.target.value : value)),
-                                            )
-                                        }
-                                    />
-                                </Field>
-                            ))}
                         </div>
                     </FormSection>
 

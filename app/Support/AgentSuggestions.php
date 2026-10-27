@@ -7,8 +7,9 @@ use Illuminate\Support\Collection;
 
 /**
  * What the entry screen offers to ask an agent (docs/DECISOES.md, "Ecrã de
- * entrada e modo lite"): the four written on the agent, or, until someone
- * writes them, the ones its capabilities make possible.
+ * entrada e modo lite"): the four the AI wrote this morning from what the
+ * agent does and has been asked ("Sugestões geradas todos os dias"), or,
+ * until there are some, the ones its capabilities make possible.
  */
 final class AgentSuggestions
 {
@@ -57,10 +58,10 @@ final class AgentSuggestions
      */
     public static function for(Agent $agent): array
     {
-        $written = array_values(array_filter(array_map('trim', $agent->suggestions ?? []), fn (string $text) => $text !== ''));
-
-        if ($written !== []) {
-            return array_slice($written, 0, self::MAX);
+        // Written by the AI each morning (DailySuggestions); a few days old is still better than none.
+        $daily = $agent->settings['daily_suggestions'] ?? null;
+        if (is_array($daily) && ($daily['items'] ?? []) !== [] && now()->subDays(3)->toDateString() <= (string) ($daily['date'] ?? '')) {
+            return array_slice(array_values((array) $daily['items']), 0, self::MAX);
         }
 
         // Loaded with only the enabled ones (HomeController), or asked for here.

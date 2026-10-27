@@ -1472,3 +1472,9 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 
 - Na configuração do agente, o modelo escolhe-se de uma lista (`config('agents.models')`) e deixa de se escrever. A primeira opção é «Por omissão da plataforma» e as seguintes são os modelos cujo provedor tem chave, cada um com uma frase e o preço por milhão de tokens (de `agents.pricing`). Hoje são o Gemini 3.6 Flash e o Gemini 3.1 Flash-Lite.
 - A validação só aceita modelos da lista, ou o modelo que o agente já tinha, para um agente antigo continuar a gravar. A página do agente mostra o modelo pelo nome.
+
+## Sugestões geradas todos os dias (27.10.2026)
+
+- As sugestões do ecrã de entrada de cada agente deixam de se escrever na configuração (a secção «Sugestões» saiu). Todos os dias às 6h (Maputo), `agents:suggest` pede ao modelo barato (`agents.suggestions_model`, Gemini 3.1 Flash-Lite) quatro pedidos curtos para cada agente activo.
+- O modelo escreve a partir da função e das instruções do agente, das capacidades ligadas, das tarefas e dos pedidos das pessoas dos últimos 7 dias, da memória do agente e das sugestões da véspera, para variar. Só pode usar nomes e factos que estejam nesse contexto.
+- As sugestões ficam no agente (`settings.daily_suggestions`) e valem até 3 dias. Sem elas, aparecem as que as capacidades sugerem. Cada geração é registada no orçamento de IA (`agents.suggestions`) e não corre sem chave nem sem orçamento.
