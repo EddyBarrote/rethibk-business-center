@@ -1478,3 +1478,8 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - As sugestões do ecrã de entrada de cada agente deixam de se escrever na configuração (a secção «Sugestões» saiu). Todos os dias às 6h (Maputo), `agents:suggest` pede ao modelo barato (`agents.suggestions_model`, Gemini 3.1 Flash-Lite) quatro pedidos curtos para cada agente activo.
 - O modelo escreve a partir da função e das instruções do agente, das capacidades ligadas, das tarefas e dos pedidos das pessoas dos últimos 7 dias, da memória do agente e das sugestões da véspera, para variar. Só pode usar nomes e factos que estejam nesse contexto.
 - As sugestões ficam no agente (`settings.daily_suggestions`) e valem até 3 dias. Sem elas, aparecem as que as capacidades sugerem. Cada geração é registada no orçamento de IA (`agents.suggestions`) e não corre sem chave nem sem orçamento.
+
+## Agentes: configuração em separadores (27.10.2026)
+
+- A configuração do agente passa a mostrar uma secção de cada vez, com separadores: Identidade, Personalidade e instruções, Autonomia e modelo, Capacidades e Skills. Num ecrã largo ficam na coluna da esquerda; no telefone e no tablet, numa linha por cima. O endereço guarda o separador (`#modelo` abre «Autonomia e modelo») e a barra «Guardar agente» continua fixa em baixo, para gravar tudo de uma vez.
+- Depois de gravar, um separador com erros fica com um ponto vermelho, e o primeiro desses separadores abre sozinho.
