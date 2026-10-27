@@ -12,6 +12,7 @@ import {
     type LucideIcon,
     Paperclip,
     Palette,
+    KeyRound,
     PlugZap,
     Puzzle,
     Route,
@@ -96,6 +97,13 @@ export const settingsGroups: SettingsGroup[] = [
                 href: '/settings/attachments',
                 icon: Paperclip,
                 description: 'Imagens, PDF, documentos e áudio nas conversas: tamanho e tipos.',
+                permissions: ['company.manage'],
+            },
+            {
+                label: 'Provedores de IA',
+                href: '/settings/ai-providers',
+                icon: KeyRound,
+                description: 'As chaves da empresa para Gemini, Claude, OpenAI, OpenRouter e outros.',
                 permissions: ['company.manage'],
             },
             {

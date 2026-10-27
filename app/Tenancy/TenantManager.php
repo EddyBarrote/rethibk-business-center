@@ -2,6 +2,7 @@
 
 namespace App\Tenancy;
 
+use App\Ai\ProviderKeys;
 use App\Models\Tenant;
 use App\Tenancy\Exceptions\NoTenantException;
 use Closure;
@@ -46,12 +47,16 @@ final class TenantManager
             $tenant = Tenant::query()->findOrFail($tenant);
         }
 
-        return $this->tenant = $tenant;
+        $this->tenant = $tenant;
+        ProviderKeys::apply($tenant);
+
+        return $tenant;
     }
 
     public function forget(): void
     {
         $this->tenant = null;
+        ProviderKeys::apply(null);
     }
 
     /**
@@ -70,6 +75,7 @@ final class TenantManager
             return $callback($this->set($tenant));
         } finally {
             $this->tenant = $previous;
+            ProviderKeys::apply($previous);
         }
     }
 

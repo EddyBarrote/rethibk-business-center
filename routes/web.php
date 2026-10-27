@@ -32,6 +32,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\Settings\AccessRoleController;
 use App\Http\Controllers\Settings\AgentMemoryController;
+use App\Http\Controllers\Settings\AiProviderController;
 use App\Http\Controllers\Settings\AttachmentSettingsController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\CompanyMemoryController;
@@ -226,6 +227,9 @@ Route::middleware('auth')->group(function () {
         Route::post('brand/assets', [BrandController::class, 'storeAsset'])->name('settings.brand.assets.store');
         Route::get('brand/assets/{key}', [BrandController::class, 'asset'])->name('settings.brand.assets.show');
         Route::delete('brand/assets/{key}', [BrandController::class, 'destroyAsset'])->name('settings.brand.assets.destroy');
+        Route::get('ai-providers', [AiProviderController::class, 'show'])->name('settings.ai-providers.show');
+        Route::put('ai-providers/{provider}', [AiProviderController::class, 'update'])->name('settings.ai-providers.update');
+        Route::delete('ai-providers/{provider}', [AiProviderController::class, 'destroy'])->name('settings.ai-providers.destroy');
         Route::get('attachments', [AttachmentSettingsController::class, 'show'])->name('settings.attachments.show');
         Route::put('attachments', [AttachmentSettingsController::class, 'update'])->name('settings.attachments.update');
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->names('settings.departments');

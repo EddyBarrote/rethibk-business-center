@@ -1501,3 +1501,9 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - Todas as escolhas de uma lista na plataforma passam a abrir uma lista com um campo de procura no topo (`Components/ui/search-list.tsx`). A procura ignora acentos e maiúsculas e encontra também pelo nome do grupo («Agentes», «Colegas»).
 - A troca foi feita nos dois componentes partilhados, com a mesma API: `NativeSelect` (com value, onChange e `<option>`/`<optgroup>`) e `Select` (a API do shadcn). As páginas que os usam não mudaram. O `NativeSelect` com `name` leva um campo escondido para os formulários normais.
 - Funciona dentro de diálogos, porque a lista abre como popover modal.
+
+## Chaves dos provedores de IA na plataforma (27.10.2026)
+
+- Pedido do Barrote: guardar as chaves dos provedores de IA na plataforma, sem ir ao .env. Fica em Definições › Provedores de IA (`/settings/ai-providers`, só proprietários e administradores, com a permissão «Administrar a empresa»). Cada provedor da lista (`agents.providers`) mostra o estado: chave da empresa (••••últimos 4 caracteres, quem a guardou e quando), ligado pelo .env, ou sem chave. Tem «Colar chave», «Substituir chave» e «Retirar».
+- As chaves ficam em `ai_provider_keys`, uma por empresa e provedor, cifradas com a APP_KEY (cast `encrypted`). Nunca são enviadas para uma página nem escritas no registo de auditoria, que regista só quem a pôs ou retirou e de que provedor.
+- `App\Ai\ProviderKeys::apply()` corre sempre que muda a empresa corrente (`TenantManager::set`, `run` e `forget`), ou seja, em cada pedido, job e comando por empresa. Põe as chaves da empresa na configuração e devolve ao valor do .env as que foram postas para a empresa anterior. Um provedor cuja chave mudou é construído de novo no uso seguinte. Sem chave da empresa, vale a do .env.
