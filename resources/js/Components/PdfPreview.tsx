@@ -10,11 +10,12 @@ import { Button } from '@/Components/ui/button';
  */
 export function PdfPreview({ src, title, page, className }: { src: string; title: string; page?: number | null; className?: string }) {
     const inline = `${src}?inline=1`;
+    // The page fills the width of the frame, without the thumbnails column.
 
     return (
         <object
             key={page ?? 0}
-            data={page ? `${inline}#page=${page}` : inline}
+            data={`${inline}#${page ? `page=${page}&` : ''}view=FitH&navpanes=0`}
             type="application/pdf"
             aria-label={title}
             className={cn('h-[78vh] w-full rounded-xl border bg-card', className)}
