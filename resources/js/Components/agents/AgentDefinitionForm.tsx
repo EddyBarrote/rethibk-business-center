@@ -1,5 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
-import { BookOpen, Bot, Brain, ChevronRight, Cpu, Puzzle, Search } from 'lucide-react';
+import { BookOpen, Bot, Brain, ChevronRight, Cpu, Puzzle, ShieldCheck, Search } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
@@ -196,7 +196,8 @@ export default function AgentDefinitionForm({
         ...extraSections.filter((section) => section.id === 'assistente'),
         { id: 'identidade', label: 'Identidade', icon: Bot },
         { id: 'personalidade', label: 'Personalidade e instruções', icon: Brain },
-        { id: 'modelo', label: 'Autonomia e modelo', icon: Cpu },
+        { id: 'autonomia', label: 'Autonomia', icon: ShieldCheck },
+        { id: 'modelo', label: 'Modelo', icon: Cpu },
         { id: 'capacidades', label: 'Capacidades', icon: Puzzle, count: form.data.capabilities.length },
         { id: 'skills', label: 'Skills', icon: BookOpen, count: form.data.skills.length },
         ...extraSections.filter((section) => section.id !== 'assistente'),
@@ -229,7 +230,8 @@ export default function AgentDefinitionForm({
     const fieldsOf: Record<string, string[]> = {
         identidade: ['name', 'key', 'title', 'description', 'department_id', 'reports_to_user_id', 'reports_to_agent_id'],
         personalidade: ['personality', 'instructions'],
-        modelo: ['status', 'autonomy_level', 'provider', 'model', 'temperature', 'max_tokens', 'max_steps'],
+        autonomia: ['status', 'autonomy_level'],
+        modelo: ['provider', 'model', 'temperature', 'max_tokens', 'max_steps'],
         capacidades: ['capabilities'],
         skills: ['skills'],
     };
@@ -381,10 +383,10 @@ export default function AgentDefinitionForm({
                         </FormSection>
                     </div>
 
-                    <div hidden={tab !== 'modelo'}>
+                    <div hidden={tab !== 'autonomia'}>
                         <FormSection
-                            id="modelo"
-                            title="Autonomia e modelo"
+                            id="autonomia"
+                            title="Autonomia"
                             description="O tecto absoluto (pagamentos, facturas, contratos, pessoas, permissões) pede sempre aprovação."
                         >
                             <div className="grid gap-6">
@@ -428,7 +430,17 @@ export default function AgentDefinitionForm({
                                     ))}
                                     {errors.autonomy_level && <p className="text-sm text-destructive">{errors.autonomy_level}</p>}
                                 </fieldset>
-                                <p className="-mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Modelo</p>
+                            </div>
+                        </FormSection>
+                    </div>
+
+                    <div hidden={tab !== 'modelo'}>
+                        <FormSection
+                            id="modelo"
+                            title="Modelo"
+                            description="O modelo de IA com que o agente pensa e escreve. Os mais caros raciocinam melhor; os mais baratos chegam para triagem e tarefas simples."
+                        >
+                            <div className="grid gap-6">
                                 <fieldset className="flex flex-col gap-1">
                                     <legend className="sr-only">Modelo</legend>
                                     {[
@@ -493,41 +505,6 @@ export default function AgentDefinitionForm({
                                         <p className="text-sm text-destructive">{errors.model ?? errors.provider}</p>
                                     )}
                                 </fieldset>
-                                <div className="grid gap-4 sm:grid-cols-3">
-                                    <Field id="temperature" label="Temperatura" error={errors.temperature}>
-                                        <Input
-                                            id="temperature"
-                                            type="number"
-                                            step="0.1"
-                                            min="0"
-                                            max="2"
-                                            className="font-mono"
-                                            value={form.data.temperature}
-                                            onChange={(e) => form.setData('temperature', e.target.value)}
-                                        />
-                                    </Field>
-                                    <Field id="max_tokens" label="Máx. tokens" error={errors.max_tokens}>
-                                        <Input
-                                            id="max_tokens"
-                                            type="number"
-                                            min="1"
-                                            className="font-mono"
-                                            value={form.data.max_tokens}
-                                            onChange={(e) => form.setData('max_tokens', e.target.value)}
-                                        />
-                                    </Field>
-                                    <Field id="max_steps" label="Máx. passos" error={errors.max_steps}>
-                                        <Input
-                                            id="max_steps"
-                                            type="number"
-                                            min="1"
-                                            max="50"
-                                            className="font-mono"
-                                            value={form.data.max_steps}
-                                            onChange={(e) => form.setData('max_steps', e.target.value)}
-                                        />
-                                    </Field>
-                                </div>
                             </div>
                         </FormSection>
                     </div>

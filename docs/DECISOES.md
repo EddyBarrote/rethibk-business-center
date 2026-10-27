@@ -1481,5 +1481,5 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 
 ## Agentes: configuração em separadores (27.10.2026)
 
-- A configuração do agente passa a mostrar uma secção de cada vez, com separadores: Identidade, Personalidade e instruções, Autonomia e modelo, Capacidades e Skills. Num ecrã largo ficam na coluna da esquerda; no telefone e no tablet, numa linha por cima. O endereço guarda o separador (`#modelo` abre «Autonomia e modelo») e a barra «Guardar agente» continua fixa em baixo, para gravar tudo de uma vez.
+- A configuração do agente passa a mostrar uma secção de cada vez, com separadores: Identidade, Personalidade e instruções, Autonomia, Modelo, Capacidades e Skills. O separador Modelo só tem a escolha do modelo; temperatura, máximo de tokens e de passos saíram do ecrã e ficam com os valores por omissão (os que já estavam gravados mantêm-se). Num ecrã largo ficam na coluna da esquerda; no telefone e no tablet, numa linha por cima. O endereço guarda o separador (`#modelo` abre «Modelo») e a barra «Guardar agente» continua fixa em baixo, para gravar tudo de uma vez.
 - Depois de gravar, um separador com erros fica com um ponto vermelho, e o primeiro desses separadores abre sozinho.
