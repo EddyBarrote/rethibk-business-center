@@ -56,3 +56,27 @@ it('puts an email to a new external entity under the ceiling, and not one to a c
         ->and($external->ceilingReason)->toContain('novo@cliente.co.mz')
         ->and($internal->allowed)->toBeTrue();
 });
+
+it('holds what leaves the company when it carries sensitive data, whatever the level', function (string $body, string $kind) {
+    $this->tenant->update(['domain' => 'micomoc.co.mz']);
+    $decision = gateFor($this->tenant->fresh(), AutonomyLevel::ExecuteAndReport, 'comms.send_email', true, AutonomyLevel::ExecuteWithinLimits, [
+        'to' => ['direccao@micomoc.co.mz'], 'subject' => 'Dados', 'body' => $body,
+    ]);
+
+    expect($decision->allowed)->toBeFalse()->and($decision->ceilingReason)->toContain($kind);
+})->with([
+    ['Pague com o cartão 4111 1111 1111 1111, validade 12/28.', 'um número de cartão'],
+    ['O acesso ao portal: utilizador geral, palavra-passe: Maputo2026!', 'uma palavra-passe'],
+    ['Use a chave AIzaSyA1234567890abcdefghijklmnopqrstu no teste.', 'uma chave de acesso'],
+    ['O BI do colaborador é 110100123456B.', 'um número de BI'],
+    ['A colaboradora está de baixa médica até sexta.', 'dados de saúde'],
+]);
+
+it('lets a clean message out, with bank details and invoice numbers', function () {
+    $this->tenant->update(['domain' => 'micomoc.co.mz']);
+    $decision = gateFor($this->tenant->fresh(), AutonomyLevel::ExecuteAndReport, 'comms.send_email', true, AutonomyLevel::ExecuteWithinLimits, [
+        'to' => ['direccao@micomoc.co.mz'], 'subject' => 'Factura FT 2026/1043', 'body' => 'Segue a factura de 656,55 MZN. NIB 000100000012345678901, NUIT 400123456.',
+    ]);
+
+    expect($decision->allowed)->toBeTrue();
+});

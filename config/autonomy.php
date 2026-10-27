@@ -15,6 +15,13 @@
 
 return [
 
+    /*
+    | What leaves the company: read for sensitive data (cards, passwords,
+    | keys, identity numbers, health) before it goes (docs/DECISOES.md,
+    | "Dados sensíveis no que sai"). When found, a person decides.
+    */
+    'outgoing' => ['comms.send_email', 'briefings.publish', 'notify.user'],
+
     'ceiling' => [
         // Payments and money leaving the company.
         'erp.payments.create' => 'Saída de dinheiro ou instrução de pagamento',

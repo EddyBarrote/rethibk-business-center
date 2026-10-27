@@ -60,6 +60,11 @@ final class AutonomyGate
             return $ceiling[$capability->key];
         }
 
+        // What leaves the company is read first: sensitive data waits for a person (docs/DECISOES.md, "Dados sensíveis no que sai").
+        if (in_array($capability->key, (array) config('autonomy.outgoing', []), true) && ($found = app(SensitiveData::class)->find($arguments)) !== []) {
+            return 'Leva '.implode(', ', $found).': uma pessoa vê antes de sair';
+        }
+
         return $this->registry->find($capability->key)?->ceilingReason($arguments, $context);
     }
 }

@@ -1618,3 +1618,17 @@ Ideia vinda do OpenDuet.
   - a pesquisa na internet;
   - o Google Calendar (o cliente OAuth no .env e as agendas com erro).
 - **Ligação ao resumo da manhã:** a linha «O que não consegui verificar» do resumo da manhã aponta para esta página.
+
+## Dados sensíveis no que sai (27.10.2026)
+
+Ideia vinda do OpenDuet.
+
+- **O que se lê:** antes de sair, o porteiro (`AutonomyGate`) lê o que leva cada acção que manda algo para fora ou para alguém. A lista está em `autonomy.outgoing`: enviar email, publicar briefing e notificar pessoa.
+- **O que se procura (`App\Ai\Autonomy\SensitiveData`):**
+  - um número de cartão (13 a 19 algarismos que passam a verificação de Luhn);
+  - uma palavra-passe escrita («palavra-passe:», «senha:», «password:» e semelhantes);
+  - uma chave de acesso (Google, OpenAI, Anthropic, GitHub, Slack, AWS);
+  - um número de BI (12 algarismos e uma letra);
+  - dados de saúde (VIH/SIDA, diagnósticos, baixa ou atestado médico, gravidez, resultados de análises).
+- **O que acontece:** se encontra alguma destas coisas, a acção fica à espera de uma pessoa, como no tecto absoluto. O motivo diz o que foi encontrado («Leva uma palavra-passe: uma pessoa vê antes de sair»). Nenhum nível e nenhuma regra «Permitir sempre» passam por cima.
+- **O que não se procura:** o NIB e o NUIT, porque as facturas levam-nos de propósito.
