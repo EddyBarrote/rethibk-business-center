@@ -108,6 +108,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('tasks/{task}/collaborators/{collaborator}', [TaskController::class, 'uninvite'])->name('tasks.collaborators.destroy');
     Route::post('tasks/{task}/close', [TaskController::class, 'close'])->name('tasks.close');
     Route::post('tasks/{task}/reopen', [TaskController::class, 'reopen'])->name('tasks.reopen');
+    Route::post('tasks/{task}/retry', [TaskController::class, 'retry'])->middleware('throttle:10,1')->name('tasks.retry');
     Route::post('tasks/{task}/messages', [TaskController::class, 'message'])->middleware('throttle:30,1')->name('tasks.message');
     Route::post('questions/{question}/answer', [QuestionController::class, 'answer'])->middleware('throttle:30,1')->name('questions.answer');
     Route::get('agents/{agent}/chat', [TaskController::class, 'conversation'])->name('agents.conversation');

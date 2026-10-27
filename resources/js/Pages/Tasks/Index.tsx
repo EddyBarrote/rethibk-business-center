@@ -27,6 +27,7 @@ import {
     SlidersHorizontal,
     UserRound,
     X,
+    Target,
 } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -56,6 +57,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
 import { type BoardData, TaskBoard, TaskPlanner } from '@/Components/tasks/Board';
+import { type FocusData, TaskFocus } from '@/Components/tasks/Focus';
 import type { CollaboratorRoleOption } from '@/Components/tasks/Collaborators';
 import AppLayout from '@/Layouts/AppLayout';
 import { ago, dateTime, deadline, number, plural } from '@/lib/format';
@@ -261,8 +263,9 @@ interface Filters {
     semana?: string | null;
 }
 
-type Mode = 'lista' | 'quadro' | 'planear';
+type Mode = 'foco' | 'lista' | 'quadro' | 'planear';
 const modes: { key: Mode; label: string; icon: LucideIcon }[] = [
+    { key: 'foco', label: 'Foco', icon: Target },
     { key: 'lista', label: 'Lista', icon: List },
     { key: 'quadro', label: 'Quadro', icon: Columns3 },
     { key: 'planear', label: 'Planear', icon: CalendarRange },
@@ -279,10 +282,12 @@ interface Props extends TaskFormOptions {
     mode: Mode;
     /** The cards of Quadro and Planear; null in Lista. */
     board: BoardData | null;
+    /** Foco: the person's tasks by what they need from them; null in the other modes. */
+    focus: FocusData | null;
 }
 
 const NONE = 'none';
-const live = ['tasks', 'counts', 'status_counts', 'waiting_total', 'overdue_total', 'board'];
+const live = ['tasks', 'counts', 'status_counts', 'waiting_total', 'overdue_total', 'board', 'focus'];
 
 const views: { key: View; label: string; icon: LucideIcon; hint: string }[] = [
     { key: 'mine', label: 'Minhas', icon: Inbox, hint: 'Abertas consigo: suas, pedidas por si ou com uma aprovação sua' },
@@ -326,6 +331,7 @@ export default function TasksIndex({
     overdue_total,
     mode,
     board,
+    focus,
     agents,
     people,
     goals,
@@ -367,7 +373,7 @@ export default function TasksIndex({
         if (merged.agrupar !== 'estado') params.agrupar = merged.agrupar;
         if (merged.por_pagina !== per_page_options[0]) params.por_pagina = merged.por_pagina;
         const nextMode = merged.modo ?? mode;
-        if (nextMode !== 'lista') params.modo = nextMode;
+        if (nextMode !== 'foco') params.modo = nextMode;
         if (nextMode === 'planear' && merged.semana) params.semana = merged.semana;
         router.get('/tasks', params, { preserveState: true, preserveScroll: true, replace: next.q !== undefined });
     };
@@ -682,7 +688,9 @@ export default function TasksIndex({
                         </div>
                     </div>
 
-                    {board && mode === 'quadro' ? (
+                    {focus && mode === 'foco' ? (
+                        <TaskFocus focus={focus} />
+                    ) : board && mode === 'quadro' ? (
                         <TaskBoard board={board} />
                     ) : board && mode === 'planear' ? (
                         <TaskPlanner board={board} onWeek={(semana) => go({ semana })} />

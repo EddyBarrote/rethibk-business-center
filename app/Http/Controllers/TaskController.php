@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Ai\Agents\NewColleagues;
 use App\Ai\Autonomy\ApprovalRules;
 use App\Ai\Runs\AgentNow;
+use App\Ai\Runs\ApprovalService;
 use App\Attachments\AttachmentLimits;
 use App\Attachments\AttachmentStore;
 use App\Enums\AgentStatus;
@@ -14,6 +15,7 @@ use App\Enums\EmailStatus;
 use App\Enums\GoalStatus;
 use App\Enums\Permission;
 use App\Enums\ProjectStatus;
+use App\Enums\RunStatus;
 use App\Enums\StepType;
 use App\Enums\TaskKind;
 use App\Enums\TaskMessageKind;
@@ -92,11 +94,11 @@ class TaskController extends Controller
             'agrupar' => ['nullable', Rule::in(['estado', 'prioridade', 'responsavel', 'nenhum'])],
             'por_pagina' => ['nullable', 'integer', Rule::in(self::PER_PAGE)],
             // Lista, Quadro or Planear (docs/DECISOES.md, "Tarefas: quadro e planear").
-            'modo' => ['nullable', Rule::in(['lista', 'quadro', 'planear'])],
+            'modo' => ['nullable', Rule::in(['foco', 'lista', 'quadro', 'planear'])],
             'semana' => ['nullable', 'date_format:Y-m-d'],
         ]);
         $view = $filters['view'] ?? 'mine';
-        $mode = $filters['modo'] ?? 'lista';
+        $mode = $filters['modo'] ?? 'foco';
 
         // Conversations are opened from the agents in the sidebar (docs/DECISOES.md, "Conversas a partir dos agentes").
         if ($view === 'chats') {
@@ -154,7 +156,8 @@ class TaskController extends Controller
             ],
             'per_page_options' => self::PER_PAGE,
             'mode' => $mode,
-            'board' => $mode === 'lista' ? null : $this->board($user, $narrow, $view, $mode, $filters['semana'] ?? null),
+            'board' => in_array($mode, ['quadro', 'planear'], true) ? $this->board($user, $narrow, $view, $mode, $filters['semana'] ?? null) : null,
+            'focus' => $mode === 'foco' ? $this->focus($user, $narrow) : null,
             // Counted with the same rule and filters as the list, so a view never promises rows it does not show.
             'counts' => collect(['mine', 'waiting', 'all', 'closed'])->mapWithKeys(fn (string $in) => [$in => $base($in)->count()]),
             'status_counts' => collect(self::STATUS_ORDER)->mapWithKeys(fn (string $s) => [$s => (int) ($byStatus[$s] ?? 0)]),
@@ -814,6 +817,90 @@ class TaskController extends Controller
     private function visible(Builder $query, User $user): Builder
     {
         return $query->visibleTo($user);
+    }
+
+    /**
+     * Foco (docs/DECISOES.md, "Tarefas pelo que precisam de si", an idea from
+     * OpenDuet): the person's tasks by what they need from them, each once,
+     * in this order: needs you, failed, working, ready to review, needs
+     * information, resolved this week. Each says the agent's next step, or
+     * why it failed.
+     *
+     * @param  Closure(Builder<Task>): Builder<Task>  $narrow
+     * @return array<string, mixed>
+     */
+    private function focus(User $user, Closure $narrow): array
+    {
+        $mine = fn () => $this->visible(Task::query(), $user)->tap($narrow)->needing($user)->with(Present::TASK_RELATIONS);
+        $latestRun = fn (Builder $q) => $q->whereRaw('agent_runs.id = (select max(r.id) from agent_runs r where r.task_id = tasks.id)');
+
+        $sections = [
+            'needs' => $mine()->open()->where(fn (Builder $q) => $q->where('status', TaskStatus::WaitingHuman)
+                ->orWhereHas('runs.approvals', fn (Builder $a) => $a->pending()->visibleTo($user))),
+            'failed' => $mine()->open()->where('kind', TaskKind::Task)->whereNotNull('assignee_agent_id')
+                ->whereHas('runs', fn (Builder $r) => $r->where('status', RunStatus::Failed)->tap($latestRun)),
+            'working' => $mine()->open()->where('kind', TaskKind::Task)->whereNotNull('assignee_agent_id')
+                ->where(fn (Builder $q) => $q->whereIn('status', [TaskStatus::InProgress, TaskStatus::Todo])->orWhereHas('runs', fn (Builder $r) => $r->working())),
+            'review' => $mine()->where('status', TaskStatus::InReview),
+            'info' => $mine()->where('status', TaskStatus::Blocked),
+            'done' => $mine()->where('kind', TaskKind::Task)->where('status', TaskStatus::Done)->where('completed_at', '>=', now()->subDays(7)),
+        ];
+
+        $placed = [];
+        $tasks = [];
+
+        foreach ($sections as $key => $query) {
+            $found = $query->whereNotIn('tasks.id', $placed ?: [0])->latest('last_activity_at')->latest('id')->limit($key === 'done' ? 10 : 25)->get();
+            $placed = [...$placed, ...$found->modelKeys()];
+            $tasks[$key] = $found;
+        }
+
+        $ids = collect($tasks)->flatten()->map(fn (Task $task) => $task->id)->all();
+        $said = TaskMessage::query()->whereIn('task_id', $ids)->where('author_type', 'agent')->whereIn('kind', [TaskMessageKind::Message, TaskMessageKind::Report])
+            ->latest('id')->get(['task_id', 'body'])->unique('task_id')->pluck('body', 'task_id');
+        $failures = AgentRun::query()->whereIn('task_id', $tasks['failed']->modelKeys())->where('status', RunStatus::Failed)->latest('id')->get(['task_id', 'error'])->unique('task_id')->pluck('error', 'task_id');
+        $running = AgentRun::query()->whereIn('task_id', $ids)->working()->pluck('task_id')->flip();
+        $deciding = Approval::query()->pending()->visibleTo($user)->whereHas('run', fn (Builder $r) => $r->whereIn('task_id', $ids))->with('run:id,task_id')->get()->keyBy(fn (Approval $a) => $a->run->task_id);
+        // The whole agent, not only its name: the policies (update, reply) read it.
+        $agents = Agent::query()->whereIn('id', collect($tasks)->flatten()->pluck('assignee_agent_id')->filter()->unique())->get()->keyBy('id');
+        collect($tasks)->flatten()->each(fn (Task $task) => $task->assignee_agent_id !== null && $task->setRelation('assigneeAgent', $agents->get($task->assignee_agent_id)));
+        $excerpt = fn (?string $text) => $text === null ? null : Str::limit(Str::squish(strip_tags((string) preg_replace('/[*_#>`]+/', '', $text))), 160);
+
+        $sectionsOut = collect($tasks)->map(fn ($found, string $key) => $found->map(fn (Task $task) => [
+            ...Present::task($task),
+            'working' => isset($running[$task->id]),
+            'next' => match (true) {
+                $key === 'failed' => 'Não conseguiu: '.Str::limit((string) ($failures[$task->id] ?? 'a execução falhou.'), 200),
+                isset($deciding[$task->id]) => 'À espera da sua decisão: «'.ApprovalService::actionName($deciding[$task->id]).'».',
+                $key === 'working' && isset($running[$task->id]) => 'A trabalhar agora.',
+                $key === 'working' => $excerpt($said[$task->id] ?? null) ?? 'Começa na próxima volta.',
+                default => $excerpt($said[$task->id] ?? null),
+            },
+            'can_retry' => $key === 'failed' && $user->can('update', $task),
+            'can_reply' => $key === 'needs' && $task->status === TaskStatus::WaitingHuman && ! isset($deciding[$task->id]) && $user->can('reply', $task),
+        ])->values())->all();
+
+        // What the agents offer to do, between what needs the person and the rest (docs/DECISOES.md, "Iniciativas dos agentes").
+        $suggestions = AgentInitiative::query()->offered()->where('user_id', $user->id)->with('agent')->latest('id')->limit(5)->get()
+            ->map(fn (AgentInitiative $initiative) => Present::initiative($initiative))->values()->all();
+
+        return ['sections' => $sectionsOut, 'suggestions' => $suggestions];
+    }
+
+    /** «Tentar de novo» on a task whose agent failed (docs/DECISOES.md, "Tarefas pelo que precisam de si"). */
+    public function retry(Request $request, Task $task, TaskThread $threads): RedirectResponse
+    {
+        Gate::authorize('update', $task);
+        $user = $this->user($request);
+
+        if ($task->assignee_agent_id === null || AgentRun::query()->where('task_id', $task->id)->working()->exists()) {
+            return back()->with('error', 'O agente já está a trabalhar nesta tarefa.');
+        }
+
+        $threads->note($task, "{$user->name} pediu para tentar de novo.");
+        $threads->wake($task, $user, $task);
+
+        return back()->with('success', 'O agente vai tentar de novo.');
     }
 
     /**

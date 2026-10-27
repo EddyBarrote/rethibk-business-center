@@ -1580,3 +1580,24 @@ Ideia vinda do OpenDuet. É o «batimento proactivo» proposto antes, e o Barrot
   - «Esconder» descarta a iniciativa.
   - Só a pessoa a quem foi proposta decide.
 - **O nome:** o batimento de hora a hora (`agents:heartbeat`) continua igual. Para não se confundir com ele, este chama-se «iniciativas».
+
+## Tarefas pelo que precisam de si (27.10.2026)
+
+Ideia vinda do OpenDuet.
+
+- **O novo modo:** Tarefas tem um modo novo, «Foco», que passa a ser o modo com que a página abre. Lista, Quadro e Planear continuam a um clique (`?modo=lista`).
+- **As secções:** o Foco mostra as tarefas da pessoa (as mesmas de «Minhas») pelo que precisam dela. Cada tarefa aparece uma só vez, na primeira secção que lhe serve:
+  1. Precisa de si: o agente espera uma resposta, ou há uma aprovação dela. Logo a seguir vêm as sugestões dos agentes (as iniciativas), com «Começar» e «Esconder».
+  2. Não conseguiu: a última execução falhou.
+  3. A trabalhar.
+  4. Pronto para rever.
+  5. Precisa de informação: as tarefas bloqueadas.
+  6. Resolvido esta semana.
+- **O próximo passo:** cada tarefa mostra o próximo passo do agente:
+  - a última coisa que o agente disse;
+  - «À espera da sua decisão: «…»» quando há uma aprovação;
+  - «A trabalhar agora»;
+  - na secção «Não conseguiu», o motivo da falha da execução.
+- **Agir na própria lista:**
+  - Uma pergunta responde-se ali mesmo com «Responder», que publica a mensagem na tarefa e acorda o agente.
+  - Uma falha tem «Tentar de novo» (`POST /tasks/{id}/retry`), que deixa uma nota na conversa e acorda o agente outra vez. Não o faz se ele já estiver a trabalhar.
