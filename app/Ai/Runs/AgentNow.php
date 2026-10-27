@@ -99,6 +99,42 @@ class AgentNow
     }
 
     /**
+     * For the home screen (docs/DECISOES.md, "Início: os agentes a trabalhar"):
+     * what these agents are doing now and what they finished in the last day.
+     * Conversations are left out of the finished work (their answer is in the
+     * conversation); someone else's conversation is left out altogether.
+     *
+     * @param  Collection<int, Agent>  $agents
+     * @return array{active: list<array<string, mixed>>, done: list<array<string, mixed>>}
+     */
+    public function overview($agents, User $user): array
+    {
+        $ids = $agents->pluck('id');
+        $mine = fn (AgentRun $run) => $run->task === null || $run->task->kind !== TaskKind::Chat || $run->task->user_id === $user->id;
+
+        $active = AgentRun::query()->whereIn('agent_id', $ids)->working()
+            ->with(['agent:id,name', 'requestedBy:id,name', 'task'])->oldest('id')->get()->filter($mine)->values();
+
+        $done = AgentRun::query()->whereIn('agent_id', $ids)
+            ->whereIn('status', [RunStatus::Completed, RunStatus::Failed])
+            ->where('finished_at', '>=', now()->subDay())
+            ->with(['agent:id,name', 'requestedBy:id,name', 'task'])
+            ->latest('finished_at')
+            ->limit(20)
+            ->get()
+            ->filter(fn (AgentRun $run) => $run->task === null || $run->task->kind !== TaskKind::Chat)
+            ->take(8)
+            ->values();
+
+        $present = $this->presenter($active, $user);
+
+        return [
+            'active' => $active->map($present)->values()->all(),
+            'done' => $done->map($present)->values()->all(),
+        ];
+    }
+
+    /**
      * How a run is shown, with the step a live one is on.
      *
      * @param  Collection<int, AgentRun>  $live

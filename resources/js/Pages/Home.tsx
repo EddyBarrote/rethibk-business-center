@@ -3,6 +3,7 @@ import { ArrowUp, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { type FormEvent, Fragment, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
+import { HomeAgents, type NowRun } from '@/Components/agents/AgentNow';
 import { ApprovalSheet } from '@/Components/approvals/ApprovalSheet';
 import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
 import { InputError } from '@/Components/InputError';
@@ -49,12 +50,14 @@ export default function Home({
     questions,
     approvals,
     attachment_limits,
+    agents_now: now,
 }: {
     agents: HomeAgent[];
     agent_id: number;
     questions: { agent: string; href: string }[];
     approvals: ApprovalSummary[];
     attachment_limits: AttachmentLimits;
+    agents_now: { active: NowRun[]; done: NowRun[] };
 }) {
     const { auth } = usePage<SharedProps>().props;
     const [agentId, setAgentId] = useState(agent_id);
@@ -212,6 +215,10 @@ export default function Home({
                         ))}
                     </div>
                 )}
+
+                <div className="mt-6 w-full">
+                    <HomeAgents agents={agents} active={now.active} done={now.done} />
+                </div>
             </div>
 
             {!wide && approvalSheet}

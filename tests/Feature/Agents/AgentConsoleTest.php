@@ -259,3 +259,21 @@ it('closes the run when its job fails, instead of leaving it running', function 
     asTenant($this->a, fn () => expect($run->refresh()->status)->toBe(RunStatus::Failed)
         ->and($run->error)->toBe('A execução foi interrompida antes de terminar.'));
 });
+
+it('shows on the home screen who is working now and what finished today', function () {
+    asTenant($this->a, function () {
+        $work = Task::factory()->create(['title' => 'Seguir a proposta da Cimentos', 'user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $work->id, 'status' => RunStatus::Running, 'started_at' => now()]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => null, 'status' => RunStatus::Completed, 'finished_at' => now()->subHour()]);
+        // A conversation's answer is in the conversation; yesterday's work is not "today".
+        $chat = Task::factory()->chat()->create(['user_id' => $this->boss->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->boss->id.':'.$this->agent->id]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'task_id' => $chat->id, 'status' => RunStatus::Completed, 'finished_at' => now()]);
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'status' => RunStatus::Completed, 'finished_at' => now()->subDays(2)]);
+    });
+
+    $this->actingAs($this->boss)->get(tenantUrl($this->a, '/'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('agents_now.active', 1)
+            ->where('agents_now.active.0.task.title', 'Seguir a proposta da Cimentos')
+            ->has('agents_now.done', 1));
+});

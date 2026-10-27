@@ -304,3 +304,136 @@ export function BackgroundRow({ run, onOpenRun }: { run: NowRun; onOpenRun: (run
         </div>
     );
 }
+
+/**
+ * The home screen's view of the agents (docs/DECISOES.md, "Início: os agentes
+ * a trabalhar"): their faces (a ring on whoever is working), what each is
+ * doing now and what they finished in the last day. Each line opens the work
+ * in the person's conversation with that agent, its steps beside it.
+ */
+export function HomeAgents({
+    agents,
+    active,
+    done,
+}: {
+    agents: { id: number; name: string; avatar_url: string | null }[];
+    active: NowRun[];
+    done: NowRun[];
+}) {
+    const { tenant, sidebar_agents: sidebar = [] } = usePage<SharedProps>().props;
+    const toolNames = useToolNames();
+
+    useLive(
+        tenant ? `tenant.${tenant.id}.agents` : null,
+        ['AgentRunStarted', 'AgentRunFinished'],
+        () => router.reload({ only: ['agents_now', 'sidebar_agents'] }),
+        {
+            only: ['agents_now', 'sidebar_agents'],
+            poll: active.length > 0,
+        },
+    );
+
+    const chatOf = (agentId: number) => sidebar.find((agent) => agent.id === agentId)?.chat_id ?? null;
+    // In the person's conversation with the agent, the run open beside it; else where the run belongs.
+    const href = (run: NowRun) => {
+        if (run.task?.id) {
+            return `/tasks/${run.task.id}?execucao=${run.id}`;
+        }
+        const chat = chatOf(run.agent.id);
+
+        return chat ? `/tasks/${chat}?execucao=${run.id}` : `/settings/runs/${run.id}`;
+    };
+    const working = new Set(active.map((run) => run.agent.id));
+
+    return (
+        <div className="flex w-full flex-col gap-6">
+            <div className="flex flex-wrap justify-center gap-x-5 gap-y-3">
+                {agents.map((agent) => {
+                    const chat = chatOf(agent.id);
+
+                    return (
+                        <Link
+                            key={agent.id}
+                            href={chat ? `/tasks/${chat}` : `/agents/${agent.id}`}
+                            className="group flex w-16 flex-col items-center gap-1.5 text-center"
+                        >
+                            <AgentAvatar
+                                name={agent.name}
+                                url={agent.avatar_url}
+                                className="size-11 rounded-2xl text-xs transition-transform group-hover:scale-105"
+                            />
+                            <span
+                                className={cn(
+                                    'line-clamp-2 text-[11px] leading-tight',
+                                    working.has(agent.id) ? 'text-status-running' : 'text-muted-foreground',
+                                )}
+                            >
+                                {agent.name.replace(/^Agente de /, '')}
+                            </span>
+                        </Link>
+                    );
+                })}
+            </div>
+
+            {(active.length > 0 || done.length > 0) && (
+                <div className="grid gap-6 text-left sm:grid-cols-2">
+                    <section aria-label="A trabalhar agora" className="flex min-w-0 flex-col gap-1">
+                        <h2 className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <StatusDot tone={active.length > 0 ? 'running' : 'idle'} />A trabalhar agora
+                        </h2>
+                        {active.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Nenhum agente está a trabalhar.</p>
+                        ) : (
+                            active.map((run) => (
+                                <Link
+                                    key={run.id}
+                                    href={href(run)}
+                                    className="group -mx-2 flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60"
+                                >
+                                    <AgentAvatar name={run.agent.name} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="line-clamp-2 text-sm">
+                                            <span className="font-medium">{run.agent.name}</span> está a tratar de {workTitle(run, toolNames)}
+                                        </span>
+                                        <span className="block truncate text-xs text-status-running">
+                                            {stepLabel(run, toolNames)} · {run.status === 'queued' ? 'pedido' : 'começou'}{' '}
+                                            {ago(run.started_at ?? run.created_at)}
+                                        </span>
+                                    </span>
+                                </Link>
+                            ))
+                        )}
+                    </section>
+                    <section aria-label="Concluído nas últimas 24 horas" className="flex min-w-0 flex-col gap-1">
+                        <h2 className="mb-1 text-xs font-medium text-muted-foreground">Concluído nas últimas 24 horas</h2>
+                        {done.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Ainda nada hoje.</p>
+                        ) : (
+                            done.map((run) => (
+                                <Link
+                                    key={run.id}
+                                    href={href(run)}
+                                    className="-mx-2 flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60"
+                                >
+                                    <AgentAvatar name={run.agent.name} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="line-clamp-2 text-sm">
+                                            <span className="font-medium">{run.agent.name}</span>{' '}
+                                            {run.status === 'failed' ? 'não terminou' : 'tratou de'} {workTitle(run, toolNames)}
+                                        </span>
+                                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                            <StatusDot tone={runTone(run.status)} pulse={false} className="size-1.5 [&>span]:size-1.5" />
+                                            <span title={dateTime(run.finished_at)}>{ago(run.finished_at ?? run.created_at)}</span>
+                                            <span aria-hidden>·</span>
+                                            <span className="underline-offset-2 group-hover:underline">Ver o resultado</span>
+                                        </span>
+                                    </span>
+                                </Link>
+                            ))
+                        )}
+                    </section>
+                </div>
+            )}
+        </div>
+    );
+}

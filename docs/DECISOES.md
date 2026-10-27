@@ -1374,3 +1374,13 @@ Pedido do Barrote: «seleccionar um texto e fazer quote no chat, com a possibili
 | **Seleccionar texto numa mensagem** (do agente ou de uma pessoa) mostra «Citar» por cima da selecção; «Citar» abre ali mesmo uma caixa para o comentário (Enter guarda, Esc cancela). As citações guardadas ficam à parte («3 citações guardadas · 2 com comentário») até a pessoa carregar em «Anexar à mensagem»; aí vão para cima da caixa de escrita, onde o comentário ainda se muda e cada uma se tira. Pedido do Barrote: comentar no ponto, e só depois anexar tudo. | `Components/tasks/Quotes.tsx` (`QuoteSelection`, `QuoteTray`), `data-quote-author` em `Chat.tsx` |
 | **Chegam ao agente como markdown**, no início da mensagem: cada citação como bloco citado com o autor, o comentário por baixo, e depois o texto da mensagem. Na conversa aparecem como citações. Não muda nada no servidor. | `withQuotes()` |
 
+## Início: os agentes a trabalhar (27.10.2026)
+
+Pedido do Barrote: o Início «deve mostrar de uma forma intuitiva os agentes que estão a correr e se já têm trabalho concluído».
+
+| Decisão | Onde |
+|---|---|
+| **Por baixo da caixa de escrita, as caras dos agentes** com quem a pessoa fala, com o anel de quem está a trabalhar e o nome curto (a cor de «a trabalhar» quando é o caso); carregar abre a conversa com ele. | `HomeAgents` |
+| **«A trabalhar agora»**: «Agente de Finanças está a tratar de Cobrança de facturas em atraso», com o passo e quando começou, ao vivo. **«Concluído nas últimas 24 horas»**: até 8, «tratou de …» ou «não terminou …», quando, «Ver o resultado». Sem caixas, só linhas. As conversas não entram no concluído (a resposta está na conversa) e as de outra pessoa não entram de todo. | `AgentNow::overview()`, prop `agents_now` em `HomeController` |
+| **Cada linha abre o trabalho na conversa da pessoa com esse agente**, com o passo a passo no painel lateral (ou na tarefa, se for de uma tarefa); nunca na página de Execuções, a menos que a pessoa ainda não tenha conversa com o agente. | `HomeAgents` (`href`) |
+

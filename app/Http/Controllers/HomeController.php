@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Runs\AgentNow;
 use App\Attachments\AttachmentLimits;
 use App\Enums\AgentStatus;
 use App\Enums\QuestionStatus;
@@ -76,6 +77,8 @@ class HomeController extends Controller
             'approvals' => fn () => Approval::query()->visibleTo($user)->pending()->with(Present::APPROVAL_RELATIONS)->latest('id')->limit(20)->get()
                 ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
+            // Who is working now and what they finished today (docs/DECISOES.md, "Início: os agentes a trabalhar").
+            'agents_now' => fn () => app(AgentNow::class)->overview($agents, $user),
         ]);
     }
 }
