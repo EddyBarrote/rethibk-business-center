@@ -285,7 +285,7 @@ export function BackgroundRow({ run, onOpenRun }: { run: NowRun; onOpenRun: (run
                 ) : (
                     <>
                         {!live && result && (
-                            <div className="max-h-48 overflow-hidden text-[13px] [mask-image:linear-gradient(to_bottom,black_75%,transparent)]">
+                            <div className="text-[13px]">
                                 <Markdown>{result}</Markdown>
                             </div>
                         )}
