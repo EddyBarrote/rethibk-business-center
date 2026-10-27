@@ -80,6 +80,11 @@ final class AgentEditor
 
         DB::transaction(function () use ($agent, $data, $actor, $isNew) {
             $agent->fill(Arr::except($data, ['capabilities', 'skills', 'suggestions']));
+            // The provider always follows the model chosen from the list.
+            $chosen = collect(self::models())->firstWhere('model', $data['model'] ?? null);
+            if ($chosen !== null) {
+                $agent->provider = $chosen['provider'];
+            }
 
             if (array_key_exists('suggestions', $data)) {
                 $written = array_values(array_filter(array_map(fn ($text) => trim((string) $text), $data['suggestions'] ?? []), fn (string $text) => $text !== ''));
@@ -174,15 +179,23 @@ final class AgentEditor
             'statuses' => array_map(fn (AgentStatus $status) => ['value' => $status->value, 'label' => $status->label()], AgentStatus::cases()),
             'providers' => array_keys((array) config('ai.providers')),
             'models' => self::models(),
+            // Providers of the list, and whether they are connected: one without a key says which line of .env it needs.
+            'model_providers' => collect((array) config('agents.providers'))->map(fn (array $p, string $key) => [
+                'key' => $key,
+                'label' => (string) $p['label'],
+                'connected' => filled(config("ai.providers.{$key}.key")),
+                'env' => (string) $p['env'],
+            ])->values(),
             'defaultProvider' => config('ai.default'),
             'defaultCapabilities' => Capability::query()->whereIn('key', CapabilityRegistry::ON_BY_DEFAULT)->pluck('id'),
         ];
     }
 
     /**
-     * The models of config agents.models whose provider has a key, with their price.
+     * The models of config agents.models whose provider has a key, with their
+     * price (null: not in the price table, charged at the safety price).
      *
-     * @return list<array{provider: string, model: string, label: string, hint: string, input: float|null, output: float|null}>
+     * @return list<array{provider: string, model: string, label: string, provider_label: string, hint: string, input: float|null, output: float|null}>
      */
     public static function models(): array
     {
@@ -190,6 +203,7 @@ final class AgentEditor
             'provider' => (string) $m['provider'],
             'model' => (string) $m['model'],
             'label' => (string) $m['label'],
+            'provider_label' => (string) (config("agents.providers.{$m['provider']}.label") ?? $m['provider']),
             'hint' => (string) ($m['hint'] ?? ''),
             // The key holds dots (gemini-3.6-flash), so it is read from the array, not with config's dot path.
             'input' => ((array) config('agents.pricing'))["{$m['provider']}:{$m['model']}"]['input'] ?? null,

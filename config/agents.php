@@ -83,9 +83,36 @@ return [
     // The daily suggestions of the entry screen use the cheapest model.
     'suggestions_model' => env('AI_SUGGESTIONS_MODEL', 'gemini-3.1-flash-lite'),
 
+    // Model ids are the providers' own (the defaults of laravel/ai); a model
+    // without a line in `pricing` is charged at `fallback_pricing`.
+    'providers' => [
+        'gemini' => ['label' => 'Google Gemini', 'env' => 'GEMINI_API_KEY'],
+        'anthropic' => ['label' => 'Anthropic (API directa)', 'env' => 'ANTHROPIC_API_KEY'],
+        'openai' => ['label' => 'OpenAI', 'env' => 'OPENAI_API_KEY'],
+        'openrouter' => ['label' => 'OpenRouter', 'env' => 'OPENROUTER_API_KEY'],
+        'deepseek' => ['label' => 'DeepSeek', 'env' => 'DEEPSEEK_API_KEY'],
+        'xai' => ['label' => 'xAI (Grok)', 'env' => 'XAI_API_KEY'],
+        'mistral' => ['label' => 'Mistral', 'env' => 'MISTRAL_API_KEY'],
+    ],
+
     'models' => [
         ['provider' => 'gemini', 'model' => 'gemini-3.6-flash', 'label' => 'Gemini 3.6 Flash', 'hint' => 'Bom a raciocinar e a usar ferramentas. É o modelo por omissão.'],
         ['provider' => 'gemini', 'model' => 'gemini-3.1-flash-lite', 'label' => 'Gemini 3.1 Flash-Lite', 'hint' => 'Mais rápido e cerca de 6 vezes mais barato. Para triagem e tarefas simples.'],
+        ['provider' => 'anthropic', 'model' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'hint' => 'O mais capaz da Anthropic, para análise e escrita exigentes. O mais caro.'],
+        ['provider' => 'anthropic', 'model' => 'claude-sonnet-5', 'label' => 'Claude Sonnet 5', 'hint' => 'Equilibrado: muito bom com ferramentas, a um custo médio.'],
+        ['provider' => 'anthropic', 'model' => 'claude-haiku-4-5-20251001', 'label' => 'Claude Haiku 4.5', 'hint' => 'Rápido e barato, para triagem e respostas curtas.'],
+        ['provider' => 'openai', 'model' => 'gpt-6-astra', 'label' => 'GPT-6 Astra', 'hint' => 'O mais capaz da OpenAI.'],
+        ['provider' => 'openai', 'model' => 'gpt-6-sol', 'label' => 'GPT-6 Sol', 'hint' => 'O modelo equilibrado da OpenAI.'],
+        ['provider' => 'openai', 'model' => 'gpt-6-luna', 'label' => 'GPT-6 Luna', 'hint' => 'O mais rápido e barato da OpenAI.'],
+        ['provider' => 'openrouter', 'model' => 'anthropic/claude-opus-5', 'label' => 'Claude Opus 5 (via OpenRouter)', 'hint' => 'Claude pela OpenRouter: uma só chave para vários fornecedores.'],
+        ['provider' => 'openrouter', 'model' => 'anthropic/claude-sonnet-5', 'label' => 'Claude Sonnet 5 (via OpenRouter)', 'hint' => 'Claude pela OpenRouter: uma só chave para vários fornecedores.'],
+        ['provider' => 'openrouter', 'model' => 'anthropic/claude-haiku-4.5', 'label' => 'Claude Haiku 4.5 (via OpenRouter)', 'hint' => 'Rápido e barato, pela OpenRouter.'],
+        ['provider' => 'deepseek', 'model' => 'deepseek-v4-pro', 'label' => 'DeepSeek V4 Pro', 'hint' => 'O mais capaz da DeepSeek.'],
+        ['provider' => 'deepseek', 'model' => 'deepseek-v4-flash', 'label' => 'DeepSeek V4 Flash', 'hint' => 'Rápido e barato.'],
+        ['provider' => 'xai', 'model' => 'grok-4.3', 'label' => 'Grok 4.3', 'hint' => 'O mais capaz da xAI.'],
+        ['provider' => 'xai', 'model' => 'grok-4.20-non-reasoning', 'label' => 'Grok 4.20', 'hint' => 'Rápido, sem raciocínio longo.'],
+        ['provider' => 'mistral', 'model' => 'mistral-large-2512', 'label' => 'Mistral Large', 'hint' => 'O modelo principal da Mistral.'],
+        ['provider' => 'mistral', 'model' => 'mistral-small-2603', 'label' => 'Mistral Small', 'hint' => 'Rápido e barato.'],
     ],
 
     /*

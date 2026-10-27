@@ -1489,3 +1489,9 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - O Barrote viu «A triagem do email #354 foi efetuada com sucesso». A regra «Emails por quem escreveu» só se aplicava às respostas nas conversas. Passa a aplicar-se também à resposta final de qualquer execução (`AgentRunner`, junto com a remoção das chaves internas dos agentes) e, para as execuções antigas, quando a execução é mostrada (`Present::run`).
 - Os prompts de email (triagem, caixa de uma pessoa, reenvio para triagem e «Voltar a triar») deixam de dizer «Email #354». Dizem «É o email de Celeste Nhantumbo com o assunto «…» (email_id 354, só para as ferramentas…)», para o modelo não repetir o número.
 - O painel lateral das execuções deixa de mostrar o número da execução nas dicas.
+
+## Agentes: escolher o provedor (27.10.2026)
+
+- A lista de modelos (`config('agents.models')`) passa a incluir vários provedores: Google Gemini, Anthropic (API directa), OpenAI, OpenRouter, DeepSeek, xAI e Mistral (`config('agents.providers')`). Os ids dos modelos são os do laravel/ai.
+- No separador Modelo, os modelos aparecem agrupados por provedor e só os provedores com chave no .env se podem escolher. Os outros aparecem em «Outros provedores, por ligar», com o nome da linha do .env que falta. As chaves são escritas pelo dono no servidor e nunca na aplicação.
+- Ao gravar, o provedor do agente fica sempre o do modelo escolhido. Um modelo sem preço em `agents.pricing` mostra «preço por definir» e é cobrado ao preço de segurança (`fallback_pricing`), até alguém acrescentar o preço.

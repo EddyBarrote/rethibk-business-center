@@ -96,7 +96,9 @@ export interface AgentFormOptions {
     providers: string[];
     defaultProvider: string;
     /** The models an agent can be given (config agents.models), with their price per million tokens. */
-    models?: { provider: string; model: string; label: string; hint: string; input: number | null; output: number | null }[];
+    models?: { provider: string; model: string; label: string; provider_label?: string; hint: string; input: number | null; output: number | null }[];
+    /** Every provider of the list, connected (with a key in .env) or not. */
+    model_providers?: { key: string; label: string; connected: boolean; env: string }[];
     /** Ticked on a new agent: searching and reading the internet. */
     defaultCapabilities?: number[];
 }
@@ -130,7 +132,18 @@ export default function AgentDefinitionForm({
     skillsHref?: string;
     capabilitiesHref?: string;
 }) {
-    const { departments, users, agents, capabilities, skills, levels, statuses, defaultProvider, models = [] } = options;
+    const {
+        departments,
+        users,
+        agents,
+        capabilities,
+        skills,
+        levels,
+        statuses,
+        defaultProvider,
+        models = [],
+        model_providers: modelProviders = [],
+    } = options;
     const seed = agent ?? draft;
     const form = useForm({
         key: seed?.key ?? '',
@@ -443,64 +456,94 @@ export default function AgentDefinitionForm({
                             <div className="grid gap-6">
                                 <fieldset className="flex flex-col gap-1">
                                     <legend className="sr-only">Modelo</legend>
-                                    {[
-                                        {
-                                            provider: '',
-                                            model: '',
-                                            label: `Por omissão da plataforma`,
-                                            hint: `Hoje: ${models[0]?.label ?? defaultProvider}. Muda quando a plataforma mudar.`,
-                                            input: null,
-                                            output: null,
-                                        },
-                                        ...models,
-                                        // A model set before the list existed stays choosable.
-                                        ...(form.data.model && !models.some((m) => m.model === form.data.model)
-                                            ? [
-                                                  {
-                                                      provider: form.data.provider,
-                                                      model: form.data.model,
-                                                      label: form.data.model,
-                                                      hint: 'Fora da lista.',
-                                                      input: null,
-                                                      output: null,
-                                                  },
-                                              ]
-                                            : []),
-                                    ].map((option) => {
-                                        const chosen = form.data.model === option.model && (option.model !== '' || form.data.provider === '');
+                                    {(() => {
+                                        type ModelOption = (typeof models)[number];
+                                        const row = (option: ModelOption) => {
+                                            const chosen = form.data.model === option.model && (option.model !== '' || form.data.provider === '');
+
+                                            return (
+                                                <label
+                                                    key={`${option.provider}:${option.model}` || 'default'}
+                                                    className={cn(
+                                                        'flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
+                                                        chosen && 'bg-accent',
+                                                    )}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="model"
+                                                        checked={chosen}
+                                                        onChange={() =>
+                                                            form.setData((data) => ({ ...data, provider: option.provider, model: option.model }))
+                                                        }
+                                                        className="mt-1 accent-primary"
+                                                    />
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className={cn('block', chosen && 'font-medium')}>{option.label}</span>
+                                                        <span className="block text-xs text-muted-foreground">{option.hint}</span>
+                                                    </span>
+                                                    {option.model !== '' && (
+                                                        <span
+                                                            className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
+                                                            title="US$ por milhão de tokens: entrada / saída"
+                                                        >
+                                                            {option.input !== null && option.output !== null
+                                                                ? `${option.input.toLocaleString('pt-PT')} / ${option.output.toLocaleString('pt-PT')} US$`
+                                                                : 'preço por definir'}
+                                                        </span>
+                                                    )}
+                                                </label>
+                                            );
+                                        };
+                                        const legacy =
+                                            form.data.model && !models.some((m) => m.model === form.data.model)
+                                                ? [
+                                                      {
+                                                          provider: form.data.provider,
+                                                          model: form.data.model,
+                                                          label: form.data.model,
+                                                          hint: 'Fora da lista.',
+                                                          input: null,
+                                                          output: null,
+                                                      },
+                                                  ]
+                                                : [];
+                                        const connected = modelProviders.filter((p) => p.connected && models.some((m) => m.provider === p.key));
+                                        const missing = modelProviders.filter((p) => !p.connected);
 
                                         return (
-                                            <label
-                                                key={option.model || 'default'}
-                                                className={cn(
-                                                    'flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
-                                                    chosen && 'bg-accent',
+                                            <>
+                                                {row({
+                                                    provider: '',
+                                                    model: '',
+                                                    label: 'Por omissão da plataforma',
+                                                    hint: `Hoje: ${models[0]?.label ?? defaultProvider}. Muda quando a plataforma mudar.`,
+                                                    input: null,
+                                                    output: null,
+                                                })}
+                                                {connected.map((provider) => (
+                                                    <div key={provider.key} className="mt-3 flex flex-col gap-1">
+                                                        <p className="px-2.5 text-xs font-medium text-muted-foreground">{provider.label}</p>
+                                                        {models.filter((m) => m.provider === provider.key).map(row)}
+                                                    </div>
+                                                ))}
+                                                {legacy.map(row)}
+                                                {missing.length > 0 && (
+                                                    <div className="mt-4 px-2.5 text-xs text-muted-foreground">
+                                                        <p className="font-medium">Outros provedores, por ligar</p>
+                                                        <ul className="mt-1 flex flex-col gap-0.5">
+                                                            {missing.map((provider) => (
+                                                                <li key={provider.key}>
+                                                                    {provider.label}: falta a chave <span className="font-mono">{provider.env}</span>{' '}
+                                                                    no .env do servidor.
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
                                                 )}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="model"
-                                                    checked={chosen}
-                                                    onChange={() =>
-                                                        form.setData((data) => ({ ...data, provider: option.provider, model: option.model }))
-                                                    }
-                                                    className="mt-1 accent-primary"
-                                                />
-                                                <span className="min-w-0 flex-1">
-                                                    <span className={cn('block', chosen && 'font-medium')}>{option.label}</span>
-                                                    <span className="block text-xs text-muted-foreground">{option.hint}</span>
-                                                </span>
-                                                {option.input !== null && option.output !== null && (
-                                                    <span
-                                                        className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
-                                                        title="US$ por milhão de tokens: entrada / saída"
-                                                    >
-                                                        {option.input.toLocaleString('pt-PT')} / {option.output.toLocaleString('pt-PT')} US$
-                                                    </span>
-                                                )}
-                                            </label>
+                                            </>
                                         );
-                                    })}
+                                    })()}
                                     {(errors.model || errors.provider) && (
                                         <p className="text-sm text-destructive">{errors.model ?? errors.provider}</p>
                                     )}
