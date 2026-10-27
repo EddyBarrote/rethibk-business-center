@@ -1393,3 +1393,16 @@ Pedido do Barrote (tarefa 64 da Rethink): ao carregar em enviar no email da conv
 | **O cartão de email tem «Enviar»** (antes «Rever e enviar», que levava ao Email): pede confirmação (para quem, cópia, assunto, de que caixa; não se desfaz) e envia dali, pelo mesmo `inbox/{email}/send`, com `stay`, que volta à conversa em vez de ir para a caixa. Sem endereço, o botão fica desligado e diz para usar Editar. Continua a ser uma pessoa a enviar; o agente nunca envia. | `EmailCard` (`send`), `InboxController::send()` |
 | **Enquanto vai**: uma barra corre no topo do cartão, o avião do botão levanta e o cabeçalho diz «A enviar…». **Enviado**: «Enviado às 10:42» aparece com uma pequena animação. **Falhou**: «Não foi enviado» no cabeçalho, o motivo no rodapé e o botão passa a «Tentar de novo». Sem animação para quem pede menos movimento. | `.email-sending`, `.email-plane`, `.email-sent` |
 
+## Confirmação automática de recepção (27.10.2026)
+
+Pedido do Barrote: o email da empresa responde primeiro a dizer que recebemos e que estamos a tratar do assunto. É a primeira coisa que sai sem uma pessoa carregar em enviar, por isso é estreita de propósito.
+
+| Decisão | Onde |
+|---|---|
+| **Por caixa, desligada por omissão**: em Definições › Caixas de email, «Confirmar a recepção automaticamente», os tipos de email (por omissão pedido de cotação, pedido de cliente, lead e concurso) e o texto, com `{nome}`, `{assunto}` e `{empresa}`. Quem gere a caixa liga e desliga; fica na auditoria. | `mailboxes.auto_ack*`, `MailboxController`, `Pages/Mailboxes/Index.tsx` |
+| **Texto fixo, nunca escrito por um modelo**: só diz que chegou e está a ser tratado; preços, prazos e propostas continuam a ir para uma pessoa rever. Sai em resposta ao email (na mesma conversa do cliente), da caixa da empresa, assinado com o nome da empresa. | `Acknowledgement::render()` |
+| **Quando sai**: depois de a triagem classificar o email, numa fila à parte (uma falha do servidor de email não pára a triagem). Não sai: a endereços automáticos (no-reply, notifications, mailer-daemon…), a pessoas da empresa, a outros tipos de email, a email com mais de dois dias (por exemplo ao reler a caixa), duas vezes na mesma conversa, nem mais de uma vez por dia ao mesmo remetente. | `Acknowledgement::skipReason()`, `AcknowledgeEmail`, `ClassifyEmail` |
+| **De uma caixa de pessoas partilhada (como geral@)** só sai isto, e só com a opção ligada; tudo o resto continua a precisar de um dono da caixa. | `MailboxMailer::send(acknowledgement:)` |
+
+Testes: `tests/Feature/Email/AcknowledgementTest.php`.
+

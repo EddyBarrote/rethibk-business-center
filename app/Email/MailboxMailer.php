@@ -34,11 +34,14 @@ final class MailboxMailer
      *
      * @throws RuntimeException when the mailbox cannot send or SMTP fails
      */
-    public function send(Mailbox $mailbox, array $to, array $cc, string $subject, string $body, ?EmailMessage $original = null, ?int $runId = null, ?EmailMessage $draft = null, ?User $sender = null, array $bcc = []): EmailMessage
+    public function send(Mailbox $mailbox, array $to, array $cc, string $subject, string $body, ?EmailMessage $original = null, ?int $runId = null, ?EmailMessage $draft = null, ?User $sender = null, array $bcc = [], bool $acknowledgement = false): EmailMessage
     {
         $this->lastRaw = null;
 
-        if ($mailbox->isPersonal() && ($sender === null || ! $mailbox->isOwnedBy($sender))) {
+        // The one thing a company mailbox says by itself, when an admin turned it on (Acknowledgement).
+        $ownAck = $acknowledgement && $mailbox->auto_ack;
+
+        if ($mailbox->isPersonal() && ! $ownAck && ($sender === null || ! $mailbox->isOwnedBy($sender))) {
             throw new RuntimeException('só os donos desta caixa enviam a partir dela.');
         }
 

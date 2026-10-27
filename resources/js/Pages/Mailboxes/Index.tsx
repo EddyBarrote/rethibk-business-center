@@ -9,6 +9,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { PasswordInput } from '@/Components/PasswordInput';
 import { StatusBadge, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
+import { Textarea } from '@/Components/ui/textarea';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
@@ -37,7 +38,17 @@ interface MailboxRow {
     owners: { id: number; name: string }[];
     readers: { id: number; name: string; processes_new: boolean }[];
     sends_to_triage: boolean;
+    auto_ack: boolean;
+    auto_ack_categories: string[];
+    auto_ack_body: string | null;
     mine: boolean;
+}
+
+/** «Recebemos o seu email» (docs/DECISOES.md, "Confirmação automática de recepção"). */
+interface AckOptions {
+    categories: { value: string; label: string }[];
+    default_categories: string[];
+    default_body: string;
 }
 
 interface Props {
@@ -46,6 +57,7 @@ interface Props {
     people: { id: number; name: string }[];
     default_reader_id: number | null;
     can: { manage_all: boolean };
+    ack: AckOptions;
 }
 
 const NONE = '__none__';
@@ -53,7 +65,7 @@ const NONE = '__none__';
 const tone = (status: MailboxRow['status']): Tone =>
     (({ active: 'success', error: 'danger', disabled: 'idle', provisioning: 'warning' }) as const)[status];
 
-export default function Mailboxes({ mailboxes, agents, people, default_reader_id, can }: Props) {
+export default function Mailboxes({ mailboxes, agents, people, default_reader_id, can, ack }: Props) {
     const [editing, setEditing] = useState<MailboxRow | 'new' | null>(null);
     const [removing, setRemoving] = useState<MailboxRow | null>(null);
 
@@ -132,6 +144,7 @@ export default function Mailboxes({ mailboxes, agents, people, default_reader_id
                     people={people}
                     defaultReaderId={default_reader_id}
                     manageAll={can.manage_all}
+                    ack={ack}
                     onClose={() => setEditing(null)}
                 />
             )}
@@ -157,6 +170,7 @@ function MailboxDialog({
     people,
     defaultReaderId,
     manageAll,
+    ack,
     onClose,
 }: {
     mailbox: MailboxRow | null;
@@ -164,6 +178,7 @@ function MailboxDialog({
     people: Props['people'];
     defaultReaderId: number | null;
     manageAll: boolean;
+    ack: AckOptions;
     onClose: () => void;
 }) {
     const initialReaders = mailbox ? mailbox.readers.map((r) => r.id) : defaultReaderId ? [defaultReaderId] : [];
@@ -185,6 +200,9 @@ function MailboxDialog({
         readers: initialReaders,
         processor: mailbox ? (mailbox.readers.find((r) => r.processes_new)?.id ?? null) : (defaultReaderId ?? null),
         sends_to_triage: mailbox?.sends_to_triage ?? false,
+        auto_ack: mailbox?.auto_ack ?? false,
+        auto_ack_categories: mailbox?.auto_ack_categories ?? ack.default_categories,
+        auto_ack_body: mailbox?.auto_ack_body ?? ack.default_body,
     });
 
     const toggleReader = (id: number, on: boolean) => {
@@ -296,6 +314,62 @@ function MailboxDialog({
                     </span>
                 </span>
             </label>
+
+            <div className="flex flex-col gap-2">
+                <label className="flex items-start gap-2 text-sm">
+                    <Checkbox
+                        className="mt-0.5"
+                        checked={form.data.auto_ack}
+                        onCheckedChange={(checked) => form.setData('auto_ack', checked === true)}
+                    />
+                    <span>
+                        Confirmar a recepção automaticamente
+                        <span className="block text-xs text-muted-foreground">
+                            Depois da triagem, esta caixa responde sozinha a quem escreveu que o email chegou e está a ser tratado. Só uma vez por
+                            conversa, só a pessoas de fora da empresa (nunca a endereços automáticos) e só ao email que acabou de chegar. É este texto
+                            fixo: não leva preços nem prazos, que continuam a ir para revisão.
+                        </span>
+                    </span>
+                </label>
+                {form.data.auto_ack && (
+                    <div className="ml-6 flex flex-col gap-3">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                            {ack.categories
+                                .filter((category) => !['spam', 'newsletter', 'internal'].includes(category.value))
+                                .map((category) => (
+                                    <label key={category.value} className="flex items-center gap-1.5 text-xs">
+                                        <Checkbox
+                                            checked={form.data.auto_ack_categories.includes(category.value)}
+                                            onCheckedChange={(checked) =>
+                                                form.setData(
+                                                    'auto_ack_categories',
+                                                    checked === true
+                                                        ? [...form.data.auto_ack_categories, category.value]
+                                                        : form.data.auto_ack_categories.filter((value) => value !== category.value),
+                                                )
+                                            }
+                                        />
+                                        {category.label}
+                                    </label>
+                                ))}
+                        </div>
+                        <Field
+                            id="auto_ack_body"
+                            label="Texto da confirmação"
+                            error={errors.auto_ack_body}
+                            hint="{nome}, {assunto} e {empresa} são trocados pelo nome de quem escreveu, o assunto e o nome da empresa."
+                        >
+                            <Textarea
+                                id="auto_ack_body"
+                                rows={7}
+                                value={form.data.auto_ack_body}
+                                onChange={(event) => form.setData('auto_ack_body', event.target.value)}
+                                className="text-sm"
+                            />
+                        </Field>
+                    </div>
+                )}
+            </div>
 
             <Field
                 id="processor"

@@ -5,11 +5,13 @@ namespace App\Ai\Capabilities\Local;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
+use App\Email\Acknowledgement;
 use App\Enums\EmailCategory;
 use App\Enums\NotificationCategory;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Jobs\AcknowledgeEmail;
 use App\Models\Agent;
 use App\Models\Department;
 use App\Models\EmailMessage;
@@ -126,6 +128,11 @@ final class ClassifyEmail extends LocalCapability
 
         $category = EmailCategory::from($data['category']);
         $personal = ! $message->isTriage();
+
+        // «Recebemos o seu email»: from a company mailbox that confirms receipt (docs/DECISOES.md, "Confirmação automática de recepção").
+        if ($message->mailbox->auto_ack && app(Acknowledgement::class)->skipReason($message) === null) {
+            AcknowledgeEmail::dispatch($message->tenant_id, $message->id);
+        }
 
         // A person's own email stays with them: no hand-off to other areas, and
         // only what is urgent interrupts them (docs/DECISOES.md, "Caixas de email por pessoa").

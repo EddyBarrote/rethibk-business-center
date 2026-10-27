@@ -49,9 +49,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $last_error
  * @property Carbon|null $last_inbound_at
  * @property Carbon|null $last_outbound_at
+ * @property bool $auto_ack
+ * @property list<string>|null $auto_ack_categories
+ * @property string|null $auto_ack_body
  */
 #[Fillable([
-    'agent_id', 'kind', 'sends_to_triage', 'address', 'display_name', 'inbound_provider', 'imap_host', 'imap_port', 'imap_username', 'imap_password',
+    'agent_id', 'kind', 'sends_to_triage', 'auto_ack', 'auto_ack_categories', 'auto_ack_body', 'address', 'display_name', 'inbound_provider', 'imap_host', 'imap_port', 'imap_username', 'imap_password',
     'imap_encryption', 'imap_folder', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'status', 'save_sent_copy',
 ])]
 #[Hidden(['inbound_secret', 'imap_password', 'smtp_password'])]
@@ -250,6 +253,8 @@ class Mailbox extends Model
             'status' => MailboxStatus::class,
             'kind' => 'string',
             'sends_to_triage' => 'boolean',
+            'auto_ack' => 'boolean',
+            'auto_ack_categories' => 'array',
             'inbound_secret' => 'encrypted',
             'imap_password' => 'encrypted',
             'smtp_password' => 'encrypted',

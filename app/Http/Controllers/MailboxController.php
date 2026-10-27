@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Email\Acknowledgement;
 use App\Enums\AgentStatus;
+use App\Enums\EmailCategory;
 use App\Enums\MailboxStatus;
 use App\Enums\Permission;
 use App\Models\Agent;
@@ -55,12 +57,20 @@ class MailboxController extends Controller
                 'owners' => $m->owners->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])->values(),
                 'readers' => ($readers[$m->id] ?? collect())->map(fn (MailboxReader $r) => ['id' => $r->agent_id, 'name' => $r->agent->name, 'processes_new' => $r->processes_new])->values(),
                 'sends_to_triage' => $m->sends_to_triage,
+                'auto_ack' => $m->auto_ack,
+                'auto_ack_categories' => array_map(fn (EmailCategory $c) => $c->value, Acknowledgement::categories($m)),
+                'auto_ack_body' => $m->auto_ack_body,
                 'mine' => $m->owners->contains('id', $user->id),
             ]),
             'agents' => Agent::query()->where('status', AgentStatus::Active)->orderBy('name')->get(['id', 'name', 'department_id']),
             'people' => $manageAll ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [],
             'default_reader_id' => $this->areaAgent($user)?->id,
             'can' => ['manage_all' => $manageAll],
+            'ack' => [
+                'categories' => EmailCategory::options(),
+                'default_categories' => array_map(fn (EmailCategory $c) => $c->value, Acknowledgement::DEFAULT_CATEGORIES),
+                'default_body' => Acknowledgement::DEFAULT_BODY,
+            ],
         ]);
     }
 
@@ -111,7 +121,7 @@ class MailboxController extends Controller
             }
         });
 
-        AuditLog::record($user, 'mailbox.updated', ['address' => $mailbox->address, 'readers' => $data['readers'] ?? null, 'sends_to_triage' => $mailbox->sends_to_triage], subject: $mailbox);
+        AuditLog::record($user, 'mailbox.updated', ['address' => $mailbox->address, 'readers' => $data['readers'] ?? null, 'sends_to_triage' => $mailbox->sends_to_triage, 'auto_ack' => $mailbox->auto_ack], subject: $mailbox);
 
         return back()->with('success', 'Caixa de email guardada.');
     }
@@ -179,6 +189,10 @@ class MailboxController extends Controller
             'readers.*' => ['integer', TenantRule::exists('agents')],
             'processor' => ['nullable', 'integer'],
             'sends_to_triage' => ['sometimes', 'boolean'],
+            'auto_ack' => ['sometimes', 'boolean'],
+            'auto_ack_categories' => ['sometimes', 'array', 'max:20'],
+            'auto_ack_categories.*' => [Rule::enum(EmailCategory::class)],
+            'auto_ack_body' => ['nullable', 'string', 'max:2000'],
         ]);
 
         if (! $manageAll && array_key_exists('owners', $data)) {
@@ -242,7 +256,7 @@ class MailboxController extends Controller
     private function settings(array $data): array
     {
         $settings = collect($data)->only([
-            'address', 'display_name', 'status', 'sends_to_triage', 'imap_host', 'imap_port', 'imap_username', 'imap_password', 'imap_encryption', 'imap_folder',
+            'address', 'display_name', 'status', 'sends_to_triage', 'auto_ack', 'auto_ack_categories', 'auto_ack_body', 'imap_host', 'imap_port', 'imap_username', 'imap_password', 'imap_encryption', 'imap_folder',
             'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption',
         ])->all();
 
