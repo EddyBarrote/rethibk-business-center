@@ -168,6 +168,8 @@ export default function AgentDefinitionForm({
     const errors = form.errors as Record<string, string | undefined>;
     const [filter, setFilter] = useState('');
     const [onlyChosen, setOnlyChosen] = useState(false);
+    // Step 1 of the Modelo tab; until chosen, the agent's own provider.
+    const [pickedProvider, setPickedProvider] = useState<string | null>(null);
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -508,39 +510,68 @@ export default function AgentDefinitionForm({
                                                       },
                                                   ]
                                                 : [];
-                                        const connected = modelProviders.filter((p) => p.connected && models.some((m) => m.provider === p.key));
-                                        const missing = modelProviders.filter((p) => !p.connected);
+                                        const providerKey =
+                                            pickedProvider ?? (form.data.provider || models.find((m) => m.model === form.data.model)?.provider || '');
+                                        const providerOf = (key: string) => modelProviders.find((p) => p.key === key);
 
                                         return (
                                             <>
-                                                {row({
-                                                    provider: '',
-                                                    model: '',
-                                                    label: 'Por omissão da plataforma',
-                                                    hint: `Hoje: ${models[0]?.label ?? defaultProvider}. Muda quando a plataforma mudar.`,
-                                                    input: null,
-                                                    output: null,
-                                                })}
-                                                {connected.map((provider) => (
-                                                    <div key={provider.key} className="mt-3 flex flex-col gap-1">
-                                                        <p className="px-2.5 text-xs font-medium text-muted-foreground">{provider.label}</p>
-                                                        {models.filter((m) => m.provider === provider.key).map(row)}
-                                                    </div>
-                                                ))}
-                                                {legacy.map(row)}
-                                                {missing.length > 0 && (
-                                                    <div className="mt-4 px-2.5 text-xs text-muted-foreground">
-                                                        <p className="font-medium">Outros provedores, por ligar</p>
-                                                        <ul className="mt-1 flex flex-col gap-0.5">
-                                                            {missing.map((provider) => (
-                                                                <li key={provider.key}>
-                                                                    {provider.label}: falta a chave <span className="font-mono">{provider.env}</span>{' '}
-                                                                    no .env do servidor.
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                )}
+                                                <div className="grid gap-1.5 sm:max-w-sm">
+                                                    <label htmlFor="ai-provider" className="text-sm font-medium">
+                                                        1. Provedor
+                                                    </label>
+                                                    <NativeSelect
+                                                        id="ai-provider"
+                                                        value={providerKey}
+                                                        onChange={(event) => {
+                                                            const next = event.target.value;
+                                                            setPickedProvider(next);
+                                                            // The platform's default needs no second step; another provider starts on its first model.
+                                                            const first = models.find((m) => m.provider === next);
+                                                            form.setData((data) => ({
+                                                                ...data,
+                                                                provider: next,
+                                                                model: next === '' ? '' : (first?.model ?? ''),
+                                                            }));
+                                                        }}
+                                                    >
+                                                        <option value="">Por omissão da plataforma ({models[0]?.label ?? defaultProvider})</option>
+                                                        {modelProviders.map((provider) => (
+                                                            <option key={provider.key} value={provider.key} disabled={!provider.connected}>
+                                                                {provider.connected ? provider.label : `${provider.label} (sem chave)`}
+                                                            </option>
+                                                        ))}
+                                                    </NativeSelect>
+                                                    {modelProviders.some((p) => !p.connected) && (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Os provedores sem chave ligam-se em{' '}
+                                                            <a href="/settings/ai-providers" className="text-primary hover:underline">
+                                                                Definições › Provedores de IA
+                                                            </a>
+                                                            .
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                <div className="mt-5 flex flex-col gap-1">
+                                                    <p className="mb-1 text-sm font-medium">2. Modelo</p>
+                                                    {providerKey === '' ? (
+                                                        <p className="px-2.5 text-sm text-muted-foreground">
+                                                            Usa o modelo por omissão da plataforma, hoje {models[0]?.label ?? defaultProvider}. Muda
+                                                            quando a plataforma mudar.
+                                                        </p>
+                                                    ) : (
+                                                        <>
+                                                            {models.filter((m) => m.provider === providerKey).map(row)}
+                                                            {legacy.filter((m) => m.provider === providerKey).map(row)}
+                                                            {!providerOf(providerKey)?.connected && (
+                                                                <p className="px-2.5 text-sm text-muted-foreground">
+                                                                    Este provedor ainda não tem chave.
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </>
                                         );
                                     })()}
