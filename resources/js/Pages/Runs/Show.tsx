@@ -118,7 +118,12 @@ export default function RunShow({
                     <Property label="Origem">{run.trigger_label}</Property>
                     <Property label="Pedida por">{run.requested_by}</Property>
                     <Property label="Modelo">
-                        {run.model ? <span className="font-mono text-xs">{`${run.provider} · ${run.model}`}</span> : null}
+                        {run.model_label ? (
+                            <span title={`${run.provider_label ?? ''} · ${run.model}`}>
+                                {run.model_label}
+                                <span className="text-muted-foreground"> · {run.provider_label}</span>
+                            </span>
+                        ) : null}
                     </Property>
                     <Property label="Tokens">
                         <span className="tabular-nums" title="Entrada / saída">

@@ -523,7 +523,17 @@ function RunList({ runs }: { runs: RunSummary[] }) {
                     key={run.id}
                     href={`/settings/runs/${run.id}`}
                     title={run.title ?? runTitle(run.input, toolNames)}
-                    subtitle={run.trigger_label}
+                    subtitle={
+                        <>
+                            {run.trigger_label}
+                            {run.model_label && (
+                                <span title={`${run.provider_label ?? ''} · ${run.model}`}>
+                                    {' · '}
+                                    {run.model_label}
+                                </span>
+                            )}
+                        </>
+                    }
                     meta={
                         <>
                             <span title={dateTime(run.created_at)}>{ago(run.created_at)}</span>

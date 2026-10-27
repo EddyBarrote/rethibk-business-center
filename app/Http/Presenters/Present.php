@@ -60,6 +60,7 @@ final class Present
             'requested_by' => $run->requestedBy?->name,
             'provider' => $run->provider,
             'model' => $run->model,
+            ...self::modelLabels($run->provider, $run->model),
             'input_tokens' => $run->input_tokens,
             'output_tokens' => $run->output_tokens,
             'cost_usd' => $run->cost_usd,
@@ -67,6 +68,23 @@ final class Present
             'error' => $run->error,
             'created_at' => $run->created_at->toIso8601String(),
             'finished_at' => $run->finished_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * The model a run used, the human way: its name in the catalog
+     * (config('agents.models')) and the provider's, the raw id when the
+     * catalog no longer lists it.
+     *
+     * @return array{model_label: string|null, provider_label: string|null}
+     */
+    public static function modelLabels(?string $provider, ?string $model): array
+    {
+        $entry = collect((array) config('agents.models'))->first(fn (array $m) => $m['model'] === $model && ($provider === null || $m['provider'] === $provider));
+
+        return [
+            'model_label' => $model === null ? null : ($entry['label'] ?? $model),
+            'provider_label' => $provider === null ? null : (config("agents.providers.{$provider}.label") ?? $provider),
         ];
     }
 

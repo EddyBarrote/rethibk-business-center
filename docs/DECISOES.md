@@ -1528,3 +1528,8 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - `OrgChart::canDelegate()` deixa o Chief of Staff (`OrgChart::isChiefOfStaff()`, pela chave ou pelo modelo `chief_of_staff`) passar pedidos (`agents.message`) e dar tarefas (`tasks.create`) a qualquer agente, esteja onde estiver no organigrama. É por ele que passa o trabalho entre áreas (decisão 12 do realinhamento). Os outros agentes seguem as regras de sempre. As instruções do Chief of Staff dizem-lho.
 - Regra nova para todos os agentes: dizer só o que ficou feito. Se uma ferramenta falhou ou uma parte ficou por fazer, a resposta não começa por «Feito» ou «Descartado»: começa pelo que fez de facto e diz logo o que ficou por fazer, porquê e quem o pode fazer. Registar uma decisão na memória não é executá-la. Na execução vista, o agente respondeu «Descartado.» quando só tinha registado a decisão.
 - Painel da execução: o nome de uma ferramenta longo encolhe com reticências em vez de passar por cima da hora; a duração, o custo e os tokens, o «Pedido» e a «Resposta final» ficam sem caixas nem bordas.
+
+## Modelo de cada execução (27.10.2026)
+
+- Pedido do Barrote: ver em cada execução o modelo usado. Na página do agente, a lista de execuções mostra o modelo a seguir à origem (por exemplo «Manual · Gemini 3.6 Flash»). O painel da execução mostra «Modelo: …» por baixo do título, e a página inteira mostra-o com o nome do provedor. Ao passar o rato aparece o provedor e o id exacto.
+- O nome vem do catálogo (`agents.models`), por `Present::modelLabels()`. Um modelo que já saiu do catálogo aparece pelo id, para nunca esconder o que correu de facto.

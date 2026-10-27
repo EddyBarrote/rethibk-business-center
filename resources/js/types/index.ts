@@ -81,6 +81,9 @@ export interface RunSummary {
     requested_by: string | null;
     provider: string | null;
     model: string | null;
+    /** The model's name in the catalog (Gemini 3.6 Flash), or its id when no longer listed. */
+    model_label: string | null;
+    provider_label: string | null;
     input_tokens: number;
     output_tokens: number;
     cost_usd: number;

@@ -244,6 +244,7 @@ function RunList({ runs, toolNames, onOpenRun }: { runs: RunSummary[]; toolNames
                             onClick={() => onOpenRun(run.id)}
                             title={[
                                 run.status_label,
+                                run.model_label,
                                 run.duration_ms !== null ? duration(run.duration_ms) : null,
                                 usd(run.cost_usd),
                                 dateTime(run.created_at),
@@ -339,6 +340,11 @@ function RunView({
                             <p className="truncate text-xs text-muted-foreground">
                                 {run.agent.name} · {run.trigger_label} · {dateTime(run.created_at)}
                             </p>
+                            {run.model_label && (
+                                <p className="truncate text-xs text-muted-foreground" title={`${run.provider_label ?? ''} · ${run.model}`}>
+                                    Modelo: {run.model_label}
+                                </p>
+                            )}
                         </div>
                         <RunStatusBadge status={run.status} label={run.status_label} />
                     </div>
@@ -395,12 +401,6 @@ function RunView({
                                 ))}
                             </ApprovalList>
                         </section>
-                    )}
-
-                    {run.model && (
-                        <p className="font-mono text-[11px] text-muted-foreground">
-                            {run.provider} · {run.model}
-                        </p>
                     )}
                 </div>
             )}
