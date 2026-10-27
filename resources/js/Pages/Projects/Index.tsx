@@ -337,9 +337,9 @@ function ProjectDialog({
 
                     <Field
                         id="description"
-                        label="Objectivo"
+                        label="Para que serve"
                         error={form.errors.description}
-                        hint="Para que serve o projecto. O agente lê-o no canal."
+                        hint="Opcional. O agente lê-o no canal."
                     >
                         <Textarea
                             id="description"
