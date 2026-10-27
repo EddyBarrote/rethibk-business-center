@@ -30,7 +30,7 @@ return new class extends Migration
             $table->string('last_error', 500)->nullable();
             $table->timestamps();
 
-            $table->unique(['tenant_id', 'user_id', 'provider']);
+            $table->unique(['tenant_id', 'user_id', 'provider'], 'calendar_connections_user_provider_unique');
         });
 
         Schema::create('calendar_events', function (Blueprint $table) {
@@ -52,9 +52,9 @@ return new class extends Migration
             $table->string('html_link', 1000)->nullable();
             $table->timestamps();
 
-            $table->unique(['calendar_connection_id', 'direction', 'external_id']);
-            $table->index(['tenant_id', 'user_id', 'starts_at']);
-            $table->index(['calendar_connection_id', 'source_key']);
+            $table->unique(['calendar_connection_id', 'direction', 'external_id'], 'calendar_events_connection_external_unique');
+            $table->index(['tenant_id', 'user_id', 'starts_at'], 'calendar_events_user_starts_index');
+            $table->index(['calendar_connection_id', 'source_key'], 'calendar_events_connection_source_index');
         });
     }
 
