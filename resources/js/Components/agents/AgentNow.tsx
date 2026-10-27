@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Activity, ChevronDown, ExternalLink, Loader2, Wrench } from 'lucide-react';
+import { ChevronDown, ExternalLink, Wrench } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Markdown } from '@/Components/Markdown';
@@ -243,83 +243,60 @@ export function BackgroundRow({ run, onOpenRun }: { run: NowRun; onOpenRun: (run
 
     const verb = live
         ? run.status === 'queued'
-            ? 'Vou tratar de'
-            : 'Comecei'
+            ? 'Vai tratar de'
+            : 'A tratar de'
         : run.status === 'completed'
-          ? 'Terminei'
+          ? 'Tratou de'
           : run.status === 'failed'
-            ? 'Não terminei'
-            : 'Parei';
+            ? 'Não terminou'
+            : 'Parou';
 
-    const tone = live ? 'running' : runTone(run.status);
-
-    // Like the agent's own reply (its face, then the body at the chat's width), as a work card that opens to its answer.
+    // Part of the agent's own thread (its face, then its body at the chat's width), with no card or border:
+    // one quiet line, as Claude shows its steps, that opens to the answer it gave there.
     return (
         <div className="mt-4 flex gap-2.5">
             <AgentAvatar name={run.agent.name} className="mt-0.5 size-9 shrink-0 rounded-xl text-[11px]" />
-            <details className="group min-w-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-xs">
-                <summary
-                    className={cn(
-                        'flex cursor-pointer list-none items-center gap-3 border-l-[3px] px-3.5 py-2.5 transition-colors hover:bg-accent/40 [&::-webkit-details-marker]:hidden',
-                        live ? 'border-l-status-running' : run.status === 'completed' ? 'border-l-status-success' : 'border-l-status-danger',
-                    )}
-                >
-                    <span
-                        className={cn(
-                            'inline-flex size-7 shrink-0 items-center justify-center rounded-lg',
-                            live ? 'bg-status-running/12 text-status-running' : 'bg-muted text-muted-foreground',
+            <details className="group min-w-0 flex-1">
+                <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                    <StatusDot tone={live ? 'running' : runTone(run.status)} pulse={live} />
+                    <span className="min-w-0 truncate">
+                        {verb} <span className="font-medium text-foreground">{workTitle(run, toolNames)}</span>
+                    </span>
+                    <span className="hidden shrink-0 text-xs sm:inline">
+                        {live ? (
+                            <span className="text-status-running">
+                                {run.step?.type === 'tool_call' && <Wrench className="mr-1 inline size-3" />}
+                                {stepLabel(run, toolNames).toLowerCase()}
+                            </span>
+                        ) : (
+                            <span title={dateTime(run.finished_at)}>
+                                {run.trigger_label.toLowerCase()} · {ago(run.finished_at ?? run.created_at)}
+                            </span>
                         )}
-                    >
-                        {live ? <Loader2 className="size-3.5 animate-spin" /> : <Activity className="size-3.5" />}
                     </span>
-                    <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm">
-                            <span className="font-medium">{verb}:</span> {workTitle(run, toolNames)}
-                        </span>
-                        <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                            <span>Trabalho fora desta conversa</span>
-                            <span aria-hidden>·</span>
-                            <span>{run.trigger_label}</span>
-                            {run.requested_by && (
-                                <>
-                                    <span aria-hidden>·</span>
-                                    <span>a pedido de {run.requested_by}</span>
-                                </>
-                            )}
-                            <span aria-hidden>·</span>
-                            {live ? (
-                                <span className="inline-flex items-center gap-1 text-status-running">
-                                    {run.step?.type === 'tool_call' && <Wrench className="size-3" />}
-                                    {stepLabel(run, toolNames)}
-                                </span>
-                            ) : (
-                                <span title={dateTime(run.finished_at)}>terminou {ago(run.finished_at ?? run.created_at)}</span>
-                            )}
-                        </span>
-                    </span>
-                    {!live && <StatusBadge tone={tone}>{run.status_label}</StatusBadge>}
-                    <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                    <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="border-t px-4 py-3">
+                <div className="pt-1">
                     {hidden ? (
                         <p className="text-xs text-muted-foreground">Foi num sítio a que não tem acesso.</p>
                     ) : (
                         <>
-                            {!live && result && <Markdown className="text-[13px]">{result}</Markdown>}
-                            <div className={cn('flex flex-wrap gap-2', !live && result && 'mt-3')}>
-                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenRun(run.id)}>
-                                    <Activity />
-                                    {live ? 'Acompanhar ao vivo' : 'Ver passo a passo'}
-                                </Button>
+                            {!live && result && <Markdown className="w-full px-1 py-0.5">{result}</Markdown>}
+                            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
+                                <span>Fora desta conversa{run.requested_by ? `, a pedido de ${run.requested_by}` : ''}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenRun(run.id)}
+                                    className="underline-offset-2 hover:text-foreground hover:underline"
+                                >
+                                    {live ? 'Acompanhar ao vivo' : 'Ver o passo a passo'}
+                                </button>
                                 {run.task?.id && (
-                                    <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                                        <Link href={`/tasks/${run.task.id}`}>
-                                            <ExternalLink />
-                                            {run.task.kind === 'chat' ? 'Abrir a conversa' : 'Abrir a tarefa'}
-                                        </Link>
-                                    </Button>
+                                    <Link href={`/tasks/${run.task.id}`} className="underline-offset-2 hover:text-foreground hover:underline">
+                                        {run.task.kind === 'chat' ? 'Abrir a conversa' : 'Abrir a tarefa'}
+                                    </Link>
                                 )}
-                            </div>
+                            </p>
                         </>
                     )}
                 </div>
