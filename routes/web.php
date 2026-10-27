@@ -163,6 +163,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::post('documents', [DocumentController::class, 'store'])->middleware('throttle:20,1')->name('documents.store');
+    Route::post('documents/folders', [DocumentController::class, 'storeFolder'])->name('documents.folders.store');
+    Route::put('documents/folders/{folder}', [DocumentController::class, 'updateFolder'])->name('documents.folders.update');
+    Route::delete('documents/folders/{folder}', [DocumentController::class, 'destroyFolder'])->name('documents.folders.destroy');
+    Route::patch('documents/{document}/folder', [DocumentController::class, 'move'])->name('documents.move');
     Route::get('documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::post('documents/{document}/convert', [DocumentController::class, 'convert'])->middleware('throttle:20,1')->name('documents.convert');

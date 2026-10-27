@@ -10,6 +10,7 @@ use App\Documents\DocumentTemplate;
 use App\Documents\DocumentType;
 use App\Enums\Permission;
 use App\Models\AuditLog;
+use App\Models\DocumentFolder;
 use App\Models\GeneratedDocument;
 use App\Models\KnowledgeDomain;
 use App\Models\KnowledgeFolder;
@@ -38,23 +39,115 @@ class DocumentController extends Controller
         private readonly KnowledgeAccess $access,
     ) {}
 
+    /** The «ordem» of the list, as the address writes it. */
+    private const SORTS = ['recentes', 'antigos', 'nome', 'tamanho', 'tipo'];
+
+    /**
+     * The file manager (docs/DECISOES.md, "Gestor de ficheiros"): folders,
+     * search, author (an agent or a person), format and order, all in the
+     * address so a view can be shared.
+     */
     public function index(Request $request): Response
     {
         $user = $this->user($request);
-        $format = $request->query('format');
+        $formats = array_column(DocumentFormat::cases(), 'value');
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'format' => in_array($request->query('format'), $formats, true) ? (string) $request->query('format') : null,
+            'autor' => in_array($request->query('autor'), ['ia', 'pessoas'], true) ? (string) $request->query('autor') : null,
+            'pasta' => $request->query('pasta') === 'sem' || ctype_digit((string) $request->query('pasta')) ? (string) $request->query('pasta') : null,
+            'ordem' => in_array($request->query('ordem'), self::SORTS, true) ? (string) $request->query('ordem') : 'recentes',
+        ];
+
+        $query = $this->visible($user)
+            ->with(['agent:id,name,avatar_path', 'creator:id,name', 'folder:id,name'])
+            ->when($filters['q'] !== '', fn (Builder $q) => $q->where(fn (Builder $w) => $w
+                ->where('title', 'like', '%'.$filters['q'].'%')
+                ->orWhere('filename', 'like', '%'.$filters['q'].'%')))
+            ->when($filters['format'] !== null, fn (Builder $q) => $q->where('format', $filters['format']))
+            ->when($filters['autor'] === 'ia', fn (Builder $q) => $q->whereNotNull('agent_id'))
+            ->when($filters['autor'] === 'pessoas', fn (Builder $q) => $q->whereNull('agent_id'))
+            ->when($filters['pasta'] === 'sem', fn (Builder $q) => $q->whereNull('document_folder_id'))
+            ->when($filters['pasta'] !== null && $filters['pasta'] !== 'sem', fn (Builder $q) => $q->where('document_folder_id', (int) $filters['pasta']));
+
+        match ($filters['ordem']) {
+            'antigos' => $query->oldest('id'),
+            'nome' => $query->orderBy('title')->orderBy('id'),
+            'tamanho' => $query->orderByDesc('size_bytes')->orderByDesc('id'),
+            'tipo' => $query->orderBy('format')->latest('id'),
+            default => $query->latest('id'),
+        };
+
+        // How many of the files this person sees are in each folder.
+        $counts = $this->visible($user)->toBase()->selectRaw('document_folder_id, count(*) as total')->groupBy('document_folder_id')->pluck('total', 'document_folder_id');
 
         return Inertia::render('Documents/Index', [
-            'documents' => $this->visible($user)
-                ->with(['agent:id,name', 'creator:id,name'])
-                ->when(in_array($format, array_column(DocumentFormat::cases(), 'value'), true), fn (Builder $q) => $q->where('format', $format))
-                ->latest('id')
-                ->paginate(30)
-                ->withQueryString()
-                ->through(fn (GeneratedDocument $d) => $this->present($d)),
-            'filter' => $format,
+            'documents' => $query->paginate(48)->withQueryString()->through(fn (GeneratedDocument $d) => $this->present($d)),
+            'filters' => $filters,
+            'folders' => DocumentFolder::query()->orderBy('name')->get(['id', 'name'])
+                ->map(fn (DocumentFolder $folder) => ['id' => $folder->id, 'name' => $folder->name, 'count' => (int) ($counts[$folder->id] ?? 0)]),
+            'total' => (int) $counts->sum(),
+            'unfiled' => (int) ($counts[''] ?? 0),
             'formats' => DocumentFormat::options(),
             'templates' => DocumentTemplate::options(),
         ]);
+    }
+
+    public function storeFolder(Request $request): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
+        $data = $request->validate(['name' => ['required', 'string', 'max:120', TenantRule::unique('document_folders', 'name')]], [
+            'name.unique' => 'Já existe uma pasta com esse nome.',
+        ]);
+
+        $folder = DocumentFolder::query()->create(['name' => trim($data['name']), 'created_by_user_id' => $user->id]);
+        AuditLog::record($user, 'documents.folder_created', ['name' => $folder->name], subject: $folder);
+
+        return to_route('documents.index', ['pasta' => $folder->id])->with('success', "Pasta «{$folder->name}» criada.");
+    }
+
+    public function updateFolder(Request $request, DocumentFolder $folder): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
+        $data = $request->validate(['name' => ['required', 'string', 'max:120', TenantRule::unique('document_folders', 'name')->ignore($folder->id)]], [
+            'name.unique' => 'Já existe uma pasta com esse nome.',
+        ]);
+
+        $old = $folder->name;
+        $folder->update(['name' => trim($data['name'])]);
+        AuditLog::record($user, 'documents.folder_renamed', ['from' => $old, 'to' => $folder->name], subject: $folder);
+
+        return back()->with('success', 'Pasta renomeada.');
+    }
+
+    /**
+     * Deleting a folder keeps its files: they go back to the top.
+     */
+    public function destroyFolder(Request $request, DocumentFolder $folder): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
+        AuditLog::record($user, 'documents.folder_deleted', ['name' => $folder->name]);
+        $folder->delete();
+
+        return to_route('documents.index')->with('success', "Pasta «{$folder->name}» apagada. Os ficheiros ficaram em «Todos».");
+    }
+
+    /**
+     * Into a folder (or out of every folder).
+     */
+    public function move(Request $request, GeneratedDocument $document): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments) && $this->canSee($user, $document), 403);
+        $data = $request->validate(['folder_id' => ['nullable', 'integer', TenantRule::exists('document_folders')]]);
+
+        $document->update(['document_folder_id' => $data['folder_id'] ?? null]);
+        $folder = $document->folder()->value('name');
+
+        return back()->with('success', $folder !== null ? "«{$document->title}» está agora em «{$folder}»." : "«{$document->title}» saiu da pasta.");
     }
 
     public function show(Request $request, GeneratedDocument $document): Response
@@ -65,7 +158,7 @@ class DocumentController extends Controller
         $domains = KnowledgeDomain::query()->orderBy('position')->get()->filter(fn (KnowledgeDomain $d) => $this->access->canOpen($user, $d))->values();
 
         return Inertia::render('Documents/Show', [
-            'document' => [...$this->present($document->load(['agent:id,name', 'creator:id,name', 'knowledgeItem:id,title'])), 'source' => $document->source],
+            'document' => [...$this->present($document->load(['agent:id,name,avatar_path', 'creator:id,name', 'knowledgeItem:id,title'])), 'source' => $document->source],
             'formats' => DocumentFormat::options(),
             'domains' => $domains->map(fn (KnowledgeDomain $d) => ['id' => $d->id, 'name' => $d->name])->values(),
             'folders' => KnowledgeFolder::query()->whereIn('knowledge_domain_id', $domains->pluck('id'))->get()
@@ -224,9 +317,10 @@ class DocumentController extends Controller
             'template_label' => DocumentTemplate::tryFrom($d->template)?->label(),
             'filename' => $d->filename,
             'size' => $d->size_bytes,
-            'agent' => $d->agent ? ['id' => $d->agent->id, 'name' => $d->agent->name] : null,
+            'agent' => $d->agent ? ['id' => $d->agent->id, 'name' => $d->agent->name, 'avatar_url' => $d->agent->avatarUrl()] : null,
             'creator' => $d->creator?->name,
             'knowledge_item' => $d->knowledge_item_id !== null ? ['id' => $d->knowledge_item_id] : null,
+            'folder' => $d->folder ? ['id' => $d->folder->id, 'name' => $d->folder->name] : null,
             'created_at' => $d->created_at->toIso8601String(),
         ];
     }

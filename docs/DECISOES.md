@@ -1338,3 +1338,17 @@ of Staff a sugerir fluxos). Guião em `docs/demo/GUIAO.md`.
 | **Sem agente da área, o Chief of Staff**: um tipo de email cujo agente não existe (ex.: uma empresa sem Gestor de Clientes) vai ao Chief of Staff em vez de ficar parado na triagem. | `EmailRouter::route()` |
 | **Passagens que davam erro**: quando o colega respondia depois de dar tarefas (sem passar pedidos), o registo do que fez juntava textos a uma colecção Eloquent vazia («getKey() on string») e a conversa de origem falhava; 8 execuções da Rethink falharam assim desde 19.10. | `Handoffs::passedOn()` |
 | **Chief of Staff sugere fluxos**: `workflows.overview` mostra os tipos de email dos últimos dias (quantos, quem trata, se têm fluxo) e os fluxos existentes; `workflows.propose` desenha o fluxo com o mesmo rascunho de «Descreva o fluxo» (`WorkflowDrafting`) e guarda-o **como rascunho**, com a ligação para o editor e o porquê na descrição. Não precisa de aprovação porque um rascunho não faz nada: só uma pessoa que gere agentes o activa no editor. Não sugere um segundo fluxo para um tipo que já tem um activo. | `WorkflowsOverview`, `ProposeWorkflow`, `CapabilityRegistry::CHIEF_OF_STAFF`, `InstructionComposer` |
+
+## Gestor de ficheiros (27.10.2026)
+
+Pedido do Barrote, em Ficheiros (`/documents`): «deve ser mesmo um gestor de documentos, com vista em grelha e lista, ordenação, pesquisa, pastas; documento gerado por IA, mostrar a IA; se foi gerado por humano, mostrar também». Fica na mesma página, para os ficheiros gerados (pelos agentes ou pelas pessoas); o repositório da empresa continua no Conhecimento, onde estão as regras de acesso por domínio.
+
+| Decisão | Onde |
+|---|---|
+| **Pastas** de um só nível, da empresa, numa coluna à esquerda com quantos ficheiros cada uma tem (dos que a pessoa vê), mais «Todos» e «Sem pasta». Criar, mudar o nome e apagar pede «Criar documentos»; apagar uma pasta não apaga os ficheiros, que voltam para «Sem pasta». Quem vê um ficheiro continua a ser decidido pelo ficheiro, não pela pasta. | `document_folders`, `generated_documents.document_folder_id`, `DocumentController::storeFolder()` |
+| **Mover**: arrastar um ficheiro para uma pasta da coluna, ou «Mover para» no menu do ficheiro (com «Nova pasta…» e «Tirar da pasta»). | `DocumentController::move()`, `Pages/Documents/Index.tsx` |
+| **Grelha ou lista**, escolha guardada no navegador. **Pesquisa** pelo título e pelo nome do ficheiro enquanto se escreve; **filtros** por tipo e por quem fez (Todos, IA, Pessoas); **ordem**: mais recentes, mais antigos, nome, tamanho, tipo. Tudo no endereço (`q`, `format`, `autor`, `pasta`, `ordem`). | `DocumentController::index()` |
+| **Quem fez**: um agente aparece com o seu avatar, o nome e a marca «IA»; uma pessoa com as iniciais, o nome e «Pessoa». | `DocumentAuthor` |
+
+Testes: `tests/Feature/Knowledge/DocumentManagerTest.php`.
+

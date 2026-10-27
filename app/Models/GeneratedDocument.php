@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $agent_id
  * @property int|null $agent_run_id
  * @property int|null $skill_id
+ * @property int|null $document_folder_id
  * @property int|null $created_by_user_id
  * @property string $title
  * @property string $format
@@ -31,7 +32,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $knowledge_item_id
  * @property Carbon $created_at
  */
-#[Fillable(['agent_id', 'agent_run_id', 'skill_id', 'created_by_user_id', 'title', 'format', 'template', 'source', 'disk', 'path', 'filename', 'size_bytes', 'knowledge_item_id'])]
+#[Fillable(['agent_id', 'agent_run_id', 'skill_id', 'document_folder_id', 'created_by_user_id', 'title', 'format', 'template', 'source', 'disk', 'path', 'filename', 'size_bytes', 'knowledge_item_id'])]
 class GeneratedDocument extends Model
 {
     /** @use HasFactory<GeneratedDocumentFactory> */
@@ -51,6 +52,14 @@ class GeneratedDocument extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<DocumentFolder, $this>
+     */
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(DocumentFolder::class, 'document_folder_id');
     }
 
     /**
