@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
+    Archive,
     Bot,
     Download,
     FilePlus2,
@@ -14,8 +15,9 @@ import {
     Search,
     Trash2,
     UserRound,
+    X,
 } from 'lucide-react';
-import { type DragEvent, type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Monogram } from '@/Components/Blocks';
@@ -27,6 +29,7 @@ import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
 import { useCan } from '@/hooks/useCan';
 import { Button } from '@/Components/ui/button';
+import { Checkbox } from '@/Components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import {
     DropdownMenu,
@@ -84,6 +87,8 @@ interface Props {
     unfiled: number;
     formats: Option[];
     templates: Option[];
+    /** Loaded when the person archives files in the knowledge base. */
+    knowledge?: { domains: { id: number; name: string }[]; folders: { id: number; domain_id: number; path: string }[] };
 }
 
 const placeholder = `# Proposta de manutenção
@@ -136,7 +141,7 @@ export function DocumentAuthor({ document, compact = false }: { document: Genera
     );
 }
 
-export default function DocumentsIndex({ documents, filters, folders, total, unfiled, formats, templates }: Props) {
+export default function DocumentsIndex({ documents, filters, folders, total, unfiled, formats, templates, knowledge }: Props) {
     const [creating, setCreating] = useState(false);
     const can = useCan();
     const manage = can('documents.create');
@@ -155,6 +160,77 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
     const [deleting, setDeleting] = useState<FolderSummary | null>(null);
     const [dragging, setDragging] = useState<number | null>(null);
     const [dropOn, setDropOn] = useState<string | null>(null);
+    const [selected, setSelected] = useState<number[]>([]);
+    const [anchor, setAnchor] = useState<number | null>(null);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [filing, setFiling] = useState<{ domain_id: string; folder_id: string } | null>(null);
+    const [busy, setBusy] = useState(false);
+    const selecting = selected.length > 0;
+    const ids = documents.data.map((d) => d.id);
+    const all = ids.length > 0 && ids.every((id) => selected.includes(id));
+
+    // Another page, search or folder keeps only the chosen files still on screen.
+    useEffect(() => {
+        setSelected((current) => current.filter((id) => ids.includes(id)));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [documents.data]);
+
+    // Esc lets go of the selection; Ctrl/Cmd+A takes every file of the page.
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable], [role="dialog"]');
+            if (typing) {
+                return;
+            }
+            if (event.key === 'Escape' && selected.length > 0) {
+                setSelected([]);
+            } else if (event.key.toLowerCase() === 'a' && (event.metaKey || event.ctrlKey) && ids.length > 0) {
+                event.preventDefault();
+                setSelected(ids);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+
+        return () => window.removeEventListener('keydown', onKey);
+    }, [selected, ids]);
+
+    /** A click on a file's box; with Shift, every file between it and the last one clicked. */
+    const toggle = (id: number, range: boolean) => {
+        if (range && anchor !== null && ids.includes(anchor)) {
+            const [from, to] = [ids.indexOf(anchor), ids.indexOf(id)].sort((a, b) => a - b);
+            const span = ids.slice(from, to + 1);
+            setSelected((current) => [...new Set([...current, ...span])]);
+        } else {
+            setSelected((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+        }
+        setAnchor(id);
+    };
+
+    // While files are chosen, a click on a file adds or removes it instead of opening it.
+    const pick = (id: number) => (event: MouseEvent) => {
+        if (selecting || event.metaKey || event.ctrlKey || event.shiftKey) {
+            event.preventDefault();
+            toggle(id, event.shiftKey);
+        }
+    };
+
+    const bulk = {
+        move: (folderId: number | null, chosen: number[] = selected) =>
+            router.patch('/documents/bulk/folder', { ids: chosen, folder_id: folderId }, { preserveScroll: true, onSuccess: () => setSelected([]) }),
+        download: () => {
+            window.location.href = `/documents/bulk/download?${selected.map((id) => `ids[]=${id}`).join('&')}`;
+        },
+        archive: () => {
+            setFiling({ domain_id: '', folder_id: '' });
+            router.reload({
+                only: ['knowledge'],
+                onSuccess: (page) => {
+                    const first = (page.props as unknown as Props).knowledge?.domains[0];
+                    setFiling((current) => current && { ...current, domain_id: current.domain_id || String(first?.id ?? '') });
+                },
+            });
+        },
+    };
 
     const go = (changes: Partial<Filters>) => {
         const next = { ...filters, ...changes };
@@ -212,7 +288,9 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                   onDrop: (event: DragEvent) => {
                       event.preventDefault();
                       const document = documents.data.find((d) => d.id === dragging);
-                      if (document && (document.folder?.id ?? null) !== folderId) {
+                      if (document && selected.includes(document.id) && selected.length > 1) {
+                          bulk.move(folderId);
+                      } else if (document && (document.folder?.id ?? null) !== folderId) {
                           move(document, folderId);
                       }
                       setDragging(null);
@@ -370,7 +448,13 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                             {folder.name}
                         </FolderLink>
                     ))}
-                    {manage && dragging !== null && <p className="mt-2 px-2.5 text-[11px] text-muted-foreground">Largue o ficheiro numa pasta.</p>}
+                    {manage && dragging !== null && (
+                        <p className="mt-2 px-2.5 text-[11px] text-muted-foreground">
+                            {selected.includes(dragging) && selected.length > 1
+                                ? `Largue os ${selected.length} ficheiros numa pasta.`
+                                : 'Largue o ficheiro numa pasta.'}
+                        </p>
+                    )}
                 </nav>
 
                 <div className="flex min-w-0 flex-col gap-4">
@@ -462,11 +546,83 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                         </div>
                     </div>
 
-                    <div className="flex items-baseline justify-between gap-2">
-                        <h2 className="text-sm font-semibold">{heading}</h2>
-                        <span className="text-xs text-muted-foreground">
-                            {documents.total} {documents.total === 1 ? 'ficheiro' : 'ficheiros'}
-                        </span>
+                    <div className="sticky top-0 z-20 -mx-1 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 bg-background/95 px-1 py-1 backdrop-blur">
+                        {documents.data.length > 0 && (
+                            <Checkbox
+                                checked={all ? true : selecting ? 'indeterminate' : false}
+                                onCheckedChange={() => setSelected(all ? [] : ids)}
+                                aria-label={all ? 'Desmarcar todos' : 'Seleccionar todos os ficheiros da página'}
+                                title={all ? 'Desmarcar todos' : 'Seleccionar todos'}
+                                className="mr-1"
+                            />
+                        )}
+                        {selecting ? (
+                            <>
+                                <span className="mr-2 text-sm font-semibold tabular-nums">
+                                    {selected.length} {selected.length === 1 ? 'seleccionado' : 'seleccionados'}
+                                </span>
+                                {manage && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="sm">
+                                                <FolderInput />
+                                                Mover para
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="start">
+                                            {folders.map((folder) => (
+                                                <DropdownMenuItem key={folder.id} onSelect={() => bulk.move(folder.id)}>
+                                                    <Folder />
+                                                    {folder.name}
+                                                </DropdownMenuItem>
+                                            ))}
+                                            {folders.length > 0 && <DropdownMenuSeparator />}
+                                            <DropdownMenuItem onSelect={() => bulk.move(null)}>Tirar da pasta</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setFolderForm({ id: null, name: '' })}>
+                                                <FolderPlus />
+                                                Nova pasta…
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                                <Button variant="ghost" size="sm" onClick={bulk.download}>
+                                    <Download />
+                                    Descarregar
+                                </Button>
+                                {manage && (
+                                    <Button variant="ghost" size="sm" onClick={bulk.archive}>
+                                        <Archive />
+                                        Arquivar no conhecimento
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-status-danger hover:text-status-danger"
+                                    onClick={() => setBulkDeleting(true)}
+                                >
+                                    <Trash2 />
+                                    Apagar
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="ml-auto size-8"
+                                    onClick={() => setSelected([])}
+                                    aria-label="Limpar a selecção"
+                                    title="Limpar (Esc)"
+                                >
+                                    <X />
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-sm font-semibold">{heading}</h2>
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                    {documents.total} {documents.total === 1 ? 'ficheiro' : 'ficheiros'}
+                                </span>
+                            </>
+                        )}
                     </div>
 
                     {documents.data.length === 0 ? (
@@ -502,10 +658,24 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                     {...draggable(d)}
                                     className={cn(
                                         'group/card relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-xs transition-[box-shadow,opacity] hover:shadow-sm',
-                                        dragging === d.id && 'opacity-50',
+                                        (dragging === d.id || (dragging !== null && selected.includes(dragging) && selected.includes(d.id))) &&
+                                            'opacity-50',
+                                        selected.includes(d.id) && 'border-primary ring-2 ring-primary/40',
                                     )}
                                 >
-                                    <Link href={`/documents/${d.id}`} className="absolute inset-0 z-0" aria-label={d.title} />
+                                    <Link href={`/documents/${d.id}`} onClick={pick(d.id)} className="absolute inset-0 z-0" aria-label={d.title} />
+                                    <Checkbox
+                                        checked={selected.includes(d.id)}
+                                        onClick={(event) => {
+                                            event.preventDefault();
+                                            toggle(d.id, event.shiftKey);
+                                        }}
+                                        aria-label={`Seleccionar «${d.title}»`}
+                                        className={cn(
+                                            'absolute top-2.5 left-2.5 z-10 size-5 bg-background transition-opacity',
+                                            !selecting && 'opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100',
+                                        )}
+                                    />
                                     <div className="flex h-24 items-center justify-center bg-muted/40">
                                         <FileIcon extension={d.format} className="size-12 rounded-xl [&_svg]:size-6" />
                                     </div>
@@ -539,6 +709,9 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                             <table className="w-full table-fixed text-sm">
                                 <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
                                     <tr>
+                                        <th className="w-10 py-2 pl-3">
+                                            <span className="sr-only">Seleccionar</span>
+                                        </th>
                                         <th className="px-3 py-2 font-medium">Nome</th>
                                         <th className="hidden w-52 px-3 py-2 font-medium @xl:table-cell">Feito por</th>
                                         <th className="hidden w-32 px-3 py-2 font-medium @4xl:table-cell">Pasta</th>
@@ -549,9 +722,34 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                 </thead>
                                 <tbody className="divide-y">
                                     {documents.data.map((d) => (
-                                        <tr key={d.id} {...draggable(d)} className={cn('hover:bg-accent/40', dragging === d.id && 'opacity-50')}>
+                                        <tr
+                                            key={d.id}
+                                            {...draggable(d)}
+                                            aria-selected={selected.includes(d.id)}
+                                            className={cn(
+                                                'group/row hover:bg-accent/40',
+                                                selected.includes(d.id) && 'bg-primary/5 hover:bg-primary/10',
+                                                (dragging === d.id ||
+                                                    (dragging !== null && selected.includes(dragging) && selected.includes(d.id))) &&
+                                                    'opacity-50',
+                                            )}
+                                        >
+                                            <td className="py-2 pl-3">
+                                                <Checkbox
+                                                    checked={selected.includes(d.id)}
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        toggle(d.id, event.shiftKey);
+                                                    }}
+                                                    aria-label={`Seleccionar «${d.title}»`}
+                                                    className={cn(
+                                                        'transition-opacity',
+                                                        !selecting && 'opacity-40 group-hover/row:opacity-100 focus-visible:opacity-100',
+                                                    )}
+                                                />
+                                            </td>
                                             <td className="px-3 py-2">
-                                                <Link href={`/documents/${d.id}`} className="flex min-w-0 items-center gap-2.5">
+                                                <Link href={`/documents/${d.id}`} onClick={pick(d.id)} className="flex min-w-0 items-center gap-2.5">
                                                     <FileIcon extension={d.format} />
                                                     <span className="min-w-0 flex-1">
                                                         <span className="block truncate font-medium">{d.title}</span>
@@ -638,6 +836,87 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                 destructive
                 onConfirm={() => deleting && router.delete(`/documents/folders/${deleting.id}`, { onFinish: () => setDeleting(null) })}
             />
+
+            <ConfirmDialog
+                open={bulkDeleting}
+                onOpenChange={setBulkDeleting}
+                title={selected.length === 1 ? 'Apagar 1 ficheiro?' : `Apagar ${selected.length} ficheiros?`}
+                description="Os ficheiros saem de Ficheiros e não se recuperam. O que já foi arquivado na base de conhecimento fica lá."
+                confirmLabel="Apagar"
+                destructive
+                processing={busy}
+                onConfirm={() =>
+                    router.delete('/documents/bulk', {
+                        data: { ids: selected },
+                        preserveScroll: true,
+                        onStart: () => setBusy(true),
+                        onSuccess: () => setSelected([]),
+                        onFinish: () => {
+                            setBusy(false);
+                            setBulkDeleting(false);
+                        },
+                    })
+                }
+            />
+
+            <FormDialog
+                open={filing !== null}
+                onOpenChange={(open) => !open && setFiling(null)}
+                title="Arquivar na base de conhecimento"
+                description={`${selected.length === 1 ? 'O ficheiro passa' : `Os ${selected.length} ficheiros passam`} a estar disponíveis para os agentes. Os que já lá estão ficam como estão.`}
+                submitLabel="Arquivar"
+                processing={busy}
+                disabled={!knowledge || !filing?.domain_id}
+                onSubmit={() =>
+                    filing &&
+                    router.post(
+                        '/documents/bulk/file',
+                        { ids: selected, domain_id: filing.domain_id, folder_id: filing.folder_id || null },
+                        {
+                            preserveScroll: true,
+                            onStart: () => setBusy(true),
+                            onSuccess: () => {
+                                setFiling(null);
+                                setSelected([]);
+                            },
+                            onFinish: () => setBusy(false),
+                        },
+                    )
+                }
+            >
+                <Field id="bulk-domain" label="Domínio">
+                    <NativeSelect
+                        id="bulk-domain"
+                        value={filing?.domain_id ?? ''}
+                        onChange={(event) => setFiling((current) => current && { domain_id: event.target.value, folder_id: '' })}
+                        disabled={!knowledge}
+                    >
+                        {!knowledge && <option value="">A carregar…</option>}
+                        {knowledge?.domains.map((domain) => (
+                            <option key={domain.id} value={domain.id}>
+                                {domain.name}
+                            </option>
+                        ))}
+                    </NativeSelect>
+                </Field>
+                <Field id="bulk-folder" label="Pasta">
+                    <NativeSelect
+                        id="bulk-folder"
+                        value={filing?.folder_id ?? ''}
+                        onChange={(event) => setFiling((current) => current && { ...current, folder_id: event.target.value })}
+                        disabled={!knowledge}
+                    >
+                        <option value="">Raiz do domínio</option>
+                        {knowledge?.folders
+                            .filter((folder) => String(folder.domain_id) === filing?.domain_id)
+                            .map((folder) => (
+                                <option key={folder.id} value={folder.id}>
+                                    {folder.path}
+                                </option>
+                            ))}
+                    </NativeSelect>
+                </Field>
+            </FormDialog>
 
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent className="sm:max-w-2xl">

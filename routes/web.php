@@ -166,6 +166,10 @@ Route::middleware('auth')->group(function () {
     Route::post('documents/folders', [DocumentController::class, 'storeFolder'])->name('documents.folders.store');
     Route::put('documents/folders/{folder}', [DocumentController::class, 'updateFolder'])->name('documents.folders.update');
     Route::delete('documents/folders/{folder}', [DocumentController::class, 'destroyFolder'])->name('documents.folders.destroy');
+    Route::patch('documents/bulk/folder', [DocumentController::class, 'bulkMove'])->name('documents.bulk.move');
+    Route::get('documents/bulk/download', [DocumentController::class, 'bulkDownload'])->name('documents.bulk.download');
+    Route::post('documents/bulk/file', [DocumentController::class, 'bulkFile'])->name('documents.bulk.file');
+    Route::delete('documents/bulk', [DocumentController::class, 'bulkDestroy'])->name('documents.bulk.destroy');
     Route::patch('documents/{document}/folder', [DocumentController::class, 'move'])->name('documents.move');
     Route::get('documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');

@@ -5,6 +5,7 @@ use App\Models\DocumentFolder;
 use App\Models\GeneratedDocument;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 // docs/DECISOES.md, "Gestor de ficheiros".
@@ -79,4 +80,43 @@ it('does not let someone without the permission manage folders or move a file th
 
     $this->actingAs($this->member)->patch(tenantUrl($this->tenant, "documents/{$iva->id}/folder"), ['folder_id' => $this->folder->id])->assertForbidden();
     expect(asTenant($this->tenant, fn () => $iva->fresh()->document_folder_id))->toBeNull();
+});
+
+it('moves, downloads and deletes many files at once', function () {
+    $ids = asTenant($this->tenant, fn () => GeneratedDocument::query()->orderBy('id')->pluck('id')->all());
+    asTenant($this->tenant, function () {
+        foreach (GeneratedDocument::query()->get() as $document) {
+            Storage::disk($document->disk)->put($document->path, "conteúdo de {$document->title}");
+        }
+    });
+
+    $this->actingAs($this->owner)->patch(tenantUrl($this->tenant, 'documents/bulk/folder'), ['ids' => $ids, 'folder_id' => $this->folder->id])
+        ->assertRedirect()->assertSessionHas('success', '3 ficheiros em «Propostas».');
+    expect(asTenant($this->tenant, fn () => GeneratedDocument::query()->where('document_folder_id', $this->folder->id)->count()))->toBe(3);
+
+    $zip = $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'documents/bulk/download?'.http_build_query(['ids' => $ids])))->assertOk();
+    $archive = new ZipArchive;
+    $archive->open($zip->baseResponse->getFile()->getPathname());
+    expect($archive->numFiles)->toBe(3);
+    $archive->close();
+
+    $this->actingAs($this->owner)->delete(tenantUrl($this->tenant, 'documents/bulk'), ['ids' => array_slice($ids, 0, 2)])
+        ->assertRedirect()->assertSessionHas('success', '2 ficheiros apagados.');
+    expect(asTenant($this->tenant, fn () => GeneratedDocument::query()->count()))->toBe(1);
+});
+
+it('acts in bulk only on the files a person may touch', function () {
+    [$mine, $iva] = asTenant($this->tenant, fn () => [
+        GeneratedDocument::factory()->create(['title' => 'Nota da Naira', 'created_by_user_id' => $this->member->id]),
+        GeneratedDocument::query()->where('title', 'Apuramento de IVA')->sole(),
+    ]);
+
+    // A file she cannot see is left alone; her own moves, and is deleted.
+    $this->actingAs($this->member)->patch(tenantUrl($this->tenant, 'documents/bulk/folder'), ['ids' => [$mine->id, $iva->id], 'folder_id' => $this->folder->id])
+        ->assertSessionHas('success', '1 ficheiro em «Propostas».');
+    expect(asTenant($this->tenant, fn () => [$mine->fresh()->document_folder_id, $iva->fresh()->document_folder_id]))->toBe([$this->folder->id, null]);
+
+    $this->actingAs($this->member)->delete(tenantUrl($this->tenant, 'documents/bulk'), ['ids' => [$mine->id, $iva->id]])
+        ->assertSessionHas('success', '1 ficheiro apagado.');
+    expect(asTenant($this->tenant, fn () => [GeneratedDocument::query()->whereKey($mine->id)->exists(), $iva->fresh() !== null]))->toBe([false, true]);
 });

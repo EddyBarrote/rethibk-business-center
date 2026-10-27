@@ -21,12 +21,15 @@ use App\Tenancy\TenantRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
+use ZipArchive;
 
 /**
  * Files generated from Markdown (Word, PowerPoint, Excel, PDF): by agents
@@ -90,6 +93,8 @@ class DocumentController extends Controller
             'unfiled' => (int) ($counts[''] ?? 0),
             'formats' => DocumentFormat::options(),
             'templates' => DocumentTemplate::options(),
+            // Where the chosen files can be archived, loaded only when asked for.
+            'knowledge' => Inertia::optional(fn () => $this->knowledgeTargets($user)),
         ]);
     }
 
@@ -150,19 +155,121 @@ class DocumentController extends Controller
         return back()->with('success', $folder !== null ? "«{$document->title}» está agora em «{$folder}»." : "«{$document->title}» saiu da pasta.");
     }
 
+    /**
+     * Many files into a folder (or out of every folder) at once. Files the
+     * person cannot see are left alone.
+     */
+    public function bulkMove(Request $request): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
+        $data = $request->validate([...$this->bulkRules(), 'folder_id' => ['nullable', 'integer', TenantRule::exists('document_folders')]]);
+
+        $moved = $this->visible($user)->whereKey($data['ids'])->update(['document_folder_id' => $data['folder_id'] ?? null]);
+        $folder = isset($data['folder_id']) ? DocumentFolder::query()->whereKey($data['folder_id'])->value('name') : null;
+        $files = $this->files($moved);
+
+        return back()->with('success', $folder !== null ? "{$files} em «{$folder}»." : "{$files} fora das pastas.");
+    }
+
+    /**
+     * Many files in one ZIP; two files with the same name get a number.
+     */
+    public function bulkDownload(Request $request): BinaryFileResponse
+    {
+        $user = $this->user($request);
+        $data = $request->validate($this->bulkRules());
+        $documents = $this->visible($user)->whereKey($data['ids'])->orderBy('title')->get();
+        abort_if($documents->isEmpty(), 404);
+
+        $path = tempnam(sys_get_temp_dir(), 'ficheiros');
+        $zip = new ZipArchive;
+        $zip->open($path, ZipArchive::OVERWRITE);
+        $names = [];
+        foreach ($documents as $document) {
+            $disk = Storage::disk($document->disk);
+            if (! $disk->exists($document->path)) {
+                continue;
+            }
+            $name = $document->filename;
+            for ($n = 2; isset($names[$name]); $n++) {
+                $name = pathinfo($document->filename, PATHINFO_FILENAME)."-{$n}.".pathinfo($document->filename, PATHINFO_EXTENSION);
+            }
+            $names[$name] = true;
+            $zip->addFromString($name, (string) $disk->get($document->path));
+        }
+        $zip->close();
+
+        return response()->download($path, 'ficheiros-'.now()->format('Y-m-d').'.zip', ['Content-Type' => 'application/zip'])->deleteFileAfterSend();
+    }
+
+    /**
+     * Many files into the knowledge base; those already there are skipped.
+     */
+    public function bulkFile(Request $request): RedirectResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::CreateDocuments), 403);
+        $data = $request->validate([
+            ...$this->bulkRules(),
+            'domain_id' => ['required', 'integer', TenantRule::exists('knowledge_domains')],
+            'folder_id' => ['nullable', 'integer', TenantRule::exists('knowledge_folders')],
+        ]);
+        $domain = KnowledgeDomain::query()->findOrFail($data['domain_id']);
+        abort_unless($this->access->canOpen($user, $domain), 403);
+        $folder = isset($data['folder_id']) ? KnowledgeFolder::query()->where('knowledge_domain_id', $domain->id)->findOrFail($data['folder_id']) : null;
+
+        $filed = 0;
+        foreach ($this->visible($user)->whereKey($data['ids'])->whereNull('knowledge_item_id')->get() as $document) {
+            $item = $this->generator->fileInKnowledge($document, $user, ['knowledge_domain_id' => $domain->id, 'knowledge_folder_id' => $folder?->id]);
+            AuditLog::record($user, 'documents.filed', ['title' => $document->title, 'domain' => $domain->name], subject: $item);
+            $filed++;
+        }
+
+        return back()->with('success', $filed === 0 ? 'Esses ficheiros já estavam na base de conhecimento.' : "{$this->files($filed)} ".($filed === 1 ? 'arquivado' : 'arquivados')." em {$domain->name}.");
+    }
+
+    /**
+     * Deletes the chosen files this person may delete (their own; a manager,
+     * any); the others stay and the message says how many.
+     */
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $user = $this->user($request);
+        $data = $request->validate($this->bulkRules());
+        $documents = $this->visible($user)->whereKey($data['ids'])->get();
+        $allowed = $documents->filter(fn (GeneratedDocument $d) => $user->isManager() || $d->created_by_user_id === $user->id);
+
+        foreach ($allowed as $document) {
+            AuditLog::record($user, 'documents.deleted', ['title' => $document->title, 'format' => $document->format]);
+            Storage::disk($document->disk)->delete($document->path);
+            $document->delete();
+        }
+
+        $kept = $documents->count() - $allowed->count();
+        $message = match ($allowed->count()) {
+            0 => 'Nenhum ficheiro apagado.',
+            1 => '1 ficheiro apagado.',
+            default => "{$allowed->count()} ficheiros apagados.",
+        };
+        if ($kept > 0) {
+            $message .= $kept === 1 ? ' 1 ficheiro não é seu e ficou.' : " {$kept} ficheiros não são seus e ficaram.";
+        }
+
+        return back()->with($allowed->isEmpty() ? 'error' : 'success', $message);
+    }
+
     public function show(Request $request, GeneratedDocument $document): Response
     {
         $user = $this->user($request);
         abort_unless($this->canSee($user, $document), 403);
-        $this->access->ensureDefaults();
-        $domains = KnowledgeDomain::query()->orderBy('position')->get()->filter(fn (KnowledgeDomain $d) => $this->access->canOpen($user, $d))->values();
+        ['domains' => $domains, 'folders' => $folders] = $this->knowledgeTargets($user);
 
         return Inertia::render('Documents/Show', [
             'document' => [...$this->present($document->load(['agent:id,name,avatar_path', 'creator:id,name', 'knowledgeItem:id,title'])), 'source' => $document->source],
             'formats' => DocumentFormat::options(),
-            'domains' => $domains->map(fn (KnowledgeDomain $d) => ['id' => $d->id, 'name' => $d->name])->values(),
-            'folders' => KnowledgeFolder::query()->whereIn('knowledge_domain_id', $domains->pluck('id'))->get()
-                ->map(fn (KnowledgeFolder $f) => ['id' => $f->id, 'domain_id' => $f->knowledge_domain_id, 'path' => $f->path()])->sortBy('path')->values(),
+            'domains' => $domains,
+            'folders' => $folders,
         ]);
     }
 
@@ -279,6 +386,36 @@ class DocumentController extends Controller
         AuditLog::record($user, 'documents.generated', ['title' => $document->title, 'format' => $format->value], subject: $document);
 
         return $document;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function bulkRules(): array
+    {
+        return ['ids' => ['required', 'array', 'min:1', 'max:200'], 'ids.*' => ['integer']];
+    }
+
+    /**
+     * The knowledge domains this person can open, and their folders.
+     *
+     * @return array{domains: Collection<int, array{id: int, name: string}>, folders: Collection<int, array{id: int, domain_id: int, path: string}>}
+     */
+    private function knowledgeTargets(User $user): array
+    {
+        $this->access->ensureDefaults();
+        $domains = KnowledgeDomain::query()->orderBy('position')->get()->filter(fn (KnowledgeDomain $d) => $this->access->canOpen($user, $d))->values();
+
+        return [
+            'domains' => $domains->map(fn (KnowledgeDomain $d) => ['id' => $d->id, 'name' => $d->name])->values(),
+            'folders' => KnowledgeFolder::query()->whereIn('knowledge_domain_id', $domains->pluck('id'))->get()
+                ->map(fn (KnowledgeFolder $f) => ['id' => $f->id, 'domain_id' => $f->knowledge_domain_id, 'path' => $f->path()])->sortBy('path')->values(),
+        ];
+    }
+
+    private function files(int $count): string
+    {
+        return $count === 1 ? '1 ficheiro' : "{$count} ficheiros";
     }
 
     private function canSee(User $user, GeneratedDocument $document): bool
