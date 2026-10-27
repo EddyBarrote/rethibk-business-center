@@ -1425,3 +1425,10 @@ Testes: `tests/Feature/Email/AcknowledgementTest.php`.
 - Os relatórios vão para pastas (`reports.document_folder_id`) e entram nas acções em massa: mover, descarregar (no ZIP vão como `.md`), arquivar no conhecimento (como documento de texto, uma vez) e apagar (só gestores).
 - Exportar um relatório guarda a ligação no ficheiro (`generated_documents.report_id`) e põe-no na pasta do relatório; a página do relatório lista os ficheiros exportados e a do ficheiro diz de que relatório veio.
 - `/reports` redirecciona para `/documents?format=relatorio`; `/reports/{id}` continua a abrir o relatório (as notificações e os links dos agentes não mudam), com o menu em Documentos.
+
+## Agenda: vista do mês legível (27.10.2026)
+
+- As rotinas que correm todos os dias deixam de ocupar as linhas de cada dia. Ficam numa linha discreta no fundo do dia («↻ 3 rotinas»), que abre a lista. Com o filtro «Rotina», aparecem como antes.
+- Os itens do mesmo tipo com o mesmo início de título (antes de « - », « — » ou « : ») ficam numa só linha com o número («Seguimento de cobrança · 12»), que abre a lista com a hora, o título e quem trata. O que está em atraso vem primeiro.
+- Os títulos ocupam até duas linhas. O atraso mostra-se com o ponto e a hora a vermelho, em vez de um contorno. O número de hoje fica sempre legível dentro do círculo, e os fins de semana têm um fundo ligeiro.
+- Mostram-se até três linhas por dia; o resto fica em «+N mais», que abre a lista desse dia em vez de mudar para a semana.
