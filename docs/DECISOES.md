@@ -1432,3 +1432,9 @@ Testes: `tests/Feature/Email/AcknowledgementTest.php`.
 - Os itens do mesmo tipo com o mesmo início de título (antes de « - », « — » ou « : ») ficam numa só linha com o número («Seguimento de cobrança · 12»), que abre a lista com a hora, o título e quem trata. O que está em atraso vem primeiro.
 - Os títulos ocupam até duas linhas. O atraso mostra-se com o ponto e a hora a vermelho, em vez de um contorno. O número de hoje fica sempre legível dentro do círculo, e os fins de semana têm um fundo ligeiro.
 - Mostram-se até três linhas por dia; o resto fica em «+N mais», que abre a lista desse dia em vez de mudar para a semana.
+
+## Agenda: semana em grelha de horas (27.10.2026)
+
+- A semana passa a ser uma grelha como a de um calendário: os dias em colunas, as horas à esquerda (das 8h às 18h, alargando se houver algo fora disso) e uma linha «Dia todo» no topo. Deixa de haver uma caixa por dia e um botão «Lembrete» em cada coluna; o «+» aparece ao passar pelo dia.
+- Cada hora de cada dia lista os seus itens, agrupados como no mês (até duas linhas e «+N mais»). Uma hora cheia torna a linha mais alta em vez de tapar a seguinte, o que corrige o item de dia todo que passava para o dia ao lado.
+- As rotinas ficam na linha «Dia todo» como «↻ 3 rotinas» (com o filtro «Rotina» vão para as suas horas). No telefone, a semana é uma lista de dias.
