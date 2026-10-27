@@ -1549,3 +1549,17 @@ Ideia vinda do OpenDuet. O Barrote aprovou todos os pontos da proposta.
 - **Que regra pediu:** cada aprovação guarda a regra que a pediu (`rule_id`, `rule_label`), e o cartão diz «Pedida pela regra …». A auditoria regista a regra que decidiu (`rule_id`) nas acções executadas, recusadas e enviadas para aprovação. Também regista quem criou ou retirou cada regra.
 - **A página:** em Definições › Regras de aprovação vêem-se as regras, muda-se o efeito, retiram-se e criam-se à mão.
 - **Os nomes:** «Aprovar» e «Rejeitar» passam a «Permitir uma vez» e «Recusar» em todos os sítios onde se decide.
+
+## Resumo da manhã (27.10.2026)
+
+Ideia vinda do OpenDuet.
+
+- **Onde e quando:** na primeira vez que a pessoa abre o Início em cada dia, o Chief of Staff já lá deixou uma mensagem por cima da caixa de escrita. Fica até ela a fechar. Fechar guarda o dia em `users.morning_summary_seen_on`, por isso não volta noutro aparelho. No dia seguinte há outro.
+- **O que diz:**
+  - Precisa de si: as aprovações à espera, as perguntas dos agentes, as tarefas paradas à espera da pessoa, os emails importantes ou urgentes dos últimos três dias ainda sem resposta na conversa, e as tarefas dela fora do prazo. No máximo seis linhas.
+  - Pode esperar: o que está «pronto para rever».
+  - Hoje: os eventos da agenda e os prazos do dia.
+  - O que não consegui verificar: as caixas de correio com erro, a agenda Google que não sincronizou, o ERP que não respondeu, e os agentes sem chave do modelo.
+- **Sem modelo de IA:** `App\Home\MorningSummary` monta tudo a partir do que a plataforma sabe. Não custa nada e não inventa. Cada linha tem a ligação para onde se decide.
+- **«Começar»:** uma linha de email tem «Começar», que entrega o email ao agente que trata aquele tipo de email (`EmailRouter`) na conversa da pessoa com ele, pedindo que prepare o que for preciso sem enviar nada.
+- Enquanto o resumo está aberto, a linha «À sua espera» do Início fica escondida, para não repetir.

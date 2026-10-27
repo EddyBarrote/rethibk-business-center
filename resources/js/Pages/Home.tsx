@@ -2,6 +2,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowUp, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { type FormEvent, Fragment, useRef, useState } from 'react';
 
+import { type Morning, MorningSummary } from '@/Components/home/MorningSummary';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { HomeAgents, type NowRun } from '@/Components/agents/AgentNow';
 import { ApprovalSheet } from '@/Components/approvals/ApprovalSheet';
@@ -51,6 +52,7 @@ export default function Home({
     approvals,
     attachment_limits,
     agents_now: now,
+    morning,
 }: {
     agents: HomeAgent[];
     agent_id: number;
@@ -58,6 +60,7 @@ export default function Home({
     approvals: ApprovalSummary[];
     attachment_limits: AttachmentLimits;
     agents_now: { active: NowRun[]; done: NowRun[] };
+    morning: Morning | null;
 }) {
     const { auth } = usePage<SharedProps>().props;
     const [agentId, setAgentId] = useState(agent_id);
@@ -113,7 +116,7 @@ export default function Home({
                             </>
                         )}
                     </h1>
-                    {waiting.length > 0 && (
+                    {waiting.length > 0 && !morning && (
                         <p className="text-sm text-muted-foreground">
                             À sua espera:{' '}
                             {waiting.map((item, index) => (
@@ -133,6 +136,8 @@ export default function Home({
                         </p>
                     )}
                 </div>
+
+                {morning && <MorningSummary morning={morning} />}
 
                 <form onSubmit={submit} {...drop.dropProps} className="relative flex w-full flex-col gap-2 rounded-2xl border bg-card p-3">
                     <DropOverlay show={drop.dragging} />

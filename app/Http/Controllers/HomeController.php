@@ -6,6 +6,7 @@ use App\Ai\Runs\AgentNow;
 use App\Attachments\AttachmentLimits;
 use App\Enums\AgentStatus;
 use App\Enums\QuestionStatus;
+use App\Home\MorningSummary;
 use App\Http\Presenters\Present;
 use App\Models\Agent;
 use App\Models\AgentQuestion;
@@ -79,6 +80,16 @@ class HomeController extends Controller
             'attachment_limits' => AttachmentLimits::current()->forScreen(),
             // Who is working now and what they finished today (docs/DECISOES.md, "Início: os agentes a trabalhar").
             'agents_now' => fn () => app(AgentNow::class)->overview($agents, $user),
+            // Once a day, until closed (docs/DECISOES.md, "Resumo da manhã").
+            'morning' => fn () => app(MorningSummary::class)->for($user),
         ]);
+    }
+
+    /** «Fechar» on the morning summary: it comes back tomorrow, on any device. */
+    public function closeMorning(Request $request, MorningSummary $summary): RedirectResponse
+    {
+        $summary->close($this->user($request));
+
+        return back();
     }
 }

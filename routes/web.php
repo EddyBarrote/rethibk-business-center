@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::get('/', HomeController::class)->name('home');
+    Route::post('morning-summary/close', [HomeController::class, 'closeMorning'])->name('home.morning.close');
     Route::get('painel', DashboardController::class)->name('dashboard');
 
     Route::get('agents', [AgentController::class, 'index'])->name('agents.index');
