@@ -27,7 +27,9 @@ final class OrgChart
     /**
      * Down to anyone below, up to the direct manager. An agent outside the
      * chart (no manager and no reports) may ask anyone, so a tenant without a
-     * chart still works.
+     * chart still works. The Chief of Staff asks anyone, wherever they sit:
+     * work between areas goes through it (realinhamento, decisão 12), also to
+     * agents whose manager is a person.
      */
     public function canDelegate(Agent $from, Agent $to): bool
     {
@@ -35,11 +37,20 @@ final class OrgChart
             return false;
         }
 
+        if (self::isChiefOfStaff($from)) {
+            return true;
+        }
+
         if ($to->id === $from->reports_to_agent_id || $this->below($from)->contains('id', $to->id)) {
             return true;
         }
 
         return $from->reports_to_agent_id === null && ! $from->directReports()->exists();
+    }
+
+    public static function isChiefOfStaff(Agent $agent): bool
+    {
+        return in_array('chief_of_staff', [$agent->key, $agent->settings['template'] ?? null], true);
     }
 
     /**

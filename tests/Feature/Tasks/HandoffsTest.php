@@ -205,3 +205,27 @@ it('only passes requests along the chart, to agents the person may talk to, and 
             ->and(TaskMessage::query()->where('kind', TaskMessageKind::Handoff)->count())->toBe(2);
     });
 });
+
+it('lets the Chief of Staff pass requests and tasks to any agent, also one that answers to a person', function () {
+    asTenant($this->tenant, function () {
+        // As in the Rethink chart: Finanças answers to a person, not to the Chief of Staff.
+        $naira = User::factory()->create(['name' => 'Naira']);
+        $this->finance->forceFill(['reports_to_agent_id' => null, 'reports_to_user_id' => $naira->id])->save();
+        $this->finance->assignees()->attach($this->edy->id, ['role' => 'work']);
+
+        $threads = app(TaskThread::class);
+        $cosChat = $threads->conversation($this->edy, $this->chief);
+        $threads->post($cosChat, $this->edy, 'Descarta o relatório BAZA e avisa as Finanças');
+        $run = runningIn($cosChat);
+
+        expect(sendTo($run, 'finance', 'O relatório BAZA de Setembro foi descartado.')->ok)->toBeTrue();
+
+        $task = app(CapabilityRegistry::class)->find('tasks.create')->execute(['agent' => 'finance', 'title' => 'Relatório BAZA descartado', 'description' => 'Não usar.'], new CapabilityContext($this->chief, $run));
+        expect($task->ok)->toBeTrue();
+
+        // The others still go through the chart.
+        $salesChat = $threads->conversation($this->edy, $this->sales);
+        $threads->post($salesChat, $this->edy, 'Pede as facturas às Finanças');
+        expect(sendTo(runningIn($salesChat), 'finance', 'x')->content)->toContain('passa o pedido ao Chief of Staff');
+    });
+});

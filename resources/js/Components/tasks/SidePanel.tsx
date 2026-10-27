@@ -343,19 +343,19 @@ function RunView({
                         <RunStatusBadge status={run.status} label={run.status_label} />
                     </div>
 
-                    <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border bg-border text-xs">
+                    <dl className="grid grid-cols-3 gap-4 text-xs">
                         <Metric label="Duração" value={run.duration_ms !== null ? duration(run.duration_ms) : '—'} />
                         <Metric label="Custo" value={usdPrecise(run.cost_usd)} />
                         <Metric label="Tokens" value={`${number(run.input_tokens)} / ${number(run.output_tokens)}`} title="Entrada / saída" />
                     </dl>
 
-                    <details className="group rounded-lg border">
-                        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+                    <details className="group">
+                        <summary className="flex cursor-pointer list-none items-center gap-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
                             Pedido
                             <ChevronDown className="ml-auto size-3.5 transition-transform group-open:rotate-180" />
                         </summary>
-                        <div className="border-t text-sm [&>div]:rounded-none [&>div]:border-0">
-                            <RunRequest input={run.input} />
+                        <div className="pt-1 text-sm">
+                            <RunRequest input={run.input} plain />
                         </div>
                     </details>
 
@@ -375,12 +375,12 @@ function RunView({
                     )}
 
                     {run.output && (
-                        <details className="group rounded-lg border">
-                            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+                        <details className="group">
+                            <summary className="flex cursor-pointer list-none items-center gap-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
                                 Resposta final
                                 <ChevronDown className="ml-auto size-3.5 transition-transform group-open:rotate-180" />
                             </summary>
-                            <div className="border-t px-3 py-2 text-sm">
+                            <div className="pt-1 text-sm">
                                 <Markdown>{run.output}</Markdown>
                             </div>
                         </details>
@@ -410,7 +410,7 @@ function RunView({
 
 function Metric({ label, value, title }: { label: string; value: string; title?: string }) {
     return (
-        <div className="flex flex-col gap-0.5 bg-card px-3 py-2" title={title}>
+        <div className="flex min-w-0 flex-col gap-0.5" title={title}>
             <dt className="text-muted-foreground">{label}</dt>
             <dd className="font-medium tabular-nums">{value}</dd>
         </div>

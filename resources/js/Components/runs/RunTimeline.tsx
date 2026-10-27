@@ -131,21 +131,22 @@ const emailFence = /<email_externo_nao_confiavel>([\s\S]*?)<\/email_externo_nao_
 
 /**
  * What the run was asked. An inbound email arrives inside the untrusted-data
- * fence; it is shown as the email it is instead of the fence tags.
+ * fence; it is shown as the email it is instead of the fence tags. Plain,
+ * without the card, where it opens inside a panel.
  */
-export function RunRequest({ input }: { input: string }) {
+export function RunRequest({ input, plain = false }: { input: string; plain?: boolean }) {
     const email = input.match(emailFence);
     const instructions = withoutTags(email ? input.replace(emailFence, '') : input).trim();
 
     return (
-        <div className="divide-y rounded-xl border bg-card">
+        <div className={plain ? 'flex flex-col gap-3' : 'divide-y rounded-xl border bg-card'}>
             {instructions && (
-                <div className="px-5 py-3">
+                <div className={plain ? undefined : 'px-5 py-3'}>
                     <Markdown>{instructions}</Markdown>
                 </div>
             )}
             {email && (
-                <div className="px-5 py-3">
+                <div className={plain ? undefined : 'px-5 py-3'}>
                     <p className="text-xs font-medium text-muted-foreground">
                         Email recebido · conteúdo externo, o agente lê-o como dados e não como ordens
                     </p>
@@ -309,10 +310,11 @@ function ToolItem({
             }
         >
             <span className="flex min-w-0 items-baseline gap-2 leading-5">
-                <span className="shrink-0" title={key}>
+                {/* A long name shortens before it can run into the time; the gist gives way first. */}
+                <span className="min-w-0 truncate" title={toolNames[key] ?? key}>
                     {toolNames[key] ?? key}
                 </span>
-                {gist && !failed && <span className="min-w-0 truncate text-xs text-muted-foreground">{plainText(gist)}</span>}
+                {gist && !failed && <span className="min-w-0 shrink-[999] truncate text-xs text-muted-foreground">{plainText(gist)}</span>}
             </span>
             {failed && answer && <span className="mt-0.5 block text-xs break-words whitespace-pre-wrap text-status-danger">{answer}</span>}
         </Row>
@@ -321,7 +323,7 @@ function ToolItem({
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
     return (
-        <div className="min-w-0 rounded-lg border bg-muted/40 p-2.5">
+        <div className="min-w-0 rounded-lg bg-muted/40 p-2.5">
             <p className="mb-1 text-[11px] font-medium text-muted-foreground">{label}</p>
             <div className="max-h-72 overflow-auto">{children}</div>
         </div>
