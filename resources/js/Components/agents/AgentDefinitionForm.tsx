@@ -1,5 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
-import { BookOpen, Bot, Brain, Cpu, Lightbulb, Puzzle, Search } from 'lucide-react';
+import { BookOpen, Bot, Brain, ChevronRight, Cpu, Lightbulb, Puzzle, Search } from 'lucide-react';
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
@@ -163,6 +163,7 @@ export default function AgentDefinitionForm({
     });
     const errors = form.errors as Record<string, string | undefined>;
     const [filter, setFilter] = useState('');
+    const [onlyChosen, setOnlyChosen] = useState(false);
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -187,8 +188,14 @@ export default function AgentDefinitionForm({
 
     const level = Number(form.data.autonomy_level);
     const visibleCapabilities = useMemo(
-        () => capabilities.filter((capability) => `${capability.key} ${capability.name}`.toLowerCase().includes(filter.toLowerCase())),
-        [capabilities, filter],
+        () =>
+            capabilities.filter(
+                (capability) =>
+                    `${capability.key} ${capability.name} ${capability.description ?? ''}`.toLowerCase().includes(filter.toLowerCase()) &&
+                    (!onlyChosen || form.data.capabilities.includes(capability.id)),
+            ),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [capabilities, filter, onlyChosen],
     );
 
     const toggle = (field: 'capabilities' | 'skills', id: number, on: boolean) =>
@@ -210,10 +217,10 @@ export default function AgentDefinitionForm({
         <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
             <SectionNav sections={sections} active={active} note={navNote} />
 
-            <div className="flex min-w-0 flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-8">
                 {before}
 
-                <form onSubmit={submit} className="flex flex-col gap-6">
+                <form onSubmit={submit} className="flex flex-col gap-8">
                     <FormSection id="identidade" title="Identidade" description="Quem é este colega, o que faz e a quem responde.">
                         <div className={cn('grid gap-6', identityAside && 'md:grid-cols-[minmax(0,1fr)_11rem]')}>
                             <div className="grid gap-4">
@@ -380,24 +387,33 @@ export default function AgentDefinitionForm({
                                         ))}
                                     </NativeSelect>
                                 </Field>
-                                <Field id="autonomy_level" label="Nível de autonomia" error={errors.autonomy_level}>
-                                    <NativeSelect
-                                        id="autonomy_level"
-                                        value={form.data.autonomy_level}
-                                        onChange={(e) => form.setData('autonomy_level', e.target.value)}
-                                    >
-                                        {levels.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.code} · {option.label}
-                                            </option>
-                                        ))}
-                                    </NativeSelect>
-                                    <div>
-                                        <AutonomyBadge level={level} withLabel />
-                                    </div>
-                                </Field>
                             </div>
-                            <div className="grid gap-4 border-t pt-5 sm:grid-cols-2">
+                            <fieldset className="flex flex-col gap-1">
+                                <legend className="mb-2 text-sm font-medium">Nível de autonomia</legend>
+                                {levels.map((option) => (
+                                    <label
+                                        key={option.value}
+                                        className={cn(
+                                            'flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
+                                            level === option.value && 'bg-accent',
+                                        )}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="autonomy_level"
+                                            value={option.value}
+                                            checked={level === option.value}
+                                            onChange={() => form.setData('autonomy_level', String(option.value))}
+                                            className="accent-primary"
+                                        />
+                                        <AutonomyBadge level={option.value} />
+                                        <span className={cn(level === option.value && 'font-medium')}>{option.label}</span>
+                                    </label>
+                                ))}
+                                {errors.autonomy_level && <p className="text-sm text-destructive">{errors.autonomy_level}</p>}
+                            </fieldset>
+                            <p className="-mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Modelo</p>
+                            <div className="grid gap-4 sm:grid-cols-2">
                                 <Field id="provider" label="Provedor" error={errors.provider}>
                                     <NativeSelect id="provider" value={form.data.provider} onChange={(e) => form.setData('provider', e.target.value)}>
                                         <option value="">Por omissão ({defaultProvider})</option>
@@ -461,88 +477,55 @@ export default function AgentDefinitionForm({
                         description={
                             <>
                                 O que o agente consegue <em>fazer</em>: ferramentas da plataforma, do ERP e de conectores.{' '}
-                                <span className="font-mono text-foreground tabular-nums">{form.data.capabilities.length}</span>{' '}
-                                {form.data.capabilities.length === 1 ? 'seleccionada' : 'seleccionadas'}. Sem aprovação, só usa uma capacidade de
-                                escrita se o seu nível for igual ou superior ao risco dela.
+                                <span className="font-medium text-foreground tabular-nums">{form.data.capabilities.length}</span>{' '}
+                                {form.data.capabilities.length === 1 ? 'escolhida' : 'escolhidas'}. Uma capacidade que escreve só é usada sem
+                                aprovação se o nível do agente chegar ao risco dela.
                             </>
                         }
                         action={
-                            <div className="relative w-full sm:w-56">
-                                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input className="pl-8" placeholder="Filtrar…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                            <div className="flex w-full flex-col gap-2">
+                                <div className="relative w-full">
+                                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        className="h-8 pl-8"
+                                        placeholder="Procurar capacidade…"
+                                        value={filter}
+                                        onChange={(e) => setFilter(e.target.value)}
+                                    />
+                                </div>
+                                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                                    <Checkbox checked={onlyChosen} onCheckedChange={(on) => setOnlyChosen(on === true)} />
+                                    Só as escolhidas
+                                </label>
                             </div>
                         }
                     >
                         <InputErrorList errors={errors} prefix="capabilities" />
-                        {visibleCapabilities.length === 0 ? (
-                            <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                                {capabilities.length === 0 ? (
-                                    <>
-                                        Ainda não há capacidades.{' '}
-                                        {capabilitiesHref && (
-                                            <Link href={capabilitiesHref} className="text-primary underline">
-                                                Actualize o catálogo
-                                            </Link>
-                                        )}
-                                    </>
-                                ) : (
-                                    'Nenhuma capacidade corresponde ao filtro.'
+                        {capabilities.length === 0 ? (
+                            <p className="py-6 text-sm text-muted-foreground">
+                                Ainda não há capacidades.{' '}
+                                {capabilitiesHref && (
+                                    <Link href={capabilitiesHref} className="text-primary underline">
+                                        Actualize o catálogo
+                                    </Link>
                                 )}
                             </p>
                         ) : (
-                            <ul className="relative grid max-h-[32rem] gap-px overflow-y-auto rounded-lg border bg-border sm:grid-cols-2">
-                                {visibleCapabilities.map((capability) => {
-                                    const checked = form.data.capabilities.includes(capability.id);
-                                    const gated = capability.ceiling || (capability.is_mutating && level < capability.risk);
-
-                                    return (
-                                        <li key={capability.id} className="bg-card">
-                                            <label
-                                                className={cn(
-                                                    'flex h-full cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors hover:bg-accent/60',
-                                                    checked && 'bg-primary/5',
-                                                    !capability.is_available && !checked && 'cursor-not-allowed opacity-60',
-                                                )}
-                                            >
-                                                <Checkbox
-                                                    checked={checked}
-                                                    disabled={!capability.is_available && !checked}
-                                                    onCheckedChange={(on) => toggle('capabilities', capability.id, on === true)}
-                                                    className="mt-0.5"
-                                                />
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="flex flex-wrap items-center gap-1.5">
-                                                        <span className="text-sm font-medium">{capability.name}</span>
-                                                        <SourcePill source={capability.source} scope={capability.scope} />
-                                                        {capability.is_mutating ? (
-                                                            <AutonomyBadge level={capability.risk} />
-                                                        ) : (
-                                                            <StatusBadge tone="idle" dot={false}>
-                                                                leitura
-                                                            </StatusBadge>
-                                                        )}
-                                                        {capability.ceiling && <CeilingPill />}
-                                                        {!capability.is_available && (
-                                                            <StatusBadge tone="idle" dot={false}>
-                                                                desligada
-                                                            </StatusBadge>
-                                                        )}
-                                                    </span>
-                                                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                                                        {capability.key}
-                                                    </span>
-                                                    {checked && gated && (
-                                                        <span className="mt-0.5 flex items-center gap-1.5 text-xs text-warning-strong">
-                                                            <StatusDot tone="warning" pulse={false} className="size-1.5 [&>span]:size-1.5" />
-                                                            Pede aprovação a este nível.
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </label>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
+                            <CapabilityGroups
+                                capabilities={visibleCapabilities}
+                                selected={form.data.capabilities}
+                                level={level}
+                                filtering={filter !== '' || onlyChosen}
+                                onToggle={(id, on) => toggle('capabilities', id, on)}
+                                onToggleMany={(ids, on) =>
+                                    form.setData(
+                                        'capabilities',
+                                        on
+                                            ? [...new Set([...form.data.capabilities, ...ids])]
+                                            : form.data.capabilities.filter((id) => !ids.includes(id)),
+                                    )
+                                }
+                            />
                         )}
                     </FormSection>
 
@@ -558,7 +541,7 @@ export default function AgentDefinitionForm({
                     >
                         <InputErrorList errors={errors} prefix="skills" />
                         {skills.length === 0 ? (
-                            <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                            <p className="py-6 text-sm text-muted-foreground">
                                 Ainda não há skills.{' '}
                                 {skillsHref && (
                                     <Link href={skillsHref} className="text-primary underline">
@@ -567,16 +550,16 @@ export default function AgentDefinitionForm({
                                 )}
                             </p>
                         ) : (
-                            <ul className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2">
+                            <ul className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
                                 {skills.map((skill) => {
                                     const checked = form.data.skills.includes(skill.id);
 
                                     return (
-                                        <li key={skill.id} className="bg-card">
+                                        <li key={skill.id}>
                                             <label
                                                 className={cn(
-                                                    'flex h-full cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors hover:bg-accent/60',
-                                                    checked && 'bg-primary/5',
+                                                    'flex h-full cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-accent/50',
+                                                    checked && 'bg-primary/[0.04]',
                                                     !skill.is_available && !checked && 'cursor-not-allowed opacity-60',
                                                 )}
                                             >
@@ -605,7 +588,7 @@ export default function AgentDefinitionForm({
                             </ul>
                         )}
                         {draft && draft.suggested_skills.length > 0 && (
-                            <div className="mt-4 rounded-lg border border-dashed p-3">
+                            <div className="mt-4 rounded-lg bg-muted/40 p-3">
                                 <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Skills que fariam falta</p>
                                 <ul className="mt-2 grid gap-2">
                                     {draft.suggested_skills.map((suggestion) => (
@@ -639,6 +622,173 @@ export default function AgentDefinitionForm({
 
                 {after}
             </div>
+        </div>
+    );
+}
+
+/** Where a capability belongs, from its source and the start of its key. */
+const areas: { label: string; prefixes: string[] }[] = [
+    {
+        label: 'Trabalho e equipa',
+        prefixes: [
+            'agents',
+            'tasks',
+            'approvals',
+            'questions',
+            'escalate',
+            'workflow',
+            'workflows',
+            'conversations',
+            'notify',
+            'followups',
+            'briefings',
+            'platform',
+            'skills',
+        ],
+    },
+    { label: 'Email e comunicação', prefixes: ['email', 'comms'] },
+    {
+        label: 'Conhecimento, ficheiros e pesquisa',
+        prefixes: ['knowledge', 'memory', 'files', 'documents', 'reports', 'company', 'web', 'code', 'analysis'],
+    },
+    { label: 'Finanças', prefixes: ['finance', 'bank', 'budget'] },
+    { label: 'Clientes e vendas', prefixes: ['clients', 'sales', 'contracts', 'tenders'] },
+    { label: 'Compras e fornecedores', prefixes: ['procurement', 'suppliers'] },
+    { label: 'Pessoas', prefixes: ['hr'] },
+];
+
+function areaOf(capability: CapabilityOption): string {
+    if (capability.source === 'mcp') {
+        return 'ERP';
+    }
+    if (capability.source === 'connector') {
+        return 'Conectores';
+    }
+    const prefix = capability.key.split('.')[0];
+
+    return areas.find((area) => area.prefixes.includes(prefix))?.label ?? 'Outras';
+}
+
+const areaOrder = [...areas.map((area) => area.label), 'ERP', 'Conectores', 'Outras'];
+
+/**
+ * The capabilities grouped by area, each group with how many are chosen and
+ * a way to choose all of it or none. A group with nothing chosen starts
+ * folded, unless the person is searching.
+ */
+function CapabilityGroups({
+    capabilities,
+    selected,
+    level,
+    filtering,
+    onToggle,
+    onToggleMany,
+}: {
+    capabilities: CapabilityOption[];
+    selected: number[];
+    level: number;
+    filtering: boolean;
+    onToggle: (id: number, on: boolean) => void;
+    onToggleMany: (ids: number[], on: boolean) => void;
+}) {
+    const [open, setOpen] = useState<Record<string, boolean>>({});
+    const groups = areaOrder
+        .map((label) => ({ label, items: capabilities.filter((capability) => areaOf(capability) === label) }))
+        .filter((group) => group.items.length > 0);
+
+    if (groups.length === 0) {
+        return <p className="py-6 text-sm text-muted-foreground">Nenhuma capacidade corresponde à procura.</p>;
+    }
+
+    return (
+        <div className="flex flex-col gap-1">
+            {groups.map((group) => {
+                const chosen = group.items.filter((capability) => selected.includes(capability.id)).length;
+                const available = group.items.filter((capability) => capability.is_available).map((capability) => capability.id);
+                const expanded = open[group.label] ?? (filtering || chosen > 0);
+
+                return (
+                    <div key={group.label} className="flex flex-col">
+                        <div className="flex items-center gap-2 py-1.5">
+                            <button
+                                type="button"
+                                onClick={() => setOpen((current) => ({ ...current, [group.label]: !expanded }))}
+                                aria-expanded={expanded}
+                                className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium"
+                            >
+                                <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+                                <span className="truncate">{group.label}</span>
+                                <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                                    {chosen}/{group.items.length}
+                                </span>
+                            </button>
+                            {expanded && available.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => onToggleMany(available, chosen < available.length)}
+                                    className="text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                    {chosen < available.length ? 'Escolher todas' : 'Tirar todas'}
+                                </button>
+                            )}
+                        </div>
+                        {expanded && (
+                            <ul className="mb-3 grid gap-x-4 gap-y-0.5 pl-6 sm:grid-cols-2">
+                                {group.items.map((capability) => {
+                                    const checked = selected.includes(capability.id);
+                                    const gated = capability.ceiling || (capability.is_mutating && level < capability.risk);
+
+                                    return (
+                                        <li key={capability.id}>
+                                            <label
+                                                title={capability.description ?? capability.key}
+                                                className={cn(
+                                                    'flex h-full cursor-pointer items-start gap-2.5 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-accent/50',
+                                                    checked && 'bg-primary/[0.04]',
+                                                    !capability.is_available && !checked && 'cursor-not-allowed opacity-50',
+                                                )}
+                                            >
+                                                <Checkbox
+                                                    checked={checked}
+                                                    disabled={!capability.is_available && !checked}
+                                                    onCheckedChange={(on) => onToggle(capability.id, on === true)}
+                                                    className="mt-0.5"
+                                                />
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="flex flex-wrap items-center gap-1.5">
+                                                        <span className="text-sm">{capability.name}</span>
+                                                        {capability.is_mutating ? (
+                                                            <AutonomyBadge level={capability.risk} />
+                                                        ) : (
+                                                            <span className="text-[11px] text-muted-foreground">leitura</span>
+                                                        )}
+                                                        {capability.ceiling && <CeilingPill />}
+                                                        {capability.source === 'connector' && (
+                                                            <SourcePill source={capability.source} scope={capability.scope} />
+                                                        )}
+                                                        {!capability.is_available && (
+                                                            <span className="text-[11px] text-muted-foreground">desligada</span>
+                                                        )}
+                                                    </span>
+                                                    {capability.description && (
+                                                        <span className="line-clamp-1 text-xs text-muted-foreground">{capability.description}</span>
+                                                    )}
+                                                    {checked && gated && (
+                                                        <span className="mt-0.5 flex items-center gap-1.5 text-xs text-warning-strong">
+                                                            <StatusDot tone="warning" pulse={false} className="size-1.5 [&>span]:size-1.5" />
+                                                            Pede aprovação a este nível.
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </label>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 }

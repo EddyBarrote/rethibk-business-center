@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 /*
  * Building blocks of the long definition forms (agents, skills, connectors):
- * a sticky section nav, bordered sections, source pills.
+ * a sticky section nav, sections without boxes, source pills.
  */
 
 export const str = (value: number | string | null | undefined) => (value === null || value === undefined ? '' : String(value));
@@ -18,7 +18,6 @@ export interface SectionLink {
     icon: LucideIcon;
     count?: number;
 }
-
 
 /** The section whose heading was scrolled past last, for the sticky section nav. */
 export function useActiveSection(ids: string[]) {
@@ -85,7 +84,12 @@ export function SectionNav({ sections, active, note }: { sections: SectionLink[]
     );
 }
 
-/** A bordered block of the builder: heading strip, body, optional footer. */
+/**
+ * A section of the builder, without a box (docs/UI.md, no borders on opened
+ * content): on a wide screen the title and what it is for sit on the left and
+ * the fields on the right, like a settings page; sections are apart by space
+ * and a hairline.
+ */
 export function FormSection({
     id,
     title,
@@ -102,16 +106,21 @@ export function FormSection({
     children: ReactNode;
 }) {
     return (
-        <section id={id} className="scroll-mt-20 overflow-hidden rounded-xl border bg-card">
-            <header className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 space-y-1">
+        <section
+            id={id}
+            className="grid scroll-mt-20 gap-x-10 gap-y-4 border-t border-border/60 pt-8 first:border-t-0 first:pt-0 xl:grid-cols-[14rem_minmax(0,1fr)]"
+        >
+            <header className="flex min-w-0 flex-col gap-3">
+                <div className="space-y-1">
                     <h2 className="text-sm font-semibold">{title}</h2>
-                    {description && <p className="text-sm text-muted-foreground">{description}</p>}
+                    {description && <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>}
                 </div>
-                {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+                {action && <div className="flex items-center gap-2">{action}</div>}
             </header>
-            <div className="p-5">{children}</div>
-            {footer && <div className="flex items-center justify-end gap-2 border-t bg-muted/30 px-5 py-3">{footer}</div>}
+            <div className="min-w-0">
+                {children}
+                {footer && <div className="mt-4 flex items-center justify-end gap-2">{footer}</div>}
+            </div>
         </section>
     );
 }
@@ -142,7 +151,6 @@ export function CeilingPill() {
         </StatusBadge>
     );
 }
-
 
 export function InputErrorList({ errors, prefix }: { errors: Record<string, string | undefined>; prefix: string }) {
     const messages = Object.entries(errors)

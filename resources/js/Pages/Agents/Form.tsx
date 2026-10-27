@@ -35,7 +35,7 @@ function Assistant({ brief, available }: { brief?: string; available: boolean })
     };
 
     return (
-        <section id="assistente" className="scroll-mt-20 overflow-hidden rounded-xl border border-primary/30 bg-primary/[0.03]">
+        <section id="assistente" className="scroll-mt-20 rounded-xl bg-primary/[0.04]">
             <form onSubmit={submit} className="grid gap-3 p-5">
                 <div className="flex items-start gap-3">
                     <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
@@ -106,7 +106,7 @@ function AvatarPanel({ agent, canGenerate }: { agent: AgentData; canGenerate: bo
     };
 
     return (
-        <div className="flex flex-col items-center gap-3 md:border-l md:pl-6">
+        <div className="flex flex-col items-center gap-3">
             <AgentAvatar name={agent.name} url={agent.avatar_url} className="size-28 rounded-2xl text-3xl" />
             <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => send(e.target.files?.[0])} />
             <div className="flex w-full flex-col gap-1.5">
