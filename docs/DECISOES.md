@@ -1515,3 +1515,9 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - Gemini 3.6 Flash e Gemini 4 Argon contam pelo preço que vigora depois da promoção actual (1,50 / 7,50 a partir de 1.1.2027; 4 / 20 a partir de 1.12.2026): o orçamento erra para o lado seguro.
 - Ids corrigidos: `deepseek-flash` (o `deepseek-v4-flash` foi retirado) e `grok-4.20-0309-non-reasoning`.
 - Sem preço oficial publicado: Mistral Small 4 fica «preço por definir» (o orçamento usa o preço de reserva). DeepSeek usa os preços de tabela citados por terceiros, sem a promoção do V4 Pro, até a página oficial os mostrar.
+
+## Foto de perfil (27.10.2026)
+
+- Pedido do Barrote: cada pessoa pode pôr a sua foto. Fica em A minha conta › Perfil, no bloco «Foto»: «Carregar foto» (ou «Mudar foto») abre o ficheiro e uma janela para o enquadrar num círculo (arrastar para mover, barra ou roda do rato para aproximar); «Retirar foto» volta às iniciais. Só a própria pessoa muda a sua foto.
+- O browser envia o quadrado enquadrado com 512 px; o servidor corta-o de novo ao quadrado e grava-o em JPEG de 512 px (`App\Support\UserAvatars`), o que também tira os metadados da câmara (local, aparelho). Aceita PNG, JPG e WebP até 8 MB. O ficheiro fica no disco privado (`users.avatar_path`) e é servido por `/people/{id}/avatar` só a quem é da mesma empresa.
+- A foto aparece onde estavam as iniciais da pessoa: barra lateral, conversas das tarefas, quadro e lista de tarefas, colaboradores, percurso, organograma, pessoas, objectivos, projectos, conversas de um agente e autor dos documentos. O componente `PersonAvatar` procura-a pelo nome em `people_photos` (partilhado com todas as páginas, só as pessoas com foto), como o `AgentAvatar` faz com os agentes; sem foto, ficam as iniciais. Os remetentes de email continuam com iniciais.

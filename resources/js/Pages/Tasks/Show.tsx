@@ -2,10 +2,11 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { CircleCheck, CircleHelp, CornerLeftUp, Lock, MessageSquare, PanelRight, RotateCcw, Route, Send, Zap } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { type NowRun, stepLabel, workTitle } from '@/Components/agents/AgentNow';
 import { AttachButton, AttachmentTray, DropOverlay, RecordControl, useFileDrop } from '@/Components/attachments/Composer';
-import { ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
+import { ListPanel, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { Markdown } from '@/Components/Markdown';
@@ -901,7 +902,7 @@ function TaskProperties({
                                 value: `user:${person.id}`,
                                 label: (
                                     <span className="inline-flex items-center gap-1.5">
-                                        <Monogram name={person.name} className="size-5 rounded-md text-[9px]" />
+                                        <PersonAvatar name={person.name} className="size-5 rounded-md text-[9px]" />
                                         {person.name}
                                     </span>
                                 ),

@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { Plus, Users } from 'lucide-react';
 
-import { Monogram } from '@/Components/Blocks';
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { StatusBadge } from '@/Components/Status';
@@ -66,7 +66,7 @@ export default function UsersIndex({ users }: { users: UserRow[] }) {
                                 <TableRow key={user.id} className={cn(!user.is_active && 'text-muted-foreground')}>
                                     <TableCell className="px-4 py-2">
                                         <div className="flex items-center gap-3">
-                                            <Monogram name={user.name} />
+                                            <PersonAvatar name={user.name} />
                                             <div className="min-w-0">
                                                 <p className="truncate font-medium">{user.name}</p>
                                                 <p className="truncate font-mono text-[11px] text-muted-foreground">{user.email}</p>

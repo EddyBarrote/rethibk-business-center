@@ -2,8 +2,8 @@ import { Link, router } from '@inertiajs/react';
 import { ArrowRight, CornerDownLeft, Mail } from 'lucide-react';
 import { Fragment, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { Monogram } from '@/Components/Blocks';
 import { StatusDot, type Tone } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { usd } from '@/lib/format';
@@ -120,7 +120,7 @@ function Face({ type, name, url, className }: { type: string; name: string; url:
     return type === 'agent' ? (
         <AgentAvatar name={name} url={url} className={cn('size-9 rounded-full', className)} />
     ) : (
-        <Monogram name={name} className={cn('size-9', className)} />
+        <PersonAvatar name={name} className={cn('size-9', className)} />
     );
 }
 

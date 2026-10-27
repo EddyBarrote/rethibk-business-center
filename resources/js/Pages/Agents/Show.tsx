@@ -2,10 +2,11 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Activity, BookOpen, Brain, Clock, ExternalLink, ListTodo, Lock, MessagesSquare, Pause, Pencil, Play, Send, Wrench, Zap } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { NowPanel, type NowRun } from '@/Components/agents/AgentNow';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { EntityRow, ListPanel, Monogram, Properties, Property, Section } from '@/Components/Blocks';
+import { EntityRow, ListPanel, Properties, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { RunStatusBadge } from '@/Components/RunStatusBadge';
@@ -249,7 +250,7 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                                             href={`/tasks/${chat.id}`}
                                             className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50"
                                         >
-                                            <Monogram name={chat.person ?? '?'} className="size-7 text-[10px]" />
+                                            <PersonAvatar name={chat.person ?? '?'} className="size-7 text-[10px]" />
                                             <span className="min-w-0 flex-1">
                                                 <span className="block truncate text-sm font-medium">{chat.person ?? 'Pessoa removida'}</span>
                                                 <span className="block truncate text-xs text-muted-foreground">

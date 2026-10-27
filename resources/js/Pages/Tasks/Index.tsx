@@ -30,8 +30,8 @@ import {
 } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
@@ -431,7 +431,7 @@ export default function TasksIndex({
                           icon: task.assignee ? (
                               <AgentAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
                           ) : (
-                              <Monogram name={who.name} className="size-5 rounded-md text-[9px]" />
+                              <PersonAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
                           ),
                       }
                     : { key: 'ninguem', label: 'Por atribuir', icon: <UserRound className="size-4 text-muted-foreground" /> };
@@ -1098,7 +1098,7 @@ export function TaskRow({
                                 {task.assignee ? (
                                     <AgentAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
                                 ) : (
-                                    <Monogram name={who.name} className="size-5 rounded-md text-[9px]" />
+                                    <PersonAvatar name={who.name} className="size-5 rounded-md text-[9px]" />
                                 )}
                                 <span className="truncate text-foreground/80">{who.name}</span>
                             </span>

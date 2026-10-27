@@ -4,6 +4,8 @@ export interface AuthUser {
     id: number;
     name: string;
     email: string;
+    /** Their photo, or null for their initials. */
+    avatar_url: string | null;
     role: Role;
     role_label: string;
     can_manage_tenant: boolean;
@@ -20,6 +22,8 @@ export interface SharedProps {
     admin: { id: number; name: string; email: string } | null;
     auth: { user: AuthUser | null; pending_approvals: number; unread_notifications: number; waiting_tasks: number; unread_emails: number };
     flash: { success: string | null; error: string | null };
+    /** Colleagues' photos by name: only those who have one. */
+    people_photos: Record<string, string>;
     sidebar_agents: {
         id: number;
         name: string;

@@ -1,15 +1,19 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import type { FormEvent } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { ImageUp, Trash2 } from 'lucide-react';
+import { useRef, useState, type FormEvent } from 'react';
 
 import { Property } from '@/Components/Blocks';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
+import { PersonAvatar } from '@/Components/PersonAvatar';
+import { PhotoCropper } from '@/Components/PhotoCropper';
 import { SettingsBlock } from '@/Components/SettingsBlock';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Switch } from '@/Components/ui/switch';
 import SettingsLayout from '@/Layouts/SettingsLayout';
+import type { SharedProps } from '@/types';
 
 interface Props {
     profile: {
@@ -22,7 +26,7 @@ interface Props {
     email_images_ask: boolean;
 }
 
-/** A minha conta › Perfil: the person's own name and password, and how emails show their images. */
+/** A minha conta › Perfil: the person's own photo, name and password, and how emails show their images. */
 export default function Profile({ profile, email_images_ask }: Props) {
     const details = useForm({ name: profile.name });
     const password = useForm({ current_password: '', password: '', password_confirmation: '' });
@@ -45,6 +49,8 @@ export default function Profile({ profile, email_images_ask }: Props) {
         <SettingsLayout>
             <Head title="Perfil" />
             <PageHeader title="Perfil" description="Como aparece na plataforma e a palavra-passe com que entra." />
+
+            <PhotoBlock name={profile.name} />
 
             <form onSubmit={saveName} className="flex flex-col gap-8">
                 <SettingsBlock title="Os seus dados" description="O email, o papel e o departamento são definidos por quem gere as pessoas.">
@@ -133,5 +139,75 @@ export default function Profile({ profile, email_images_ask }: Props) {
                 </div>
             </SettingsBlock>
         </SettingsLayout>
+    );
+}
+
+/**
+ * The person's photo (docs/DECISOES.md, "Foto de perfil"): chosen from the
+ * computer, framed in a circle, and shown wherever their initials were.
+ */
+function PhotoBlock({ name }: { name: string }) {
+    const { auth, errors } = usePage<SharedProps & { errors: Record<string, string> }>().props;
+    const url = auth.user?.avatar_url ?? null;
+    const input = useRef<HTMLInputElement>(null);
+    const [picked, setPicked] = useState<File | null>(null);
+    const [sending, setSending] = useState(false);
+
+    const send = (photo: File) => {
+        router.post(
+            '/settings/profile/avatar',
+            { avatar: photo },
+            {
+                preserveScroll: true,
+                forceFormData: true,
+                onStart: () => setSending(true),
+                onSuccess: () => setPicked(null),
+                onFinish: () => setSending(false),
+            },
+        );
+    };
+
+    return (
+        <SettingsBlock
+            title="Foto"
+            description="Aparece onde hoje aparecem as suas iniciais: na barra lateral, nas conversas, nas tarefas e no organograma."
+        >
+            <div className="flex items-center gap-5">
+                <PersonAvatar name={name} url={url} className="size-20 rounded-full text-xl" />
+                <div className="flex flex-col items-start gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()}>
+                            <ImageUp />
+                            {url ? 'Mudar foto' : 'Carregar foto'}
+                        </Button>
+                        {url && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-muted-foreground"
+                                onClick={() => router.delete('/settings/profile/avatar', { preserveScroll: true })}
+                            >
+                                <Trash2 />
+                                Retirar foto
+                            </Button>
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">PNG, JPG ou WebP, até 8 MB.</p>
+                    {errors.avatar && <p className="text-xs text-destructive">{errors.avatar}</p>}
+                </div>
+            </div>
+            <input
+                ref={input}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(event) => {
+                    setPicked(event.target.files?.[0] ?? null);
+                    event.target.value = '';
+                }}
+            />
+            <PhotoCropper file={picked} onClose={() => setPicked(null)} onCrop={send} processing={sending} />
+        </SettingsBlock>
     );
 }

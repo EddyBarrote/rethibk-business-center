@@ -2,8 +2,8 @@ import { Link, router } from '@inertiajs/react';
 import { UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { Monogram } from '@/Components/Blocks';
 import { FormDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
 import { Button } from '@/Components/ui/button';
@@ -59,7 +59,7 @@ export function CollaboratorFace({
     return collaborator.kind === 'agent' ? (
         <AgentAvatar name={collaborator.name} url={collaborator.avatar_url} className={cn('size-6 rounded-md text-[9px]', className)} />
     ) : (
-        <Monogram name={collaborator.name} className={cn('size-6 rounded-full text-[9px]', className)} />
+        <PersonAvatar name={collaborator.name} className={cn('size-6 rounded-full text-[9px]', className)} />
     );
 }
 

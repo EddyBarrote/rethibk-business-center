@@ -2,8 +2,8 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowUpRight, CalendarDays, FolderKanban, Pencil, Plus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
 import { PageHeader } from '@/Components/PageHeader';
@@ -156,7 +156,7 @@ function ProjectRow({ project, onEdit }: { project: Project; onEdit?: () => void
                             {project.lead_is_agent ? (
                                 <AgentAvatar name={project.lead} className="size-5 rounded-md text-[9px]" />
                             ) : (
-                                <Monogram name={project.lead} className="size-5 rounded-md text-[9px]" />
+                                <PersonAvatar name={project.lead} className="size-5 rounded-md text-[9px]" />
                             )}
                             <span className="truncate text-foreground/80">{project.lead}</span>
                         </>

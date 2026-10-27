@@ -3,9 +3,9 @@ import { ArrowUpToLine, ChevronDown, ChevronRight, CircleHelp, GripVertical, Lis
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
-import { Monogram } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { InputError } from '@/Components/InputError';
 import { PageHeader } from '@/Components/PageHeader';
@@ -364,7 +364,7 @@ function MemberAvatar({ member, className }: { member: Member; className?: strin
             {member.type === 'agent' ? (
                 <AgentAvatar name={member.name} url={member.avatar_url} className={cn('size-9 rounded-lg text-xs', className)} />
             ) : (
-                <Monogram name={member.name} className={cn('size-9 rounded-lg text-xs', className)} />
+                <PersonAvatar name={member.name} url={member.avatar_url} className={cn('size-9 rounded-lg text-xs', className)} />
             )}
             <span className="absolute -right-1 -bottom-1 rounded-full bg-card p-0.5" title={member.running ? 'A trabalhar' : member.status_label}>
                 <StatusDot tone={tone} />

@@ -56,7 +56,7 @@ class OrgController extends Controller
             'type' => 'user',
             'id' => $person->id,
             'name' => $person->name,
-            'avatar_url' => null,
+            'avatar_url' => $person->avatarUrl(),
             'title' => $person->job_title ?? $person->role->label(),
             'status' => 'active',
             'status_label' => 'Activo',

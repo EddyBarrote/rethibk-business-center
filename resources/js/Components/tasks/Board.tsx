@@ -2,8 +2,8 @@ import { Link, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { type DragEvent, type FormEvent, type ReactNode, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { Monogram } from '@/Components/Blocks';
 import { CollaboratorFace, partLabel } from '@/Components/tasks/Collaborators';
 import { Button } from '@/Components/ui/button';
 import { cn } from '@/lib/utils';
@@ -159,7 +159,7 @@ function Card({ task, timezone, today, dragging, ...drag }: { task: BoardTask; t
                             <AgentAvatar name={owner.name} className="size-5 rounded-md text-[8px] ring-2 ring-background" />
                         ) : (
                             <span title={owner.name}>
-                                <Monogram name={owner.name} className="size-5 rounded-full text-[8px] ring-2 ring-background" />
+                                <PersonAvatar name={owner.name} className="size-5 rounded-full text-[8px] ring-2 ring-background" />
                             </span>
                         ))}
                 </span>

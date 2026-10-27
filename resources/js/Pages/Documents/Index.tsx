@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { Monogram } from '@/Components/Blocks';
 import { ConfirmDialog, FormDialog } from '@/Components/Dialogs';
 import { EmptyState } from '@/Components/EmptyState';
 import { Field } from '@/Components/Field';
@@ -165,7 +165,7 @@ export function DocumentAuthor({ document, compact = false }: { document: Genera
         </span>
     ) : (
         <span className="inline-flex min-w-0 items-center gap-1.5" title={`Feito por ${document.creator ?? 'uma pessoa'}`}>
-            <Monogram name={document.creator ?? '?'} className="size-5 rounded-full text-[8px]" />
+            <PersonAvatar name={document.creator ?? '?'} className="size-5 rounded-full text-[8px]" />
             <span className="truncate">{document.creator ?? '—'}</span>
             {!compact && (
                 <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">

@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $email
  * @property string|null $job_title
+ * @property string|null $avatar_path
  * @property int|null $department_id
  * @property int|null $reports_to_user_id
  * @property int|null $reports_to_agent_id
@@ -137,6 +138,15 @@ class User extends Authenticatable
     /**
      * Administers the company: people, roles, agents, catalogue and settings.
      */
+    /** The person's photo, or null for their initials (served by UserAvatarController). */
+    public function avatarUrl(): ?string
+    {
+        // Read without the strict-attribute check: a person made in memory has no column yet.
+        $path = $this->getAttributes()['avatar_path'] ?? null;
+
+        return $path === null ? null : '/people/'.$this->id.'/avatar?v='.substr(md5((string) $path), 0, 8);
+    }
+
     public function canManageTenant(): bool
     {
         return $this->hasPermission(Permission::ManageCompany);

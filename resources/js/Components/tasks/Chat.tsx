@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { BackgroundRow, type NowRun } from '@/Components/agents/AgentNow';
 import { MessageAttachments } from '@/Components/attachments/MessageAttachments';
-import { Monogram } from '@/Components/Blocks';
 import { EmailCards, type ProposedEmail } from '@/Components/tasks/EmailCard';
 import { type AgentQuestions, QuestionCard } from '@/Components/tasks/QuestionCard';
 import { Markdown } from '@/Components/Markdown';
@@ -272,7 +272,7 @@ function PersonBubble({ message, continued, own }: { message: ChatMessage; conti
                 <Time value={message.created_at} className="px-1" />
             </div>
             {!continued ? (
-                <Monogram name={message.author} className="mt-0.5 size-7 shrink-0 rounded-full text-[10px]" />
+                <PersonAvatar name={message.author} className="mt-0.5 size-7 shrink-0 rounded-full text-[10px]" />
             ) : (
                 <span className="w-7 shrink-0" />
             )}

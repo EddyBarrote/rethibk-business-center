@@ -30,8 +30,8 @@ import {
 import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
+import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
-import { Monogram } from '@/Components/Blocks';
 import { NotificationBell } from '@/Components/notifications/NotificationBell';
 import { RethinkMark } from '@/Components/RethinkMark';
 import { StatusDot } from '@/Components/Status';
@@ -340,7 +340,7 @@ function UserMenu() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton size="lg" className="rounded-lg data-[state=open]:bg-sidebar-accent">
-                            <Monogram name={user.name} className="size-8" />
+                            <PersonAvatar name={user.name} url={user.avatar_url} className="size-8" />
                             <div className="grid flex-1 text-left leading-tight">
                                 <span className="truncate text-sm font-medium">{user.name}</span>
                                 <span className="truncate text-xs text-muted-foreground">{user.role_label}</span>

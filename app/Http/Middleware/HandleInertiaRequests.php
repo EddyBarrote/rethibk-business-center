@@ -55,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'avatar_url' => $user->avatarUrl(),
                     'role' => $user->role->value,
                     'role_label' => $user->role->label(),
                     'can_manage_tenant' => $user->canManageTenant(),
@@ -69,6 +70,11 @@ class HandleInertiaRequests extends Middleware
             ],
             // Agents listed in the sidebar with a live "running" marker (Paperclip-style navigation).
             'sidebar_agents' => fn () => $user instanceof User && $tenant !== null ? $this->sidebarAgents($user) : [],
+            // The photos of the colleagues who have one, by name, so a person's face shows
+            // wherever their name does (docs/DECISOES.md, "Foto de perfil").
+            'people_photos' => fn () => $user instanceof User && $tenant !== null
+                ? User::query()->whereNotNull('avatar_path')->get(['id', 'name', 'avatar_path'])->mapWithKeys(fn (User $person) => [$person->name => $person->avatarUrl()])->all()
+                : [],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

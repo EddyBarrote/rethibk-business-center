@@ -49,6 +49,7 @@ use App\Http\Controllers\Settings\UserController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\SkillImportController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\UserAvatarController;
 use App\Http\Controllers\WorkflowController;
 use Illuminate\Support\Facades\Route;
 
@@ -86,6 +87,7 @@ Route::middleware('auth')->group(function () {
     Route::post('agents/{agent}/avatar', [AgentAvatarController::class, 'store'])->name('agents.avatar.store');
     Route::post('agents/{agent}/avatar/generate', [AgentAvatarController::class, 'generate'])->middleware('throttle:6,1')->name('agents.avatar.generate');
     Route::delete('agents/{agent}/avatar', [AgentAvatarController::class, 'destroy'])->name('agents.avatar.destroy');
+    Route::get('people/{user}/avatar', [UserAvatarController::class, 'show'])->name('people.avatar');
     Route::post('agents/{agent}/runs', [AgentController::class, 'run'])->middleware('throttle:20,1')->name('agents.run');
     Route::put('agents/{agent}/status', [AgentController::class, 'updateStatus'])->name('agents.status');
     Route::put('agents/{agent}/assignees', [AgentController::class, 'updateAssignees'])->name('agents.assignees');
@@ -299,6 +301,8 @@ Route::middleware('auth')->group(function () {
         Route::put('profile', [ProfileController::class, 'update'])->name('settings.profile.update');
         Route::put('profile/email-images', [ProfileController::class, 'emailImages'])->name('settings.profile.email-images');
         Route::put('profile/mode', [ProfileController::class, 'mode'])->name('settings.profile.mode');
+        Route::post('profile/avatar', [UserAvatarController::class, 'store'])->middleware('throttle:20,1')->name('settings.profile.avatar');
+        Route::delete('profile/avatar', [UserAvatarController::class, 'destroy'])->name('settings.profile.avatar.destroy');
         Route::get('notifications', [NotificationPreferencesController::class, 'show'])->name('settings.notifications.show');
         Route::put('notifications', [NotificationPreferencesController::class, 'update'])->name('settings.notifications.update');
         Route::get('memory', [MemoryController::class, 'show'])->name('settings.memory.show');
