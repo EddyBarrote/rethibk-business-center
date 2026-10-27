@@ -535,14 +535,14 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                             ))}
                         </ul>
                     ) : (
-                        <div className="overflow-hidden rounded-xl border bg-card">
+                        <div className="@container overflow-hidden rounded-xl border bg-card">
                             <table className="w-full table-fixed text-sm">
                                 <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
                                     <tr>
                                         <th className="px-3 py-2 font-medium">Nome</th>
-                                        <th className="hidden w-52 px-3 py-2 font-medium md:table-cell">Feito por</th>
-                                        <th className="hidden w-32 px-3 py-2 font-medium xl:table-cell">Pasta</th>
-                                        <th className="hidden w-20 px-3 py-2 text-right font-medium sm:table-cell">Tamanho</th>
+                                        <th className="hidden w-52 px-3 py-2 font-medium @xl:table-cell">Feito por</th>
+                                        <th className="hidden w-32 px-3 py-2 font-medium @4xl:table-cell">Pasta</th>
+                                        <th className="hidden w-20 px-3 py-2 text-right font-medium @lg:table-cell">Tamanho</th>
                                         <th className="w-24 px-3 py-2 text-right font-medium">Data</th>
                                         <th className="w-10" />
                                     </tr>
@@ -561,13 +561,13 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                                                     </span>
                                                 </Link>
                                             </td>
-                                            <td className="hidden px-3 py-2 text-xs text-muted-foreground md:table-cell">
+                                            <td className="hidden px-3 py-2 text-xs text-muted-foreground @xl:table-cell">
                                                 <DocumentAuthor document={d} />
                                             </td>
-                                            <td className="hidden truncate px-3 py-2 text-xs text-muted-foreground xl:table-cell">
+                                            <td className="hidden truncate px-3 py-2 text-xs text-muted-foreground @4xl:table-cell">
                                                 {d.folder?.name ?? '—'}
                                             </td>
-                                            <td className="hidden px-3 py-2 text-right font-mono text-xs text-muted-foreground tabular-nums sm:table-cell">
+                                            <td className="hidden px-3 py-2 text-right font-mono text-xs text-muted-foreground tabular-nums @lg:table-cell">
                                                 {bytes(d.size)}
                                             </td>
                                             <td
