@@ -30,7 +30,7 @@ export function textOf(node: React.ReactNode): string {
         return String(node);
     }
     if (Array.isArray(node)) {
-        return node.map(textOf).join(' ');
+        return node.map(textOf).join('');
     }
     if (React.isValidElement<{ children?: React.ReactNode; label?: React.ReactNode }>(node)) {
         return [textOf(node.props.label), textOf(node.props.children)].filter(Boolean).join(' ');
