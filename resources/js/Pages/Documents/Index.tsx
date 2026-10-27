@@ -546,7 +546,7 @@ export default function DocumentsIndex({ documents, filters, folders, total, unf
                         </div>
                     </div>
 
-                    <div className="sticky top-0 z-20 -mx-1 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 bg-background/95 px-1 py-1 backdrop-blur">
+                    <div className="sticky top-12 z-20 -mx-1 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 bg-background/95 px-1 py-1 backdrop-blur">
                         {documents.data.length > 0 && (
                             <Checkbox
                                 checked={all ? true : selecting ? 'indeterminate' : false}
