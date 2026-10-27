@@ -1,5 +1,6 @@
 import { Download, ExternalLink, FileText } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
 import { Button } from '@/Components/ui/button';
 
 /**
@@ -7,11 +8,17 @@ import { Button } from '@/Components/ui/button';
  * headless browsers) render the fallback inside <object> instead of an empty
  * grey frame: the file's name with Abrir and Descarregar.
  */
-export function PdfPreview({ src, title, page }: { src: string; title: string; page?: number | null }) {
+export function PdfPreview({ src, title, page, className }: { src: string; title: string; page?: number | null; className?: string }) {
     const inline = `${src}?inline=1`;
 
     return (
-        <object key={page ?? 0} data={page ? `${inline}#page=${page}` : inline} type="application/pdf" aria-label={title} className="h-[78vh] w-full rounded-xl border bg-card">
+        <object
+            key={page ?? 0}
+            data={page ? `${inline}#page=${page}` : inline}
+            type="application/pdf"
+            aria-label={title}
+            className={cn('h-[78vh] w-full rounded-xl border bg-card', className)}
+        >
             <div className="flex h-full min-h-72 flex-col items-center justify-center gap-4 rounded-xl border border-dashed bg-card px-6 py-10 text-center">
                 <span className="flex size-12 items-center justify-center rounded-xl bg-muted">
                     <FileText className="size-6 text-muted-foreground" />

@@ -1,8 +1,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Archive, Download, Library, Trash2 } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type ReactNode, useState } from 'react';
 
-import { Properties, Property } from '@/Components/Blocks';
 import { ExportMenu } from '@/Components/ExportMenu';
 import { Field } from '@/Components/Field';
 import { ExtensionTag } from '@/Components/FileIcon';
@@ -103,40 +102,52 @@ export default function DocumentShow({ document, formats, domains, folders }: Pr
                 }
             />
 
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            {/* The file takes the page; its details sit beside it as plain text, without a box. */}
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem] xl:gap-10">
                 <div className="min-w-0">
                     {document.format === 'pdf' ? (
-                        <PdfPreview src={download} title={document.title} />
+                        <PdfPreview src={download} title={document.title} className="h-[calc(100dvh-12rem)] min-h-[32rem] border-0 bg-muted/40" />
                     ) : (
-                        <article className="rounded-xl border bg-card">
-                            <div className="border-b px-5 py-2.5 text-xs text-muted-foreground">
+                        <article className="flex flex-col gap-3">
+                            <p className="text-xs text-muted-foreground">
                                 Pré-visualização do conteúdo. O ficheiro {document.format_label} tem a marca e o layout da organização.
-                            </div>
-                            <div className="px-6 py-5">
-                                <Markdown>{document.source}</Markdown>
-                            </div>
+                            </p>
+                            <Markdown>{document.source}</Markdown>
                         </article>
                     )}
                 </div>
 
-                <Properties className="lg:sticky lg:top-20 lg:self-start">
-                    <Property label="Formato">
+                <aside aria-label="Detalhes" className="flex flex-col gap-5 text-sm lg:sticky lg:top-20 lg:self-start">
+                    <Detail label="Feito por">
+                        <DocumentAuthor document={document} />
+                    </Detail>
+                    <Detail label="Formato">
                         <span className="flex items-center gap-2">
                             <ExtensionTag extension={document.format} />
                             {document.format_label}
+                            {(document.format === 'docx' || document.format === 'pdf') && document.template_label && (
+                                <span className="text-muted-foreground">· {document.template_label}</span>
+                            )}
                         </span>
-                    </Property>
-                    {(document.format === 'docx' || document.format === 'pdf') && <Property label="Modelo">{document.template_label}</Property>}
-                    <Property label="Tamanho">
-                        <span className="font-mono text-xs tabular-nums">{bytes(document.size)}</span>
-                    </Property>
-                    <Property label="Gerado por">
-                        <DocumentAuthor document={document} />
-                    </Property>
-                    <Property label="Gerado">
-                        <span title={dateTime(document.created_at)}>{ago(document.created_at)}</span>
-                    </Property>
-                    <Property label="Conhecimento">
+                    </Detail>
+                    <Detail label="Tamanho">
+                        <span className="tabular-nums">{bytes(document.size)}</span>
+                    </Detail>
+                    <Detail label="Criado">
+                        <span title={dateTime(document.created_at)}>
+                            {dateTime(document.created_at)} <span className="text-muted-foreground">({ago(document.created_at)})</span>
+                        </span>
+                    </Detail>
+                    <Detail label="Pasta">
+                        {document.folder ? (
+                            <Link href={`/documents?pasta=${document.folder.id}`} className="hover:underline">
+                                {document.folder.name}
+                            </Link>
+                        ) : (
+                            <span className="text-muted-foreground">Sem pasta</span>
+                        )}
+                    </Detail>
+                    <Detail label="Conhecimento">
                         {document.knowledge_item ? (
                             <Link href={`/knowledge/${document.knowledge_item.id}`} className="text-primary hover:underline">
                                 Arquivado
@@ -144,8 +155,8 @@ export default function DocumentShow({ document, formats, domains, folders }: Pr
                         ) : (
                             <span className="text-muted-foreground">Não arquivado</span>
                         )}
-                    </Property>
-                </Properties>
+                    </Detail>
+                </aside>
             </div>
 
             <Dialog open={filing} onOpenChange={setFiling}>
@@ -192,5 +203,14 @@ export default function DocumentShow({ document, formats, domains, folders }: Pr
                 </DialogContent>
             </Dialog>
         </AppLayout>
+    );
+}
+
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <div className="min-w-0">{children}</div>
+        </div>
     );
 }
