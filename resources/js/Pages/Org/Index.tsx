@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronDown, ChevronRight, CircleHelp, ListTodo, Maximize2, Minimize2, Network, Pencil } from 'lucide-react';
+import { ArrowUpToLine, ChevronDown, ChevronRight, CircleHelp, GripVertical, ListTodo, Maximize2, Minimize2, Network, Pencil } from 'lucide-react';
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -40,6 +40,18 @@ interface Props {
 }
 
 const NONE = 'none';
+const TOP = 'top';
+
+/** Drag a card onto another to change who it reports to (or onto the top strip to report to nobody). */
+interface Drag {
+    dragging: string | null;
+    over: string | null;
+    canDrop: (target: string | null) => boolean;
+    start: (member: Member) => void;
+    enter: (target: string | null) => void;
+    drop: (target: string | null) => void;
+    end: () => void;
+}
 
 export default function OrgIndex({ members, can_manage }: Props) {
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -81,13 +93,18 @@ export default function OrgIndex({ members, can_manage }: Props) {
         return out;
     };
 
-    const move = (member: Member, manager: string | null) =>
+    const move = (member: Member, manager: string | null, done?: string) =>
         router.put(
             '/org',
             { member: member.key, manager },
             {
                 preserveScroll: true,
-                onSuccess: () => setErrors(({ [member.key]: _, ...rest }) => rest),
+                onSuccess: () => {
+                    setErrors(({ [member.key]: _, ...rest }) => rest);
+                    if (done) {
+                        toast.success(done);
+                    }
+                },
                 onError: (bag) => {
                     const message = bag.manager ?? Object.values(bag)[0] ?? 'Não foi possível mudar o organigrama.';
                     setErrors((current) => ({ ...current, [member.key]: message }));
@@ -95,6 +112,33 @@ export default function OrgIndex({ members, can_manage }: Props) {
                 },
             },
         );
+
+    // Dragging: a card can go under anyone except itself and the people and agents below it.
+    const [dragging, setDragging] = useState<Member | null>(null);
+    const [over, setOver] = useState<string | null>(null);
+    const blocked = dragging ? below(dragging.key) : new Set<string>();
+    const drag: Drag | null = can_manage
+        ? {
+              dragging: dragging?.key ?? null,
+              over,
+              canDrop: (target) =>
+                  dragging !== null && (target === null ? dragging.manager !== null : !blocked.has(target) && target !== dragging.manager),
+              start: (member) => setDragging(member),
+              enter: (target) => setOver(target ?? TOP),
+              drop: (target) => {
+                  if (dragging && drag?.canDrop(target)) {
+                      const name = target === null ? null : members.find((member) => member.key === target)?.name;
+                      move(dragging, target, name ? `${dragging.name} passa a reportar a ${name}.` : `${dragging.name} passa para o topo.`);
+                  }
+                  setDragging(null);
+                  setOver(null);
+              },
+              end: () => {
+                  setDragging(null);
+                  setOver(null);
+              },
+          }
+        : null;
 
     const agents = members.filter((member) => member.type === 'agent');
     const people = members.filter((member) => member.type === 'user');
@@ -143,7 +187,7 @@ export default function OrgIndex({ members, can_manage }: Props) {
 
         return (
             <li key={member.key}>
-                <OrgCard member={member} />
+                <OrgCard member={member} drag={drag} />
                 {children.length > 0 && (
                     <button
                         type="button"
@@ -160,7 +204,7 @@ export default function OrgIndex({ members, can_manage }: Props) {
                     (leaves ? (
                         <div className={children.length > 3 ? 'org-group' : 'org-leaves'}>
                             {children.map((child) => (
-                                <OrgCard key={child.key} member={child} compact />
+                                <OrgCard key={child.key} member={child} compact drag={drag} />
                             ))}
                         </div>
                     ) : (
@@ -234,6 +278,36 @@ export default function OrgIndex({ members, can_manage }: Props) {
                                 {fit ? 'Tamanho real' : 'Ajustar ao ecrã'}
                             </Button>
                         </div>
+                        {drag && (
+                            <div className="absolute top-2 left-3 z-20 flex h-7 items-center gap-2 text-xs text-muted-foreground">
+                                {drag.dragging && drag.canDrop(null) ? (
+                                    <div
+                                        onDragOver={(event) => {
+                                            event.preventDefault();
+                                            event.dataTransfer.dropEffect = 'move';
+                                        }}
+                                        onDragEnter={() => drag.enter(null)}
+                                        onDrop={(event) => {
+                                            event.preventDefault();
+                                            drag.drop(null);
+                                        }}
+                                        className={cn(
+                                            'flex h-7 items-center gap-1.5 rounded-md border border-dashed px-3 transition-colors',
+                                            drag.over === TOP ? 'border-primary bg-primary/10 text-primary' : 'bg-card',
+                                        )}
+                                    >
+                                        <ArrowUpToLine className="size-3.5" />
+                                        Largue aqui para ficar no topo
+                                    </div>
+                                ) : (
+                                    <span>
+                                        {drag.dragging
+                                            ? 'Largue sobre quem passa a ser a chefia.'
+                                            : 'Arraste um cartão para cima de outro para mudar a quem reporta.'}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         <FitToWidth enabled={fit}>
                             <div className="org-tree w-fit px-3 pt-12 pb-8">
                                 <ul>{roots.map((root) => renderTree(root, new Set()))}</ul>
@@ -328,7 +402,7 @@ function Counters({ member }: { member: Member }) {
 }
 
 /** One card of the chart. Agents open their page; people show their role. */
-function OrgCard({ member, compact = false }: { member: Member; compact?: boolean }) {
+function OrgCard({ member, compact = false, drag = null }: { member: Member; compact?: boolean; drag?: Drag | null }) {
     const isAgent = member.type === 'agent';
     const name = isAgent ? (
         <Link href={`/agents/${member.id}`} className="line-clamp-2 text-[13px] leading-snug font-medium hover:underline">
@@ -338,15 +412,45 @@ function OrgCard({ member, compact = false }: { member: Member; compact?: boolea
         <span className="line-clamp-2 text-[13px] leading-snug font-medium">{member.name}</span>
     );
 
+    const target = drag?.dragging !== null && drag?.dragging !== undefined && drag.dragging !== member.key && drag.canDrop(member.key);
+
     return (
         <div
+            draggable={drag !== null}
+            onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', member.key);
+                drag?.start(member);
+            }}
+            onDragEnd={() => drag?.end()}
+            onDragOver={(event) => {
+                if (target) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                }
+            }}
+            onDragEnter={() => target && drag?.enter(member.key)}
+            onDrop={(event) => {
+                event.preventDefault();
+                drag?.drop(member.key);
+            }}
             className={cn(
-                'flex flex-col gap-2 rounded-xl border bg-card px-3 py-2.5 text-left shadow-xs',
+                'group/card relative flex flex-col gap-2 rounded-xl border bg-card px-3 py-2.5 text-left shadow-xs transition-[box-shadow,opacity]',
                 compact ? 'w-48' : 'w-52',
                 member.running && 'border-status-running/50',
                 member.status === 'suspended' && 'opacity-70',
+                drag && 'cursor-grab active:cursor-grabbing',
+                drag?.dragging === member.key && 'opacity-40',
+                drag?.dragging && drag.dragging !== member.key && !target && 'opacity-50',
+                target && drag?.over === member.key && 'border-primary ring-2 ring-primary/40',
             )}
         >
+            {drag && (
+                <GripVertical
+                    className="absolute top-2.5 right-1.5 size-3.5 text-muted-foreground/0 transition-colors group-hover/card:text-muted-foreground/60"
+                    aria-hidden="true"
+                />
+            )}
             <div className="flex items-start gap-2.5">
                 <MemberAvatar member={member} className={cn('text-[10px]', compact ? 'size-7' : 'size-8')} />
                 <div className="min-w-0 flex-1">
