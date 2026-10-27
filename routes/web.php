@@ -41,6 +41,7 @@ use App\Http\Controllers\Settings\CompanyMemoryController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\EmailRuleController;
 use App\Http\Controllers\Settings\ErpConnectionController;
+use App\Http\Controllers\Settings\HealthController;
 use App\Http\Controllers\Settings\IntegrationController;
 use App\Http\Controllers\Settings\MemoryController;
 use App\Http\Controllers\Settings\NotificationPreferencesController;
@@ -300,6 +301,8 @@ Route::middleware('auth')->group(function () {
         Route::get('runs/{run}', [AgentRunController::class, 'show'])->name('runs.show');
         Route::get('usage', UsageController::class)->name('settings.usage');
         Route::get('email-rules', [EmailRuleController::class, 'index'])->name('settings.email-rules.index');
+        Route::get('health', [HealthController::class, 'show'])->name('settings.health');
+        Route::post('health', [HealthController::class, 'check'])->middleware('throttle:6,1')->name('settings.health.check');
         Route::get('approval-rules', [ApprovalRuleController::class, 'index'])->name('settings.approval-rules.index');
         Route::post('approval-rules', [ApprovalRuleController::class, 'store'])->name('settings.approval-rules.store');
         Route::put('approval-rules/{rule}', [ApprovalRuleController::class, 'update'])->name('settings.approval-rules.update');

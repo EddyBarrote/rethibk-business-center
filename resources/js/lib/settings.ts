@@ -18,6 +18,7 @@ import {
     Route,
     ShieldCheck,
     ShieldQuestion,
+    Stethoscope,
     SunMoon,
     UserRound,
     Users,
@@ -54,6 +55,13 @@ export const settingsGroups: SettingsGroup[] = [
                 href: '/settings/brand',
                 icon: Palette,
                 description: 'Cor, logótipo e rodapé dos documentos que os agentes geram.',
+                permissions: ['company.manage'],
+            },
+            {
+                label: 'Estado da configuração',
+                href: '/settings/health',
+                icon: Stethoscope,
+                description: 'Se o modelo de IA, a internet, as caixas, o ERP e a fila estão a funcionar.',
                 permissions: ['company.manage'],
             },
             {

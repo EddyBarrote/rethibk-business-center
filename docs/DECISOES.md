@@ -1601,3 +1601,20 @@ Ideia vinda do OpenDuet.
 - **Agir na própria lista:**
   - Uma pergunta responde-se ali mesmo com «Responder», que publica a mensagem na tarefa e acorda o agente.
   - Uma falha tem «Tentar de novo» (`POST /tasks/{id}/retry`), que deixa uma nota na conversa e acorda o agente outra vez. Não o faz se ele já estiver a trabalhar.
+
+## Verificação da configuração (27.10.2026)
+
+Ideia vinda do OpenDuet.
+
+- **A página:** fica em Definições › Estado da configuração (`/settings/health`), para proprietários e administradores. Mostra cada coisa de que os agentes dependem com um de três estados: «Pronta», «Não verificada» ou «Precisa de configuração». Quando falha, diz como resolver e tem a ligação para onde se resolve.
+- **Os testes a sério:** «Verificar de novo» testa quatro coisas, e o resultado fica guardado um dia (por empresa) para que abrir a página não custe nada:
+  - um pedido de uma palavra ao modelo de IA, com o modelo mais barato e cobrado ao orçamento como `platform.health`. Se o provedor responde sem crédito ou quota, a página diz isso;
+  - a internet (`generate_204` da Google);
+  - o login IMAP de cada caixa de correio;
+  - o teste do ERP (`ErpGateway::test`).
+- **O que se lê na hora:** quatro coisas são baratas e vêem-se sempre que se abre a página:
+  - a fila (o Horizon está a correr, e quantos trabalhos esperam);
+  - a execução de código;
+  - a pesquisa na internet;
+  - o Google Calendar (o cliente OAuth no .env e as agendas com erro).
+- **Ligação ao resumo da manhã:** a linha «O que não consegui verificar» do resumo da manhã aponta para esta página.
