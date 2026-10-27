@@ -46,5 +46,7 @@ it('says when the model has no credit left', function () {
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'settings/health'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('checks.0.status', 'needs_setup')
-            ->where('checks.0.fix', 'A conta do provedor ficou sem crédito ou quota: carregue a conta ou use outra chave.'));
+            ->where('checks.0.fix', 'A conta do provedor ficou sem crédito ou quota: carregue a conta ou use outra chave.')
+            ->where('checks.6.key', 'web')
+            ->where('checks.6.status', 'needs_setup'));
 });

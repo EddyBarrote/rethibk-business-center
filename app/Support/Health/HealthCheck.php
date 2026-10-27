@@ -228,6 +228,13 @@ final class HealthCheck
     /** @return array{status: string, detail: string, fix?: string|null, href?: string|null} */
     private function web(): array
     {
+        // Searching goes through the model: when the last real test found it failing, so does the search.
+        $ai = Cache::get($this->cacheKey('ai'));
+
+        if (WebSearcher::provider() === (string) config('ai.default') && ($ai['status'] ?? null) === self::NEEDS_SETUP) {
+            return ['status' => self::NEEDS_SETUP, 'detail' => 'A pesquisa usa o modelo de IA, que não respondeu no último teste.', 'fix' => 'Resolva primeiro o modelo de IA.', 'href' => '/settings/ai-providers'];
+        }
+
         return WebSearcher::available()
             ? ['status' => self::READY, 'detail' => 'Os agentes podem pesquisar na internet.']
             : ['status' => self::NEEDS_SETUP, 'detail' => 'A pesquisa na internet não está disponível (sem chave do modelo ou sem orçamento).', 'fix' => 'Veja Provedores de IA e Consumo de IA.', 'href' => '/settings/ai-providers'];
