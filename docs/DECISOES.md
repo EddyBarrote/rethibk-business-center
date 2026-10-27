@@ -1461,3 +1461,9 @@ Pedido do Barrote: as tarefas passam a ser um gestor de trabalho, não só a fil
 - **Quadro:** colunas Por fazer, Em curso, Por rever e Feito (feito na última semana). Arrastar um cartão muda o estado.
 - **Planear:** os sete dias da semana (`semana`, de segunda a domingo, com navegação), a coluna «Sem data» e, na semana actual, «Em atraso» com o que passou do prazo. Arrastar um cartão dá-lhe esse dia (ou tira-lhe a data), e o «+» de cada coluna cria uma tarefa já com esse dia.
 - Os cartões mostram a prioridade, o prazo (a vermelho se passou), «a trabalhar», as caras dos colaboradores (com um ponto quando a parte está pronta ou feita) e o responsável. São no máximo 300 cartões.
+
+## Agentes: configuração sem caixas (27.10.2026)
+
+- As páginas de definição (agente, skill e agente do super admin) deixam de ter secções em caixas. Cada secção é separada da seguinte por espaço e uma linha fina. Em ecrãs muito largos, o título e a explicação ficam à esquerda e os campos à direita, como numa página de definições.
+- As capacidades aparecem agrupadas por área (Trabalho e equipa, Email e comunicação, Conhecimento, Finanças, Clientes e vendas, Compras, Pessoas, ERP, Conectores). Cada grupo mostra quantas estão escolhidas e tem «Escolher todas» / «Tirar todas». Os grupos sem nenhuma escolhida começam fechados. Há procura (também pela descrição) e «Só as escolhidas».
+- O nível de autonomia escolhe-se numa lista com os cinco níveis visíveis, em vez de um select.
