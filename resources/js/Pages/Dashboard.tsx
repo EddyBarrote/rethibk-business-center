@@ -114,9 +114,7 @@ export default function Dashboard({ approvals, agents, runs, live, metrics, acti
                                 </div>
                                 <RunStatusBadge status={run.status} label={run.status_label} />
                                 <p className="line-clamp-2 text-sm text-muted-foreground">{run.title ?? runTitle(run.input, toolNames)}</p>
-                                <p className="font-mono text-[11px] text-muted-foreground">
-                                    #{run.id} · {ago(run.created_at)}
-                                </p>
+                                <p className="text-[11px] text-muted-foreground">{ago(run.created_at)}</p>
                             </Link>
                         ))}
                     </div>

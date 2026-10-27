@@ -10,7 +10,7 @@ import { RunStatusBadge } from '@/Components/RunStatusBadge';
 import { RunRequest, RunTimeline, type Step } from '@/Components/runs/RunTimeline';
 import { useLive } from '@/hooks/useLive';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, duration, number, usdPrecise } from '@/lib/format';
+import { ago, dateTime, duration, number, runTitle, usdPrecise } from '@/lib/format';
 import type { ApprovalSummary, RunSummary, SharedProps } from '@/types';
 
 export default function RunShow({
@@ -27,6 +27,8 @@ export default function RunShow({
     const { tenant } = usePage<SharedProps>().props;
     const [liveSteps, setLiveSteps] = useState<Step[]>([]);
     const finished = ['completed', 'failed', 'cancelled'].includes(run.status);
+    // Named by what it is doing (the routine, the task, the email), never by its number.
+    const title = run.title ?? runTitle(run.input, toolNames);
 
     // Steps from the server win; live ones fill in until the next reload.
     const known = new Set(initialSteps.map((step) => step.id));
@@ -46,16 +48,14 @@ export default function RunShow({
     );
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Definições', href: '/settings' }, { label: 'Execuções', href: '/settings/runs' }, { label: `#${run.id}` }]}>
-            <Head title={`Execução #${run.id}`} />
+        <AppLayout breadcrumbs={[{ label: 'Definições', href: '/settings' }, { label: 'Execuções', href: '/settings/runs' }, { label: title }]}>
+            <Head title={title} />
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                     <AgentAvatar name={run.agent.name} className="size-10 rounded-xl text-xs" />
                     <div className="min-w-0 space-y-0.5">
-                        <h1 className="text-xl font-semibold tracking-tight">
-                            Execução <span className="font-mono">#{run.id}</span>
-                        </h1>
+                        <h1 className="line-clamp-2 text-xl font-semibold tracking-tight">{title}</h1>
                         <p className="text-sm text-muted-foreground">
                             <Link href={`/agents/${run.agent.id}`} className="hover:text-foreground hover:underline">
                                 {run.agent.name}
@@ -134,10 +134,12 @@ export default function RunShow({
                     <Property label="Início">
                         <span className="tabular-nums">{dateTime(run.created_at)}</span>
                     </Property>
+                    <Property label="Número">
+                        <span className="font-mono text-xs text-muted-foreground">#{run.id}</span>
+                    </Property>
                     <Property label="Fim">{run.finished_at ? <span className="tabular-nums">{dateTime(run.finished_at)}</span> : null}</Property>
                 </Properties>
             </div>
         </AppLayout>
     );
 }
-

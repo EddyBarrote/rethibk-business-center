@@ -257,7 +257,7 @@ function Body({
                         <ContextLink
                             href={`/settings/runs/${approval.run_id}`}
                             icon={Activity}
-                            title={full?.run?.title ?? `Execução #${approval.run_id}`}
+                            title={full?.run?.title ?? 'O trabalho do agente, passo a passo'}
                             meta={
                                 full?.run
                                     ? [full.run.status_label, full.run.requested_by && `pedida por ${full.run.requested_by}`]

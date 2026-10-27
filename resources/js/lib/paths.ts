@@ -41,7 +41,8 @@ const removed: Record<string, [list: string, one: string]> = {
 };
 
 /**
- * "/approvals" → Aprovações, "/settings/runs/12" → Execução #12. `live` is false for an
+ * "/approvals" → Aprovações, "/settings/runs/12" → Execução (never the number: things are
+ * named the human way). `live` is false for an
  * area the console no longer has; null when the path is not a page at all.
  */
 export function pathLabel(href: string): { label: string; live: boolean } | null {
@@ -54,7 +55,7 @@ export function pathLabel(href: string): { label: string; live: boolean } | null
         return null;
     }
 
-    return { label: match[2] ? `${page[1]} #${match[2]}` : page[0], live: match[1] in pages };
+    return { label: match[2] ? page[1] : page[0], live: match[1] in pages };
 }
 
 /** A path inside the console (not an external URL, not a protocol link). */

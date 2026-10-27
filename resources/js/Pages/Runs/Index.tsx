@@ -162,13 +162,8 @@ export default function RunsIndex({
                     <div className="flex flex-col gap-4">
                         <ListPanel>
                             <ListHeader
-                                leading={
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-10">#</span>
-                                        <span className="w-7" />
-                                    </div>
-                                }
-                                title="Pedido"
+                                leading={<span className="w-7" />}
+                                title="O que fez"
                                 meta={
                                     <>
                                         <span className="hidden w-16 text-right lg:block">Duração</span>
@@ -182,14 +177,7 @@ export default function RunsIndex({
                                 <EntityRow
                                     key={run.id}
                                     href={`/settings/runs/${run.id}`}
-                                    leading={
-                                        <div className="flex items-center gap-3">
-                                            <span className="hidden w-10 font-mono text-xs text-muted-foreground tabular-nums sm:block">
-                                                #{run.id}
-                                            </span>
-                                            <AgentAvatar name={run.agent.name} />
-                                        </div>
-                                    }
+                                    leading={<AgentAvatar name={run.agent.name} />}
                                     title={run.title ?? runTitle(run.input, toolNames)}
                                     subtitle={`${run.agent.name} · ${run.trigger_label}${run.requested_by ? ` · ${run.requested_by}` : ''}`}
                                     meta={

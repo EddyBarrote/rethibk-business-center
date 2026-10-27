@@ -522,7 +522,6 @@ function RunList({ runs }: { runs: RunSummary[] }) {
                 <EntityRow
                     key={run.id}
                     href={`/settings/runs/${run.id}`}
-                    leading={<span className="w-12 font-mono text-xs text-muted-foreground tabular-nums">#{run.id}</span>}
                     title={run.title ?? runTitle(run.input, toolNames)}
                     subtitle={run.trigger_label}
                     meta={
