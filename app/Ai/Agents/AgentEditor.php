@@ -191,8 +191,9 @@ final class AgentEditor
             'model' => (string) $m['model'],
             'label' => (string) $m['label'],
             'hint' => (string) ($m['hint'] ?? ''),
-            'input' => config("agents.pricing.{$m['provider']}:{$m['model']}.input"),
-            'output' => config("agents.pricing.{$m['provider']}:{$m['model']}.output"),
+            // The key holds dots (gemini-3.6-flash), so it is read from the array, not with config's dot path.
+            'input' => ((array) config('agents.pricing'))["{$m['provider']}:{$m['model']}"]['input'] ?? null,
+            'output' => ((array) config('agents.pricing'))["{$m['provider']}:{$m['model']}"]['output'] ?? null,
         ], array_filter((array) config('agents.models'), fn (array $m) => filled(config("ai.providers.{$m['provider']}.key")))));
     }
 }
