@@ -3,6 +3,7 @@
 namespace App\Ai\Agents;
 
 use App\Ai\Capabilities\CapabilityRegistry;
+use App\Ai\ProviderModels;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
 use App\Models\Agent;
@@ -192,12 +193,42 @@ final class AgentEditor
     }
 
     /**
-     * The models of config agents.models whose provider has a key, with their
-     * price (null: not in the price table, charged at the safety price).
+     * The models of config agents.models whose provider has a key, then the
+     * others that provider offers today (ProviderModels), each with its price
+     * (null: not in the price table, charged at the safety price).
      *
      * @return list<array{provider: string, model: string, label: string, provider_label: string, hint: string, input: float|null, output: float|null}>
      */
     public static function models(): array
+    {
+        $catalogue = self::catalogue();
+        $known = array_column($catalogue, 'model');
+        $pricing = (array) config('agents.pricing');
+        $discovered = [];
+
+        foreach (array_unique(array_column($catalogue, 'provider')) as $provider) {
+            foreach (app(ProviderModels::class)->for($provider) as $m) {
+                if (! in_array($m['model'], $known, true)) {
+                    $discovered[] = [
+                        'provider' => $provider,
+                        'model' => $m['model'],
+                        'label' => $m['label'],
+                        'provider_label' => (string) (config("agents.providers.{$provider}.label") ?? $provider),
+                        'hint' => '',
+                        'input' => $pricing["{$provider}:{$m['model']}"]['input'] ?? null,
+                        'output' => $pricing["{$provider}:{$m['model']}"]['output'] ?? null,
+                    ];
+                }
+            }
+        }
+
+        return [...$catalogue, ...$discovered];
+    }
+
+    /**
+     * @return list<array{provider: string, model: string, label: string, provider_label: string, hint: string, input: float|null, output: float|null}>
+     */
+    private static function catalogue(): array
     {
         return array_values(array_map(fn (array $m) => [
             'provider' => (string) $m['provider'],

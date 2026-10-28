@@ -460,43 +460,10 @@ export default function AgentDefinitionForm({
                                     <legend className="sr-only">Modelo</legend>
                                     {(() => {
                                         type ModelOption = (typeof models)[number];
-                                        const row = (option: ModelOption) => {
-                                            const chosen = form.data.model === option.model && (option.model !== '' || form.data.provider === '');
-
-                                            return (
-                                                <label
-                                                    key={`${option.provider}:${option.model}` || 'default'}
-                                                    className={cn(
-                                                        'flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent/50',
-                                                        chosen && 'bg-accent',
-                                                    )}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name="model"
-                                                        checked={chosen}
-                                                        onChange={() =>
-                                                            form.setData((data) => ({ ...data, provider: option.provider, model: option.model }))
-                                                        }
-                                                        className="mt-1 accent-primary"
-                                                    />
-                                                    <span className="min-w-0 flex-1">
-                                                        <span className={cn('block', chosen && 'font-medium')}>{option.label}</span>
-                                                        <span className="block text-xs text-muted-foreground">{option.hint}</span>
-                                                    </span>
-                                                    {option.model !== '' && (
-                                                        <span
-                                                            className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
-                                                            title="US$ por milhão de tokens: entrada / saída"
-                                                        >
-                                                            {option.input !== null && option.output !== null
-                                                                ? `${option.input.toLocaleString('pt-PT')} / ${option.output.toLocaleString('pt-PT')} US$`
-                                                                : 'preço por definir'}
-                                                        </span>
-                                                    )}
-                                                </label>
-                                            );
-                                        };
+                                        const price = (option: ModelOption) =>
+                                            option.input !== null && option.output !== null
+                                                ? `${option.input.toLocaleString('pt-PT')} / ${option.output.toLocaleString('pt-PT')} US$`
+                                                : 'preço por definir';
                                         const legacy =
                                             form.data.model && !models.some((m) => m.model === form.data.model)
                                                 ? [
@@ -562,8 +529,49 @@ export default function AgentDefinitionForm({
                                                         </p>
                                                     ) : (
                                                         <>
-                                                            {models.filter((m) => m.provider === providerKey).map(row)}
-                                                            {legacy.filter((m) => m.provider === providerKey).map(row)}
+                                                            {(() => {
+                                                                const options = [...models, ...legacy].filter((m) => m.provider === providerKey);
+                                                                const chosen = options.find((m) => m.model === form.data.model);
+
+                                                                return (
+                                                                    options.length > 0 && (
+                                                                        <div className="grid gap-1.5 sm:max-w-sm">
+                                                                            <NativeSelect
+                                                                                id="ai-model"
+                                                                                aria-label="Modelo"
+                                                                                value={form.data.model}
+                                                                                onChange={(event) =>
+                                                                                    form.setData((data) => ({
+                                                                                        ...data,
+                                                                                        provider: providerKey,
+                                                                                        model: event.target.value,
+                                                                                    }))
+                                                                                }
+                                                                            >
+                                                                                {options.map((option) => (
+                                                                                    <option key={option.model} value={option.model}>
+                                                                                        {`${option.label} · ${price(option)}`}
+                                                                                    </option>
+                                                                                ))}
+                                                                            </NativeSelect>
+                                                                            {chosen && (
+                                                                                <p className="text-xs text-muted-foreground">
+                                                                                    {chosen.hint && `${chosen.hint} `}
+                                                                                    <span title="US$ por milhão de tokens: entrada / saída">
+                                                                                        {price(chosen)}
+                                                                                    </span>
+                                                                                    {chosen.input !== null &&
+                                                                                        ' por milhão de tokens (entrada / saída).'}
+                                                                                </p>
+                                                                            )}
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                {options.length} modelos: os do catálogo primeiro, depois os que o
+                                                                                provedor oferece hoje.
+                                                                            </p>
+                                                                        </div>
+                                                                    )
+                                                                );
+                                                            })()}
                                                             {!providerOf(providerKey)?.connected && (
                                                                 <p className="px-2.5 text-sm text-muted-foreground">
                                                                     Este provedor ainda não tem chave.

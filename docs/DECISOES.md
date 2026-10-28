@@ -1703,3 +1703,16 @@ Ideia vinda do OpenDuet.
 - A barra ocupa um quarto da largura (pelo menos 18rem), a pedido do Barrote. Uma aprovação aberta continua com a largura de sempre. Ao centro ficam a saudação, a caixa de escrita, as sugestões e as caras dos agentes.
 - Quando se abre uma aprovação, ela ocupa essa barra, como antes, e ao fechá-la volta o dia.
 - Num ecrã estreito fica tudo por baixo da caixa, como estava (`HomeAgents` com `part`).
+
+## Modelos de cada provedor (28.10.2026)
+
+- **Pedido do Barrote:** escolher o modelo numa lista e não em linhas soltas, e não ficar só com os modelos do catálogo («existe o 3.8 também»).
+- **A lista:** no separador Modelo do agente, o segundo passo é agora uma lista com pesquisa. Cada modelo tem o preço ao lado (US$ por milhão de tokens, entrada e saída), e por baixo aparece a descrição do modelo escolhido.
+- **De onde vêm os modelos:**
+  - Primeiro vêm os do catálogo (`agents.models`), com nome e descrição.
+  - Depois vêm os que o provedor oferece hoje, pedidos ao próprio provedor com a chave da empresa (`App\Ai\ProviderModels`): Google, Anthropic, OpenAI, OpenRouter, DeepSeek, xAI e Mistral.
+  - Ficam de fora os que não escrevem texto (imagem, voz, embeddings, tempo real…).
+  - A lista guarda-se um dia por empresa e provedor. Uma falha não se guarda: com o provedor em baixo, ficam só os do catálogo.
+  - Um modelo fora da tabela de preços aparece como «preço por definir», e o orçamento conta-o pelo preço de reserva.
+- **Gemini no catálogo:** entram o Gemini 3.8 Flash (1,50 / 7,50, o preço do 3.6), o 3.5 Flash-Lite (0,30 / 2,50) e o 3.1 Pro em pré-visualização (2 / 12), com os preços da página oficial.
+- **Nos testes:** a descoberta desliga-se (`AGENTS_DISCOVER_MODELS=false`).

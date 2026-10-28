@@ -81,6 +81,9 @@ return [
     */
 
     // The daily suggestions of the entry screen use the cheapest model.
+    // Ask each provider for the models it offers today, beside the catalogue below (docs/DECISOES.md, "Modelos de cada provedor").
+    'discover_models' => env('AGENTS_DISCOVER_MODELS', true),
+
     'suggestions_model' => env('AI_SUGGESTIONS_MODEL', 'gemini-3.1-flash-lite'),
 
     // Model ids are the providers' own (the defaults of laravel/ai); a model
@@ -98,6 +101,9 @@ return [
     'models' => [
         ['provider' => 'gemini', 'model' => 'gemini-3.6-flash', 'label' => 'Gemini 3.6 Flash', 'hint' => 'Bom a raciocinar e a usar ferramentas. É o modelo por omissão.'],
         ['provider' => 'gemini', 'model' => 'gemini-3.1-flash-lite', 'label' => 'Gemini 3.1 Flash-Lite', 'hint' => 'Mais rápido e cerca de 6 vezes mais barato. Para triagem e tarefas simples.'],
+        ['provider' => 'gemini', 'model' => 'gemini-3.8-flash', 'label' => 'Gemini 3.8 Flash', 'hint' => 'O Flash mais recente, ao preço do 3.6.'],
+        ['provider' => 'gemini', 'model' => 'gemini-3.5-flash-lite', 'label' => 'Gemini 3.5 Flash-Lite', 'hint' => 'Rápido e barato, da geração anterior.'],
+        ['provider' => 'gemini', 'model' => 'gemini-3.1-pro-preview', 'label' => 'Gemini 3.1 Pro (pré-visualização)', 'hint' => 'Raciocínio mais fundo, ainda em pré-visualização.'],
         ['provider' => 'gemini', 'model' => 'gemini-4-argon', 'label' => 'Gemini 4 Argon', 'hint' => 'O mais capaz da Google, para raciocínio exigente.'],
         ['provider' => 'anthropic', 'model' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'hint' => 'O mais capaz da Anthropic, para análise e escrita exigentes.'],
         ['provider' => 'anthropic', 'model' => 'claude-sonnet-5-5', 'label' => 'Claude Sonnet 5.5', 'hint' => 'Equilibrado: muito bom com ferramentas, a um custo médio.'],
@@ -135,6 +141,9 @@ return [
         'gemini:gemini-3.6-flash' => ['input' => 1.50, 'output' => 7.50],
         'gemini:gemini-3.1-flash-lite' => ['input' => 0.25, 'output' => 1.50],
         'gemini:gemini-4-argon' => ['input' => 4.00, 'output' => 20.00],
+        'gemini:gemini-3.8-flash' => ['input' => 1.50, 'output' => 7.50],
+        'gemini:gemini-3.5-flash-lite' => ['input' => 0.30, 'output' => 2.50],
+        'gemini:gemini-3.1-pro-preview' => ['input' => 2.00, 'output' => 12.00],
         // Anthropic (platform.claude.com/docs/en/about-claude/pricing). Haiku 5.5
         // up to 100k tokens of prompt; above that 0.50 / 2.50.
         'anthropic:claude-opus-5-5' => ['input' => 4.00, 'output' => 20.00],

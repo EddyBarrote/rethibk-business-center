@@ -41,6 +41,7 @@
         <env name="ANTHROPIC_API_KEY" value="" force="true"/>
         <env name="OPENAI_API_KEY" value="" force="true"/>
         <env name="GEMINI_API_KEY" value="" force="true"/>
+        <env name="AGENTS_DISCOVER_MODELS" value="false" force="true"/>
         <env name="AZURE_OPENAI_API_KEY" value="" force="true"/>
         <env name="COHERE_API_KEY" value="" force="true"/>
         <env name="DEEPSEEK_API_KEY" value="" force="true"/>
