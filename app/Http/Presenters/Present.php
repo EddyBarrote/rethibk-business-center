@@ -241,7 +241,8 @@ final class Present
             'kind' => $task->kind->value,
             'is_conversation' => $task->chat_key !== null,
             // A conversation is always called after its agent, whatever its first message was ("Hello").
-            'title' => $task->kind === TaskKind::Chat && $task->assigneeAgent !== null ? "Conversa com {$task->assigneeAgent->name}" : $task->title,
+            // Older titles carry «(Email #143)»: an email is never named by its number.
+            'title' => $task->kind === TaskKind::Chat && $task->assigneeAgent !== null ? "Conversa com {$task->assigneeAgent->name}" : app(EmailReferences::class)->inTitle($task->title),
             'status' => $task->status->value,
             'status_label' => $task->status->label(),
             'priority' => $task->priority->value,

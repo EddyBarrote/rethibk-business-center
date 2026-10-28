@@ -1563,6 +1563,7 @@ Ideia vinda do OpenDuet.
 - **Sem modelo de IA:** `App\Home\MorningSummary` monta tudo a partir do que a plataforma sabe. Não custa nada e não inventa. Cada linha tem a ligação para onde se decide.
 - **«Começar»:** uma linha de email tem «Começar», que entrega o email ao agente que trata aquele tipo de email (`EmailRouter`) na conversa da pessoa com ele, pedindo que prepare o que for preciso sem enviar nada.
 - Enquanto o resumo está aberto, a linha «À sua espera» do Início fica escondida, para não repetir.
+- **Correcção de 28.10:** um email sai de «Precisa de si» quando já está com um agente: depois de «Começar», depois de partilhado numa conversa, ou quando já há uma tarefa feita a partir dele. Os títulos de tarefas deixam de mostrar «(Email #143)», no resumo e em toda a plataforma (`Present::task` usa `EmailReferences::inTitle`).
 
 ## Iniciativas dos agentes (27.10.2026)
 

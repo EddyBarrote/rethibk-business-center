@@ -13,6 +13,7 @@ use App\Models\MailboxOwner;
 use App\Models\Task;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Tasks\TaskThread;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -73,4 +74,18 @@ it('drops an email from what needs her once it is answered', function () {
 
     $this->actingAs($this->owner)->get(tenantUrl($this->tenant))
         ->assertInertia(fn (Assert $page) => $page->has('morning.needs', 2)->where('morning.needs.1.title', 'Assinar a adenda'));
+});
+
+it('drops an email from what needs her once it is with an agent, and names tasks without email numbers', function () {
+    asTenant($this->tenant, function () {
+        $email = EmailMessage::query()->where('priority', 'urgent')->sole();
+        $chat = app(TaskThread::class)->conversation($this->owner, $this->chief);
+        $chat->messages()->create(['author_type' => 'user', 'author_user_id' => $this->owner->id, 'kind' => 'message', 'body' => 'Trata deste email.', 'email_message_id' => $email->id]);
+        Task::query()->where('title', 'Relatório de vendas')->update(['title' => 'Elaborar cotação para a Olankha (Email #143)']);
+    });
+
+    $this->actingAs($this->owner)->get(tenantUrl($this->tenant))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('morning.needs', 2)
+            ->where('morning.can_wait.0.title', 'Elaborar cotação para a Olankha'));
 });

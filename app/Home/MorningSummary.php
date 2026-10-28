@@ -5,6 +5,7 @@ namespace App\Home;
 use App\Ai\ProviderKeys;
 use App\Ai\Runs\AgentDirectory;
 use App\Ai\Runs\ApprovalService;
+use App\Email\EmailReferences;
 use App\Enums\EmailCategory;
 use App\Enums\ErpConnectionStatus;
 use App\Enums\MailboxStatus;
@@ -18,6 +19,7 @@ use App\Models\EmailMessage;
 use App\Models\ErpConnection;
 use App\Models\Mailbox;
 use App\Models\Task;
+use App\Models\TaskMessage;
 use App\Models\User;
 use App\Workflows\EmailRouter;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,6 +69,12 @@ final class MorningSummary
         ];
     }
 
+    /** A task title without the «(Email #143)» it was given: an email is never named by its number. */
+    private function named(string $title): string
+    {
+        return app(EmailReferences::class)->inTitle($title);
+    }
+
     public function close(User $user): void
     {
         $user->forceFill(['morning_summary_seen_on' => now()->setTimezone((string) config('app.timezone'))->toDateString()])->save();
@@ -111,7 +119,7 @@ final class MorningSummary
             ->latest('last_activity_at')->limit(3)->get(['id', 'title'])
             ->map(fn (Task $task) => [
                 'kind' => 'task',
-                'title' => $task->title,
+                'title' => $this->named($task->title),
                 'why' => 'O agente precisa de si para continuar.',
                 'href' => "/tasks/{$task->id}",
             ])->values()->all();
@@ -131,6 +139,9 @@ final class MorningSummary
             ->where('received_at', '>=', now()->subDays(3))
             ->whereIn('priority', ['high', 'urgent'])
             ->where(fn (Builder $q) => $q->whereIn('mailbox_id', Mailbox::query()->ownedBy($user)->select('id'))->orWhere('routed_to_user_id', $user->id))
+            // Already with an agent («Começar», shared in a conversation, or a task made from it): it is moving.
+            ->whereNotIn('id', TaskMessage::query()->whereNotNull('email_message_id')->select('email_message_id'))
+            ->whereNotIn('id', Task::query()->where('source_type', (new EmailMessage)->getMorphClass())->whereNotNull('source_id')->select('source_id'))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('email_messages as replies')
                 ->whereColumn('replies.thread_id', 'email_messages.thread_id')
                 ->whereNotNull('email_messages.thread_id')
@@ -157,7 +168,7 @@ final class MorningSummary
             ->orderBy('due_at')->limit(3)->get(['id', 'title', 'due_at'])
             ->map(fn (Task $task) => [
                 'kind' => 'overdue',
-                'title' => $task->title,
+                'title' => $this->named($task->title),
                 'why' => 'Passou do prazo ('.$task->due_at?->setTimezone((string) config('app.timezone'))->format('d.m').').',
                 'href' => "/tasks/{$task->id}",
             ])->values()->all();
@@ -169,7 +180,7 @@ final class MorningSummary
         return Task::query()->where('user_id', $user->id)->where('status', TaskStatus::InReview)
             ->latest('last_activity_at')->limit(self::MAX_WAIT)->get(['id', 'title'])
             ->map(fn (Task $task) => [
-                'title' => $task->title,
+                'title' => $this->named($task->title),
                 'why' => 'Pronto para rever quando puder.',
                 'href' => "/tasks/{$task->id}",
             ])->values()->all();
@@ -192,7 +203,7 @@ final class MorningSummary
         $due = Task::query()->open()->where('assignee_user_id', $user->id)->whereBetween('due_at', [$start, $end])->orderBy('due_at')->limit(5)->get(['id', 'title', 'due_at'])
             ->map(fn (Task $task) => [
                 'time' => 'Prazo',
-                'title' => $task->title,
+                'title' => $this->named($task->title),
                 'href' => "/tasks/{$task->id}",
             ]);
 
