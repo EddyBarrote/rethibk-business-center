@@ -396,6 +396,7 @@ export default function AppLayout({
     breadcrumbs,
     bleed = false,
     aside,
+    asideWidth = 'w-[28rem] 2xl:w-[32rem]',
 }: {
     children: ReactNode;
     breadcrumbs?: Crumb[];
@@ -403,6 +404,8 @@ export default function AppLayout({
     bleed?: boolean;
     /** A panel docked on the right, under the top bar; the page narrows for it instead of being covered. */
     aside?: ReactNode;
+    /** The panel's width classes; a quarter of the page for the Início's day. */
+    asideWidth?: string;
 }) {
     const page = usePage<SharedProps>();
     const { auth, tenant, flash } = page.props;
@@ -561,7 +564,7 @@ export default function AppLayout({
                             <main className="mx-auto flex w-full max-w-[90rem] min-w-0 flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
                                 {children}
                             </main>
-                            <aside className="sticky top-12 flex h-[calc(100svh-3rem)] w-[28rem] shrink-0 flex-col border-l bg-background 2xl:w-[32rem]">
+                            <aside className={cn('sticky top-12 flex h-[calc(100svh-3rem)] shrink-0 flex-col border-l bg-background', asideWidth)}>
                                 {aside}
                             </aside>
                         </div>

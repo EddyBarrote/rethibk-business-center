@@ -81,7 +81,7 @@ export default function Home({
     const firstName = auth.user?.name.split(' ')[0] ?? '';
     // On a wide screen the day goes to the right: the summary, what the agents offer and what they are doing.
     const dayPanel = (
-        <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-5">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4">
             {morning && <MorningSummary morning={morning} />}
             <Initiatives initiatives={initiatives} />
             <HomeAgents agents={agents} active={now.active} done={now.done} part="activity" />
@@ -115,7 +115,11 @@ export default function Home({
     ].filter((item): item is { key: string; href: string; label: string; onClick?: () => void } => Boolean(item));
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Início' }]} aside={wide ? (openApproval !== null ? approvalSheet : dayPanel) : undefined}>
+        <AppLayout
+            breadcrumbs={[{ label: 'Início' }]}
+            aside={wide ? (openApproval !== null ? approvalSheet : dayPanel) : undefined}
+            asideWidth={openApproval !== null ? undefined : 'w-1/4 min-w-72'}
+        >
             <Head title="Início" />
 
             <div className="mx-auto flex min-h-[calc(100svh-9rem)] w-full max-w-2xl flex-col items-center justify-center gap-6 py-6">
