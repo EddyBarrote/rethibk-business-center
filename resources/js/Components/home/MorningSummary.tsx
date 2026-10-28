@@ -1,9 +1,10 @@
 import { Link, router } from '@inertiajs/react';
-import { ArrowRight, Play, X } from 'lucide-react';
+import { Play, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { Button } from '@/Components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface Line {
     kind?: string;
@@ -43,104 +44,128 @@ export function MorningSummary({ morning }: { morning: Morning }) {
         );
     };
 
+    const close = () => router.post('/morning-summary/close', {}, { preserveScroll: true, only: ['morning'] });
+
     return (
-        <section className="flex w-full gap-3 text-left" aria-label="Resumo da manhã">
-            {morning.from && <AgentAvatar name={morning.from.name} url={morning.from.avatar_url} className="mt-0.5 size-8 rounded-lg text-[10px]" />}
-            <div className="min-w-0 flex-1 space-y-4 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                    {/* The page already greets: the message goes straight to the day. */}
-                    <p>{empty ? 'Hoje não há nada à sua espera.' : 'Isto é o que tem para hoje.'}</p>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="-mt-1 shrink-0 text-muted-foreground"
-                        aria-label="Fechar o resumo"
-                        title="Fechar: volta amanhã"
-                        onClick={() => router.post('/morning-summary/close', {}, { preserveScroll: true, only: ['morning'] })}
-                    >
-                        <X />
-                    </Button>
+        <section className="flex w-full flex-col gap-5 text-left" aria-label="Resumo da manhã">
+            <header className="flex items-center gap-2.5">
+                {morning.from && <AgentAvatar name={morning.from.name} url={morning.from.avatar_url} className="size-7 rounded-lg text-[9px]" />}
+                <div className="min-w-0 flex-1 leading-tight">
+                    <p className="text-sm font-medium">Resumo de hoje</p>
+                    <p className="text-xs text-muted-foreground">
+                        {empty ? 'Nada à sua espera.' : morning.from ? `Do ${morning.from.name}` : 'O seu dia'}
+                    </p>
                 </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground"
+                    aria-label="Fechar o resumo"
+                    title="Fechar: volta amanhã"
+                    onClick={close}
+                >
+                    <X />
+                </Button>
+            </header>
 
-                {morning.needs.length > 0 && (
-                    <Section title="Precisa de si">
-                        {morning.needs.map((line) => (
-                            <li key={`${line.kind}-${line.href}`} className="flex items-start gap-2">
-                                <span className="min-w-0 flex-1">
-                                    <Link href={line.href} className="font-medium underline-offset-4 hover:underline">
-                                        {line.title}
-                                    </Link>
-                                    <span className="block text-muted-foreground">{line.why}</span>
-                                </span>
-                                {line.start && (
-                                    <Button
-                                        type="button"
-                                        size="xs"
-                                        variant="outline"
-                                        className="shrink-0"
-                                        disabled={starting !== null}
-                                        title={`Entrega este email a ${line.start.agent}`}
-                                        onClick={() => start(line)}
-                                    >
-                                        <Play />
-                                        Começar
-                                    </Button>
-                                )}
-                            </li>
-                        ))}
-                    </Section>
-                )}
+            {morning.needs.length > 0 && (
+                <Section title="Precisa de si" count={morning.needs.length}>
+                    {morning.needs.map((line) => (
+                        <Card key={`${line.kind}-${line.href}`} href={line.href} title={line.title} detail={line.why} tone="attention">
+                            {line.start && (
+                                <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    className="relative z-10 bg-background"
+                                    disabled={starting !== null}
+                                    title={`Entrega este email a ${line.start.agent}`}
+                                    onClick={() => start(line)}
+                                >
+                                    <Play />
+                                    Começar
+                                </Button>
+                            )}
+                        </Card>
+                    ))}
+                </Section>
+            )}
 
-                {morning.can_wait.length > 0 && (
-                    <Section title="Pode esperar">
-                        {morning.can_wait.map((line) => (
-                            <li key={line.href}>
-                                <Link href={line.href} className="underline-offset-4 hover:underline">
-                                    {line.title}
-                                </Link>
-                                <span className="text-muted-foreground"> · {line.why}</span>
-                            </li>
-                        ))}
-                    </Section>
-                )}
+            {morning.can_wait.length > 0 && (
+                <Section title="Pode esperar" count={morning.can_wait.length}>
+                    {morning.can_wait.map((line) => (
+                        <Card key={line.href} href={line.href} title={line.title} detail={line.why} />
+                    ))}
+                </Section>
+            )}
 
-                {morning.agenda.length > 0 && (
-                    <Section title="Hoje">
-                        {morning.agenda.map((item, index) => (
-                            <li key={`${item.href}-${index}`} className="flex gap-3">
-                                <span className="w-16 shrink-0 text-muted-foreground tabular-nums">{item.time}</span>
-                                <Link href={item.href} className="min-w-0 truncate underline-offset-4 hover:underline">
-                                    {item.title}
-                                </Link>
-                            </li>
-                        ))}
-                    </Section>
-                )}
+            {morning.agenda.length > 0 && (
+                <Section title="Hoje" count={morning.agenda.length}>
+                    {morning.agenda.map((item, index) => (
+                        <Card key={`${item.href}-${index}`} href={item.href} title={item.title} lead={item.time} />
+                    ))}
+                </Section>
+            )}
 
-                {morning.unverified.length > 0 && (
-                    <Section title="O que não consegui verificar">
-                        {morning.unverified.map((line) => (
-                            <li key={line.what}>
-                                {line.what} {line.why}{' '}
-                                <Link href={line.href} className="inline-flex items-center gap-0.5 text-primary hover:underline">
-                                    Ver
-                                    <ArrowRight className="size-3" />
-                                </Link>
-                            </li>
-                        ))}
-                    </Section>
-                )}
-            </div>
+            {morning.unverified.length > 0 && (
+                <Section title="Não consegui verificar" count={morning.unverified.length}>
+                    {morning.unverified.map((line) => (
+                        <Card key={line.what} href={line.href} title={line.what} detail={line.why} tone="warning" />
+                    ))}
+                </Section>
+            )}
         </section>
     );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
     return (
-        <div className="space-y-1.5">
-            <h2 className="text-xs font-medium text-muted-foreground">{title}</h2>
-            <ul className="space-y-2">{children}</ul>
+        <div className="flex flex-col gap-2">
+            <h2 className="flex items-baseline gap-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                {title}
+                <span className="tabular-nums">{count}</span>
+            </h2>
+            <ul className="flex flex-col gap-1.5">{children}</ul>
         </div>
+    );
+}
+
+/**
+ * One line of the day as a quiet card: the title opens it (the whole card is
+ * the link), the reason in small print, an action beside it when there is one.
+ */
+export function Card({
+    href,
+    title,
+    detail,
+    lead,
+    tone = 'plain',
+    children,
+}: {
+    href: string;
+    title: string;
+    detail?: string | null;
+    lead?: string | null;
+    tone?: 'plain' | 'attention' | 'warning';
+    children?: ReactNode;
+}) {
+    return (
+        <li
+            className={cn(
+                'relative flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors',
+                tone === 'warning' ? 'bg-status-warning/10 hover:bg-status-warning/15' : 'bg-muted/50 hover:bg-muted',
+            )}
+        >
+            {tone === 'attention' && <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-status-warning" aria-hidden="true" />}
+            {lead && <span className="mt-px w-12 shrink-0 text-xs text-muted-foreground tabular-nums">{lead}</span>}
+            <div className="min-w-0 flex-1">
+                <Link href={href} className="line-clamp-2 text-sm leading-snug font-medium after:absolute after:inset-0 after:rounded-lg">
+                    {title}
+                </Link>
+                {detail && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{detail}</p>}
+                {children && <div className="mt-2 flex justify-end">{children}</div>}
+            </div>
+        </li>
     );
 }

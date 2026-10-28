@@ -34,22 +34,18 @@ export function Initiatives({ initiatives, showAgent = true, className }: { init
     };
 
     return (
-        <section className={cn('flex w-full flex-col gap-3 text-left', className)} aria-label="Os agentes podem tratar disto">
+        <section className={cn('flex w-full flex-col gap-1.5 text-left', className)} aria-label="Os agentes podem tratar disto">
             {initiatives.map((initiative) => (
-                <div key={initiative.id} className="flex gap-3 text-sm">
+                <div key={initiative.id} className="flex gap-2.5 rounded-lg bg-muted/50 px-3 py-2.5 text-sm transition-colors hover:bg-muted">
                     {showAgent && (
-                        <AgentAvatar
-                            name={initiative.agent.name}
-                            url={initiative.agent.avatar_url}
-                            className="mt-0.5 size-8 rounded-lg text-[10px]"
-                        />
+                        <AgentAvatar name={initiative.agent.name} url={initiative.agent.avatar_url} className="mt-0.5 size-7 rounded-lg text-[9px]" />
                     )}
                     <div className="min-w-0 flex-1">
                         <p>
                             <span className="text-muted-foreground">{showAgent && `${initiative.agent.name} · `}Posso tratar disto: </span>
                             <span className="font-medium">{initiative.title}</span>
                         </p>
-                        <p className="text-muted-foreground">{initiative.why}</p>
+                        <p className="mt-0.5 line-clamp-3 text-xs text-muted-foreground">{initiative.why}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                             {initiative.evidence.map((item, index) => (
                                 <span key={item.ref}>

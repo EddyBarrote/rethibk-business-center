@@ -1717,3 +1717,7 @@ Ideia vinda do OpenDuet.
   - Um modelo fora da tabela de preços aparece como «preço por definir», e o orçamento conta-o pelo preço de reserva.
 - **Gemini no catálogo:** entram o Gemini 3.8 Flash (1,50 / 7,50, o preço do 3.6), o 3.5 Flash-Lite (0,30 / 2,50) e o 3.1 Pro em pré-visualização (2 / 12), com os preços da página oficial.
 - **Nos testes:** a descoberta desliga-se (`AGENTS_DISCOVER_MODELS=false`).
+
+## Barra do dia em cartões discretos (28.10.2026)
+
+Na barra da direita da página inicial cada linha (resumo do dia, sugestões dos agentes, o que estão a fazer e o que fizeram) é um cartão leve: fundo `bg-muted/50`, sem borda, cantos de 8 px, o título a abrir o item e o motivo em letra pequena. Os títulos das secções passam a pequenos e em maiúsculas com a contagem ao lado, e o cabeçalho do resumo fica compacto (cara do Chief of Staff, «Resumo de hoje», fechar). Só a barra da direita muda; a lista ao centro em ecrã estreito mantém as linhas simples.

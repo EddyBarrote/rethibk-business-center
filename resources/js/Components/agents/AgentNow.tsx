@@ -347,6 +347,13 @@ export function HomeAgents({
         return chat ? `/tasks/${chat}?execucao=${run.id}` : `/settings/runs/${run.id}`;
     };
     const working = new Set(active.map((run) => run.agent.id));
+    // In the right-hand panel each run is a quiet card, like the lines of the day above it.
+    const panel = part === 'activity';
+    const row = panel
+        ? 'flex items-start gap-2.5 rounded-lg bg-muted/50 px-3 py-2.5 transition-colors hover:bg-muted'
+        : '-mx-2 flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60';
+    const heading = panel ? 'text-[11px] font-medium tracking-wide text-muted-foreground uppercase' : 'text-xs font-medium text-muted-foreground';
+    const empty = panel ? 'rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground' : 'text-sm text-muted-foreground';
 
     return (
         <div className="flex w-full flex-col gap-6">
@@ -382,19 +389,15 @@ export function HomeAgents({
 
             {part !== 'faces' && (active.length > 0 || done.length > 0 || part === 'activity') && (
                 <div className={cn('grid gap-6 text-left', part === 'all' && 'sm:grid-cols-2')}>
-                    <section aria-label="A trabalhar agora" className="flex min-w-0 flex-col gap-1">
-                        <h2 className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <section aria-label="A trabalhar agora" className={cn('flex min-w-0 flex-col', panel ? 'gap-1.5' : 'gap-1')}>
+                        <h2 className={cn('mb-1 flex items-center gap-2', heading)}>
                             <StatusDot tone={active.length > 0 ? 'running' : 'idle'} />A trabalhar agora
                         </h2>
                         {active.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Nenhum agente está a trabalhar.</p>
+                            <p className={empty}>Nenhum agente está a trabalhar.</p>
                         ) : (
                             active.map((run) => (
-                                <Link
-                                    key={run.id}
-                                    href={href(run)}
-                                    className="group -mx-2 flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60"
-                                >
+                                <Link key={run.id} href={href(run)} className={cn('group', row)}>
                                     <AgentAvatar name={run.agent.name} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" />
                                     <span className="min-w-0 flex-1">
                                         <span className="line-clamp-2 text-sm">
@@ -409,17 +412,13 @@ export function HomeAgents({
                             ))
                         )}
                     </section>
-                    <section aria-label="Concluído nas últimas 24 horas" className="flex min-w-0 flex-col gap-1">
-                        <h2 className="mb-1 text-xs font-medium text-muted-foreground">Concluído nas últimas 24 horas</h2>
+                    <section aria-label="Concluído nas últimas 24 horas" className={cn('flex min-w-0 flex-col', panel ? 'gap-1.5' : 'gap-1')}>
+                        <h2 className={cn('mb-1', heading)}>Concluído nas últimas 24 horas</h2>
                         {done.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Ainda nada hoje.</p>
+                            <p className={empty}>Ainda nada hoje.</p>
                         ) : (
                             done.map((run) => (
-                                <Link
-                                    key={run.id}
-                                    href={href(run)}
-                                    className="-mx-2 flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60"
-                                >
+                                <Link key={run.id} href={href(run)} className={cn('group', row)}>
                                     <AgentAvatar name={run.agent.name} className="mt-0.5 size-7 shrink-0 rounded-lg text-[10px]" />
                                     <span className="min-w-0 flex-1">
                                         <span className="line-clamp-2 text-sm">

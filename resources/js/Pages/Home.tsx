@@ -83,7 +83,12 @@ export default function Home({
     const dayPanel = (
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4">
             {morning && <MorningSummary morning={morning} />}
-            <Initiatives initiatives={initiatives} />
+            {initiatives.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Sugestões dos agentes</h2>
+                    <Initiatives initiatives={initiatives} />
+                </div>
+            )}
             <HomeAgents agents={agents} active={now.active} done={now.done} part="activity" />
         </div>
     );
