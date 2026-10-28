@@ -258,6 +258,9 @@ export default function NotificationsIndex({ notifications, categories, filters,
                                         ? 'Seleccione para marcar várias de uma vez'
                                         : plural(selected.length, 'seleccionada', 'seleccionadas')}
                                 </span>
+                                {selected.length === 0 && notifications.last_page > 1 && (
+                                    <Pagination page={notifications} noun={['notificação', 'notificações']} className="ml-auto sm:flex-row" />
+                                )}
                                 {selected.length > 0 && (
                                     <div className="ml-auto flex items-center gap-1.5">
                                         <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
@@ -284,7 +287,7 @@ export default function NotificationsIndex({ notifications, categories, filters,
                             {days.map((day) => (
                                 <section key={day.key} className="flex flex-col gap-1.5">
                                     <h2 className="px-1 text-xs font-medium text-muted-foreground">{day.label}</h2>
-                                    <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                                    <div className="flex flex-col gap-2">
                                         {day.items.map((notice) => (
                                             <NoticeRow
                                                 key={notice.id}
@@ -389,9 +392,9 @@ function NoticeRow({
     return (
         <div
             className={cn(
-                'group relative flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50',
-                !notice.read && 'bg-primary/[0.04]',
-                selected && 'bg-accent/70',
+                'group relative flex items-start gap-3 rounded-lg border bg-card px-4 py-3 transition-colors hover:border-foreground/15 hover:bg-accent/40',
+                !notice.read && 'border-primary/20 bg-primary/[0.03]',
+                selected && 'border-primary/40 bg-accent/70',
             )}
         >
             <div className="relative z-10 flex items-center gap-2 pt-0.5">

@@ -1727,3 +1727,7 @@ Na barra da direita da página inicial cada linha (resumo do dia, sugestões dos
 Ao abrir uma conversa ou tarefa, as notificações de «Conversas» sobre ela (respostas de agentes e pessoas, «quer falar consigo») apagam-se do centro dessa pessoa: já as leu no sítio certo, e guardá-las só ocupava espaço. As restantes sobre a mesma tarefa (à sua espera, aprovações, prazos) ficam, mas marcadas como lidas. Encontram-se pelo `task_id` da notificação ou, nas antigas, pelo link `/tasks/{id}` (`App\Support\ReadInChat`, chamado em `TaskController::show`).
 
 A lista ficou mais compacta: cada notificação tem o título e uma só linha por baixo com quem, o tipo (escondido quando já se filtra por tipo) e o texto; ícone mais pequeno, menos espaço vertical, e a barra de selecção deixou de ser um cartão.
+
+## Notificações em cartões (28.10.2026)
+
+A pedido do Barrote, cada notificação passa a ser um cartão independente (borda fina, cantos de 8 px, 8 px entre cartões) em vez de linhas de uma tabela. As por ler têm a borda e o fundo levemente na cor primária. A paginação, que só existia no fundo, aparece também em cima, na barra de selecção, quando há mais de uma página e nada está seleccionado.
