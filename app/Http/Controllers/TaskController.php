@@ -38,6 +38,7 @@ use App\Models\TaskMessage;
 use App\Models\User;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowStep;
+use App\Support\ReadInChat;
 use App\Tasks\Handoffs;
 use App\Tasks\QuickDate;
 use App\Tasks\TaskCollaboration;
@@ -485,6 +486,8 @@ class TaskController extends Controller
             // Read up to now: the sidebar stops counting its answers as unread.
             $task->forceFill(['chat_read_at' => now()])->saveQuietly();
         }
+        // What was said here has been seen: its replies leave the notifications centre.
+        ReadInChat::clear($user, $task);
 
         return Inertia::render('Tasks/Show', [
             'task' => [

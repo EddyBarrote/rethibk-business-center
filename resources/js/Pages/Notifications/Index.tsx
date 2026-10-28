@@ -139,7 +139,9 @@ export default function NotificationsIndex({ notifications, categories, filters,
                     </span>
                     <span className="min-w-0 flex-1">
                         <span className="font-medium">{plural(awaiting_decision, 'aprovação espera', 'aprovações esperam')} pela sua decisão.</span>{' '}
-                        <span className="hidden text-muted-foreground sm:inline">Pagamentos, contratos e acções acima do nível de um agente só avançam com uma pessoa.</span>
+                        <span className="hidden text-muted-foreground sm:inline">
+                            Pagamentos, contratos e acções acima do nível de um agente só avançam com uma pessoa.
+                        </span>
                     </span>
                     <Button size="sm" variant="outline" onClick={() => go({ tipo: 'approval', estado: 'todas' })}>
                         Decidir agora
@@ -149,9 +151,21 @@ export default function NotificationsIndex({ notifications, categories, filters,
 
             <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
                 {/* Kinds: a rail on wide screens, a scrolling row of chips on a phone. */}
-                <nav aria-label="Tipos de notificação" className="scroll-fade -mx-4 flex gap-1 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0">
-                    <KindButton label="Todas" icon={Bell} active={!filters.tipo} unread={unreadTotal} total={total} onClick={() => go({ tipo: null })} />
-                    <div className="hidden px-2 pt-4 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase lg:block">Por tipo</div>
+                <nav
+                    aria-label="Tipos de notificação"
+                    className="scroll-fade -mx-4 flex gap-1 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0"
+                >
+                    <KindButton
+                        label="Todas"
+                        icon={Bell}
+                        active={!filters.tipo}
+                        unread={unreadTotal}
+                        total={total}
+                        onClick={() => go({ tipo: null })}
+                    />
+                    <div className="hidden px-2 pt-4 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase lg:block">
+                        Por tipo
+                    </div>
                     {categories.map((c) => (
                         <KindButton
                             key={c.key}
@@ -224,23 +238,25 @@ export default function NotificationsIndex({ notifications, categories, filters,
                                 filters.q
                                     ? `Nenhuma notificação${current ? ` de ${current.label.toLowerCase()}` : ''}${filters.estado === 'por-ler' ? ' por ler' : ''} tem «${filters.q}». Experimente outra palavra ou limpe a pesquisa.`
                                     : filters.estado === 'por-ler'
-                                    ? 'Não há nada por ler aqui. As lidas continuam no separador «Todas».'
-                                    : current
-                                      ? `Ainda não recebeu notificações de ${current.label.toLowerCase()}.`
-                                      : 'Quando um agente lhe encaminhar algo, pedir uma aprovação ou um prazo se aproximar, aparece aqui.'
+                                      ? 'Não há nada por ler aqui. As lidas continuam no separador «Todas».'
+                                      : current
+                                        ? `Ainda não recebeu notificações de ${current.label.toLowerCase()}.`
+                                        : 'Quando um agente lhe encaminhar algo, pedir uma aprovação ou um prazo se aproximar, aparece aqui.'
                             }
                         />
                     ) : (
                         <>
                             {/* Sticky under the top bar while choosing down the list. */}
-                            <div className="sticky top-14 z-20 flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-2 text-sm shadow-xs">
+                            <div className="sticky top-14 z-20 flex min-h-9 flex-wrap items-center gap-3 rounded-lg bg-background/95 px-4 py-1 text-xs backdrop-blur">
                                 <Checkbox
                                     checked={selected.length === 0 ? false : selected.length === pageIds.length ? true : 'indeterminate'}
                                     onCheckedChange={(on) => setSelected(on === true ? pageIds : [])}
                                     aria-label="Seleccionar todas desta página"
                                 />
                                 <span className="text-muted-foreground">
-                                    {selected.length === 0 ? 'Seleccione para marcar várias de uma vez' : plural(selected.length, 'seleccionada', 'seleccionadas')}
+                                    {selected.length === 0
+                                        ? 'Seleccione para marcar várias de uma vez'
+                                        : plural(selected.length, 'seleccionada', 'seleccionadas')}
                                 </span>
                                 {selected.length > 0 && (
                                     <div className="ml-auto flex items-center gap-1.5">
@@ -253,7 +269,11 @@ export default function NotificationsIndex({ notifications, categories, filters,
                                                 Marcar como por ler
                                             </Button>
                                         )}
-                                        <Button size="sm" disabled={!selectedNotices.some((n) => !n.read)} onClick={() => markRead({ ids: selected })}>
+                                        <Button
+                                            size="sm"
+                                            disabled={!selectedNotices.some((n) => !n.read)}
+                                            onClick={() => markRead({ ids: selected })}
+                                        >
                                             <MailOpen />
                                             Marcar como lidas
                                         </Button>
@@ -262,7 +282,7 @@ export default function NotificationsIndex({ notifications, categories, filters,
                             </div>
 
                             {days.map((day) => (
-                                <section key={day.key} className="flex flex-col gap-2">
+                                <section key={day.key} className="flex flex-col gap-1.5">
                                     <h2 className="px-1 text-xs font-medium text-muted-foreground">{day.label}</h2>
                                     <div className="divide-y overflow-hidden rounded-xl border bg-card">
                                         {day.items.map((notice) => (
@@ -272,7 +292,7 @@ export default function NotificationsIndex({ notifications, categories, filters,
                                                 selected={selected.includes(notice.id)}
                                                 onSelect={(on) => toggle(notice.id, on)}
                                                 onToggleRead={() => (notice.read ? markUnread([notice.id]) : markRead({ ids: [notice.id] }))}
-                                                kind={categories.find((c) => c.key === notice.category)?.label}
+                                                kind={current ? undefined : categories.find((c) => c.key === notice.category)?.label}
                                             />
                                         ))}
                                     </div>
@@ -369,21 +389,21 @@ function NoticeRow({
     return (
         <div
             className={cn(
-                'group relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/50',
+                'group relative flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50',
                 !notice.read && 'bg-primary/[0.04]',
                 selected && 'bg-accent/70',
             )}
         >
-            <div className="relative z-10 flex items-center gap-2 pt-1.5">
+            <div className="relative z-10 flex items-center gap-2 pt-0.5">
                 <Checkbox checked={selected} onCheckedChange={(on) => onSelect(on === true)} aria-label={`Seleccionar «${notice.title}»`} />
             </div>
             <span
                 className={cn(
-                    'mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg',
+                    'inline-flex size-6 shrink-0 items-center justify-center rounded-md',
                     notice.category === 'approval' || tone === 'warning' ? 'bg-status-warning/15 text-foreground' : 'bg-muted text-muted-foreground',
                 )}
             >
-                <Icon className="size-4" />
+                <Icon className="size-3.5" />
             </span>
             <div className="min-w-0 flex-1">
                 <div className="flex items-start gap-2">
@@ -400,19 +420,21 @@ function NoticeRow({
                         {ago(notice.created_at)}
                     </span>
                 </div>
-                {notice.body && <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{plainText(notice.body)}</p>}
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground">
+                {/* One line under the title: who, what kind, what they said. */}
+                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                     {notice.from && <span className="font-medium text-foreground/80">{notice.from}</span>}
-                    {notice.from && kind && <span aria-hidden>·</span>}
-                    {kind && <span>{kind}</span>}
-                    {notice.approval && (
-                        <span className="relative z-10 basis-full pt-1 sm:ml-auto sm:basis-auto sm:pt-0">
-                            <ApprovalActions approval={notice.approval} title={notice.title} compact />
-                        </span>
-                    )}
-                </div>
+                    {notice.from && kind && ' · '}
+                    {kind}
+                    {(notice.from || kind) && notice.body && ' — '}
+                    {notice.body && plainText(notice.body)}
+                </p>
+                {notice.approval && (
+                    <div className="relative z-10 mt-1.5">
+                        <ApprovalActions approval={notice.approval} title={notice.title} compact />
+                    </div>
+                )}
             </div>
-            <div className="relative z-10 flex w-6 shrink-0 flex-col items-center gap-2 pt-1.5">
+            <div className="relative z-10 flex w-6 shrink-0 flex-col items-center gap-1 pt-0.5">
                 {!notice.read && <StatusDot tone={tone === 'running' ? 'running' : tone} pulse={false} />}
                 <Tooltip>
                     <TooltipTrigger asChild>

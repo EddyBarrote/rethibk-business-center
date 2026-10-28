@@ -192,3 +192,19 @@ it('searches title, text and sender word by word, with accents, and pages by the
         ->assertInertia(fn ($page) => $page->has('notifications.data', 5));
     $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, 'notifications?por_pagina=7'))->assertSessionHasErrors('por_pagina');
 });
+
+it('takes the replies of a conversation out of the centre once it is opened, and marks the rest about it read', function () {
+    $task = asTenant($this->tenant, fn () => Task::factory()->create(['user_id' => $this->person->id, 'assignee_agent_id' => Agent::factory()->create()->id]));
+    $other = asTenant($this->tenant, fn () => Task::factory()->create(['user_id' => $this->person->id]));
+    notifyAs($this->tenant, $this->person, 'Agente respondeu', NotificationCategory::Conversation, ['url' => "/tasks/{$task->id}", 'meta' => ['task_id' => $task->id]]);
+    notifyAs($this->tenant, $this->person, 'Resposta antiga', NotificationCategory::Conversation, ['url' => "/tasks/{$task->id}"]);
+    notifyAs($this->tenant, $this->person, 'Está à sua espera', NotificationCategory::Waiting, ['url' => "/tasks/{$task->id}", 'meta' => ['task_id' => $task->id]]);
+    notifyAs($this->tenant, $this->person, 'Noutra conversa', NotificationCategory::Conversation, ['url' => "/tasks/{$other->id}", 'meta' => ['task_id' => $other->id]]);
+    notifyAs($this->tenant, $this->other, 'De outra pessoa', NotificationCategory::Conversation, ['url' => "/tasks/{$task->id}", 'meta' => ['task_id' => $task->id]]);
+
+    $this->actingAs($this->person, 'web')->get(tenantUrl($this->tenant, "tasks/{$task->id}"))->assertOk();
+
+    expect($this->person->notifications()->pluck('data')->pluck('title')->sort()->values()->all())->toBe(['Está à sua espera', 'Noutra conversa'])
+        ->and($this->person->unreadNotifications()->pluck('data')->pluck('title')->all())->toBe(['Noutra conversa'])
+        ->and($this->other->notifications()->count())->toBe(1);
+});

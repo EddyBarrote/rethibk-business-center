@@ -1721,3 +1721,9 @@ Ideia vinda do OpenDuet.
 ## Barra do dia em cartões discretos (28.10.2026)
 
 Na barra da direita da página inicial cada linha (resumo do dia, sugestões dos agentes, o que estão a fazer e o que fizeram) é um cartão leve: fundo `bg-muted/50`, sem borda, cantos de 8 px, o título a abrir o item e o motivo em letra pequena. Os títulos das secções passam a pequenos e em maiúsculas com a contagem ao lado, e o cabeçalho do resumo fica compacto (cara do Chief of Staff, «Resumo de hoje», fechar). Só a barra da direita muda; a lista ao centro em ecrã estreito mantém as linhas simples.
+
+## Respostas lidas saem das notificações (28.10.2026)
+
+Ao abrir uma conversa ou tarefa, as notificações de «Conversas» sobre ela (respostas de agentes e pessoas, «quer falar consigo») apagam-se do centro dessa pessoa: já as leu no sítio certo, e guardá-las só ocupava espaço. As restantes sobre a mesma tarefa (à sua espera, aprovações, prazos) ficam, mas marcadas como lidas. Encontram-se pelo `task_id` da notificação ou, nas antigas, pelo link `/tasks/{id}` (`App\Support\ReadInChat`, chamado em `TaskController::show`).
+
+A lista ficou mais compacta: cada notificação tem o título e uma só linha por baixo com quem, o tipo (escondido quando já se filtra por tipo) e o texto; ícone mais pequeno, menos espaço vertical, e a barra de selecção deixou de ser um cartão.
