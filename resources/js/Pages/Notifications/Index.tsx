@@ -6,7 +6,7 @@ import { EmptyState } from '@/Components/EmptyState';
 import { ApprovalActions } from '@/Components/notifications/ApprovalActions';
 import { dayKey, dayLabel, iconFor, levelTone, type Notice } from '@/Components/notifications/meta';
 import { PageHeader } from '@/Components/PageHeader';
-import { Pagination } from '@/Components/Pagination';
+import { PagerArrows, Pagination } from '@/Components/Pagination';
 import { StatusDot } from '@/Components/Status';
 import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
@@ -258,9 +258,7 @@ export default function NotificationsIndex({ notifications, categories, filters,
                                         ? 'Seleccione para marcar várias de uma vez'
                                         : plural(selected.length, 'seleccionada', 'seleccionadas')}
                                 </span>
-                                {selected.length === 0 && notifications.last_page > 1 && (
-                                    <Pagination page={notifications} noun={['notificação', 'notificações']} className="ml-auto sm:flex-row" />
-                                )}
+                                {selected.length === 0 && notifications.last_page > 1 && <PagerArrows page={notifications} className="ml-auto" />}
                                 {selected.length > 0 && (
                                     <div className="ml-auto flex items-center gap-1.5">
                                         <Button size="sm" variant="ghost" onClick={() => setSelected([])}>

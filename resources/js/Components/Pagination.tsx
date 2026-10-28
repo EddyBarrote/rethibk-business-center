@@ -205,3 +205,31 @@ export function usePaged<T>(items: T[], perPage = 25) {
         },
     };
 }
+
+/** A small pager for the top of a list: where you are and the two arrows, the full one stays at the bottom. */
+export function PagerArrows<T>({ page, className }: { page: Paginated<T>; className?: string }) {
+    if (page.last_page <= 1) {
+        return null;
+    }
+
+    const arrow = (target: number, disabled: boolean, label: string, icon: ReactNode) =>
+        disabled ? (
+            <span aria-disabled className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }), 'pointer-events-none opacity-40')}>
+                {icon}
+            </span>
+        ) : (
+            <Link href={pageHref(target)} preserveScroll aria-label={label} className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}>
+                {icon}
+            </Link>
+        );
+
+    return (
+        <nav aria-label="Paginação" className={cn('flex items-center gap-1 text-xs text-muted-foreground tabular-nums', className)}>
+            <span className="mr-1 whitespace-nowrap">
+                {count.format(page.from ?? 0)}–{count.format(page.to ?? 0)} de {count.format(page.total)}
+            </span>
+            {arrow(page.current_page - 1, page.current_page <= 1, 'Página anterior', <ChevronLeft />)}
+            {arrow(page.current_page + 1, page.current_page >= page.last_page, 'Página seguinte', <ChevronRight />)}
+        </nav>
+    );
+}
