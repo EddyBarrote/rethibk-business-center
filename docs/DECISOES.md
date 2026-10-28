@@ -1696,3 +1696,9 @@ Ideia vinda do OpenDuet.
   - Passa-os ao modelo do Agente de Triagem com as instruções dele, sem ferramentas, por isso nada é escrito, enviado nem criado.
   - Mostra os falhados e a percentagem de acerto. Falha abaixo de `--min` (por omissão 80% na categoria).
   - Custa uns cêntimos (`triage.eval` no orçamento). Corre-se antes e depois de mudar as instruções ou o modelo da triagem.
+
+## Início: o dia na barra da direita (28.10.2026)
+
+- Pedido do Barrote: num ecrã largo (1280 px ou mais), o resumo da manhã, as iniciativas dos agentes e «A trabalhar agora / Concluído nas últimas 24 horas» passam para uma barra à direita no Início. Ao centro ficam a saudação, a caixa de escrita, as sugestões e as caras dos agentes.
+- Quando se abre uma aprovação, ela ocupa essa barra, como antes, e ao fechá-la volta o dia.
+- Num ecrã estreito fica tudo por baixo da caixa, como estava (`HomeAgents` com `part`).

@@ -79,6 +79,14 @@ export default function Home({
     const wide = useWide();
     const approvalSheet = <ApprovalSheet approvals={approvals} openId={openApproval} onOpenChange={setOpenApproval} docked={wide} />;
     const firstName = auth.user?.name.split(' ')[0] ?? '';
+    // On a wide screen the day goes to the right: the summary, what the agents offer and what they are doing.
+    const dayPanel = (
+        <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-5">
+            {morning && <MorningSummary morning={morning} />}
+            <Initiatives initiatives={initiatives} />
+            <HomeAgents agents={agents} active={now.active} done={now.done} part="activity" />
+        </div>
+    );
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -107,7 +115,7 @@ export default function Home({
     ].filter((item): item is { key: string; href: string; label: string; onClick?: () => void } => Boolean(item));
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Início' }]} aside={wide && openApproval !== null ? approvalSheet : undefined}>
+        <AppLayout breadcrumbs={[{ label: 'Início' }]} aside={wide ? (openApproval !== null ? approvalSheet : dayPanel) : undefined}>
             <Head title="Início" />
 
             <div className="mx-auto flex min-h-[calc(100svh-9rem)] w-full max-w-2xl flex-col items-center justify-center gap-6 py-6">
@@ -141,8 +149,8 @@ export default function Home({
                     )}
                 </div>
 
-                {morning && <MorningSummary morning={morning} />}
-                <Initiatives initiatives={initiatives} />
+                {!wide && morning && <MorningSummary morning={morning} />}
+                {!wide && <Initiatives initiatives={initiatives} />}
 
                 <form onSubmit={submit} {...drop.dropProps} className="relative flex w-full flex-col gap-2 rounded-2xl border bg-card p-3">
                     <DropOverlay show={drop.dragging} />
@@ -232,7 +240,7 @@ export default function Home({
                 )}
 
                 <div className="mt-6 w-full">
-                    <HomeAgents agents={agents} active={now.active} done={now.done} />
+                    <HomeAgents agents={agents} active={now.active} done={now.done} part={wide ? 'faces' : 'all'} />
                 </div>
             </div>
 

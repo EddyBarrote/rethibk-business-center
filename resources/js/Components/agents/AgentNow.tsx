@@ -315,10 +315,13 @@ export function HomeAgents({
     agents,
     active,
     done,
+    part = 'all',
 }: {
     agents: { id: number; name: string; avatar_url: string | null }[];
     active: NowRun[];
     done: NowRun[];
+    /** On a wide screen the faces stay under the box and the activity goes to the right-hand panel. */
+    part?: 'all' | 'faces' | 'activity';
 }) {
     const { tenant, sidebar_agents: sidebar = [] } = usePage<SharedProps>().props;
     const toolNames = useToolNames();
@@ -347,36 +350,38 @@ export function HomeAgents({
 
     return (
         <div className="flex w-full flex-col gap-6">
-            <div className="flex flex-wrap justify-center gap-x-5 gap-y-3">
-                {agents.map((agent) => {
-                    const chat = chatOf(agent.id);
+            {part !== 'activity' && (
+                <div className="flex flex-wrap justify-center gap-x-5 gap-y-3">
+                    {agents.map((agent) => {
+                        const chat = chatOf(agent.id);
 
-                    return (
-                        <Link
-                            key={agent.id}
-                            href={chat ? `/tasks/${chat}` : `/agents/${agent.id}`}
-                            className="group flex w-16 flex-col items-center gap-1.5 text-center"
-                        >
-                            <AgentAvatar
-                                name={agent.name}
-                                url={agent.avatar_url}
-                                className="size-11 rounded-2xl text-xs transition-transform group-hover:scale-105"
-                            />
-                            <span
-                                className={cn(
-                                    'line-clamp-2 text-[11px] leading-tight',
-                                    working.has(agent.id) ? 'text-status-running' : 'text-muted-foreground',
-                                )}
+                        return (
+                            <Link
+                                key={agent.id}
+                                href={chat ? `/tasks/${chat}` : `/agents/${agent.id}`}
+                                className="group flex w-16 flex-col items-center gap-1.5 text-center"
                             >
-                                {agent.name.replace(/^Agente de /, '')}
-                            </span>
-                        </Link>
-                    );
-                })}
-            </div>
+                                <AgentAvatar
+                                    name={agent.name}
+                                    url={agent.avatar_url}
+                                    className="size-11 rounded-2xl text-xs transition-transform group-hover:scale-105"
+                                />
+                                <span
+                                    className={cn(
+                                        'line-clamp-2 text-[11px] leading-tight',
+                                        working.has(agent.id) ? 'text-status-running' : 'text-muted-foreground',
+                                    )}
+                                >
+                                    {agent.name.replace(/^Agente de /, '')}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </div>
+            )}
 
-            {(active.length > 0 || done.length > 0) && (
-                <div className="grid gap-6 text-left sm:grid-cols-2">
+            {part !== 'faces' && (active.length > 0 || done.length > 0 || part === 'activity') && (
+                <div className={cn('grid gap-6 text-left', part === 'all' && 'sm:grid-cols-2')}>
                     <section aria-label="A trabalhar agora" className="flex min-w-0 flex-col gap-1">
                         <h2 className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
                             <StatusDot tone={active.length > 0 ? 'running' : 'idle'} />A trabalhar agora
