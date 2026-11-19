@@ -58,9 +58,19 @@ final class PerfexToolMap
         'expenses.classify' => ['update_expense', 'list_expense_categories'],
         'expenses.list_by_project' => ['list_expenses', 'get_expense', 'export_list_to_excel'],
 
-        'hr.list_employees' => ['list_staff', 'list_departments'],
-        'hr.attendance_summary' => [],
-        'hr.list_leave' => [],
+        // Rethink HR, Assiduidade (Timesheets) and Payroll (docs/DECISOES.md, Director de Recursos Humanos).
+        'hr.list_employees' => ['list_staff', 'list_departments', 'hr_list_employees', 'hr_org_chart', 'hr_reference_data'],
+        'hr.get_employee' => ['hr_get_employee', 'hr_career_history', 'hr_list_documents', 'hr_list_contracts', 'hr_get_contract', 'hr_get_contract_pdf'],
+        'hr.people_indicators' => ['hr_people_indicators'],
+        'hr.upcoming_dates' => ['hr_upcoming'],
+        'hr.update_employee' => ['hr_update_employee'],
+        'hr.attendance_today' => ['att_today', 'att_who_is_out', 'att_check_ins'],
+        'hr.attendance_daily' => ['att_daily_attendance', 'att_shift_schedule'],
+        'hr.attendance_summary' => ['att_attendance_summary', 'att_month_status', 'att_overtime_status'],
+        'hr.list_leave' => ['att_list_leave_requests', 'att_get_leave_request', 'att_who_is_out', 'att_leave_types', 'att_leave_balance', 'hr_leave_balances', 'att_holidays'],
+        'hr.list_payroll_runs' => ['pay_list_runs', 'pay_get_run', 'pay_annual_summary', 'pay_irps_sheet_pdf'],
+        'hr.get_payslip' => ['pay_get_payslip', 'pay_payslip_pdf', 'pay_annual_statement_pdf'],
+        // The ERP processes payroll in its own screens on purpose: no tool creates or calculates a run.
         'hr.prepare_payroll_draft' => [],
         'hr.list_openings' => [],
         'hr.create_candidate' => [],
@@ -79,6 +89,16 @@ final class PerfexToolMap
         $tool = str_starts_with($contractKey, 'erp.') ? substr($contractKey, 4) : $contractKey;
 
         return array_map(fn (string $native) => 'erp.'.$native, self::EQUIVALENTS[$tool] ?? []);
+    }
+
+    /**
+     * Every Perfex capability key the map names.
+     *
+     * @return list<string>
+     */
+    public static function nativeKeys(): array
+    {
+        return array_values(array_unique(array_map(fn (string $native) => 'erp.'.$native, array_merge(...array_values(self::EQUIVALENTS)))));
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Erp\ErpGateway;
 use App\Erp\Perfex\PerfexToolMap;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\Capability;
 use App\Models\Skill;
 use App\Models\Task;
 use App\Models\Tenant;
@@ -84,6 +85,7 @@ final class InstructionComposer
         }
 
         $mine = $agent->capabilities()->where('is_available', true)->pluck('key')->all();
+        $catalogued = Capability::query()->whereIn('key', PerfexToolMap::nativeKeys())->where('is_available', true)->pluck('key')->all();
         $lines = [];
 
         foreach (array_unique($matches[0]) as $contract) {
@@ -96,13 +98,17 @@ final class InstructionComposer
             $usable = array_values(array_intersect($natives, $mine));
             $lines[] = "- {$contract}: ".match (true) {
                 $usable !== [] => 'usa '.implode(', ', $usable),
+                // The ERP has it, but its token does not list it yet (the HR tools are ticked per token).
+                $natives !== [] && array_intersect($natives, $catalogued) === [] => 'no ERP é '.implode(', ', $natives).', que não tens: ainda não está ligada a esta plataforma (um administrador activa-a no token do ERP); diz que não o podes fazer agora',
                 $natives !== [] => 'no ERP é '.implode(', ', $natives).', que não tens: pede a quem te gere ou deixa a tarefa a uma pessoa',
                 default => 'ainda não existe no ERP; diz que não o podes fazer',
             }.'.';
         }
 
         return $lines === [] ? null
-            : "## Ferramentas do ERP\nO ERP desta organização usa outros nomes para as ferramentas das tuas instruções. Os identificadores são números e os estados vêm por código (vê a descrição de cada ferramenta). Quando pedirem o PDF de uma factura, orçamento, proposta, recibo ou encomenda, usa a ferramenta download_*_pdf do ERP: o ficheiro vai anexado à resposta. Nunca geres tu um documento que imite um documento do ERP.\n".implode("\n", $lines);
+            : "## Ferramentas do ERP\nO ERP desta organização usa outros nomes para as ferramentas das tuas instruções. Os identificadores são números e os estados vêm por código (vê a descrição de cada ferramenta). "
+                .'Quando pedirem o PDF de uma factura, orçamento, proposta, recibo de pagamento ou encomenda, usa a ferramenta download_*_pdf do ERP; o de um recibo de vencimento, contrato de trabalho, carta, folha de IRPS ou declaração anual de rendimentos, a ferramenta *_pdf do ERP (pay_payslip_pdf, hr_get_contract_pdf, hr_get_letter_pdf, pay_irps_sheet_pdf, pay_annual_statement_pdf). '
+                ."O ficheiro vai anexado à resposta. Nunca geres tu um documento que imite um documento do ERP.\n".implode("\n", $lines);
     }
 
     /**

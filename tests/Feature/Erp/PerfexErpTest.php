@@ -7,6 +7,7 @@ use App\Erp\ErpFiles;
 use App\Erp\ErpGateway;
 use App\Erp\Perfex\PerfexAdapter;
 use App\Erp\Perfex\PerfexToolMap;
+use App\Mcp\Servers\FakeErpServer;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Capability;
@@ -132,6 +133,23 @@ it('maps every contract tool and names the ones Perfex lacks', function () {
         ->and(PerfexToolMap::capabilitiesFor('erp.erp.whoami'))->toBe(['erp.whoami'])
         ->and(PerfexToolMap::capabilitiesFor('erp.quotes.create'))->toContain('erp.create_estimate')
         ->and(PerfexToolMap::missing())->toContain('hr.prepare_payroll_draft')->not->toContain('crm.get_account');
+});
+
+it('maps the HR contract tools to Rethink HR, Assiduidade and Payroll, and leaves recruiting to people', function () {
+    expect(PerfexToolMap::capabilitiesFor('erp.hr.attendance_today'))->toBe(['erp.att_today', 'erp.att_who_is_out', 'erp.att_check_ins'])
+        ->and(PerfexToolMap::capabilitiesFor('erp.hr.attendance_summary'))->toBe(['erp.att_attendance_summary', 'erp.att_month_status', 'erp.att_overtime_status'])
+        ->and(PerfexToolMap::capabilitiesFor('erp.hr.upcoming_dates'))->toBe(['erp.hr_upcoming'])
+        ->and(PerfexToolMap::capabilitiesFor('erp.hr.list_employees'))->toBe(['erp.list_staff', 'erp.list_departments', 'erp.hr_list_employees', 'erp.hr_org_chart', 'erp.hr_reference_data'])
+        ->and(PerfexToolMap::capabilitiesFor('erp.hr.get_employee'))->toContain('erp.hr_get_contract_pdf', 'erp.hr_list_documents')
+        ->and(PerfexToolMap::capabilitiesFor('erp.hr.list_payroll_runs'))->toContain('erp.pay_list_runs', 'erp.pay_get_run', 'erp.pay_irps_sheet_pdf')
+        ->and(PerfexToolMap::capabilitiesFor('erp.hr.get_payslip'))->toContain('erp.pay_payslip_pdf', 'erp.pay_annual_statement_pdf')
+        ->and(PerfexToolMap::capabilitiesFor('erp.hr.update_employee'))->toBe(['erp.hr_update_employee'])
+        ->and(PerfexToolMap::missing())->toEqualCanonicalizing(['hr.prepare_payroll_draft', 'hr.list_openings', 'hr.create_candidate', 'hr.list_candidates', 'hr.create_onboarding']);
+
+    // Every HR tool of the contract (the fake ERP) has its line, and nothing the ERP left out on purpose is mapped.
+    $contract = collect(FakeErpServer::catalogue())->map(fn ($tool) => $tool->name())->filter(fn (string $name) => str_starts_with($name, 'hr.'));
+    expect($contract->diff(array_keys(PerfexToolMap::EQUIVALENTS))->all())->toBe([])
+        ->and(PerfexToolMap::nativeKeys())->not->toContain('erp.att_decide_leave_request', 'erp.att_request_leave', 'erp.hr_decide_expense_claim', 'erp.hr_issue_letter');
 });
 
 it('tells an agent on a Perfex ERP which tools stand in for those its instructions name', function () {
