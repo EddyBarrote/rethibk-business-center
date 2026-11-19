@@ -10,6 +10,8 @@ Os agentes do MICOMOC são colegas de trabalho genéricos: o que cada um sabe e 
 | Chega ao modelo | Como ferramenta (function calling), embrulhada num `GatedTool` | O nome e a descrição vão no prompt de sistema; o agente carrega as instruções com `skills.load` quando a skill se aplica |
 | Portão de autonomia | Sim: uma capacidade de escrita acima do nível do agente fica pendente de aprovação | Não executa nada por si |
 
+Antes do portão, o `GatedTool` recusa as capacidades que trazem salários, contratos, documentos de identificação ou processos disciplinares (lista fechada em `autonomy.people_data`, por exemplo todas as `erp.pay_*`) quando a execução não é uma rotina do próprio agente nem é a pedido de uma pessoa com «Gerir pessoas e papéis». Ver docs/DECISOES.md, «Director de Recursos Humanos».
+
 ## Âmbitos
 
 Ambas existem em dois âmbitos:

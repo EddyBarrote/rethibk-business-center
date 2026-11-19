@@ -2,7 +2,7 @@
 
 **Para:** equipa do Rethink ERP
 **De:** equipa da plataforma de agentes MICOMOC (ref. RT-2026-MCM-01)
-**Versão:** 0.2, 04.10.2026 — base: secção 8.3 da especificação, mais 11 ferramentas pedidas para Finanças, Compras e RH (secção 4.1)
+**Versão:** 0.3, 19.11.2026 — base: secção 8.3 da especificação, mais 11 ferramentas pedidas para Finanças, Compras e RH (secção 4.1) e 8 para o Director de Recursos Humanos (secção 4.2)
 
 A plataforma de agentes liga-se ao ERP como **cliente MCP**. Este documento diz o que o servidor MCP do ERP tem de expor para os agentes funcionarem. Existe uma **implementação de referência** com dados fictícios, o `FakeErpServer`, no repositório da plataforma: em caso de dúvida, o comportamento dele é o esperado.
 
@@ -83,9 +83,9 @@ Os agentes de Finanças, Compras e RH (entregas E05 a E07) precisam também dest
 | `projects.list` | leitura | `status` | Lista os projectos com execução orçamental e facturação (`budget`, `spent`, `invoiced`), filtrando por estado. |
 | `procurement.record_quote` | escrita | `rfq_id`*, `supplier_id`*, `total`*, `delivery_days`, `valid_until`, `notes` | Regista uma cotação recebida de um fornecedor para um pedido de cotação. |
 | `procurement.list_orders` | leitura | `status`, `supplier_id` | Lista notas de encomenda com estado, data prevista de entrega (`expected_date`) e recepções. |
-| `hr.list_employees` | leitura | `department` | Lista os colaboradores activos, filtrando por departamento. |
-| `hr.attendance_summary` | leitura | `period`* | Assiduidade de um mês (`AAAA-MM`) por colaborador: presenças, faltas justificadas e injustificadas, atrasos e horas extraordinárias. |
-| `hr.list_leave` | leitura | `status` | Pedidos de férias e ausências, filtrando por estado. |
+| `hr.list_employees` | leitura | `department` | Lista os colaboradores activos, filtrando por departamento: cargo, departamento, chefia, admissão, tipo e fim do contrato. **Sem salários nem documentos** (desde a versão 0.3: estão em `hr.get_employee`). |
+| `hr.attendance_summary` | leitura | `period`*, `department` | Assiduidade de um mês (`AAAA-MM`) por colaborador: presenças, faltas justificadas e injustificadas, atrasos e horas extraordinárias. Desde a versão 0.3 também: `month_closed` (o mês está fechado para salários), `open_leave_requests`, os limites legais de horas extraordinárias que o ERP aplica (`overtime_limits`) e, por pessoa, as horas do trimestre e do ano e `over_limit`. |
+| `hr.list_leave` | leitura | `status`, `employee_id`, `from`, `to` | Pedidos de férias e ausências, filtrando por estado, pessoa e período (os que se sobrepõem a `from`–`to`), com o nome da pessoa. |
 | `hr.prepare_payroll_draft` | escrita | `period`* | Prepara o rascunho da folha de salários de um mês a partir da assiduidade. Não processa nem paga: um humano aprova no ERP. |
 | `hr.list_openings` | leitura | — | Vagas abertas com os requisitos. |
 | `hr.create_candidate` | escrita | `opening_id`*, `name`*, `email`, `score`, `summary`, `recommendation` | Regista uma candidatura a uma vaga, com a avaliação da triagem (`shortlist`, `hold` ou `reject`). |
@@ -93,6 +93,42 @@ Os agentes de Finanças, Compras e RH (entregas E05 a E07) precisam também dest
 | `hr.create_onboarding` | escrita | `name`*, `position`*, `start_date`*, `department` | Abre o plano de integração de um novo colaborador (rascunho de tarefas). |
 
 Os esquemas completos (tipos, enumerações, campos dos objectos em `lines` e `items`) estão no `FakeErpServer`. Para os ver: `php artisan erp:tools <tenant>` ou `php artisan mcp:inspector fake-erp` no repositório da plataforma.
+
+### 4.2 Ferramentas para o Director de Recursos Humanos (versão 0.3)
+
+O agente de RH passou a **Director de Recursos Humanos** (`docs/DECISOES.md`, 19.11.2026): o ERP faz o trabalho de RH e produz os documentos; o agente lê, vigia as datas, verifica a assiduidade, propõe actualizações às fichas e reporta. Folhas de salários: o ERP processa, aprova e paga; a plataforma só lê.
+
+| Ferramenta | Tipo | Argumentos | O que faz |
+|---|---|---|---|
+| `hr.attendance_today` | leitura | `date` (por omissão hoje), `department` | Um dia: turno, entrada, saída, licença aprovada e o estado de cada pessoa (`present`, `late`, `absent`, `on_leave`, `off`, `no_check_in` antes do início do turno), com as contagens. |
+| `hr.attendance_daily` | leitura | `from`*, `to`, `employee_id`, `department` | Dia a dia por pessoa num período (até 62 dias): estado, entrada, saída, minutos de atraso, licença. |
+| `hr.upcoming_dates` | leitura | `days` (1 a 365, por omissão 60), `kind` | Datas de RH a chegar: `probation_end`, `contract_end`, `id_expiry`, `document_expiry`, `certificate_expiry`, `birthday`, `anniversary`, `overtime_limit`, `sick_leave`, `disciplinary`, `filing`, `asset_return`. Cada item com `date`, `days_left`, a pessoa e um texto. |
+| `hr.get_employee` | leitura | `employee_id`* | Ficha de RH: registo, contrato (com salário base), documentos e validades, pedidos de férias e as datas dos próximos 90 dias. |
+| `hr.people_indicators` | leitura | — | Efectivo por departamento, admissões e saídas em 12 meses, rotatividade, absentismo do último mês fechado, horas extraordinárias do ano, custo salarial por colaborador. |
+| `hr.list_payroll_runs` | leitura | `period`, `year`, `status` | Folhas processadas no ERP (`draft`, `approved`, `paid`) com os totais: colaboradores, bruto, INSS do trabalhador e da empresa, IRPS, líquido, custo para a empresa. Com `period`, essa folha com uma linha por pessoa e `attendance_closed`. |
+| `hr.get_payslip` | leitura | `period`*, `employee_id`*, `pdf` | O recibo de uma pessoa num mês: rendimentos, descontos, líquido. Com `pdf: true`, `download_url` e `file_name` como as outras ferramentas de PDF. |
+| `hr.update_employee` | escrita | `employee_id`*, `position`, `department`, `manager_id`, `status`, `termination_date`, `termination_reason`, `id_expiry_date`, `phone`, `email`, `notes` | Actualiza a ficha de RH; só mudam os campos indicados. Cessar (`status: terminated`) exige `termination_date`. Na plataforma fica sempre sob o tecto absoluto (uma pessoa aprova). |
+
+**Só no ERP real.** O servidor falso não serve ficheiros: `hr.get_payslip` com `pdf: true` devolve um erro legível. No Rethink ERP os PDFs (recibos, contratos, cartas, folhas de IRPS, declarações anuais) vêm das ferramentas `*_pdf` (`pay_payslip_pdf`, `hr_get_contract_pdf`, `hr_get_letter_pdf`, `pay_irps_sheet_pdf`, `pay_annual_statement_pdf`), que a plataforma descarrega uma vez e anexa à resposta. Os prazos legais (`filing`), os limites de horas extraordinárias como datas (`overtime_limit`), as baixas para a Junta de Saúde e os prazos disciplinares também só os dá o ERP real. O IRPS das folhas do servidor falso é uma taxa fictícia.
+
+**No Rethink ERP (Perfex).** O ERP já tem estas ferramentas com os nomes dele: 38 de RH (`hr_*`), 15 de Assiduidade (`att_*`) e 8 de Payroll (`pay_*`, só leitura), descritas em `modules/rethink_hr/MCP_TOOLS.md` do ERP. A correspondência está em `App\Erp\Perfex\PerfexToolMap`:
+
+| Contrato | Rethink ERP |
+|---|---|
+| `hr.list_employees` | `list_staff`, `list_departments`, `hr_list_employees`, `hr_org_chart`, `hr_reference_data` |
+| `hr.get_employee` | `hr_get_employee`, `hr_career_history`, `hr_list_documents`, `hr_list_contracts`, `hr_get_contract`, `hr_get_contract_pdf` |
+| `hr.people_indicators` | `hr_people_indicators` |
+| `hr.upcoming_dates` | `hr_upcoming` (a data vem em `ref_date`, sem `days_left`) |
+| `hr.update_employee` | `hr_update_employee` |
+| `hr.attendance_today` | `att_today`, `att_who_is_out`, `att_check_ins` |
+| `hr.attendance_daily` | `att_daily_attendance`, `att_shift_schedule` |
+| `hr.attendance_summary` | `att_attendance_summary`, `att_month_status`, `att_overtime_status` |
+| `hr.list_leave` | `att_list_leave_requests`, `att_get_leave_request`, `att_who_is_out`, `att_leave_types`, `att_leave_balance`, `hr_leave_balances`, `att_holidays` |
+| `hr.list_payroll_runs` | `pay_list_runs`, `pay_get_run`, `pay_annual_summary`, `pay_irps_sheet_pdf` |
+| `hr.get_payslip` | `pay_get_payslip`, `pay_payslip_pdf`, `pay_annual_statement_pdf` |
+| `hr.prepare_payroll_draft`, `hr.list_openings`, `hr.create_candidate`, `hr.list_candidates`, `hr.create_onboarding` | — (o ERP processa a folha nos seus ecrãs, de propósito; recrutamento e integração não têm ferramenta) |
+
+As ferramentas só aparecem à plataforma depois de marcadas no token, em **MCP Server › Definições** do ERP. O token actua como administrador, por isso as regras do ERP sobre quem vê o quê não protegem nada aqui: a plataforma limita ela própria os salários, contratos, documentos de identificação e processos disciplinares (`autonomy.people_data`).
 
 ## 5. Ponto por decidir: `invoices.issue` `[CONFIRMAR]`
 
