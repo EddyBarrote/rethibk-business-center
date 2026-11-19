@@ -36,7 +36,7 @@ class EmailReferences
 
             $name = $m[2].'mail '.$this->who($email);
             $subject = filled($email->subject) ? ' («'.str($email->subject)->squish()->limit(80).'»)' : '';
-            $open = $m[1] ?? '';
+            $open = $m[1];
             $close = $m[4] ?? '';
 
             // "**Email #143**" stays bold on the name, the subject after it.

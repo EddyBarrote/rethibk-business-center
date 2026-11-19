@@ -29,7 +29,7 @@ return new class extends Migration
             ->get(['id', 'task_id'])
             ->each(function ($memory) {
                 $task = DB::table('tasks')->where('id', $memory->task_id)->first(['user_id', 'created_by_user_id']);
-                $person = $task?->user_id ?? $task?->created_by_user_id;
+                $person = $task->user_id ?? $task?->created_by_user_id;
 
                 if ($person !== null) {
                     DB::table('agent_memories')->where('id', $memory->id)->update(['user_id' => $person]);
