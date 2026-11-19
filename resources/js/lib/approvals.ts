@@ -19,6 +19,12 @@ const join = (...parts: (string | null | false | undefined)[]) => parts.filter(B
 
 const recipients = (p: Payload) => (Array.isArray(p.to) ? p.to.map(String).join(', ') : text(p.to));
 
+/** An HR record change (always approved by a person): a termination says so first. */
+const hrUpdate = (who: string | null, p: Payload) =>
+    p.status === 'terminated'
+        ? join(`Cessar o contrato de ${who ?? '—'}`, p.termination_date !== undefined && `último dia ${date(text(p.termination_date))}`)
+        : `Actualizar a ficha de RH de ${who ?? '—'}`;
+
 const titles: Record<string, (p: Payload) => string> = {
     // The subject names the client and the matter; the address goes to the second line (approvalRecipient).
     'comms.send_email': (p) => (text(p.subject) ? `Enviar email «${text(p.subject)}»` : `Enviar email a ${recipients(p) ?? '—'}`),
@@ -47,6 +53,8 @@ const titles: Record<string, (p: Payload) => string> = {
             p.start_date !== undefined && `a partir de ${date(text(p.start_date))}`,
         ),
     'erp.hr.prepare_payroll_draft': (p) => `Preparar a folha de salários de ${text(p.period) ?? '—'}`,
+    'erp.hr.update_employee': (p) => hrUpdate(text(p.employee_id), p),
+    'erp.hr_update_employee': (p) => hrUpdate(text(p.staff_id), p),
     'erp.procurement.create_rfq': (p) => join(`Pedir cotações ${quoted(p.title) ?? ''}`.trim(), text(p.project_id)),
     'erp.procurement.record_quote': (p) =>
         join(
