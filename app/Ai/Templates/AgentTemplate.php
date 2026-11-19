@@ -14,6 +14,7 @@ final readonly class AgentTemplate
     /**
      * @param  list<string>  $capabilities  capability keys; ERP ones are prefixed "erp."
      * @param  list<array{name: string, prompt: string, schedule: string}>  $routines
+     * @param  list<string>  $retiredRoutines  names of routines earlier versions of the template had, switched off when an agent is brought up to date
      */
     public function __construct(
         public string $key,
@@ -28,5 +29,6 @@ final readonly class AgentTemplate
         public array $routines,
         public string $mailbox,
         public string $delivery,
+        public array $retiredRoutines = [],
     ) {}
 }

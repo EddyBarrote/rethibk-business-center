@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities;
 
+use App\Ai\Templates\AgentTemplates;
 use App\Connectors\ConnectorException;
 use App\Connectors\ConnectorGateway;
 use App\Enums\AutonomyLevel;
@@ -17,6 +18,7 @@ use App\Models\Capability;
 use App\Models\Connector;
 use App\Models\PlatformConnector;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -123,27 +125,74 @@ final class CapabilityCatalog
 
     /**
      * An agent set up with contract tools ("erp.crm.search_accounts") gets the
-     * Perfex reads that do the same job ("erp.list_customers"). Perfex writes
+     * Perfex reads that do the same job ("erp.list_customers"): those of the
+     * contract capabilities it holds (rows left unavailable since the switch to
+     * Perfex) and, for a template agent, those of its template's contract keys,
+     * which a tenant that was always on Perfex never had as rows. Perfex writes
      * change the live ERP, so an admin gives those to agents explicitly.
      */
     private function grantPerfexReads(): void
     {
-        $reads = Capability::query()->where('source', CapabilitySource::Mcp)->where('is_available', true)->where('is_mutating', false)->pluck('id', 'key');
+        $reads = $this->perfexReads();
 
         Agent::query()->with('capabilities')->get()->each(function (Agent $agent) use ($reads): void {
-            $wanted = $agent->capabilities
+            $contract = $agent->capabilities
                 ->filter(fn (Capability $capability) => $capability->source === CapabilitySource::Mcp && ! $capability->is_available)
-                ->flatMap(fn (Capability $capability) => PerfexToolMap::capabilitiesFor($capability->key))
-                ->map(fn (string $key) => $reads[$key] ?? null)
-                ->filter()
-                ->unique()
-                ->diff($agent->capabilities->pluck('id'))
-                ->values();
+                ->pluck('key')
+                ->merge(AgentTemplates::find((string) ($agent->settings['template'] ?? ''))->capabilities ?? []);
 
-            if ($wanted->isNotEmpty()) {
-                $agent->capabilities()->syncWithoutDetaching(array_fill_keys($wanted->all(), ['enabled' => true]));
-            }
+            $this->attachPerfexReads($agent, $contract->all(), $reads);
         });
+    }
+
+    /**
+     * On a Perfex ERP, gives the agent the catalogued Perfex reads that stand
+     * in for these contract keys (docs/DECISOES.md, Director de Recursos
+     * Humanos): when it is installed from a template or brought up to date.
+     *
+     * @param  list<string>  $contractKeys
+     * @return list<string> the capability keys it got
+     */
+    public function grantPerfexReadsFor(Agent $agent, array $contractKeys): array
+    {
+        if ($this->erp->dialect() !== ErpDialect::Perfex) {
+            return [];
+        }
+
+        return $this->attachPerfexReads($agent->load('capabilities'), $contractKeys, $this->perfexReads());
+    }
+
+    /**
+     * @return Collection<string, int> available Perfex reads, id by key
+     */
+    private function perfexReads(): Collection
+    {
+        return Capability::query()->where('source', CapabilitySource::Mcp)->where('is_available', true)->where('is_mutating', false)->pluck('id', 'key');
+    }
+
+    /**
+     * Attaches what the agent does not have yet: one an admin switched off
+     * for the agent stays off.
+     *
+     * @param  list<string>  $contractKeys
+     * @param  Collection<string, int>  $reads
+     * @return list<string>
+     */
+    private function attachPerfexReads(Agent $agent, array $contractKeys, Collection $reads): array
+    {
+        $wanted = collect($contractKeys)
+            ->filter(fn (string $key) => str_starts_with($key, 'erp.'))
+            ->flatMap(fn (string $key) => PerfexToolMap::capabilitiesFor($key))
+            ->unique()
+            ->filter(fn (string $key) => $reads->has($key))
+            ->reject(fn (string $key) => $agent->capabilities->contains('id', $reads[$key]))
+            ->values();
+
+        if ($wanted->isNotEmpty()) {
+            $agent->capabilities()->syncWithoutDetaching(array_fill_keys($wanted->map(fn (string $key) => $reads[$key])->all(), ['enabled' => true]));
+        }
+
+        return $wanted->all();
     }
 
     /**

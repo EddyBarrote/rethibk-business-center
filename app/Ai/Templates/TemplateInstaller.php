@@ -8,6 +8,7 @@ use App\Enums\AgentStatus;
 use App\Enums\MailboxStatus;
 use App\Enums\Role;
 use App\Erp\Exceptions\ErpException;
+use App\Erp\Perfex\PerfexToolMap;
 use App\Models\Agent;
 use App\Models\AuditLog;
 use App\Models\Capability;
@@ -22,7 +23,8 @@ use Illuminate\Support\Str;
 /**
  * Creates an agent from a template in the current tenant: department,
  * capabilities, routines and a disabled mailbox waiting for credentials. An agent
- * that already exists for the template is left as the admin configured it.
+ * that already exists for the template is left as the admin configured it,
+ * unless someone asks to bring it up to date (refresh()).
  */
 final class TemplateInstaller
 {
@@ -35,7 +37,7 @@ final class TemplateInstaller
      */
     public function install(AgentTemplate $template, ?Model $actor = null, AgentStatus $status = AgentStatus::Active): array
     {
-        $existing = Agent::query()->where('key', $template->key)->orWhere('settings->template', $template->key)->first();
+        $existing = $this->find($template);
 
         if ($existing !== null) {
             return ['agent' => $existing, 'created' => false, 'missing_capabilities' => [], 'mailbox' => Mailbox::query()->where('agent_id', $existing->id)->value('address')];
@@ -68,6 +70,8 @@ final class TemplateInstaller
 
             $capabilities = Capability::query()->whereIn('key', [...$template->capabilities, ...CapabilityRegistry::ON_BY_DEFAULT])->pluck('id', 'key');
             $agent->capabilities()->sync(array_fill_keys($capabilities->values()->all(), ['enabled' => true]));
+            // On a Perfex ERP the contract keys have no rows: the reads that do their job instead.
+            $perfex = $this->catalog->grantPerfexReadsFor($agent, $template->capabilities);
 
             foreach ($template->routines as $routine) {
                 $agent->routines()->create([...$routine, 'is_active' => true]);
@@ -75,15 +79,126 @@ final class TemplateInstaller
 
             $address = $this->mailbox($agent, $template);
 
-            AuditLog::record($actor, 'agent.installed_from_template', ['template' => $template->key, 'capabilities' => $capabilities->keys()->all()], subject: $agent);
+            AuditLog::record($actor, 'agent.installed_from_template', ['template' => $template->key, 'capabilities' => [...$capabilities->keys()->all(), ...$perfex]], subject: $agent);
 
             return [
                 'agent' => $agent,
                 'created' => true,
-                'missing_capabilities' => array_values(array_diff($template->capabilities, $capabilities->keys()->all())),
+                'missing_capabilities' => $this->missing($template, [...$capabilities->keys()->all(), ...$perfex]),
                 'mailbox' => $address,
             ];
         });
+    }
+
+    /**
+     * Brings an agent made from the template up to its current version
+     * (docs/DECISOES.md, Director de Recursos Humanos), only when asked:
+     * name, title, description, personality and instructions as the template
+     * says; the template's capabilities added, none taken away; its routines
+     * matched by name. A routine keeps the on/off state the admin left it in;
+     * a new one starts off when all the agent's routines are off; one the
+     * template no longer has is switched off, not deleted. Department,
+     * autonomy, model, chefia and mailbox stay as they are.
+     *
+     * @return array{agent: Agent, capabilities_added: list<string>, routines_created: list<string>, routines_updated: list<string>, routines_deactivated: list<string>}|null null when no agent comes from the template
+     */
+    public function refresh(AgentTemplate $template, ?Model $actor = null): ?array
+    {
+        $agent = $this->find($template);
+
+        if ($agent === null) {
+            return null;
+        }
+
+        $this->ensureCapabilities($template);
+
+        return DB::transaction(function () use ($template, $actor, $agent) {
+            $before = $agent->only(['name', 'title', 'description', 'personality', 'instructions']);
+
+            $agent->forceFill([
+                'name' => $template->name,
+                'title' => $template->title,
+                'description' => $template->description,
+                'personality' => $template->personality,
+                'instructions' => $template->instructions,
+                'settings' => [...$agent->settings ?? [], 'template' => $template->key],
+            ])->save();
+
+            $held = $agent->capabilities()->pluck('capabilities.id')->all();
+            $new = Capability::query()->whereIn('key', [...$template->capabilities, ...CapabilityRegistry::ON_BY_DEFAULT])->whereNotIn('id', $held)->pluck('id', 'key');
+            $agent->capabilities()->syncWithoutDetaching(array_fill_keys($new->values()->all(), ['enabled' => true]));
+            $added = [...$new->keys()->all(), ...$this->catalog->grantPerfexReadsFor($agent, $template->capabilities)];
+
+            $routines = $this->syncRoutines($agent, $template);
+
+            AuditLog::record($actor, 'agent.refreshed_from_template', [
+                'template' => $template->key,
+                'changed' => array_keys(array_diff_assoc($agent->only(array_keys($before)), $before)),
+                'capabilities_added' => $added,
+                ...$routines,
+            ], subject: $agent);
+
+            return ['agent' => $agent->fresh() ?? $agent, 'capabilities_added' => $added, ...$routines];
+        });
+    }
+
+    /**
+     * @return array{routines_created: list<string>, routines_updated: list<string>, routines_deactivated: list<string>}
+     */
+    private function syncRoutines(Agent $agent, AgentTemplate $template): array
+    {
+        $existing = $agent->routines()->whereNull('workflow_id')->get()->keyBy('name');
+        $startOn = $existing->isNotEmpty() && $existing->contains('is_active', true);
+        $result = ['routines_created' => [], 'routines_updated' => [], 'routines_deactivated' => []];
+
+        foreach ($template->routines as $routine) {
+            $current = $existing->get($routine['name']);
+
+            if ($current === null) {
+                $agent->routines()->create([...$routine, 'is_active' => $startOn]);
+                $result['routines_created'][] = $routine['name'];
+
+                continue;
+            }
+
+            $current->fill(['prompt' => $routine['prompt'], 'schedule' => $routine['schedule']]);
+
+            if ($current->isDirty()) {
+                $current->save();
+                $result['routines_updated'][] = $routine['name'];
+            }
+        }
+
+        $current = array_column($template->routines, 'name');
+
+        foreach ($template->retiredRoutines as $name) {
+            $retired = $existing->get($name);
+
+            if ($retired !== null && $retired->is_active && ! in_array($name, $current, true)) {
+                $retired->forceFill(['is_active' => false])->save();
+                $result['routines_deactivated'][] = $name;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * The template's capabilities the agent could not get: no row, and on a
+     * Perfex ERP no read doing the job either.
+     *
+     * @param  list<string>  $got
+     * @return list<string>
+     */
+    private function missing(AgentTemplate $template, array $got): array
+    {
+        return array_values(array_filter(array_diff($template->capabilities, $got),
+            fn (string $key) => array_intersect(PerfexToolMap::capabilitiesFor($key), $got) === []));
+    }
+
+    private function find(AgentTemplate $template): ?Agent
+    {
+        return Agent::query()->where('key', $template->key)->orWhere('settings->template', $template->key)->first();
     }
 
     /**
