@@ -242,6 +242,7 @@ it('refuses to refresh a template that has no agent in the tenant', function () 
 describe('with the fake ERP', function () {
     beforeEach(function () {
         $this->store = freshFakeErp();
+        // The platform's clock; the fake ERP runs in its own process with the real one, so ERP calls name their dates.
         $this->travelTo(Carbon::parse('2026-11-19 09:30', 'Africa/Maputo'));
 
         asTenant($this->tenant, function () {
@@ -267,7 +268,7 @@ describe('with the fake ERP', function () {
             $audit = AuditLog::query()->where('action', 'erp.hr.get_payslip')->sole();
             expect($audit->result)->toBe(AuditResult::Denied)->and($audit->payload['for_user_id'])->toBe($this->member->id);
 
-            expect(hrGated($this->agent, 'erp.hr.attendance_today', [], $as($this->member)))->toContain('"status":"absent"');
+            expect(hrGated($this->agent, 'erp.hr.attendance_today', ['date' => '2026-11-19'], $as($this->member)))->toContain('"status":"absent"');
             expect(hrGated($this->agent, 'erp.hr.get_employee', ['employee_id' => 'EMP-0004'], $as($this->member)))->toStartWith('Recusado:');
 
             // The owner, and anyone given the permission, may.
@@ -327,7 +328,7 @@ describe('with the fake ERP', function () {
 
             GenericAgent::fake([
                 new ToolCall('a1', 'erp_hr_attendance_today', ['date' => '2026-11-18']),
-                new ToolCall('a2', 'erp_hr_attendance_today', []),
+                new ToolCall('a2', 'erp_hr_attendance_today', ['date' => '2026-11-19']),
                 new ToolCall('a3', 'erp_hr_list_leave', ['status' => 'approved', 'from' => '2026-11-18', 'to' => '2026-11-19']),
                 new ToolCall('a4', 'notify_user', ['title' => 'Assiduidade de 19/11', 'body' => "Abel Cossa: ausente hoje, sem licença aprovada.\nErcília Mabunda: chegou tarde ontem.\nNádia Tembe: de licença."]),
                 'Notifiquei a chefia: uma falta sem licença hoje e um atraso ontem.',
