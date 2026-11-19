@@ -3,11 +3,14 @@
 use App\Ai\Agents\GenericAgent;
 use App\Ai\Capabilities\Local\CompareQuotes;
 use App\Ai\Capabilities\Local\MatchCandidate;
+use App\Ai\Runs\AgentDirectory;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
 use App\Clients\ClientSheetBuilder;
 use App\Email\InboundEmailIngestor;
 use App\Enums\AutonomyLevel;
+use App\Enums\CapabilitySource;
+use App\Enums\EmailCategory;
 use App\Models\Agent;
 use App\Models\Contract;
 use App\Models\EmailMessage;
@@ -50,7 +53,32 @@ it('installs the six agent templates once, each with its mailbox, from the super
                 'clientes@agentes.micomoc.test', 'compras@agentes.micomoc.test', 'direccao@agentes.micomoc.test',
                 'financas@agentes.micomoc.test', 'rh@agentes.micomoc.test', 'triagem@agentes.micomoc.test',
             ])
-            ->and(Agent::query()->where('key', 'finance')->sole()->capabilities()->pluck('key')->all())->toContain('bank.import_statement', 'finance.project_margins');
+            ->and(Agent::query()->where('key', 'finance')->sole()->capabilities()->pluck('key')->all())->toContain('bank.import_statement', 'finance.project_margins')
+            ->and(Agent::query()->where('key', 'hr')->sole()->name)->toBe('Director de Recursos Humanos');
+    });
+});
+
+it('makes the HR Director a reader of the ERP: one write, routines that speak the contract it holds', function () {
+    asTenant($this->tenant, function () {
+        $hr = templateAgent('hr');
+        $template = AgentTemplates::find('hr');
+        $named = function (string $text): array {
+            preg_match_all('/\berp\.[a-z_]+\.[a-z_]+\b/', $text, $matches);
+
+            return array_values(array_unique($matches[0]));
+        };
+
+        expect($hr)->name->toBe('Director de Recursos Humanos')->autonomy_level->toBe(AutonomyLevel::ExecuteWithApproval)
+            ->and($hr->department?->name)->toBe('Direcção de RH')
+            ->and(Mailbox::query()->where('agent_id', $hr->id)->sole()->address)->toBe('rh@agentes.micomoc.test')
+            ->and($hr->capabilities()->where('source', CapabilitySource::Mcp)->where('is_mutating', true)->pluck('key')->all())->toBe(['erp.hr.update_employee'])
+            ->and($hr->routines()->where('is_active', true)->pluck('name')->all())->toBe(['Datas de RH', 'Assiduidade do dia', 'Resumo semanal de assiduidade', 'Assiduidade do mês', 'Conferir a folha de salários'])
+            ->and($template->instructions)->not->toContain('prepare_payroll_draft')
+            // What the instructions name, the agent has; what a routine names, the instructions name (so the ERP glossary covers it).
+            ->and(array_diff($named($template->instructions), $template->capabilities))->toBe([])
+            ->and(array_diff(array_merge(...array_map(fn (array $r) => $named($r['prompt']), $template->routines)), $named($template->instructions)))->toBe([])
+            // Applications sent by email still reach it.
+            ->and(app(AgentDirectory::class)->forRole((string) EmailCategory::JobApplication->handlerRole())?->id)->toBe($hr->id);
     });
 });
 
