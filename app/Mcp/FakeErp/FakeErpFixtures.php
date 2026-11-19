@@ -34,6 +34,9 @@ final class FakeErpFixtures
             'openings' => self::openings(),
             'candidates' => [],
             'payrolls' => [],
+            'payroll_runs' => self::payrollRuns(),
+            // Months whose attendance is closed for payroll.
+            'attendance_closed' => [['period' => '2026-08'], ['period' => '2026-09'], ['period' => '2026-10']],
             'onboardings' => [],
             'idempotency' => [],
         ];
@@ -183,14 +186,31 @@ final class FakeErpFixtures
     /**
      * @return list<array<string, mixed>>
      */
+    /**
+     * The HR record of each person: contract, identity and other documents
+     * (numbers invented), birth date. Dates are set so that, around November
+     * 2026, there are contract ends, expiring documents and birthdays to watch.
+     *
+     * @return list<array<string, mixed>>
+     */
     private static function employees(): array
     {
         return [
-            ['id' => 'EMP-0001', 'name' => 'Paula Chissano', 'position' => 'Engenheira de obra', 'department' => 'Operações', 'base_salary' => 85_000.00, 'hire_date' => '2021-03-01', 'status' => 'active', 'email' => 'p.chissano@micomoc.co.mz'],
-            ['id' => 'EMP-0002', 'name' => 'Tomás Langa', 'position' => 'Engenheiro de obra', 'department' => 'Operações', 'base_salary' => 82_000.00, 'hire_date' => '2022-01-10', 'status' => 'active', 'email' => 't.langa@micomoc.co.mz'],
-            ['id' => 'EMP-0003', 'name' => 'Ercília Mabunda', 'position' => 'Técnica de contabilidade', 'department' => 'Finanças', 'base_salary' => 46_000.00, 'hire_date' => '2023-05-02', 'status' => 'active', 'email' => 'e.mabunda@micomoc.co.mz'],
-            ['id' => 'EMP-0004', 'name' => 'Abel Cossa', 'position' => 'Encarregado', 'department' => 'Operações', 'base_salary' => 32_000.00, 'hire_date' => '2020-08-17', 'status' => 'active', 'email' => null],
-            ['id' => 'EMP-0005', 'name' => 'Nádia Tembe', 'position' => 'Assistente administrativa', 'department' => 'Administração', 'base_salary' => 28_500.00, 'hire_date' => '2024-02-05', 'status' => 'active', 'email' => 'n.tembe@micomoc.co.mz'],
+            ['id' => 'EMP-0001', 'name' => 'Paula Chissano', 'position' => 'Engenheira de obra', 'department' => 'Operações', 'manager_id' => null, 'base_salary' => 85_000.00, 'hire_date' => '2021-03-01', 'birth_date' => '1988-11-22', 'status' => 'active', 'email' => 'p.chissano@micomoc.co.mz', 'phone' => '+258 84 310 2201',
+                'contract' => ['type' => 'indeterminado', 'start_date' => '2021-03-01', 'end_date' => null, 'probation_end' => null],
+                'documents' => [['type' => 'bi', 'number' => '110100234567B', 'expiry_date' => '2029-04-30']]],
+            ['id' => 'EMP-0002', 'name' => 'Tomás Langa', 'position' => 'Engenheiro de obra', 'department' => 'Operações', 'manager_id' => 'EMP-0001', 'base_salary' => 82_000.00, 'hire_date' => '2022-01-10', 'birth_date' => '1991-06-14', 'status' => 'active', 'email' => 't.langa@micomoc.co.mz', 'phone' => '+258 82 455 1093',
+                'contract' => ['type' => 'indeterminado', 'start_date' => '2022-01-10', 'end_date' => null, 'probation_end' => null],
+                'documents' => [['type' => 'bi', 'number' => '110300876543C', 'expiry_date' => '2028-02-15'], ['type' => 'certificate', 'title' => 'Carta de condução', 'number' => 'MP-0457812', 'expiry_date' => '2026-12-03']]],
+            ['id' => 'EMP-0003', 'name' => 'Ercília Mabunda', 'position' => 'Técnica de contabilidade', 'department' => 'Finanças', 'manager_id' => null, 'base_salary' => 46_000.00, 'hire_date' => '2023-05-02', 'birth_date' => '1995-02-08', 'status' => 'active', 'email' => 'e.mabunda@micomoc.co.mz', 'phone' => '+258 84 702 3318',
+                'contract' => ['type' => 'prazo certo', 'start_date' => '2025-05-02', 'end_date' => '2027-05-01', 'probation_end' => null],
+                'documents' => [['type' => 'bi', 'number' => '110500345678D', 'expiry_date' => '2030-09-01']]],
+            ['id' => 'EMP-0004', 'name' => 'Abel Cossa', 'position' => 'Encarregado', 'department' => 'Operações', 'manager_id' => 'EMP-0001', 'base_salary' => 32_000.00, 'hire_date' => '2020-08-17', 'birth_date' => '1979-09-30', 'status' => 'active', 'email' => null, 'phone' => '+258 86 118 4420',
+                'contract' => ['type' => 'indeterminado', 'start_date' => '2020-08-17', 'end_date' => null, 'probation_end' => null],
+                'documents' => [['type' => 'bi', 'number' => '110700456789E', 'expiry_date' => '2026-11-26']]],
+            ['id' => 'EMP-0005', 'name' => 'Nádia Tembe', 'position' => 'Assistente administrativa', 'department' => 'Administração', 'manager_id' => null, 'base_salary' => 28_500.00, 'hire_date' => '2024-02-05', 'birth_date' => '1999-12-12', 'status' => 'active', 'email' => 'n.tembe@micomoc.co.mz', 'phone' => '+258 87 220 9104',
+                'contract' => ['type' => 'prazo certo', 'start_date' => '2024-02-05', 'end_date' => '2026-12-19', 'probation_end' => null],
+                'documents' => [['type' => 'bi', 'number' => '110900567890F', 'expiry_date' => '2031-01-20']]],
         ];
     }
 
@@ -211,13 +231,34 @@ final class FakeErpFixtures
             'EMP-0005' => [22, 0, 0, 0, 2.0],
         ];
 
-        foreach (['2026-08', '2026-09'] as $period) {
-            foreach ($data as $employee => [$present, $justified, $unjustified, $late, $overtime]) {
+        // October: Abel misses more days and works more overtime; the rest as before.
+        $october = [...$data, 'EMP-0002' => [22, 0, 0, 0, 22.0], 'EMP-0004' => [17, 1, 4, 5, 30.0]];
+
+        foreach (['2026-08' => $data, '2026-09' => $data, '2026-10' => $october] as $period => $month) {
+            foreach ($month as $employee => [$present, $justified, $unjustified, $late, $overtime]) {
                 $rows[] = ['employee_id' => $employee, 'period' => $period, 'working_days' => 22, 'days_present' => $present, 'absences_justified' => $justified, 'absences_unjustified' => $unjustified, 'late_arrivals' => $late, 'overtime_hours' => $overtime];
             }
         }
 
         return $rows;
+    }
+
+    /**
+     * How each person usually checks in and out, and the weekdays (ISO, 1 =
+     * Monday) the pattern breaks, so any day has an answer: Abel misses
+     * Thursdays and arrives late on Mondays, Ercília is late on Wednesdays.
+     *
+     * @return array<string, array{check_in: string, check_out: string, late_weekdays?: list<int>, late_check_in?: string, absent_weekdays?: list<int>}>
+     */
+    public static function attendanceRhythm(): array
+    {
+        return [
+            'EMP-0001' => ['check_in' => '07:52', 'check_out' => '17:10'],
+            'EMP-0002' => ['check_in' => '07:58', 'check_out' => '17:30'],
+            'EMP-0003' => ['check_in' => '07:55', 'check_out' => '17:00', 'late_weekdays' => [3], 'late_check_in' => '08:25'],
+            'EMP-0004' => ['check_in' => '07:45', 'check_out' => '17:05', 'late_weekdays' => [1], 'late_check_in' => '08:40', 'absent_weekdays' => [4]],
+            'EMP-0005' => ['check_in' => '07:59', 'check_out' => '17:00'],
+        ];
     }
 
     /**
@@ -229,6 +270,24 @@ final class FakeErpFixtures
             ['id' => 'LV-0001', 'employee_id' => 'EMP-0002', 'type' => 'férias', 'start_date' => '2026-10-19', 'end_date' => '2026-10-30', 'days' => 10, 'status' => 'pending'],
             ['id' => 'LV-0002', 'employee_id' => 'EMP-0003', 'type' => 'férias', 'start_date' => '2026-12-21', 'end_date' => '2027-01-08', 'days' => 12, 'status' => 'approved'],
             ['id' => 'LV-0003', 'employee_id' => 'EMP-0004', 'type' => 'doença', 'start_date' => '2026-09-08', 'end_date' => '2026-09-09', 'days' => 2, 'status' => 'approved'],
+            ['id' => 'LV-0004', 'employee_id' => 'EMP-0005', 'type' => 'férias', 'start_date' => '2026-11-16', 'end_date' => '2026-11-20', 'days' => 5, 'status' => 'approved'],
+            ['id' => 'LV-0005', 'employee_id' => 'EMP-0001', 'type' => 'férias', 'start_date' => '2026-11-30', 'end_date' => '2026-12-04', 'days' => 5, 'status' => 'pending'],
+        ];
+    }
+
+    /**
+     * Payroll runs processed in the ERP. The lines are worked out from the
+     * month's attendance (Modules\Hr); October carries an extra earning for
+     * Nádia, the kind of change the payroll check should point out.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function payrollRuns(): array
+    {
+        return [
+            ['id' => 'RUN-0001', 'period' => '2026-08', 'status' => 'paid', 'approved_at' => '2026-08-26', 'paid_at' => '2026-08-28', 'other_earnings' => []],
+            ['id' => 'RUN-0002', 'period' => '2026-09', 'status' => 'paid', 'approved_at' => '2026-09-25', 'paid_at' => '2026-09-28', 'other_earnings' => []],
+            ['id' => 'RUN-0003', 'period' => '2026-10', 'status' => 'approved', 'approved_at' => '2026-10-26', 'paid_at' => null, 'other_earnings' => ['EMP-0005' => 12_000.00]],
         ];
     }
 

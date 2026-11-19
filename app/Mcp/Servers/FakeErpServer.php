@@ -3,6 +3,7 @@
 namespace App\Mcp\Servers;
 
 use App\Mcp\FakeErp\FakeErpTool;
+use App\Mcp\FakeErp\Modules\Attendance;
 use App\Mcp\FakeErp\Modules\Core;
 use App\Mcp\FakeErp\Modules\Crm;
 use App\Mcp\FakeErp\Modules\Expenses;
@@ -40,7 +41,7 @@ class FakeErpServer extends Server
      */
     public static function catalogue(): array
     {
-        $modules = [new Core, new Crm, new Leads, new Projects, new Invoices, new Procurement, new Expenses, new Hr];
+        $modules = [new Core, new Crm, new Leads, new Projects, new Invoices, new Procurement, new Expenses, new Hr, new Attendance];
 
         return array_merge(...array_map(fn ($module) => $module->tools(), $modules));
     }

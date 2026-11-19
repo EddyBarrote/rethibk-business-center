@@ -1,6 +1,8 @@
 <?php
 
 use App\Mcp\Servers\FakeErpServer;
+use Illuminate\Support\Carbon;
+use Illuminate\Testing\Fluent\AssertableJson;
 
 beforeEach(function () {
     $this->store = freshFakeErp();
@@ -11,6 +13,20 @@ afterEach(fn () => @unlink($this->store));
 function fakeErp(string $tool, array $arguments = [])
 {
     return FakeErpServer::tool(FakeErpServer::find($tool), $arguments);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function fakeErpData(string $tool, array $arguments = []): array
+{
+    $data = [];
+    fakeErp($tool, $arguments)->assertOk()->assertStructuredContent(function (AssertableJson $json) use (&$data) {
+        $data = $json->toArray();
+        $json->etc();
+    });
+
+    return $data;
 }
 
 it('exposes every tool of the section 8.3 contract and the proposed extensions', function () {
@@ -29,6 +45,9 @@ it('exposes every tool of the section 8.3 contract and the proposed extensions',
         'projects.list', 'procurement.record_quote', 'procurement.list_orders',
         'hr.list_employees', 'hr.attendance_summary', 'hr.list_leave', 'hr.prepare_payroll_draft',
         'hr.list_openings', 'hr.create_candidate', 'hr.list_candidates', 'hr.create_onboarding',
+        // The HR Director (docs/DECISOES.md, 19.11.2026).
+        'hr.attendance_today', 'hr.attendance_daily', 'hr.upcoming_dates', 'hr.get_employee', 'hr.people_indicators',
+        'hr.list_payroll_runs', 'hr.get_payslip', 'hr.update_employee',
     ];
 
     $names = array_map(fn ($tool) => $tool->name(), FakeErpServer::catalogue());
@@ -122,4 +141,79 @@ it('records a supplier quote and lists orders with their receipts', function () 
         ->assertSee('QUO-0003');
 
     fakeErp('procurement.list_orders', ['status' => 'confirmed'])->assertOk()->assertSee('PO-0001')->assertSee('expected_date');
+});
+
+it('says who is in on a day: late, absent without leave, on leave, not checked in yet', function () {
+    // Thursday 19 November 2026, 09:00 in Maputo: Abel misses Thursdays, Nádia is on approved leave.
+    $this->travelTo(Carbon::parse('2026-11-19 09:00', 'Africa/Maputo'));
+
+    $people = collect(fakeErpData('hr.attendance_today')['people'])->keyBy('employee');
+
+    expect($people['Abel Cossa']['status'])->toBe('absent')
+        ->and($people['Nádia Tembe'])->status->toBe('on_leave')->leave->toBe('férias')
+        ->and($people['Paula Chissano'])->status->toBe('present')->check_in->toBe('07:52')->check_out->toBeNull();
+
+    // Wednesday: Ercília is late; Saturday nobody works; before the shift starts nobody is absent yet.
+    fakeErp('hr.attendance_daily', ['from' => '2026-11-18', 'to' => '2026-11-21', 'employee_id' => 'EMP-0003'])
+        ->assertOk()->assertSee('"status":"late"')->assertSee('"late_minutes":25')->assertSee('"status":"off"');
+
+    $this->travelTo(Carbon::parse('2026-11-19 07:30', 'Africa/Maputo'));
+    fakeErp('hr.attendance_today', ['department' => 'Operações'])->assertOk()->assertSee('"no_check_in":3')->assertDontSee('"absent"');
+
+    fakeErp('hr.attendance_daily', ['from' => '2026-09-01', 'to' => '2026-11-30'])->assertHasErrors(['62 dias']);
+});
+
+it('summarises the month against the legal overtime limits and says whether it is closed', function () {
+    fakeErp('hr.attendance_summary', ['period' => '2026-10'])
+        ->assertOk()
+        ->assertSee('"month_closed":true')
+        ->assertSee('"overtime_limits":{"week":8,"quarter":96,"year":200}')
+        ->assertSee('"overtime_year_hours":82')
+        ->assertSee('"employee":"Abel Cossa"');
+
+    fakeErp('hr.list_leave', ['status' => 'pending', 'from' => '2026-11-19', 'to' => '2026-12-03'])
+        ->assertOk()->assertSee('LV-0005')->assertSee('Paula Chissano')->assertDontSee('LV-0001');
+});
+
+it('lists the HR dates coming up with the days left, and keeps pay out of the employee list', function () {
+    $this->travelTo(Carbon::parse('2026-11-19 07:00', 'Africa/Maputo'));
+
+    $items = collect(fakeErpData('hr.upcoming_dates', ['days' => 30])['items']);
+
+    expect($items->map(fn ($i) => [$i['kind'], $i['employee'], $i['days_left']])->all())->toBe([
+        ['birthday', 'Paula Chissano', 3],
+        ['id_expiry', 'Abel Cossa', 7],
+        ['certificate_expiry', 'Tomás Langa', 14],
+        ['birthday', 'Nádia Tembe', 23],
+        ['contract_end', 'Nádia Tembe', 30],
+    ]);
+
+    fakeErp('hr.upcoming_dates', ['days' => 30, 'kind' => 'contract_end'])->assertOk()->assertSee('Nádia Tembe')->assertDontSee('Abel Cossa');
+    fakeErp('hr.list_employees')->assertOk()->assertSee('"contract_end":"2026-12-19"')->assertDontSee('base_salary')->assertDontSee('110700456789E');
+    fakeErp('hr.get_employee', ['employee_id' => 'EMP-0004'])->assertOk()->assertSee('"base_salary":32000')->assertSee('110700456789E')->assertSee('"manager":"Paula Chissano"');
+    fakeErp('hr.people_indicators')->assertOk()->assertSee('"headcount":5')->assertSee('"Operações":3');
+});
+
+it('reads payroll runs and payslips, and leaves PDFs to the real ERP', function () {
+    fakeErp('hr.list_payroll_runs', ['year' => 2026])->assertOk()->assertSee(['RUN-0001', 'RUN-0002', 'RUN-0003'])->assertDontSee('"lines"');
+
+    fakeErp('hr.list_payroll_runs', ['period' => '2026-10'])
+        ->assertOk()
+        ->assertSee('"status":"approved"')
+        ->assertSee('"attendance_closed":true')
+        ->assertSee('"other_earnings":12000')
+        ->assertSee('"employees":5');
+
+    fakeErp('hr.list_payroll_runs', ['period' => '2026-11'])->assertHasErrors(['Não há folha de salários de 2026-11']);
+    fakeErp('hr.get_payslip', ['period' => '2026-09', 'employee_id' => 'EMP-0004'])->assertOk()->assertSee('Faltas injustificadas')->assertSee('"net"');
+    fakeErp('hr.get_payslip', ['period' => '2026-09', 'employee_id' => 'EMP-0004', 'pdf' => true])->assertHasErrors(['não gera PDFs']);
+});
+
+it('updates an HR record, and a termination needs its last day', function () {
+    fakeErp('hr.update_employee', ['employee_id' => 'EMP-0004', 'status' => 'terminated', 'idempotency_key' => 'u-1'])->assertHasErrors(['termination_date']);
+
+    fakeErp('hr.update_employee', ['employee_id' => 'EMP-0004', 'id_expiry_date' => '2036-11-26', 'phone' => '+258 86 000 0000', 'idempotency_key' => 'u-2'])
+        ->assertOk()->assertSee('"changed":["id_expiry_date","phone"]');
+
+    fakeErp('hr.get_employee', ['employee_id' => 'EMP-0004'])->assertOk()->assertSee('2036-11-26')->assertDontSee('2026-11-26');
 });
