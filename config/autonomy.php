@@ -34,10 +34,12 @@ return [
         'erp.contracts.sign' => 'Assinatura ou aceitação de contrato',
         'erp.contracts.accept' => 'Assinatura ou aceitação de contrato',
 
-        // Hiring, dismissal or contract changes for people.
+        // Hiring, dismissal or contract changes for people. An HR record update
+        // can set the status to terminated and the last working day.
         'erp.hr.hire' => 'Contratação, cessação ou alteração contratual',
         'erp.hr.terminate' => 'Contratação, cessação ou alteração contratual',
         'erp.hr.update_contract' => 'Contratação, cessação ou alteração contratual',
+        'erp.hr.update_employee' => 'Contratação, cessação ou alteração contratual',
 
         // The same actions in the live Perfex-based ERP (docs/DECISOES.md, ERP real).
         'erp.create_payment' => 'Saída de dinheiro ou instrução de pagamento',
@@ -55,8 +57,46 @@ return [
         'erp.update_purchase_order_approval' => 'Aprovação no ERP, reservada a pessoas',
         'erp.update_purchase_order_status' => 'Confirmação de encomenda a fornecedor',
 
+        // Rethink HR, Assiduidade and Payroll in the live ERP (docs/DECISOES.md, Director de Recursos Humanos).
+        'erp.hr_update_employee' => 'Contratação, cessação ou alteração contratual',
+        'erp.att_decide_leave_request' => 'Aprovação no ERP, reservada a pessoas',
+        'erp.hr_decide_expense_claim' => 'Aprovação no ERP, reservada a pessoas',
+        'erp.hr_mark_expense_claim_paid' => 'Saída de dinheiro ou instrução de pagamento',
+
         // Changing agent or user permissions.
         'platform.permissions.update' => 'Alteração de permissões de agentes ou utilizadores',
+    ],
+
+    /*
+    | Pay, contracts, identity documents and disciplinary data (docs/DECISOES.md,
+    | "Director de Recursos Humanos"). The ERP token acts as an administrator,
+    | so the ERP's own per-person scoping protects nothing here: these
+    | capabilities run only in a routine of the agent, or for a person with
+    | the «Gerir pessoas» permission (people.manage). A closed list of
+    | capability keys; a trailing * covers a family (every payroll tool).
+    */
+    'people_data' => [
+        // The contract (docs/ERP-MCP-CONTRACT.md, section 4.2).
+        'erp.hr.get_employee',
+        'erp.hr.people_indicators',
+        'erp.hr.upcoming_dates',
+        'erp.hr.list_payroll_runs',
+        'erp.hr.get_payslip',
+        'erp.hr.prepare_payroll_draft',
+
+        // The live Perfex-based ERP.
+        'erp.pay_*',
+        'erp.hr_get_employee',
+        'erp.hr_career_history',
+        'erp.hr_list_contracts',
+        'erp.hr_get_contract',
+        'erp.hr_get_contract_pdf',
+        'erp.hr_list_documents',
+        'erp.hr_list_disciplinary_cases',
+        'erp.hr_people_indicators',
+        'erp.hr_upcoming',
+        'erp.hr_get_letter_pdf',
+        'erp.hr_issue_letter',
     ],
 
 ];

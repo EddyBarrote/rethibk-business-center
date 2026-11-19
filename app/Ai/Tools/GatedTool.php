@@ -3,6 +3,7 @@
 namespace App\Ai\Tools;
 
 use App\Ai\Autonomy\AutonomyGate;
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityExecutor;
 use App\Ai\Capabilities\CapabilityRegistry;
@@ -106,6 +107,21 @@ final class GatedTool implements Tool
             $recorder->step($run, StepType::Error, ['ok' => false, 'content' => 'À espera das respostas às perguntas.'], $this->capability->key);
 
             return 'Não executado: estás à espera das respostas às tuas perguntas. Termina a tua resposta agora com uma frase curta; continuas quando a pessoa responder.';
+        }
+
+        // Pay and personal data only in a routine or for someone who manages people (docs/DECISOES.md, "Director de Recursos Humanos").
+        $people = app(PeopleData::class);
+
+        if (($refused = $people->refusal($this->capability, $this->context)) !== null) {
+            $recorder->step($run, StepType::Error, ['ok' => false, 'content' => $refused], $this->capability->key);
+            AuditLog::record($this->context->agent, $this->capability->key, [
+                'agent_run_id' => $run->id,
+                'arguments' => $arguments,
+                'for_user_id' => $people->personOf($run)?->id,
+                'reason' => 'Dados de pessoal (salários, contratos, documentos, processos disciplinares) fora de uma rotina e sem a permissão «Gerir pessoas».',
+            ], AuditResult::Denied);
+
+            return $refused;
         }
 
         // Never an invented price, term or contact (docs/DECISOES.md, "Perguntar, nunca inventar").
