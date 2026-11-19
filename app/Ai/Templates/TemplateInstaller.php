@@ -125,7 +125,8 @@ final class TemplateInstaller
             ])->save();
 
             $held = $agent->capabilities()->pluck('capabilities.id')->all();
-            $new = Capability::query()->whereIn('key', [...$template->capabilities, ...CapabilityRegistry::ON_BY_DEFAULT])->whereNotIn('id', $held)->pluck('id', 'key');
+            // The template's own; the on-by-default ones an admin may have taken away on purpose.
+            $new = Capability::query()->whereIn('key', $template->capabilities)->whereNotIn('id', $held)->pluck('id', 'key');
             $agent->capabilities()->syncWithoutDetaching(array_fill_keys($new->values()->all(), ['enabled' => true]));
             $added = [...$new->keys()->all(), ...$this->catalog->grantPerfexReadsFor($agent, $template->capabilities)];
 
