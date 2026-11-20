@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities\Local;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
@@ -85,6 +86,17 @@ final class DraftReport extends LocalCapability
             'notify' => 'nullable|string|max:255',
         ])->validate();
 
+        $reviewer = match (true) {
+            blank($data['notify'] ?? null) => null,
+            $data['notify'] === 'chefia' => $context->agent->reportsTo,
+            default => User::query()->where('email', mb_strtolower((string) $data['notify']))->where('is_active', true)->first(),
+        };
+
+        // A confidential agent's documents stay among people who may manage people: say so before writing it.
+        if (($refusal = PeopleData::recipientRefusal($context->agent, $reviewer)) !== null) {
+            return CapabilityResult::error($refusal.' O documento não ficou escrito: escreve-o de novo sem notify, ou para quem tem a permissão.');
+        }
+
         $report = Report::query()->create([
             'agent_id' => $context->agent->id,
             'agent_run_id' => $context->run->id,
@@ -97,12 +109,6 @@ final class DraftReport extends LocalCapability
             'period_end' => $data['period_end'] ?? null,
             'status' => 'draft',
         ]);
-
-        $reviewer = match (true) {
-            blank($data['notify'] ?? null) => null,
-            $data['notify'] === 'chefia' => $context->agent->reportsTo,
-            default => User::query()->where('email', mb_strtolower((string) $data['notify']))->where('is_active', true)->first(),
-        };
 
         if ($reviewer !== null) {
             $this->notifier->notify($reviewer, self::TYPES[$data['type']].': '.$report->title, 'Documento pronto para rever.', "/reports/{$report->id}", $context->agent->name, category: NotificationCategory::Document);

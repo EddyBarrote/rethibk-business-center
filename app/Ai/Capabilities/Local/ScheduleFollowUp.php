@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities\Local;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
@@ -93,6 +94,11 @@ final class ScheduleFollowUp extends LocalCapability
             $chat?->user !== null => $chat->user,
             default => $context->agent->reportsTo,
         };
+
+        // A confidential agent's reminders only for people who may manage people.
+        if (($refusal = PeopleData::recipientRefusal($context->agent, $user)) !== null) {
+            return CapabilityResult::error($refusal);
+        }
 
         $followUp = FollowUp::query()->create([
             'agent_id' => $context->agent->id,

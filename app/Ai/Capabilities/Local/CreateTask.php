@@ -2,11 +2,13 @@
 
 namespace App\Ai\Capabilities\Local;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
 use App\Email\EmailReferences;
 use App\Enums\AutonomyLevel;
+use App\Enums\Permission;
 use App\Enums\TaskKind;
 use App\Enums\TaskPriority;
 use App\Models\EmailMessage;
@@ -108,6 +110,16 @@ final class CreateTask extends LocalCapability
             if ($target->id !== $context->agent->id && ! $this->chart->canDelegate($context->agent, $target)) {
                 return CapabilityResult::error("{$target->name} não está abaixo de ti nem é a tua chefia no organigrama.");
             }
+        }
+
+        // A confidential agent's work stays among people who may manage people (PeopleData):
+        // it gives tasks only to them, and gets them only for them.
+        if ($person !== null && ($refusal = PeopleData::recipientRefusal($context->agent, $person)) !== null) {
+            return CapabilityResult::error($refusal);
+        }
+
+        if ($target !== null && $parent?->user !== null && PeopleData::closedTo($target, $parent->user)) {
+            return CapabilityResult::error("{$target->name} lê salários e dados de pessoal e só trabalha para quem tem a permissão «".Permission::ManagePeople->label()."», que {$parent->user->name} não tem. Diz-lhe que o peça a quem gere pessoas.");
         }
 
         // In a conversation the agent works for that person, so it opens work

@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities\Local;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
@@ -68,6 +69,11 @@ final class NotifyUser extends LocalCapability
 
         if ($user === null) {
             return CapabilityResult::error('pessoa não encontrada nesta organização.');
+        }
+
+        // A confidential agent's work stays among people who may manage people.
+        if (($refusal = PeopleData::recipientRefusal($context->agent, $user)) !== null) {
+            return CapabilityResult::error($refusal);
         }
 
         $this->notifier->notify($user, $data['title'], $data['body'], $data['link'] ?? "/settings/runs/{$context->run->id}", $context->agent->name, ($data['urgent'] ?? false) ? 'warning' : 'info', NotificationCategory::Agent, [

@@ -3,6 +3,7 @@
 namespace App\Ai\Memory;
 
 use App\Ai\Agents\AgentDrafting;
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Knowledge\KnowledgeBase;
@@ -129,6 +130,8 @@ final class MemoryConsolidator
     public function workRuns(Agent $agent): Builder
     {
         return AgentRun::query()
+            // A confidential agent keeps no memory for every conversation: its work stays where it was done (PeopleData).
+            ->when(PeopleData::agentHolds($agent), fn (Builder $q) => $q->whereRaw('1 = 0'))
             ->where('agent_id', $agent->id)
             ->where('id', '>', (int) $agent->memory_run_id)
             ->whereNull('task_id')
@@ -224,6 +227,11 @@ final class MemoryConsolidator
      */
     public function publish(Agent $agent): void
     {
+        // A confidential agent's work never goes to the knowledge base, which people without the permission read (PeopleData).
+        if (PeopleData::agentHolds($agent)) {
+            return;
+        }
+
         $facts = AgentMemory::query()->where('agent_id', $agent->id)->where('kind', AgentMemory::WORK)->orderBy('id')->get();
         $itemId = AgentMemory::query()->where('agent_id', $agent->id)->whereNotNull('knowledge_item_id')->value('knowledge_item_id');
         $item = $itemId !== null ? KnowledgeItem::query()->find($itemId) : null;
@@ -289,6 +297,15 @@ final class MemoryConsolidator
      */
     private function apply(Agent $agent, ?User $person, array $output, ?Task $task, array $except = []): int
     {
+        // A confidential agent remembers only per person, and proposes nothing to the company memory (PeopleData).
+        if (PeopleData::agentHolds($agent)) {
+            if ($person === null) {
+                return 0;
+            }
+
+            $output['company'] = [];
+        }
+
         $existing = $this->memoryOf($agent, $person?->id)->whereNotIn('id', $except)->get()->keyBy(fn (AgentMemory $m) => mb_strtolower((string) $m->title));
         $people = $task !== null ? $this->people($task) : collect(array_filter([$person]));
         $changed = 0;

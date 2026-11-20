@@ -2,7 +2,9 @@
 
 namespace App\Ai\Runs;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\NotificationCategory;
+use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Enums\TaskKind;
 use App\Enums\TaskMessageKind;
@@ -91,9 +93,12 @@ final class RoutineRunner
             $body .= " (na conversa de {$person->name})";
         }
 
+        // A confidential agent's result: admins who may not manage people hear that it ran, not what it said (PeopleData).
+        $confidential = PeopleData::agentHolds($run->agent);
+
         foreach ($this->admins($person) as $admin) {
             $url = $run->task !== null && $admin->can('view', $run->task) ? "/tasks/{$run->task->id}" : "/settings/routines?routine={$routine->id}";
-            $this->notifier->notify($admin, $title, $body, $url, $agent, $level, NotificationCategory::Agent, ['run_id' => $run->id, 'task_id' => $run->task_id]);
+            $this->notifier->notify($admin, $title, $confidential && ! PeopleData::mayRead($admin) ? '' : $body, $url, $agent, $level, NotificationCategory::Agent, ['run_id' => $run->id, 'task_id' => $run->task_id]);
         }
     }
 
@@ -114,6 +119,11 @@ final class RoutineRunner
         };
         $person = $this->recipient($routine, $agent);
 
+        // A confidential agent works only for people who may manage people, and never with nobody to send it to (PeopleData).
+        if (! PeopleData::mayRead($person) && PeopleData::agentHolds($agent)) {
+            return ['ok' => false, 'message' => "{$agent->name} lê salários e dados de pessoal: a rotina só corre para quem tem a permissão «".Permission::ManagePeople->label().'». Escolha essa pessoa na rotina.'];
+        }
+
         if ($person === null) {
             $routine->forceFill(['last_task_id' => null])->save();
             $this->runner->dispatch($agent, (string) $routine->prompt, TriggerType::Schedule, source: $routine, created: $remember);
@@ -124,9 +134,8 @@ final class RoutineRunner
         $chat = $this->threads->conversation($person, $agent);
         $routine->forceFill(['last_task_id' => $chat->id, 'last_run_id' => null])->save();
 
-        $note = $this->threads->note($chat, $this->brief($routine, $person), kind: TaskMessageKind::Message);
-        // If the agent is busy, the run that picks this up later is still the routine's.
-        $note->forceFill(['agent_routine_id' => $routine->id])->save();
+        // If the agent is busy, the run that picks this up later is still the routine's: the note says so from the start.
+        $note = $this->threads->note($chat, $this->brief($routine, $person), kind: TaskMessageKind::Message, routine: $routine);
         $run = $this->threads->wake($chat, null, $note, TriggerType::Schedule, $remember);
 
         return ['ok' => true, 'message' => $run !== null

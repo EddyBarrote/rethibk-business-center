@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities\Local;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
@@ -139,6 +140,11 @@ final class GenerateDocument extends LocalCapability
             'link' => "/documents/{$document->id}",
             'download' => "/documents/{$document->id}/download",
         ];
+
+        // A confidential agent's files stay out of the knowledge base, which people without the permission read (PeopleData).
+        if (($data['file_in_knowledge'] ?? false) && PeopleData::agentHolds($context->agent)) {
+            return CapabilityResult::data([...$result, 'knowledge' => 'Não arquivado: o teu trabalho tem dados de pessoal e não vai para a base de conhecimento.']);
+        }
 
         if ($data['file_in_knowledge'] ?? false) {
             $this->access->ensureDefaults();
