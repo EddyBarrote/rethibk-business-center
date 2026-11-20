@@ -184,9 +184,6 @@ final class FakeErpFixtures
     }
 
     /**
-     * @return list<array<string, mixed>>
-     */
-    /**
      * The HR record of each person: contract, identity and other documents
      * (numbers invented), birth date. Dates are set so that, around November
      * 2026, there are contract ends, expiring documents and birthdays to watch.

@@ -60,7 +60,7 @@ class AgentNow
             ? $agent->runs()->whereNotIn('status', [RunStatus::Queued, RunStatus::Running])->with(['agent:id,name', 'requestedBy:id,name', 'task'])->latest('id')->first()
             : null;
 
-        $present = $this->presenter($active, $user);
+        $present = $this->presenter($active, $user, $active->merge($recent)->push($last));
 
         return [
             'active' => $active->map($present)->values()->all(),
@@ -93,7 +93,7 @@ class AgentNow
             ->reverse()
             ->values();
 
-        $present = $this->presenter($runs->filter(fn (AgentRun $run) => in_array($run->status, [RunStatus::Queued, RunStatus::Running], true)), $user);
+        $present = $this->presenter($runs->filter(fn (AgentRun $run) => in_array($run->status, [RunStatus::Queued, RunStatus::Running], true)), $user, $runs);
 
         return $runs->map($present)->values()->all();
     }
@@ -126,7 +126,7 @@ class AgentNow
             ->take(8)
             ->values();
 
-        $present = $this->presenter($active, $user);
+        $present = $this->presenter($active, $user, $active->merge($done));
 
         return [
             'active' => $active->map($present)->values()->all(),
@@ -135,13 +135,19 @@ class AgentNow
     }
 
     /**
-     * How a run is shown, with the step a live one is on.
+     * How a run is shown, with the step a live one is on. A run this person
+     * may not open (AgentRunPolicy) shows that the agent worked, not on what:
+     * no request, answer or error (docs/DECISOES.md, "Director de Recursos Humanos").
      *
      * @param  Collection<int, AgentRun>  $live
+     * @param  iterable<AgentRun|null>  $shown  every run the closure will present
      * @return \Closure(AgentRun): array<string, mixed>
      */
-    private function presenter($live, User $user): \Closure
+    private function presenter($live, User $user, iterable $shown): \Closure
     {
+        $ids = collect($shown)->filter()->map(fn (AgentRun $run) => $run->id)->unique()->values();
+        $readable = AgentRun::query()->visibleTo($user)->whereIn('id', $ids)->pluck('id')->flip();
+
         $steps = AgentRunStep::query()
             ->whereIn('agent_run_id', $live->pluck('id'))
             ->whereIn('type', [StepType::ToolCall, StepType::Reasoning, StepType::Message, StepType::Approval])
@@ -152,6 +158,7 @@ class AgentNow
 
         return fn (AgentRun $run) => [
             ...Present::run($run),
+            ...($readable->has($run->id) ? [] : ['title' => null, 'input' => '', 'output' => null, 'error' => null]),
             'started_at' => $run->started_at?->toIso8601String(),
             'task' => $this->runTask($run->task, $user),
             'step' => isset($steps[$run->id]) ? [

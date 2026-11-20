@@ -39,7 +39,7 @@ final class Hr implements Module
     public function tools(): array
     {
         return [
-            $this->read('hr.list_employees', 'Lista os colaboradores activos (cargo, departamento, chefia, admissão, tipo e fim do contrato), filtrando por departamento. Sem salários nem documentos.',
+            $this->read('hr.list_employees', 'Lista os colaboradores activos (cargo, departamento, chefia, admissão), filtrando por departamento. Sem contratos, salários nem documentos: esses estão em hr.get_employee.',
                 fn (JsonSchema $s) => ['department' => $s->string()],
                 function (array $args, FakeErpStore $store): array {
                     $args = $this->validate($args, ['department' => 'nullable|string']);
@@ -248,7 +248,7 @@ final class Hr implements Module
     }
 
     /**
-     * What anyone may see of a person: no salary, documents or private contacts.
+     * What anyone may see of a person: no contract, salary, documents or private contacts.
      *
      * @param  array<string, mixed>  $employee
      * @param  list<array<string, mixed>>  $all
@@ -262,7 +262,6 @@ final class Hr implements Module
             'id' => $employee['id'], 'name' => $employee['name'], 'position' => $employee['position'], 'department' => $employee['department'],
             'manager_id' => $employee['manager_id'] ?? null, 'manager' => $names[$employee['manager_id'] ?? ''] ?? null,
             'hire_date' => $employee['hire_date'], 'status' => $employee['status'], 'email' => $employee['email'],
-            'contract_type' => $employee['contract']['type'] ?? null, 'contract_end' => $employee['contract']['end_date'] ?? null,
         ];
     }
 

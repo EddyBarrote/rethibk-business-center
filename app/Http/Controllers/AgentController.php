@@ -105,7 +105,8 @@ class AgentController extends Controller
                 'is_active' => $routine->is_active,
                 'last_run_at' => $routine->last_run_at?->toIso8601String(),
             ]),
-            'runs' => $agent->runs()->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
+            // Only the runs this person may open (AgentRunPolicy).
+            'runs' => $agent->runs()->visibleTo($user)->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
             // What the agent is doing right now, at the top of its page (docs/DECISOES.md, "Agente: o que está a fazer").
             'now' => fn () => app(AgentNow::class)->for($agent, $user),
             // The memory itself lives in Definições › Memória dos agentes (12.10.2026).

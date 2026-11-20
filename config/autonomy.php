@@ -71,9 +71,11 @@ return [
     | Pay, contracts, identity documents and disciplinary data (docs/DECISOES.md,
     | "Director de Recursos Humanos"). The ERP token acts as an administrator,
     | so the ERP's own per-person scoping protects nothing here: these
-    | capabilities run only in a routine of the agent, or for a person with
-    | the «Gerir pessoas» permission (people.manage). A closed list of
-    | capability keys; a trailing * covers a family (every payroll tool).
+    | capabilities run only for a person who asked and has the «Gerir pessoas»
+    | permission (people.manage), or in a routine of the agent for such a
+    | person; their results show in run traces only to such people. A closed
+    | list of capability keys; a trailing * covers a family, and
+    | people_data_open names the few of a family that stay open.
     */
     'people_data' => [
         // The contract (docs/ERP-MCP-CONTRACT.md, section 4.2).
@@ -83,20 +85,19 @@ return [
         'erp.hr.list_payroll_runs',
         'erp.hr.get_payslip',
         'erp.hr.prepare_payroll_draft',
+        'erp.hr.update_employee',
 
-        // The live Perfex-based ERP.
+        // The live Perfex-based ERP: every payroll and every Rethink HR tool.
         'erp.pay_*',
-        'erp.hr_get_employee',
-        'erp.hr_career_history',
-        'erp.hr_list_contracts',
-        'erp.hr_get_contract',
-        'erp.hr_get_contract_pdf',
-        'erp.hr_list_documents',
-        'erp.hr_list_disciplinary_cases',
-        'erp.hr_people_indicators',
-        'erp.hr_upcoming',
-        'erp.hr_get_letter_pdf',
-        'erp.hr_issue_letter',
+        'erp.hr_*',
+    ],
+
+    // Rethink HR tools with no pay, contract, document or disciplinary data.
+    // Assiduidade (erp.att_*), list_staff and list_departments are not on the list at all.
+    'people_data_open' => [
+        'erp.hr_org_chart',
+        'erp.hr_reference_data',
+        'erp.hr_leave_balances',
     ],
 
 ];

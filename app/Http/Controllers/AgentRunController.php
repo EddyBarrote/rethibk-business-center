@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\TaskKind;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
@@ -35,8 +36,11 @@ class AgentRunController extends Controller
         $origin = $filters['origin'] ?? null;
         $status = $filters['status'] ?? null;
         $chat = fn (Builder $task) => $task->where('kind', TaskKind::Chat);
+        $user = $this->user($request);
 
+        // Only the runs this person may open (AgentRunPolicy).
         $runs = AgentRun::query()
+            ->visibleTo($user)
             ->when($status, fn (Builder $query, string $status) => $query->where('status', $status))
             ->when($origin === null, fn (Builder $query) => $query->whereDoesntHave('task', $chat))
             ->when($origin === 'rotina', fn (Builder $query) => $query->where('trigger_type', TriggerType::Schedule)->whereNull('task_id'))
@@ -83,12 +87,13 @@ class AgentRunController extends Controller
 
     public function show(Request $request, AgentRun $run): Response
     {
-        Gate::authorize('view', $run->agent);
+        Gate::authorize('view', $run);
         $user = $this->user($request);
 
         return Inertia::render('Runs/Show', [
             'run' => Present::run($run->load(['agent', 'requestedBy'])),
-            'steps' => $run->steps()->orderBy('seq')->get()->map(fn (AgentRunStep $step) => $step->toBroadcast()),
+            // What people-data capabilities returned only for who may manage people.
+            'steps' => $run->steps()->orderBy('seq')->get()->map(fn (AgentRunStep $step) => PeopleData::present($step, $user)),
             'approvals' => $run->approvals()->with(Present::APPROVAL_RELATIONS)->get()
                 ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
             // The timeline names each tool as people read it in Capacidades; the key stays in a tooltip.

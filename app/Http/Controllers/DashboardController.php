@@ -36,7 +36,8 @@ class DashboardController extends Controller
                 ? [...BriefingController::present($briefing), 'content' => $briefing->content]
                 : null,
             'issues' => fn () => $user->isManager() ? $issues->detect() : [],
-            'live' => AgentRun::query()->with(['agent:id,name', 'requestedBy:id,name'])
+            // Runs this person may open (AgentRunPolicy).
+            'live' => AgentRun::query()->visibleTo($user)->with(['agent:id,name', 'requestedBy:id,name'])
                 ->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval, RunStatus::AwaitingInput])
                 ->latest('id')->limit(4)->get()
                 ->map(fn (AgentRun $run) => Present::run($run)),
@@ -44,7 +45,7 @@ class DashboardController extends Controller
             'activity' => fn () => $this->activity($user->hasPermission(Permission::ViewCosts)),
             'can_view_costs' => $user->hasPermission(Permission::ViewCosts),
             // Recent work only: a person's chat turns are conversations, not activity.
-            'runs' => AgentRun::query()->with(['agent:id,name', 'requestedBy:id,name'])
+            'runs' => AgentRun::query()->visibleTo($user)->with(['agent:id,name', 'requestedBy:id,name'])
                 ->whereDoesntHave('task', fn ($task) => $task->where('kind', TaskKind::Chat))
                 ->latest('id')->limit(8)->get()
                 ->map(fn (AgentRun $run) => Present::run($run)),

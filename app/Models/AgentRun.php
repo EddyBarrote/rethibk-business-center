@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToTenant;
+use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Enums\TriggerType;
 use Database\Factories\AgentRunFactory;
@@ -97,6 +98,22 @@ class AgentRun extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class);
+    }
+
+    /**
+     * AgentRunPolicy::view as a query.
+     *
+     * @param  Builder<AgentRun>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        if ($user->hasPermission(Permission::ReadAllConversations)) {
+            return;
+        }
+
+        $query->where(fn (Builder $q) => $q->where('requested_by_user_id', $user->id)
+            ->orWhereIn('task_id', Task::query()->visibleTo($user)->select('id')));
     }
 
     /**

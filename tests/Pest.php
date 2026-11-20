@@ -7,6 +7,7 @@ use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Runs\AgentRunner;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
+use App\Ai\Tools\GatedTool;
 use App\Enums\TriggerType;
 use App\Models\Agent;
 use App\Models\Capability;
@@ -15,8 +16,11 @@ use App\Models\Tenant;
 use App\Tenancy\TenantManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Laravel\Ai\Responses\Data\ToolCall;
+use Laravel\Ai\Tools\Request;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -133,4 +137,54 @@ function toolCall(string $id, string $tool, Closure|array $arguments): Closure
 function lastId(string $model): int
 {
     return (int) $model::query()->max('id');
+}
+
+/**
+ * A Perfex MCP server on erp.example.test listing these tools (name => read
+ * only) and answering tools/call from $results (tool => structured result).
+ * Both are read on every call, so a test can change them in between.
+ *
+ * @param  array<string, bool>  $tools
+ * @param  array<string, array<string, mixed>>  $results
+ */
+function perfexServer(array &$tools, array &$results = []): void
+{
+    Http::fake(['erp.example.test/*' => function (HttpRequest $request) use (&$tools, &$results) {
+        $message = json_decode($request->body(), true);
+        $reply = fn (array $result) => Http::response(['jsonrpc' => '2.0', 'id' => $message['id'], 'result' => $result], 200, ['Content-Type' => 'application/json', 'Mcp-Session-Id' => 'perfex-test']);
+
+        return match ($message['method'] ?? null) {
+            'initialize' => $reply(['protocolVersion' => $message['params']['protocolVersion'], 'capabilities' => ['tools' => (object) []], 'serverInfo' => ['name' => 'perfex-mcp-server', 'version' => '1.4.0']]),
+            'tools/list' => $reply(['tools' => array_map(fn (string $name, bool $read) => [
+                'name' => $name, 'description' => $name, 'inputSchema' => ['type' => 'object', 'properties' => (object) []], 'annotations' => ['readOnlyHint' => $read],
+            ], array_keys($tools), $tools)]),
+            'tools/call' => $reply(['content' => [['type' => 'text', 'text' => json_encode($results[$message['params']['name']] ?? [])]], 'structuredContent' => $results[$message['params']['name']] ?? (object) [], 'isError' => false]),
+            // A 2025-era server: newer handshakes are an unknown method, notifications are accepted.
+            default => isset($message['id'])
+                ? Http::response(['jsonrpc' => '2.0', 'id' => $message['id'], 'error' => ['code' => -32601, 'message' => 'Method not found']], 200, ['Content-Type' => 'application/json'])
+                : Http::response('', 202),
+        };
+    }]);
+}
+
+/** What the live ERP lists before and after the HR tools are ticked on its token (a sample). */
+const PERFEX_BASE_TOOLS = ['whoami' => true, 'list_customers' => true, 'list_staff' => true, 'list_departments' => true, 'create_lead' => false];
+
+const PERFEX_HR_TOOLS = [
+    'hr_list_employees' => true, 'hr_get_employee' => true, 'hr_upcoming' => true, 'hr_update_employee' => false,
+    'att_today' => true, 'att_who_is_out' => true, 'att_attendance_summary' => true, 'att_list_leave_requests' => true, 'att_decide_leave_request' => false,
+    'pay_list_runs' => true, 'pay_get_run' => true, 'pay_payslip_pdf' => true,
+];
+
+/** Call a capability through the gate as the model would, in a run made by $setup. */
+function throughGate(Agent $agent, string $key, array $arguments, ?Closure $setup = null): string
+{
+    $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual);
+
+    if ($setup !== null) {
+        $setup($run);
+        $run->save();
+    }
+
+    return (new GatedTool(Capability::query()->where('key', $key)->sole(), new CapabilityContext($agent, $run->fresh())))->handle(new Request($arguments));
 }

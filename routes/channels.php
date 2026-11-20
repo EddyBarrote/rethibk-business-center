@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('tenant.{tenantId}.agents', fn (User $user, int $tenantId) => $user->tenant_id === $tenantId);
 
+// The same people who may open the run (AgentRunPolicy).
 Broadcast::channel('tenant.{tenantId}.run.{runId}', fn (User $user, int $tenantId, int $runId) => $user->tenant_id === $tenantId
-    && AgentRun::query()->whereKey($runId)->where('tenant_id', $tenantId)->exists());
+    && ($run = AgentRun::query()->whereKey($runId)->where('tenant_id', $tenantId)->first()) !== null
+    && $user->can('view', $run));
 
 Broadcast::channel('tenant.{tenantId}.approvals', fn (User $user, int $tenantId) => $user->tenant_id === $tenantId
     && $user->can('viewAll', Approval::class));

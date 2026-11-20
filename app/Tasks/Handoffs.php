@@ -90,7 +90,8 @@ final class Handoffs
 
         // All or nothing: a hand-off without its rows would wait forever.
         $handoff = DB::transaction(fn () => $this->open($run, $from, $to, $person, $task, $conversation, $brief, $depth));
-        $this->threads->wake($conversation, null, $handoff->toMessage, TriggerType::Agent);
+        // The colleague works for the person who asked, as the agent passing the request did.
+        $this->threads->wake($conversation, $run->requestedBy, $handoff->toMessage, TriggerType::Agent);
 
         return $handoff->hand;
     }
@@ -143,7 +144,7 @@ final class Handoffs
             ->where('to_agent_id', $run->agent_id)
             ->where('status', AgentHandoff::WORKING)
             ->where('created_at', '<=', $run->created_at)
-            ->with(['fromTask', 'fromAgent', 'toAgent', 'toTask'])
+            ->with(['fromTask', 'fromAgent', 'toAgent', 'toTask', 'fromRun.requestedBy'])
             ->orderBy('id')
             ->get();
 
@@ -160,7 +161,8 @@ final class Handoffs
 
             // There: "Mensagem enviada a …". Back here: "Mensagem de …", which wakes the agent that passed it.
             $this->row($handoff->toTask, $answer, $handoff, $run);
-            $this->threads->post($handoff->fromTask, $handoff->toAgent, $answer, TaskMessageKind::Handoff, handoff: $handoff);
+            $back = $this->threads->post($handoff->fromTask, $handoff->toAgent, $answer, TaskMessageKind::Handoff, wake: false, handoff: $handoff);
+            $this->threads->wake($handoff->fromTask, $handoff->fromRun?->requestedBy, $back, TriggerType::Agent);
         }
     }
 

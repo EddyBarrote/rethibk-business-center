@@ -189,7 +189,8 @@ it('lists the HR dates coming up with the days left, and keeps pay out of the em
     ]);
 
     fakeErp('hr.upcoming_dates', ['days' => 30, 'kind' => 'contract_end'])->assertOk()->assertSee('Nádia Tembe')->assertDontSee('Abel Cossa');
-    fakeErp('hr.list_employees')->assertOk()->assertSee('"contract_end":"2026-12-19"')->assertDontSee('base_salary')->assertDontSee('110700456789E');
+    // The open list carries no contract, pay or documents: those are people data (hr.get_employee).
+    fakeErp('hr.list_employees')->assertOk()->assertSee('Nádia Tembe')->assertDontSee(['contract_end', 'contract_type', 'base_salary', '110700456789E']);
     fakeErp('hr.get_employee', ['employee_id' => 'EMP-0004'])->assertOk()->assertSee('"base_salary":32000')->assertSee('110700456789E')->assertSee('"manager":"Paula Chissano"');
     fakeErp('hr.people_indicators')->assertOk()->assertSee('"headcount":5')->assertSee('"Operações":3');
 });
@@ -211,6 +212,8 @@ it('reads payroll runs and payslips, and leaves PDFs to the real ERP', function 
 
 it('updates an HR record, and a termination needs its last day', function () {
     fakeErp('hr.update_employee', ['employee_id' => 'EMP-0004', 'status' => 'terminated', 'idempotency_key' => 'u-1'])->assertHasErrors(['termination_date']);
+    fakeErp('hr.update_employee', ['employee_id' => 'EMP-0004', 'manager_id' => 'EMP-9999', 'idempotency_key' => 'u-3'])->assertHasErrors(['Chefia EMP-9999 não existe.']);
+    fakeErp('hr.update_employee', ['employee_id' => 'EMP-0004', 'idempotency_key' => 'u-4'])->assertHasErrors(['Não indicaste nenhum campo para mudar.']);
 
     fakeErp('hr.update_employee', ['employee_id' => 'EMP-0004', 'id_expiry_date' => '2036-11-26', 'phone' => '+258 86 000 0000', 'idempotency_key' => 'u-2'])
         ->assertOk()->assertSee('"changed":["id_expiry_date","phone"]');

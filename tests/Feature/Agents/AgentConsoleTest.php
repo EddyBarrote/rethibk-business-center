@@ -115,10 +115,17 @@ it('authorises live channels per tenant', function () {
     app('Illuminate\Broadcasting\BroadcastManager')->purge();
     require base_path('routes/channels.php');
 
-    $run = asTenant($this->a, fn () => AgentRun::factory()->create(['agent_id' => $this->agent->id]));
+    // A run's channel follows who may open the run (AgentRunPolicy, docs/DECISOES.md "Director de Recursos Humanos"):
+    // the person who asked for it, or with «Ler as conversas de todos»; a run for nobody, only the latter.
+    [$run, $nobodys] = asTenant($this->a, fn () => [
+        AgentRun::factory()->create(['agent_id' => $this->agent->id, 'requested_by_user_id' => $this->member->id]),
+        AgentRun::factory()->create(['agent_id' => $this->agent->id]),
+    ]);
     $auth = fn (User $user, Tenant $tenant, string $channel) => $this->actingAs($user)->post(tenantUrl($tenant, 'broadcasting/auth'), ['socket_id' => '1.1', 'channel_name' => "private-{$channel}"]);
 
     $auth($this->member, $this->a, "tenant.{$this->a->id}.run.{$run->id}")->assertOk();
+    $auth($this->member, $this->a, "tenant.{$this->a->id}.run.{$nobodys->id}")->assertForbidden();
+    $auth($this->owner, $this->a, "tenant.{$this->a->id}.run.{$nobodys->id}")->assertOk();
     $auth($this->member, $this->a, "tenant.{$this->b->id}.run.{$this->runB->id}")->assertForbidden();
     $auth($this->member, $this->a, "tenant.{$this->a->id}.run.{$this->runB->id}")->assertForbidden();
     $auth($this->member, $this->a, "tenant.{$this->a->id}.approvals")->assertForbidden();
@@ -197,13 +204,20 @@ it('keeps in the conversation, with its result, what the agent just finished els
         return $chat;
     });
 
+    // A run for nobody (an email triaged outside any task) opens only with «Ler as conversas de todos»
+    // (AgentRunPolicy, docs/DECISOES.md "Director de Recursos Humanos"): the boss sees it finished, not
+    // what it wrote; the owner, in their own conversation, sees the result.
     $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}"))
         ->assertInertia(fn (Assert $page) => $page
             ->has('agent_elsewhere', 0)
             ->has('agent_elsewhere_done', 1)
             ->where('agent_elsewhere_done.0.status', 'completed')
-            ->where('agent_elsewhere_done.0.output', 'Triagem do email feita.')
+            ->where('agent_elsewhere_done.0.output', null)
             ->where('agent_elsewhere_done.0.task', null));
+
+    $ownersChat = asTenant($this->a, fn () => Task::factory()->chat()->create(['user_id' => $this->owner->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->owner->id.':'.$this->agent->id]));
+    $this->actingAs($this->owner)->get(tenantUrl($this->a, "tasks/{$ownersChat->id}"))
+        ->assertInertia(fn (Assert $page) => expect(collect($page->toArray()['props']['agent_elsewhere_done'])->pluck('output'))->toContain('Triagem do email feita.'));
 });
 
 it('puts the agent\'s work elsewhere in its conversation, and opens its steps beside it', function () {
@@ -219,14 +233,23 @@ it('puts the agent\'s work elsewhere in its conversation, and opens its steps be
         return [$chat, $routineRun, $private];
     });
 
+    // A run for nobody (a routine with no recipient) opens only with «Ler as conversas de todos»
+    // (AgentRunPolicy, docs/DECISOES.md "Director de Recursos Humanos"): the boss sees the agent
+    // worked, not what it wrote; the owner sees it all.
     $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}"))
         ->assertInertia(fn (Assert $page) => $page
             ->has('agent_background', 1)
             ->where('agent_background.0.id', $routineRun->id)
-            ->where('agent_background.0.output', 'Cobranças enviadas.'));
-
+            ->where('agent_background.0.output', null));
     $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}?execucao={$routineRun->id}"))
+        ->assertInertia(fn (Assert $page) => $page->where('panel_run', null));
+
+    $ownersChat = asTenant($this->a, fn () => Task::factory()->chat()->create(['user_id' => $this->owner->id, 'assignee_agent_id' => $this->agent->id, 'chat_key' => $this->owner->id.':'.$this->agent->id, 'created_at' => now()->subDay()]));
+    $this->actingAs($this->owner)->get(tenantUrl($this->a, "tasks/{$ownersChat->id}"))
+        ->assertInertia(fn (Assert $page) => $page->where('agent_background.0.output', 'Cobranças enviadas.'));
+    $this->actingAs($this->owner)->get(tenantUrl($this->a, "tasks/{$ownersChat->id}?execucao={$routineRun->id}"))
         ->assertInertia(fn (Assert $page) => $page->where('panel_run.run.id', $routineRun->id));
+
     $this->actingAs($this->boss)->get(tenantUrl($this->a, "tasks/{$chat->id}?execucao={$private->id}"))
         ->assertInertia(fn (Assert $page) => $page->where('panel_run', null));
 });

@@ -22,6 +22,7 @@ use App\Jobs\ConsolidateAgentMemory;
 use App\Models\Agent;
 use App\Models\AgentHandoff;
 use App\Models\AgentQuestion;
+use App\Models\AgentRoutine;
 use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
@@ -737,9 +738,36 @@ final class TaskThread
             ->reorder('id', 'desc')
             ->first();
 
-        if ($waiting instanceof TaskMessage && $waiting->created_at >= ($run->started_at ?? $run->created_at)) {
-            $this->wake($task->refresh(), $waiting->authorUser, $waiting, $waiting->author_type === ActorType::Agent ? TriggerType::Agent : TriggerType::Manual);
+        if (! $waiting instanceof TaskMessage || $waiting->created_at < ($run->started_at ?? $run->created_at)) {
+            return;
         }
+
+        // A routine's request that found the agent busy is still the routine's (docs/DECISOES.md, "Director de Recursos Humanos").
+        $routine = $waiting->agent_routine_id !== null ? AgentRoutine::query()->whereKey($waiting->agent_routine_id)->where('agent_id', $run->agent_id)->first() : null;
+
+        if ($routine !== null) {
+            $this->wake($task->refresh(), null, $waiting, TriggerType::Schedule, function (AgentRun $next) use ($routine): void {
+                $next->forceFill(['agent_routine_id' => $routine->id])->save();
+                $routine->forceFill(['last_run_id' => $next->id])->save();
+            });
+
+            return;
+        }
+
+        $this->wake($task->refresh(), $this->requesterOf($waiting), $waiting, $waiting->author_type === ActorType::Agent ? TriggerType::Agent : TriggerType::Manual);
+    }
+
+    /**
+     * Who a message asks for: the person who wrote it or, for a colleague's
+     * message in a hand-off, the person the hand-off works for.
+     */
+    private function requesterOf(TaskMessage $message): ?User
+    {
+        if ($message->authorUser !== null) {
+            return $message->authorUser;
+        }
+
+        return $message->handoff_id !== null ? AgentHandoff::query()->with('fromRun.requestedBy')->find($message->handoff_id)?->fromRun?->requestedBy : null;
     }
 
     /**

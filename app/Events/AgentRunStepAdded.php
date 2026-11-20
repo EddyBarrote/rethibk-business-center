@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Events\Concerns\BroadcastsLive;
 use App\Models\AgentRunStep;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -27,6 +28,7 @@ final class AgentRunStepAdded implements ShouldBroadcastNow
      */
     public function broadcastWith(): array
     {
-        return ['step' => $this->step->toBroadcast()];
+        // The channel has no single viewer: a people-data result never goes out in full.
+        return ['step' => PeopleData::present($this->step, null)];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Runs\RoutineRunner;
 use App\Enums\AgentStatus;
 use App\Enums\RunStatus;
@@ -42,7 +43,11 @@ class RoutineController extends Controller
             ->with(['agent.reportsTo', 'workflow.agent.reportsTo', 'workflow.fallbackUser', 'owner', 'createdBy', 'lastRun', 'lastTask'])
             ->orderBy('name')
             ->get();
-        $history = $this->history($routines);
+        $user = $this->user($request);
+        // The text of a run only for whoever may open it (AgentRunPolicy).
+        $readable = AgentRun::query()->visibleTo($user)->whereIn('agent_routine_id', $routines->pluck('id'))->where('created_at', '>=', now()->subDays(60))
+            ->pluck('id')->merge(AgentRun::query()->visibleTo($user)->whereIn('id', $routines->pluck('last_run_id')->filter())->pluck('id'))->flip();
+        $history = $this->history($routines, $readable);
         $since = now()->subDays(30);
 
         return Inertia::render('Routines/Index', [
@@ -75,8 +80,8 @@ class RoutineController extends Controller
                     default => null,
                 },
                 'last_task' => $routine->lastTask?->kind->value === 'task' ? $routine->lastTask->identifier() : null,
-                'last_output' => $routine->lastRun !== null ? Str::limit(trim((string) ($routine->lastRun->output['text'] ?? '')), 1200) : null,
-                'last_error' => $routine->lastRun?->error !== null ? Str::limit((string) $routine->lastRun->error, 400) : null,
+                'last_output' => $routine->lastRun !== null && $readable->has($routine->lastRun->id) ? Str::limit(trim((string) ($routine->lastRun->output['text'] ?? '')), 1200) : null,
+                'last_error' => $routine->lastRun?->error !== null && $readable->has($routine->lastRun->id) ? Str::limit((string) $routine->lastRun->error, 400) : null,
                 'next_runs' => $routine->is_active ? array_map(fn (Carbon $at) => $at->toIso8601String(), $routine->nextRuns(3)) : [],
                 'history' => $history[$routine->id] ?? [],
                 'stats' => (function () use ($history, $routine, $since) {
@@ -108,7 +113,9 @@ class RoutineController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $this->admin($request);
-        $routine = AgentRoutine::query()->create([...$this->validated($request), 'created_by_user_id' => $user->id]);
+        $data = $this->validated($request);
+        $this->peopleData($user, $data['agent_id'] !== null ? Agent::query()->find($data['agent_id']) : null);
+        $routine = AgentRoutine::query()->create([...$data, 'created_by_user_id' => $user->id]);
 
         AuditLog::record($user, 'routine.created', ['routine_id' => $routine->id, 'schedule' => $routine->schedule, 'agent_id' => $routine->agent_id, 'workflow_id' => $routine->workflow_id], subject: $routine);
 
@@ -118,7 +125,9 @@ class RoutineController extends Controller
     public function update(Request $request, AgentRoutine $routine): RedirectResponse
     {
         $user = $this->admin($request);
-        $routine->fill($this->validated($request))->save();
+        $data = $this->validated($request);
+        $this->peopleData($user, $routine->agent, $data['agent_id'] !== null ? Agent::query()->find($data['agent_id']) : null);
+        $routine->fill($data)->save();
 
         AuditLog::record($user, 'routine.updated', ['routine_id' => $routine->id, 'schedule' => $routine->schedule, 'is_active' => $routine->is_active], subject: $routine);
 
@@ -141,6 +150,7 @@ class RoutineController extends Controller
     public function run(Request $request, AgentRoutine $routine, RoutineRunner $runner): RedirectResponse
     {
         $user = $this->admin($request);
+        $this->peopleData($user, $routine->agent);
         $result = $runner->run($routine);
 
         AuditLog::record($user, 'routine.run_now', ['routine_id' => $routine->id, 'ok' => $result['ok']], subject: $routine);
@@ -153,16 +163,17 @@ class RoutineController extends Controller
      * or the tasks it opened (a flow), newest first.
      *
      * @param  Collection<int, AgentRoutine>  $routines
+     * @param  Collection<int, int>  $readable  ids of the runs this person may open, as keys
      * @return array<int, list<array{kind: string, at: string|null, status: string, status_label: string, tone: string, summary: string, cost: float|null, duration_ms: int|null, url: string}>>
      */
-    private function history(Collection $routines): array
+    private function history(Collection $routines, Collection $readable): array
     {
         $ids = $routines->pluck('id');
         $history = [];
 
         AgentRun::query()->whereIn('agent_routine_id', $ids)->where('created_at', '>=', now()->subDays(60))->latest('id')->limit(500)->get()
-            ->each(function (AgentRun $run) use (&$history) {
-                $text = trim((string) ($run->output['text'] ?? ''));
+            ->each(function (AgentRun $run) use (&$history, $readable) {
+                $text = $readable->has($run->id) ? trim((string) ($run->output['text'] ?? '')) : '';
                 $history[(int) $run->agent_routine_id][] = [
                     'kind' => 'run',
                     'at' => $run->created_at->toIso8601String(),
@@ -175,7 +186,8 @@ class RoutineController extends Controller
                         RunStatus::Queued, RunStatus::Running => 'running',
                         default => 'idle',
                     },
-                    'summary' => Str::limit($run->status === RunStatus::Failed ? (string) $run->error : ($text !== '' ? $text : 'Sem texto: o agente usou só ferramentas.'), 160),
+                    'summary' => ! $readable->has($run->id) ? 'Resultado na conversa de quem o recebe.'
+                        : Str::limit($run->status === RunStatus::Failed ? (string) $run->error : ($text !== '' ? $text : 'Sem texto: o agente usou só ferramentas.'), 160),
                     'cost' => $run->cost_usd,
                     'duration_ms' => $run->duration_ms,
                     'url' => $run->task_id !== null ? "/tasks/{$run->task_id}?execucao={$run->id}" : "/settings/runs/{$run->id}",
@@ -205,6 +217,20 @@ class RoutineController extends Controller
             });
 
         return array_map(fn (array $rows) => array_slice($rows, 0, 15), $history);
+    }
+
+    /**
+     * A routine of an agent that reads pay and personal data runs with those
+     * reads allowed (PeopleData), so only someone who may manage people
+     * creates, changes or runs it (docs/DECISOES.md, "Director de Recursos Humanos").
+     */
+    private function peopleData(User $user, ?Agent ...$agents): void
+    {
+        foreach ($agents as $agent) {
+            if (PeopleData::agentHolds($agent) && ! PeopleData::mayRead($user)) {
+                abort(403, "{$agent?->name} lê salários e dados de pessoal: só quem gere pessoas cria, muda ou corre as suas rotinas.");
+            }
+        }
     }
 
     private function admin(Request $request): User

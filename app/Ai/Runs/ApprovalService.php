@@ -3,6 +3,7 @@
 namespace App\Ai\Runs;
 
 use App\Ai\Autonomy\GateDecision;
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityExecutor;
 use App\Ai\Capabilities\CapabilityRegistry;
@@ -305,9 +306,14 @@ final class ApprovalService
             $context = new CapabilityContext($approval->agent, $run, $approval);
             $result = app(CapabilityExecutor::class)->execute($capability, $approval->payload ?? [], $context);
 
+            // The approval card is read by approvers, not only by people who manage people.
+            $withheld = $result->ok && PeopleData::isPeopleData($capability->key);
+
             $approval->forceFill([
                 'execution_status' => $result->ok ? ExecutionStatus::Executed : ExecutionStatus::Failed,
-                'execution_result' => ['ok' => $result->ok, 'content' => Str::limit($result->content, 4000), 'data' => $result->data],
+                'execution_result' => $withheld
+                    ? ['ok' => true, 'content' => PeopleData::WITHHELD, 'data' => null]
+                    : ['ok' => $result->ok, 'content' => Str::limit($result->content, 4000), 'data' => $result->data],
             ])->save();
 
             if ($capability->source->value === 'local') {

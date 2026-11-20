@@ -125,6 +125,8 @@ final class RoutineRunner
         $routine->forceFill(['last_task_id' => $chat->id, 'last_run_id' => null])->save();
 
         $note = $this->threads->note($chat, $this->brief($routine, $person), kind: TaskMessageKind::Message);
+        // If the agent is busy, the run that picks this up later is still the routine's.
+        $note->forceFill(['agent_routine_id' => $routine->id])->save();
         $run = $this->threads->wake($chat, null, $note, TriggerType::Schedule, $remember);
 
         return ['ok' => true, 'message' => $run !== null

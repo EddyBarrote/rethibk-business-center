@@ -29,9 +29,10 @@ use Illuminate\Support\Carbon;
  * @property int|null $agent_run_id
  * @property int|null $handoff_id
  * @property int|null $email_message_id
+ * @property int|null $agent_routine_id
  * @property Carbon $created_at
  */
-#[Fillable(['task_id', 'author_type', 'author_user_id', 'author_agent_id', 'kind', 'body', 'agent_run_id', 'handoff_id', 'email_message_id'])]
+#[Fillable(['task_id', 'author_type', 'author_user_id', 'author_agent_id', 'kind', 'body', 'agent_run_id', 'handoff_id', 'email_message_id', 'agent_routine_id'])]
 class TaskMessage extends Model
 {
     /** @use HasFactory<TaskMessageFactory> */

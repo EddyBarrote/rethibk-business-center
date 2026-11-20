@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Ai\Agents\NewColleagues;
 use App\Ai\Autonomy\ApprovalRules;
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Runs\AgentNow;
 use App\Ai\Runs\ApprovalService;
 use App\Attachments\AttachmentLimits;
@@ -1239,13 +1240,13 @@ class TaskController extends Controller
         $elsewhere = $run !== null && ! $here && $task->kind === TaskKind::Chat && $run->agent_id === $task->assignee_agent_id
             && ($run->task === null || $user->can('view', $run->task));
 
-        if ($run === null || ! ($here || $elsewhere) || ! $user->can('view', $run->agent)) {
+        if ($run === null || ! ($here || $elsewhere) || ! $user->can('view', $run->agent) || ! $user->can('view', $run)) {
             return null;
         }
 
         return [
             'run' => Present::run($run),
-            'steps' => $run->steps()->orderBy('seq')->get()->map(fn (AgentRunStep $step) => $step->toBroadcast()),
+            'steps' => $run->steps()->orderBy('seq')->get()->map(fn (AgentRunStep $step) => PeopleData::present($step, $user)),
             'approvals' => $run->approvals()->with(Present::APPROVAL_RELATIONS)->get()
                 ->map(fn (Approval $approval) => Present::approval($approval, $user->can('decide', $approval))),
         ];

@@ -74,6 +74,16 @@ class AgentHandoff extends Model
     }
 
     /**
+     * The run that passed the request: whoever asked for it is who both sides work for.
+     *
+     * @return BelongsTo<AgentRun, $this>
+     */
+    public function fromRun(): BelongsTo
+    {
+        return $this->belongsTo(AgentRun::class, 'from_run_id');
+    }
+
+    /**
      * @return BelongsTo<Task, $this>
      */
     public function fromTask(): BelongsTo

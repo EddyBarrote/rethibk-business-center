@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Connectors\ConnectorException;
 use App\Connectors\ConnectorGateway;
 use App\Enums\CapabilitySource;
@@ -91,6 +92,13 @@ final class CapabilityExecutor
                 'note' => 'O ficheiro do ERP vai anexado à tua resposta; não dês ligações de descarga.'];
 
             return CapabilityResult::data($data);
+        }
+
+        // A payslip or contract the platform could not attach (a run with no conversation): its link works
+        // without signing in until it expires, so it never goes into the trace (docs/DECISOES.md, "Director de Recursos Humanos").
+        if (isset($result->data['download_url']) && PeopleData::isPeopleData($capability->key)) {
+            return CapabilityResult::data([...array_diff_key($result->data, ['download_url' => true, 'expires_at' => true]),
+                'note' => 'O PDF só se anexa numa conversa ou tarefa; aqui não há onde o pôr. Diz que está no ERP.']);
         }
 
         return $result->data !== null ? CapabilityResult::data($result->data) : CapabilityResult::text($result->text);

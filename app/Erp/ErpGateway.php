@@ -2,6 +2,7 @@
 
 namespace App\Erp;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\AuditResult;
 use App\Enums\ErpConnectionStatus;
 use App\Erp\Exceptions\ErpException;
@@ -91,7 +92,7 @@ final class ErpGateway
 
             $call = new ErpCallResult($tool, ! $result->isError, $data, $text, $this->elapsedMs($started));
 
-            return [$call, $call->ok ? AuditResult::Ok : AuditResult::Error, $call->ok ? ['result' => $this->auditable($data ?? $text)] : ['error' => Str::limit($text, 2000)]];
+            return [$call, $call->ok ? AuditResult::Ok : AuditResult::Error, $call->ok ? ['result' => $this->auditable($data ?? $text, $tool)] : ['error' => Str::limit($text, 2000)]];
         });
     }
 
@@ -183,9 +184,14 @@ final class ErpGateway
      * @param  array<string, mixed>|string  $result
      * @return array<string, mixed>|string
      */
-    private function auditable(array|string $result): array|string
+    private function auditable(array|string $result, string $tool): array|string
     {
         $json = (string) json_encode($result, JSON_UNESCAPED_UNICODE);
+
+        // Pay and personal data stay out of the audit (docs/DECISOES.md, "Director de Recursos Humanos"): what was read, not its content.
+        if (PeopleData::isPeopleData('erp.'.$tool)) {
+            return ['withheld' => 'dados de pessoal', 'bytes' => strlen($json), 'keys' => is_array($result) ? array_keys($result) : []];
+        }
 
         if (strlen($json) <= self::AUDIT_RESULT_LIMIT) {
             return $result;
