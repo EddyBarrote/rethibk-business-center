@@ -2,8 +2,10 @@
 
 namespace App\Tasks;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\ActorType;
 use App\Enums\EmailStatus;
+use App\Enums\Permission;
 use App\Enums\RunStatus;
 use App\Enums\TaskMessageKind;
 use App\Enums\TriggerType;
@@ -68,6 +70,11 @@ final class Handoffs
                 : "{$to->name} não está abaixo de ti nem é a tua chefia no organigrama; passa o pedido ao Chief of Staff.";
         }
 
+        // A confidential agent works, and is worked for, only with people who may manage people (PeopleData).
+        if (! PeopleData::mayRead($person) && ($confidential = collect([$from, $to])->first(fn (Agent $agent) => PeopleData::agentHolds($agent))) !== null) {
+            return "{$confidential->name} lê salários e dados de pessoal e só trabalha com quem tem a permissão «".Permission::ManagePeople->label()."», que {$person->name} não tem. Não passes este pedido; diz a {$person->name} que o peça a quem gere pessoas.";
+        }
+
         if (! $person->can('run', $to)) {
             return "{$person->name} não tem acesso a {$to->name}, por isso {$to->name} não lhe pode responder. Diz-lhe que peça acesso à chefia, ou dá a tarefa com tasks.create.";
         }
@@ -90,8 +97,9 @@ final class Handoffs
 
         // All or nothing: a hand-off without its rows would wait forever.
         $handoff = DB::transaction(fn () => $this->open($run, $from, $to, $person, $task, $conversation, $brief, $depth));
-        // The colleague works for the person who asked, as the agent passing the request did.
-        $this->threads->wake($conversation, $run->requestedBy, $handoff->toMessage, TriggerType::Agent);
+        // The colleague works for the person who asked, as the agent passing the request did, and only
+        // when that is the person of the conversation it answers in: anyone else's permission does not travel.
+        $this->threads->wake($conversation, self::requester($handoff->hand, $run->requestedBy), $handoff->toMessage, TriggerType::Agent);
 
         return $handoff->hand;
     }
@@ -144,7 +152,7 @@ final class Handoffs
             ->where('to_agent_id', $run->agent_id)
             ->where('status', AgentHandoff::WORKING)
             ->where('created_at', '<=', $run->created_at)
-            ->with(['fromTask', 'fromAgent', 'toAgent', 'toTask', 'fromRun.requestedBy'])
+            ->with(['fromTask', 'fromAgent', 'toAgent', 'toTask', 'fromRun.requestedBy', 'user'])
             ->orderBy('id')
             ->get();
 
@@ -160,10 +168,38 @@ final class Handoffs
             ])->save();
 
             // There: "Mensagem enviada a …". Back here: "Mensagem de …", which wakes the agent that passed it.
+            // A confidential agent's answer stays in its own conversation: back here goes only where to read it (PeopleData).
             $this->row($handoff->toTask, $answer, $handoff, $run);
-            $back = $this->threads->post($handoff->fromTask, $handoff->toAgent, $answer, TaskMessageKind::Handoff, wake: false, handoff: $handoff);
-            $this->threads->wake($handoff->fromTask, $handoff->fromRun?->requestedBy, $back, TriggerType::Agent);
+            $back = $this->threads->post($handoff->fromTask, $handoff->toAgent, $this->answerBack($handoff, $answer, $failed), TaskMessageKind::Handoff, wake: false, handoff: $handoff);
+            $this->threads->wake($handoff->fromTask, self::requester($handoff, $handoff->fromRun?->requestedBy), $back, TriggerType::Agent);
         }
+    }
+
+    /**
+     * Who a run woken by the hand-off works for: the person who asked, only
+     * when they are the person of the hand-off (whose conversations these
+     * are). Anyone else, or nobody, leaves the run working for nobody.
+     */
+    public static function requester(AgentHandoff $handoff, ?User $asked): ?User
+    {
+        return $asked !== null && $asked->id === $handoff->user_id ? $asked : null;
+    }
+
+    /**
+     * What goes back to the agent that passed the request: the answer, or for
+     * a confidential agent only that it answered and where.
+     */
+    private function answerBack(AgentHandoff $handoff, string $answer, bool $failed): string
+    {
+        if (! PeopleData::agentHolds($handoff->toAgent)) {
+            return $answer;
+        }
+
+        $name = $handoff->toAgent->name ?? 'O colega';
+
+        return $failed
+            ? "{$name} não conseguiu terminar o pedido."
+            : "{$name} respondeu na conversa com {$handoff->user?->name}, onde fica: o que escreve tem dados de pessoal e não sai dessa conversa. Diz-lhe que a resposta está lá.";
     }
 
     /**

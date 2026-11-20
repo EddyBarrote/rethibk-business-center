@@ -39,9 +39,9 @@ beforeEach(function () {
 });
 
 /** Call a capability through the autonomy gate, as the model would. */
-function gated(Agent $agent, string $key, array $arguments, ?Task $task = null): string
+function gated(Agent $agent, string $key, array $arguments, ?Task $task = null, ?User $by = null): string
 {
-    $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual);
+    $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual, $by);
 
     if ($task !== null) {
         $run->forceFill(['task_id' => $task->id])->save();
@@ -121,7 +121,9 @@ it('searches conversations only when the person asking may request reports', fun
         app(TaskThread::class)->post($chat, $this->manager, 'O cliente Hotel Baía Azul ameaçou cancelar o contrato.', wake: false);
 
         $fromCeo = app(TaskThread::class)->conversation($this->ceo, $this->chief);
-        $result = json_decode(gated($this->chief, 'conversations.search', ['query' => 'cancelar contrato'], $fromCeo), true);
+        // The person who asked for the run: who the conversation is with does not count (PeopleData).
+        expect(gated($this->chief, 'conversations.search', ['query' => 'cancelar contrato'], $fromCeo))->toContain('só pesquiso conversas');
+        $result = json_decode(gated($this->chief, 'conversations.search', ['query' => 'cancelar contrato'], $fromCeo, $this->ceo), true);
 
         expect($result['matches'])->toHaveCount(1)
             ->and($result['matches'][0]['excerpt'])->toContain('Hotel Baía Azul')
@@ -129,7 +131,7 @@ it('searches conversations only when the person asking may request reports', fun
 
         $this->chief->assignees()->attach($this->manager->id, ['role' => 'chat']);
         $fromManager = app(TaskThread::class)->conversation($this->manager, $this->chief);
-        expect(gated($this->chief, 'conversations.search', ['query' => 'contrato'], $fromManager))->toContain('só pesquiso conversas');
+        expect(gated($this->chief, 'conversations.search', ['query' => 'contrato'], $fromManager, $this->manager))->toContain('só pesquiso conversas');
     });
 });
 

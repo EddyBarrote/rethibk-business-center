@@ -2,6 +2,7 @@
 
 namespace App\Tasks;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\Local\ReadEmail;
 use App\Ai\Runs\AgentRunner;
 use App\Ai\Runs\QuestionService;
@@ -196,13 +197,14 @@ final class TaskThread
     /**
      * A platform note in the thread (status changes, delegations).
      */
-    public function note(Task $task, string $body, ?AgentRun $run = null, TaskMessageKind $kind = TaskMessageKind::Event): TaskMessage
+    public function note(Task $task, string $body, ?AgentRun $run = null, TaskMessageKind $kind = TaskMessageKind::Event, ?AgentRoutine $routine = null): TaskMessage
     {
         $message = $task->messages()->create([
             'author_type' => ActorType::System,
             'kind' => $kind,
             'body' => $body,
             'agent_run_id' => $run?->id,
+            'agent_routine_id' => $routine?->id,
         ]);
 
         $task->forceFill(['last_activity_at' => now()])->save();
@@ -767,7 +769,9 @@ final class TaskThread
             return $message->authorUser;
         }
 
-        return $message->handoff_id !== null ? AgentHandoff::query()->with('fromRun.requestedBy')->find($message->handoff_id)?->fromRun?->requestedBy : null;
+        $handoff = $message->handoff_id !== null ? AgentHandoff::query()->with('fromRun.requestedBy')->find($message->handoff_id) : null;
+
+        return $handoff !== null ? Handoffs::requester($handoff, $handoff->fromRun?->requestedBy) : null;
     }
 
     /**
@@ -853,7 +857,8 @@ final class TaskThread
     {
         $person = $task->assigneeUser;
 
-        if ($person !== null) {
+        // A confidential agent's task reaches only people who may manage people (PeopleData).
+        if ($person !== null && ! PeopleData::closesTask($task, $person)) {
             $this->notifier->notify($person, "Nova tarefa: {$task->title}", Str::limit((string) ($task->description ?? $task->title), 300), "/tasks/{$task->id}", $by->name, $task->priority->value === 'urgent' ? 'warning' : 'info', NotificationCategory::Task, ['task_id' => $task->id]);
         }
     }
@@ -862,7 +867,7 @@ final class TaskThread
     {
         $user = $task->user ?? $task->createdByUser;
 
-        if ($user === null) {
+        if ($user === null || PeopleData::closesTask($task, $user)) {
             return;
         }
 

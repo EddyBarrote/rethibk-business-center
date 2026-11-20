@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities\Local;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
 use App\Ai\Capabilities\LocalCapability;
@@ -56,7 +57,8 @@ final class SearchConversations extends LocalCapability
             'days' => 'nullable|integer|min:1|max:365',
         ])->validate();
 
-        $asker = $context->run->task->user ?? $context->run->requestedBy;
+        // Only whoever asked for this run: who a task is with does not count (an email or another agent can open one with anyone).
+        $asker = $context->run->requestedBy;
 
         if ($asker === null || ! $asker->hasPermission(Permission::RequestConversationReports)) {
             return CapabilityResult::error('só pesquiso conversas a pedido de quem pode pedir relatórios sobre conversas (por omissão, o CEO).');
@@ -73,7 +75,11 @@ final class SearchConversations extends LocalCapability
             return CapabilityResult::error("não encontrei a pessoa «{$data['person']}».");
         }
 
-        $messages = TaskMessage::query()
+        // A confidential agent's threads, and what it wrote anywhere, only for someone who may manage people (PeopleData).
+        $hidden = PeopleData::hiddenAgentIds($asker);
+
+        $messages = PeopleData::withoutAgents(TaskMessage::query(), $hidden, 'author_agent_id')
+            ->when($hidden !== [], fn (Builder $q) => $q->whereNotIn('task_id', PeopleData::tasksOf($hidden)))
             ->whereIn('author_type', [ActorType::User, ActorType::Agent])
             ->where('created_at', '>=', now()->subDays((int) ($data['days'] ?? 30)))
             ->when(filled($data['query'] ?? null), fn (Builder $q) => $q->where(function (Builder $words) use ($data) {
