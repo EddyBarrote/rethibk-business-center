@@ -19,9 +19,12 @@ const join = (...parts: (string | null | false | undefined)[]) => parts.filter(B
 
 const recipients = (p: Payload) => (Array.isArray(p.to) ? p.to.map(String).join(', ') : text(p.to));
 
-/** An HR record change (always approved by a person): a termination says so first. */
+/**
+ * An HR record change (always approved by a person): a termination says so
+ * first. The contract calls the field status; the live ERP, employment_status.
+ */
 const hrUpdate = (who: string | null, p: Payload) =>
-    p.status === 'terminated'
+    p.status === 'terminated' || p.employment_status === 'terminated'
         ? join(`Cessar o contrato de ${who ?? '—'}`, p.termination_date !== undefined && `último dia ${date(text(p.termination_date))}`)
         : `Actualizar a ficha de RH de ${who ?? '—'}`;
 
