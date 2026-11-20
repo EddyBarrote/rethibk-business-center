@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\BriefingType;
 use App\Enums\Permission;
 use App\Models\Briefing;
@@ -65,7 +66,7 @@ class BriefingController extends Controller
      */
     private function visible(User $user): Builder
     {
-        return Briefing::query()->when(! $user->hasPermission(Permission::ReadAllReports), fn ($q) => $q->where('for_user_id', $user->id));
+        return PeopleData::withoutAgents(Briefing::query(), PeopleData::hiddenAgentIds($user))->when(! $user->hasPermission(Permission::ReadAllReports), fn ($q) => $q->where('for_user_id', $user->id));
     }
 
     /**

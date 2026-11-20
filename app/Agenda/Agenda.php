@@ -2,6 +2,7 @@
 
 namespace App\Agenda;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\Permission;
 use App\Enums\TaskKind;
 use App\Enums\TaskStatus;
@@ -76,7 +77,8 @@ final class Agenda
     {
         $timezone = $this->timezone();
 
-        return FollowUp::query()
+        // A confidential agent's reminders only for people who may manage people (PeopleData).
+        return PeopleData::withoutAgents(FollowUp::query(), PeopleData::hiddenAgentIds($user))
             ->whereBetween('due_at', [$from, $to])
             ->where(fn (Builder $q) => $q
                 ->where('user_id', $user->id)

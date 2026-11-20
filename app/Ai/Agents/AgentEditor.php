@@ -2,10 +2,12 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\ProviderModels;
 use App\Enums\AgentStatus;
 use App\Enums\AutonomyLevel;
+use App\Enums\Permission;
 use App\Models\Agent;
 use App\Models\AuditLog;
 use App\Models\Capability;
@@ -77,6 +79,8 @@ final class AgentEditor
             throw ValidationException::withMessages(['reports_to_agent_id' => 'Isso criava um ciclo no organigrama.']);
         }
 
+        $this->guardPeopleData($agent, $data, $actor);
+
         $before = $isNew ? null : ['autonomy_level' => $agent->autonomy_level->value, 'status' => $agent->status->value];
 
         DB::transaction(function () use ($agent, $data, $actor, $isNew) {
@@ -121,6 +125,40 @@ final class AgentEditor
         ], fn ($value) => $value !== null), subject: $agent);
 
         return $agent;
+    }
+
+    /**
+     * A confidential agent, one that reads pay and personal data, exists only
+     * for people who may manage people (PeopleData): its chefia and the people
+     * who talk to it must have the permission, and only someone who has it
+     * takes that reading away (what the agent did would then be open to all).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function guardPeopleData(Agent $agent, array $data, User|PlatformAdmin $actor): void
+    {
+        $confidential = Capability::query()->whereKey($data['capabilities'] ?? [])->pluck('key')->contains(fn (string $key) => PeopleData::isPeopleData($key));
+
+        if (! $confidential) {
+            if ($agent->exists && $actor instanceof User && ! PeopleData::mayRead($actor) && PeopleData::agentHolds($agent)) {
+                throw ValidationException::withMessages(['capabilities' => "{$agent->name} lê salários e dados de pessoal: só quem tem a permissão «".Permission::ManagePeople->label().'» lhe tira esse acesso, porque o que já fez ficaria à vista de quem não a tem.']);
+            }
+
+            return;
+        }
+
+        $chefia = array_key_exists('reports_to_user_id', $data) ? $data['reports_to_user_id'] : $agent->reports_to_user_id;
+        $boss = $chefia !== null ? User::query()->find($chefia) : null;
+
+        if ($boss !== null && ! PeopleData::mayRead($boss)) {
+            throw ValidationException::withMessages(['reports_to_user_id' => PeopleData::accessRefusal($agent, [$boss->name])]);
+        }
+
+        $without = $agent->exists ? $agent->assignees()->get()->reject(fn (User $person) => PeopleData::mayRead($person)) : collect();
+
+        if ($without->isNotEmpty()) {
+            throw ValidationException::withMessages(['capabilities' => PeopleData::accessRefusal($agent, $without->pluck('name')->all()).' Tire-lhes o acesso ao agente primeiro.']);
+        }
     }
 
     /**

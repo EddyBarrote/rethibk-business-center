@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Concerns\BelongsToTenant;
 use App\Enums\Permission;
 use App\Enums\TaskKind;
@@ -136,6 +137,11 @@ class Task extends Model
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
+        // A confidential agent's work stays among people who may manage people (PeopleData).
+        if (($hidden = PeopleData::hiddenAgentIds($user)) !== []) {
+            PeopleData::withoutAgents(PeopleData::withoutAgents($query, $hidden, 'assignee_agent_id'), $hidden, 'created_by_agent_id');
+        }
+
         if (! $user->hasPermission(Permission::ReadAllConversations)) {
             $query->where(fn (Builder $c) => $c->whereNull('chat_key')->orWhere('user_id', $user->id));
         }

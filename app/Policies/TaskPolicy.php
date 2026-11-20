@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\Permission;
 use App\Models\Task;
 use App\Models\User;
@@ -26,6 +27,11 @@ class TaskPolicy
     public function view(User $actor, Task $task): bool
     {
         if ($actor->tenant_id !== $task->tenant_id) {
+            return false;
+        }
+
+        // A confidential agent's work stays among people who may manage people (PeopleData).
+        if (PeopleData::closesTask($task, $actor)) {
             return false;
         }
 

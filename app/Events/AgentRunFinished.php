@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Events\Concerns\BroadcastsLive;
 use App\Models\AgentRun;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -38,7 +39,8 @@ final class AgentRunFinished implements ShouldBroadcastNow
             'agent_id' => $this->run->agent_id,
             'status' => $this->run->status->value,
             'cost_usd' => $this->run->cost_usd,
-            'error' => $this->run->error,
+            // The agents channel is everyone's: a confidential agent's error stays on its run (PeopleData).
+            'error' => PeopleData::agentHolds($this->run->agent) ? null : $this->run->error,
         ];
     }
 }

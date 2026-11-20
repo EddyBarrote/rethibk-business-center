@@ -8,7 +8,6 @@ use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Runs\AgentRunner;
 use App\Ai\Runs\ApprovalService;
 use App\Ai\Runs\RoutineRunner;
-use App\Ai\Tools\GatedTool;
 use App\Enums\AuditResult;
 use App\Enums\RuleEffect;
 use App\Enums\RunStatus;
@@ -34,17 +33,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Ai\Responses\Data\ToolCall;
-use Laravel\Ai\Tools\Request;
 
 // Pay and personal data (docs/DECISOES.md, "Director de Recursos Humanos"): only
 // a person who asked and may manage people, or the agent's routine for such a
 // person, reads them; run traces show them only to such people.
-
-/** Call a capability through the gate inside a run that already exists. */
-function gateInRun(AgentRun $run, string $key, array $arguments = []): string
-{
-    return (new GatedTool(Capability::query()->where('key', $key)->sole(), new CapabilityContext($run->agent, $run->fresh())))->handle(new Request($arguments));
-}
 
 beforeEach(function () {
     Queue::fake();
@@ -99,7 +91,7 @@ describe('who a run works for', function () {
         });
     });
 
-    it('carries the person through a hand-off: allowed for someone who manages people, refused for a member, and back again', function () {
+    it('carries the person through a hand-off: allowed for someone who manages people, and back again; never for a member', function () {
         asTenant($this->tenant, function () {
             $handoffs = app(Handoffs::class);
             $from = function (User $person) {
@@ -121,15 +113,18 @@ describe('who a run works for', function () {
             $handoffs->settle($there->fresh());
             expect(AgentRun::query()->where('agent_id', $this->chief->id)->latest('id')->first()->requested_by_user_id)->toBe($this->owner->id);
 
+            // A member never reaches the Director, not even through a colleague (the confidential agent rule).
             foreach ([$this->chief, $this->director] as $agent) {
                 $agent->assignees()->attach($this->member->id, ['role' => AgentAccess::CHAT]);
             }
+            $runs = AgentRun::query()->where('agent_id', $this->director->id)->count();
 
-            $handoffs->send($from($this->member), $this->chief, $this->director, 'Quanto ganha o Abel?');
-            $there = AgentRun::query()->where('agent_id', $this->director->id)->latest('id')->first();
+            expect($handoffs->send($from($this->member), $this->chief, $this->director, 'Quanto ganha o Abel?'))->toBeString()->toContain('Nádia Tembe não tem')
+                ->and(AgentRun::query()->where('agent_id', $this->director->id)->count())->toBe($runs);
 
-            expect($there->requested_by_user_id)->toBe($this->member->id)
-                ->and(gateInRun($there, 'erp.hr.get_employee', ['employee_id' => 'EMP-0004']))->toStartWith('Recusado:')->toContain('Nádia Tembe não tem a permissão');
+            // The second layer still holds for a run that has a member as its requester.
+            $there = app(AgentRunner::class)->create($this->director, 'Quanto ganha o Abel?', TriggerType::Manual, $this->member);
+            expect(gateInRun($there, 'erp.hr.get_employee', ['employee_id' => 'EMP-0004']))->toStartWith('Recusado:')->toContain('Nádia Tembe não tem a permissão');
         });
     });
 
@@ -144,7 +139,7 @@ describe('who a run works for', function () {
 });
 
 describe('routines', function () {
-    it('lets a routine read only when its result goes to someone who manages people, or to nobody', function () {
+    it('lets a routine read only when its result goes to someone who manages people, never to nobody', function () {
         asTenant($this->tenant, function () {
             $routineFor = fn (?User $person) => AgentRoutine::factory()->create(['agent_id' => $this->director->id, 'owner_user_id' => $person?->id, 'created_by_user_id' => null]);
             $inRoutine = fn (AgentRoutine $routine) => fn (AgentRun $run) => $run->agent_routine_id = $routine->id;
@@ -152,22 +147,27 @@ describe('routines', function () {
             expect(throughGate($this->director, 'erp.hr.list_payroll_runs', ['period' => '2026-10'], $inRoutine($routineFor($this->owner))))->toContain('"employer_cost"')
                 ->and(throughGate($this->director, 'erp.hr.list_payroll_runs', ['period' => '2026-10'], $inRoutine($routineFor($this->member))))->toStartWith('Recusado:');
 
-            // Nobody to send it to (no owner, creator or chefia): the result stays in the run list.
+            // Nobody to send it to (no owner, creator or chefia): the result would go to the run list and every admin.
             $this->director->update(['reports_to_user_id' => null]);
-            expect(throughGate($this->director->fresh(), 'erp.hr.list_payroll_runs', ['period' => '2026-10'], $inRoutine($routineFor(null))))->toContain('"employer_cost"');
+            expect(throughGate($this->director->fresh(), 'erp.hr.list_payroll_runs', ['period' => '2026-10'], $inRoutine($routineFor(null))))->toStartWith('Recusado:');
 
             $other = AgentRoutine::factory()->create(['agent_id' => $this->chief->id]);
             expect(throughGate($this->director, 'erp.hr.list_payroll_runs', [], $inRoutine($other)))->toStartWith('Recusado:');
         });
     });
 
-    it('lets only people who manage people create, change or run a routine of an agent that reads people data', function () {
+    it('lets only people who manage people create, change or run a routine of an agent that reads people data; any admin pauses it', function () {
         $routine = asTenant($this->tenant, fn () => $this->director->routines()->where('name', 'Assiduidade do dia')->sole());
         $form = ['name' => 'Folha', 'kind' => 'agent', 'agent_id' => $this->director->id, 'prompt' => 'Lê a folha.', 'schedule' => '0 9 25 * *'];
 
         $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/routines'), $form)->assertForbidden();
-        $this->actingAs($this->admin)->put(tenantUrl($this->tenant, "settings/routines/{$routine->id}"), [...$form, 'is_active' => false])->assertForbidden();
+        $this->actingAs($this->admin)->put(tenantUrl($this->tenant, "settings/routines/{$routine->id}"), [...$form, 'is_active' => true])->assertForbidden();
         $this->actingAs($this->admin)->post(tenantUrl($this->tenant, "settings/routines/{$routine->id}/run"))->assertForbidden();
+
+        // Pausing: only the switch changes, whatever else the form says.
+        $this->actingAs($this->admin)->put(tenantUrl($this->tenant, "settings/routines/{$routine->id}"), [...$form, 'is_active' => false])->assertRedirect()->assertSessionHas('success');
+        expect($routine->fresh())->is_active->toBeFalse()->name->toBe('Assiduidade do dia')->schedule->toBe('30 9 * * 1-5');
+        $this->actingAs($this->admin)->put(tenantUrl($this->tenant, "settings/routines/{$routine->id}"), [...$form, 'is_active' => false])->assertForbidden();
 
         // Another agent's routines are theirs to manage as before.
         $this->actingAs($this->admin)->post(tenantUrl($this->tenant, 'settings/routines'), [...$form, 'agent_id' => $this->chief->id])->assertRedirect()->assertSessionHas('success');
@@ -227,26 +227,34 @@ describe('run traces', function () {
         });
     });
 
-    it('shows a run to who may open it, and its pay results only to people who manage people', function () {
+    it('shows the Director\'s run only to people who manage people, and its pay results only to them once it no longer reads them', function () {
         $show = fn (User $user) => $this->actingAs($user)->get(tenantUrl($this->tenant, "settings/runs/{$this->run->id}"));
         $result = fn (Assert $page) => collect($page->toArray()['props']['steps'])->firstWhere('type', 'tool_result')['payload'];
 
         $show($this->owner)->assertOk()->assertInertia(fn (Assert $page) => expect($result($page)['content'])->toContain('"employer_cost"'));
-        $show($this->admin)->assertOk()->assertInertia(fn (Assert $page) => expect($result($page))->content->toBe(PeopleData::WITHHELD)->withheld->toBeTrue());
+        // Reading every conversation does not reach a confidential agent's (docs/DECISOES.md, "Director de Recursos Humanos").
+        $show($this->admin)->assertForbidden();
         $show($this->member)->assertForbidden();
 
         $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/runs'))->assertInertia(fn (Assert $page) => $page->has('runs.data', 0));
         $this->actingAs($this->member)->get(tenantUrl($this->tenant, 'settings/runs?origin=conversa'))->assertInertia(fn (Assert $page) => $page->has('conversations.data', 0));
-        $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/runs?origin=conversa'))->assertInertia(fn (Assert $page) => $page->has('conversations.data', 1));
+        $this->actingAs($this->admin)->get(tenantUrl($this->tenant, 'settings/runs?origin=conversa'))->assertInertia(fn (Assert $page) => $page->has('conversations.data', 0));
+        $this->actingAs($this->owner)->get(tenantUrl($this->tenant, 'settings/runs?origin=conversa'))->assertInertia(fn (Assert $page) => $page->has('conversations.data', 1));
 
-        // Nor on the agent's page.
-        $this->actingAs($this->member)->get(tenantUrl($this->tenant, "agents/{$this->director->id}"))->assertInertia(fn (Assert $page) => $page->has('runs', 0));
+        // Nor on the agent's page: no runs, no work in progress, no other people's conversations.
+        $this->actingAs($this->admin)->get(tenantUrl($this->tenant, "agents/{$this->director->id}"))->assertInertia(fn (Assert $page) => $page->has('runs', 0)
+            ->where('conversations', null)->where('now.last', null)->where('can.run', false));
         $this->actingAs($this->owner)->get(tenantUrl($this->tenant, "agents/{$this->director->id}"))->assertInertia(fn (Assert $page) => $page->where('runs.0.id', $this->run->id));
 
-        // The side panel of the conversation follows the same rule.
+        // The conversation itself, and so its side panel, attachments and reasoning.
         $panel = fn (User $user) => $this->actingAs($user)->get(tenantUrl($this->tenant, "tasks/{$this->chat->id}?execucao={$this->run->id}"));
-        $panel($this->admin)->assertInertia(fn (Assert $page) => expect(collect($page->toArray()['props']['panel_run']['steps'])->firstWhere('type', 'tool_result')['payload']['content'])->toBe(PeopleData::WITHHELD));
+        $panel($this->admin)->assertForbidden();
         $panel($this->owner)->assertInertia(fn (Assert $page) => expect(collect($page->toArray()['props']['panel_run']['steps'])->firstWhere('type', 'tool_result')['payload']['content'])->toContain('"employer_cost"'));
+
+        // The second layer: once the agent no longer reads pay data, its old runs open again, without the results.
+        asTenant($this->tenant, fn () => $this->director->capabilities()->detach(Capability::query()->get()->filter(fn (Capability $c) => PeopleData::isPeopleData($c->key))->modelKeys()));
+        $show($this->admin)->assertOk()->assertInertia(fn (Assert $page) => expect($result($page))->content->toBe(PeopleData::WITHHELD)->withheld->toBeTrue());
+        $panel($this->admin)->assertInertia(fn (Assert $page) => expect(collect($page->toArray()['props']['panel_run']['steps'])->firstWhere('type', 'tool_result')['payload']['content'])->toBe(PeopleData::WITHHELD));
     });
 
     it('never broadcasts the result, authorises the live channel like the trace, and keeps it out of the audit', function () {
@@ -264,10 +272,14 @@ describe('run traces', function () {
                 ->and(json_encode($audit->payload))->not->toContain('employer_cost');
         });
 
-        $auth = fn (User $user) => $this->actingAs($user)->post(tenantUrl($this->tenant, 'broadcasting/auth'), ['socket_id' => '1.1', 'channel_name' => "private-tenant.{$this->tenant->id}.run.{$this->run->id}"]);
-        $auth($this->member)->assertForbidden();
-        $auth($this->admin)->assertOk();
-        $auth($this->owner)->assertOk();
+        $auth = fn (User $user, string $channel) => $this->actingAs($user)->post(tenantUrl($this->tenant, 'broadcasting/auth'), ['socket_id' => '1.1', 'channel_name' => "private-tenant.{$this->tenant->id}.{$channel}"]);
+
+        // The run's channel and the conversation's (where the reply streams), like the trace.
+        foreach (["run.{$this->run->id}", "task.{$this->chat->id}"] as $channel) {
+            $auth($this->member, $channel)->assertForbidden();
+            $auth($this->admin, $channel)->assertForbidden();
+            $auth($this->owner, $channel)->assertOk();
+        }
     });
 });
 

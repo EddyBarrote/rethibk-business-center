@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\Local\DraftReport;
 use App\Documents\DocumentFormat;
 use App\Enums\Permission;
@@ -72,7 +73,8 @@ class ReportController extends Controller
      */
     public function visible(User $user): Builder
     {
-        return Report::query()->when(! $user->hasPermission(Permission::ReadAllReports), fn ($q) => $q->whereHas('agent', fn ($a) => $a
+        // A confidential agent's documents only for people who may manage people (PeopleData).
+        return PeopleData::withoutAgents(Report::query(), PeopleData::hiddenAgentIds($user))->when(! $user->hasPermission(Permission::ReadAllReports), fn ($q) => $q->whereHas('agent', fn ($a) => $a
             ->where('reports_to_user_id', $user->id)
             ->when($user->isManager() && $user->department_id !== null, fn ($w) => $w->orWhere('department_id', $user->department_id))));
     }

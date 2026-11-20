@@ -10,6 +10,7 @@ use App\Ai\Templates\TemplateInstaller;
 use App\Ai\Tools\GatedTool;
 use App\Enums\TriggerType;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Capability;
 use App\Models\ErpConnection;
 use App\Models\Tenant;
@@ -187,4 +188,10 @@ function throughGate(Agent $agent, string $key, array $arguments, ?Closure $setu
     }
 
     return (new GatedTool(Capability::query()->where('key', $key)->sole(), new CapabilityContext($agent, $run->fresh())))->handle(new Request($arguments));
+}
+
+/** Call a capability through the gate inside a run that already exists. */
+function gateInRun(AgentRun $run, string $key, array $arguments = []): string
+{
+    return (new GatedTool(Capability::query()->where('key', $key)->sole(), new CapabilityContext($run->agent, $run->fresh())))->handle(new Request($arguments));
 }

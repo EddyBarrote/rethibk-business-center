@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Access\AgentAccess;
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\Permission;
 use App\Models\Agent;
 use App\Models\User;
@@ -27,11 +28,12 @@ class AgentPolicy
     /**
      * Talk to the agent. Nobody does until given access, agent by agent
      * (docs/DECISOES.md, realinhamento L8), except the person it answers to
-     * and roles that talk to every agent.
+     * and roles that talk to every agent. A confidential agent only for
+     * people who may manage people, checked each time (PeopleData).
      */
     public function run(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && $agent->isActive() && $this->level($actor, $agent) !== null;
+        return $this->view($actor, $agent) && $agent->isActive() && $this->level($actor, $agent) !== null && ! PeopleData::closedTo($agent, $actor);
     }
 
     /**
@@ -39,7 +41,7 @@ class AgentPolicy
      */
     public function requestWork(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && $agent->isActive() && $this->level($actor, $agent) === AgentAccess::WORK;
+        return $this->view($actor, $agent) && $agent->isActive() && $this->level($actor, $agent) === AgentAccess::WORK && ! PeopleData::closedTo($agent, $actor);
     }
 
     /**
@@ -54,11 +56,12 @@ class AgentPolicy
 
     /**
      * See and correct what the agent remembers of each person: only the
-     * administrators (docs/DECISOES.md, 09.10.2026; replaces decisão 18).
+     * administrators (docs/DECISOES.md, 09.10.2026; replaces decisão 18). A
+     * confidential agent's, only those of them who may manage people.
      */
     public function viewMemory(User $actor, Agent $agent): bool
     {
-        return $this->view($actor, $agent) && $actor->hasPermission(Permission::ManageAgentMemory);
+        return $this->view($actor, $agent) && $actor->hasPermission(Permission::ManageAgentMemory) && ! PeopleData::closedTo($agent, $actor);
     }
 
     private function level(User $actor, Agent $agent): ?string

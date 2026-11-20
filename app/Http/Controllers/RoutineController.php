@@ -125,6 +125,15 @@ class RoutineController extends Controller
     public function update(Request $request, AgentRoutine $routine): RedirectResponse
     {
         $user = $this->admin($request);
+
+        // Any admin may pause it, even one who may not change it: only the switch, nothing else.
+        if ($routine->is_active && $request->has('is_active') && ! $request->boolean('is_active') && PeopleData::agentHolds($routine->agent) && ! PeopleData::mayRead($user)) {
+            $routine->forceFill(['is_active' => false])->save();
+            AuditLog::record($user, 'routine.updated', ['routine_id' => $routine->id, 'schedule' => $routine->schedule, 'is_active' => false, 'paused_only' => true], subject: $routine);
+
+            return back()->with('success', 'Rotina pausada. Só quem gere pessoas a muda ou volta a activar.');
+        }
+
         $data = $this->validated($request);
         $this->peopleData($user, $routine->agent, $data['agent_id'] !== null ? Agent::query()->find($data['agent_id']) : null);
         $routine->fill($data)->save();
@@ -222,7 +231,8 @@ class RoutineController extends Controller
     /**
      * A routine of an agent that reads pay and personal data runs with those
      * reads allowed (PeopleData), so only someone who may manage people
-     * creates, changes or runs it (docs/DECISOES.md, "Director de Recursos Humanos").
+     * creates, changes or runs it (docs/DECISOES.md, "Director de Recursos
+     * Humanos"). Any admin may still pause it (update()).
      */
     private function peopleData(User $user, ?Agent ...$agents): void
     {
@@ -273,6 +283,11 @@ class RoutineController extends Controller
 
             if (! $reaches) {
                 throw ValidationException::withMessages(['owner_user_id' => "{$owner->name} não tem acesso ao {$agent->name}: dê-lhe acesso ao agente ou escolha outra pessoa."]);
+            }
+
+            // Paused too: a confidential agent's routine only for someone who may manage people (PeopleData).
+            if ($owner !== null && PeopleData::closedTo($agent, $owner)) {
+                throw ValidationException::withMessages(['owner_user_id' => PeopleData::accessRefusal($agent, [$owner->name])]);
             }
         } else {
             $workflow = Workflow::query()->findOrFail($data['workflow_id']);

@@ -118,7 +118,9 @@ final class GatedTool implements Tool
                 'agent_run_id' => $run->id,
                 'arguments' => $arguments,
                 'for_user_id' => $people->personOf($run)?->id,
-                'reason' => 'Dados de pessoal (salários, contratos, documentos, processos disciplinares) fora de uma rotina e sem a permissão «Gerir pessoas».',
+                'reason' => in_array($this->capability->key, PeopleData::PUBLISHES, true)
+                    ? 'Agente com dados de pessoal: não escreve na base de conhecimento nem na memória da empresa.'
+                    : 'Dados de pessoal (salários, contratos, documentos, processos disciplinares) fora de uma rotina e sem a permissão «Gerir pessoas».',
             ], AuditResult::Denied);
 
             return $refused;

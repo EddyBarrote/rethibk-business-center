@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Concerns\BelongsToTenant;
 use App\Enums\Permission;
 use App\Enums\RunStatus;
@@ -108,6 +109,11 @@ class AgentRun extends Model
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
+        if (($hidden = PeopleData::hiddenAgentIds($user)) !== []) {
+            $query->whereNotIn('agent_id', $hidden)
+                ->where(fn (Builder $q) => $q->whereNull('task_id')->orWhereNotIn('task_id', PeopleData::tasksOf($hidden)));
+        }
+
         if ($user->hasPermission(Permission::ReadAllConversations)) {
             return;
         }

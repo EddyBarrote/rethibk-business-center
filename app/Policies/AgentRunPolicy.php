@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\Permission;
 use App\Models\AgentRun;
 use App\Models\User;
@@ -11,6 +12,8 @@ use App\Models\User;
  * panel of a task (docs/DECISOES.md, "Director de Recursos Humanos"). Those
  * with «Ler as conversas de todos», the person who asked for it, and whoever
  * may open its task. A run with neither a task nor a person only the first.
+ * A confidential agent's runs, and runs on its tasks, only people who may
+ * manage people (PeopleData), whatever else they may read.
  * What people-data capabilities returned stays hidden from anyone without
  * «Gerir pessoas» even then (PeopleData::present).
  */
@@ -19,6 +22,11 @@ class AgentRunPolicy
     public function view(User $actor, AgentRun $run): bool
     {
         if ($actor->tenant_id !== $run->tenant_id) {
+            return false;
+        }
+
+        // A confidential agent's runs, and any run on its tasks, stay among people who may manage people.
+        if (PeopleData::closedTo($run->agent, $actor) || ($run->task !== null && PeopleData::closesTask($run->task, $actor))) {
             return false;
         }
 

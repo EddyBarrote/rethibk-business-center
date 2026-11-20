@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\Local\DraftReport;
 use App\Ai\Knowledge\KnowledgeAccess;
 use App\Ai\Knowledge\KnowledgeBase;
@@ -525,7 +526,8 @@ class DocumentController extends Controller
      */
     private function visible(User $user): Builder
     {
-        return GeneratedDocument::query()->when(! $user->hasPermission(Permission::ReadAllDocuments), fn (Builder $q) => $q->where(fn (Builder $w) => $w
+        // A confidential agent's files only for people who may manage people (PeopleData).
+        return PeopleData::withoutAgents(GeneratedDocument::query(), PeopleData::hiddenAgentIds($user))->when(! $user->hasPermission(Permission::ReadAllDocuments), fn (Builder $q) => $q->where(fn (Builder $w) => $w
             ->where('created_by_user_id', $user->id)
             ->orWhereHas('agent', fn (Builder $a) => $a
                 ->where('reports_to_user_id', $user->id)

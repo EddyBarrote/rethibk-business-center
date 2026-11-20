@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Access\AgentAccess;
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Runs\AgentNow;
@@ -28,6 +29,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -114,8 +116,10 @@ class AgentController extends Controller
             // The tasks between this person and the agent, inside the agent's page (09.10.2026).
             'tasks' => fn () => $this->tasks($agent, $user),
             // Other people's conversations with it, read-only, for whoever may read them all (docs/DECISOES.md, "Conversas a partir dos agentes").
-            'conversations' => fn () => $user->hasPermission(Permission::ReadAllConversations) ? $this->conversations($agent, $user) : null,
-            'users' => $user->can('manageAccess', $agent) ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [],
+            // A confidential agent's, only for people who may manage people (PeopleData).
+            'conversations' => fn () => $user->hasPermission(Permission::ReadAllConversations) && ! PeopleData::closedTo($agent, $user) ? $this->conversations($agent, $user) : null,
+            // A confidential agent is given only to people who may manage people.
+            'users' => $user->can('manageAccess', $agent) ? $this->grantable($agent) : [],
             'can' => [
                 'run' => $user->can('run', $agent),
                 'request_work' => $user->can('requestWork', $agent),
@@ -173,6 +177,12 @@ class AgentController extends Controller
         foreach ($data['access'] as $row) {
             $rows[(int) $row['user_id']] = ['role' => $row['level']];
         }
+
+        // A confidential agent exists only for people who may manage people (PeopleData).
+        if (PeopleData::agentHolds($agent) && ($without = User::query()->whereKey(array_keys($rows))->get()->reject(fn (User $person) => PeopleData::mayRead($person)))->isNotEmpty()) {
+            throw ValidationException::withMessages(['access' => PeopleData::accessRefusal($agent, $without->pluck('name')->all())]);
+        }
+
         $agent->assignees()->sync($rows);
 
         AuditLog::record($this->user($request), 'agent.access_updated', ['access' => $data['access']], subject: $agent);
@@ -213,6 +223,23 @@ class AgentController extends Controller
     }
 
     /**
+     * Who may be given access to the agent: every active person, or for a
+     * confidential agent only those who may manage people (PeopleData).
+     *
+     * @return list<array{id: int, name: string}>
+     */
+    private function grantable(Agent $agent): array
+    {
+        $people = User::query()->where('is_active', true)->orderBy('name')->get();
+
+        if (PeopleData::agentHolds($agent)) {
+            $people = $people->filter(fn (User $person) => PeopleData::mayRead($person));
+        }
+
+        return $people->map(fn (User $person) => ['id' => $person->id, 'name' => $person->name])->values()->all();
+    }
+
+    /**
      * The person's tasks with the agent: assigned to it or delegated by it,
      * and asked by, assigned to or opened for this person. Open ones first.
      *
@@ -222,6 +249,7 @@ class AgentController extends Controller
     {
         return Task::query()
             ->withAgentFor($agent, $user)
+            ->visibleTo($user)
             ->with(Present::TASK_RELATIONS)
             ->orderByRaw('case when status in (?, ?) then 1 else 0 end', [TaskStatus::Done->value, TaskStatus::Cancelled->value])
             ->latest('last_activity_at')

@@ -2,6 +2,7 @@
 
 namespace App\Ai\Runs;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
 use App\Enums\TaskKind;
@@ -36,6 +37,11 @@ class AgentNow
      */
     public function for(Agent $agent, User $user, ?Task $exceptTask = null, bool $withLast = true, bool $withRecent = false): array
     {
+        // A confidential agent's work is not shown at all to whoever may not manage people (PeopleData).
+        if (PeopleData::closedTo($agent, $user)) {
+            return ['active' => [], 'last' => null, 'recent' => []];
+        }
+
         $elsewhere = fn ($q) => $q->when($exceptTask !== null, fn ($q) => $q->where(fn ($q) => $q->whereNull('task_id')->orWhere('task_id', '!=', $exceptTask->id)));
 
         $active = $agent->runs()
@@ -82,6 +88,10 @@ class AgentNow
      */
     public function background(Agent $agent, User $user, Task $conversation): array
     {
+        if (PeopleData::closedTo($agent, $user)) {
+            return [];
+        }
+
         $runs = $agent->runs()
             ->where(fn ($q) => $q->whereNull('task_id')->orWhere('task_id', '!=', $conversation->id))
             ->where('created_at', '>=', max($conversation->created_at, now()->subDays(7)))
@@ -109,7 +119,7 @@ class AgentNow
      */
     public function overview($agents, User $user): array
     {
-        $ids = $agents->pluck('id');
+        $ids = $agents->pluck('id')->diff(PeopleData::hiddenAgentIds($user))->values();
         $mine = fn (AgentRun $run) => $run->task === null || $run->task->kind !== TaskKind::Chat || $run->task->user_id === $user->id;
 
         $active = AgentRun::query()->whereIn('agent_id', $ids)->working()
