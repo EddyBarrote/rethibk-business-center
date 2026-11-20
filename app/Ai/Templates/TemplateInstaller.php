@@ -132,9 +132,13 @@ final class TemplateInstaller
 
             $routines = $this->syncRoutines($agent, $template);
 
+            $changed = array_keys(array_diff_assoc($agent->only(array_keys($before)), $before));
+
+            // The admin's own text, kept so it can be put back.
             AuditLog::record($actor, 'agent.refreshed_from_template', [
                 'template' => $template->key,
-                'changed' => array_keys(array_diff_assoc($agent->only(array_keys($before)), $before)),
+                'changed' => $changed,
+                'previous' => array_intersect_key($before, array_flip($changed)),
                 'capabilities_added' => $added,
                 ...$routines,
             ], subject: $agent);
