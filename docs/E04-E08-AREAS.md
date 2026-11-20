@@ -50,7 +50,7 @@ O agente é o **Director de Recursos Humanos** (docs/DECISOES.md, 19.11.2026): o
 - [x] Conferência da folha de salários processada no ERP (dia 25) em documento `payroll_check`: totais, número de pessoas e quem precisa de atenção, sem salários individuais
 - [x] Actualizações às fichas (`hr.update_employee`) sempre com aprovação (tecto absoluto)
 - [x] Recibos, contratos, cartas, folhas de IRPS e declarações anuais vêm em PDF do ERP, anexados à resposta
-- [x] Salários, contratos, documentos de identificação e processos disciplinares só numa rotina do agente ou para quem tem «Gerir pessoas e papéis» (`App\Ai\Autonomy\PeopleData`)
+- [x] Salários, contratos, documentos de identificação e processos disciplinares só a pedido de quem tem «Gerir pessoas e papéis», ou numa rotina do agente para essa pessoa; só essas pessoas vêem esses resultados no registo das execuções (`App\Ai\Autonomy\PeopleData`, `AgentRunPolicy`)
 - [x] Candidaturas por email: avaliação face aos requisitos da vaga (`hr.match_candidate`), rascunho de acusação de recepção e aviso à chefia
 - **ERP real:** o Rethink ERP tem as ferramentas (`hr_*`, `att_*`, `pay_*`); o mapa do contrato está em [ERP-MCP-CONTRACT.md](ERP-MCP-CONTRACT.md) (secção 4.2). Têm de ser marcadas no token da plataforma no ERP. Vagas, candidaturas, integração e preparar a folha não têm ferramenta no ERP real; existem no servidor falso.
 - **Pronto quando:** num dia útil o Director diz à chefia quem faltou sem licença e quem chegou tarde, e um pedido de salários de quem não gere pessoas é recusado. Coberto por `tests/Feature/Business/HrDirectorTest.php` e `AreasTest.php`.

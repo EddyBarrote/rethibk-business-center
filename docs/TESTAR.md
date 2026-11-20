@@ -63,7 +63,7 @@ Os emails de exemplo estão em `docs/exemplos`. `mail:ingest` faz de conta que c
 | E06 Compras | **Compras** › Nova requisição | O agente lança o pedido de cotação no ERP, compara e prepara o rascunho de encomenda, que pede aprovação. |
 | E06 Contratos | **Contratos** › criar um que termina dentro do pré-aviso; `php artisan agents:watch-contracts` | Notificação ao responsável e trabalho para o agente certo. |
 | E07 RH | `… triagem@… docs/exemplos/job-application.eml` | Passa ao Director de RH, que avalia o CV face à vaga, deixa o rascunho de acusação de recepção e avisa a chefia. |
-| E07 Assiduidade | Definições › Rotinas › «Assiduidade do dia» do Director de RH › Correr agora (com o ERP falso, numa quinta-feira) | A chefia recebe a notificação: Abel Cossa ausente sem licença aprovada. Numa conversa com quem não tem «Gerir pessoas e papéis», pedir um recibo de vencimento é recusado. |
+| E07 Assiduidade | Com «Gerir pessoas e papéis»: Definições › Rotinas › «Assiduidade do dia» do Director de RH › Correr agora (com o ERP falso, numa quinta-feira) | A chefia recebe a notificação: Abel Cossa ausente sem licença aprovada. Numa conversa com quem não tem «Gerir pessoas e papéis», pedir um recibo de vencimento é recusado. |
 | E08 Clientes | **Clientes** › Hotel Baía Azul; `… triagem@… docs/exemplos/client-request.eml` | Ficha completa do cliente; o pedido entra na lista do SLA (8 h pelo contrato de exemplo). |
 
 Em cada caso, **Execuções** mostra o que o agente fez passo a passo e **Aprovações** o que espera por uma pessoa.

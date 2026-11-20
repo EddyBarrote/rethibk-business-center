@@ -83,7 +83,7 @@ Os agentes de Finanças, Compras e RH (entregas E05 a E07) precisam também dest
 | `projects.list` | leitura | `status` | Lista os projectos com execução orçamental e facturação (`budget`, `spent`, `invoiced`), filtrando por estado. |
 | `procurement.record_quote` | escrita | `rfq_id`*, `supplier_id`*, `total`*, `delivery_days`, `valid_until`, `notes` | Regista uma cotação recebida de um fornecedor para um pedido de cotação. |
 | `procurement.list_orders` | leitura | `status`, `supplier_id` | Lista notas de encomenda com estado, data prevista de entrega (`expected_date`) e recepções. |
-| `hr.list_employees` | leitura | `department` | Lista os colaboradores activos, filtrando por departamento: cargo, departamento, chefia, admissão, tipo e fim do contrato. **Sem salários nem documentos** (desde a versão 0.3: estão em `hr.get_employee`). |
+| `hr.list_employees` | leitura | `department` | Lista os colaboradores activos, filtrando por departamento: cargo, departamento, chefia, admissão. **Sem contratos, salários nem documentos** (desde a versão 0.3: estão em `hr.get_employee`), para poder ser lida por quem não gere pessoas. |
 | `hr.attendance_summary` | leitura | `period`*, `department` | Assiduidade de um mês (`AAAA-MM`) por colaborador: presenças, faltas justificadas e injustificadas, atrasos e horas extraordinárias. Desde a versão 0.3 também: `month_closed` (o mês está fechado para salários), `open_leave_requests`, os limites legais de horas extraordinárias que o ERP aplica (`overtime_limits`) e, por pessoa, as horas do trimestre e do ano e `over_limit`. |
 | `hr.list_leave` | leitura | `status`, `employee_id`, `from`, `to` | Pedidos de férias e ausências, filtrando por estado, pessoa e período (os que se sobrepõem a `from`–`to`), com o nome da pessoa. |
 | `hr.prepare_payroll_draft` | escrita | `period`* | Prepara o rascunho da folha de salários de um mês a partir da assiduidade. Não processa nem paga: um humano aprova no ERP. |
@@ -128,7 +128,7 @@ O agente de RH passou a **Director de Recursos Humanos** (`docs/DECISOES.md`, 19
 | `hr.get_payslip` | `pay_get_payslip`, `pay_payslip_pdf`, `pay_annual_statement_pdf` |
 | `hr.prepare_payroll_draft`, `hr.list_openings`, `hr.create_candidate`, `hr.list_candidates`, `hr.create_onboarding` | — (o ERP processa a folha nos seus ecrãs, de propósito; recrutamento e integração não têm ferramenta) |
 
-As ferramentas só aparecem à plataforma depois de marcadas no token, em **MCP Server › Definições** do ERP. O token actua como administrador, por isso as regras do ERP sobre quem vê o quê não protegem nada aqui: a plataforma limita ela própria os salários, contratos, documentos de identificação e processos disciplinares (`autonomy.people_data`).
+As ferramentas só aparecem à plataforma depois de marcadas no token, em **MCP Server › Definições** do ERP. O token actua como administrador, por isso as regras do ERP sobre quem vê o quê não protegem nada aqui: a plataforma limita ela própria os salários, contratos, documentos de identificação e processos disciplinares (`autonomy.people_data`). No Rethink ERP isso cobre todas as `pay_*` e todas as `hr_*` menos `hr_org_chart`, `hr_reference_data` e `hr_leave_balances` (o `hr_list_employees` traz o fim de cada contrato); as `att_*`, `list_staff` e `list_departments` ficam abertas.
 
 ## 5. Ponto por decidir: `invoices.issue` `[CONFIRMAR]`
 
