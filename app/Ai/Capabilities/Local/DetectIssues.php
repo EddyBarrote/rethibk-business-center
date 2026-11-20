@@ -34,7 +34,7 @@ final class DetectIssues extends LocalCapability
 
     public function execute(array $arguments, CapabilityContext $context): CapabilityResult
     {
-        $issues = $this->detector->detect();
+        $issues = $this->detector->detect($context->run->requestedBy);
 
         return CapabilityResult::data(['count' => count($issues), 'issues' => $issues]);
     }

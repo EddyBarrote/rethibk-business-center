@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Concerns\BelongsToTenant;
 use App\Enums\ApprovalStatus;
 use App\Enums\AutonomyLevel;
@@ -123,6 +124,8 @@ class Approval extends Model
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
+        self::withoutHidden($query, $user);
+
         if ($user->hasPermission(Permission::DecideAllApprovals)) {
             return;
         }
@@ -130,6 +133,19 @@ class Approval extends Model
         $query->whereHas('agent', fn (Builder $agents) => $agents
             ->where('reports_to_user_id', $user->id)
             ->orWhereHas('assignees', fn (Builder $assignees) => $assignees->whereKey($user->id)));
+    }
+
+    /**
+     * Without the confidential agents' approvals, for whoever may not manage
+     * people (PeopleData).
+     *
+     * @param  Builder<self>  $query
+     */
+    public static function withoutHidden(Builder $query, User $user): void
+    {
+        if (($hidden = PeopleData::hiddenAgentIds($user)) !== []) {
+            $query->whereNotIn('agent_id', $hidden);
+        }
     }
 
     /**
@@ -141,6 +157,7 @@ class Approval extends Model
     #[Scope]
     protected function decidableBy(Builder $query, User $user): void
     {
+        self::withoutHidden($query, $user);
         $special = array_keys(self::DECIDED_BY_PERMISSION);
 
         $query->where(function (Builder $q) use ($user, $special) {

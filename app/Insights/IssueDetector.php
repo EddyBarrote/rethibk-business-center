@@ -2,6 +2,7 @@
 
 namespace App\Insights;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
 use App\Enums\BankTransactionStatus;
@@ -19,6 +20,7 @@ use App\Models\EmailMessage;
 use App\Models\FollowUp;
 use App\Models\PurchaseRequest;
 use App\Models\Tender;
+use App\Models\User;
 use App\Support\TenantSettings;
 
 /**
@@ -29,16 +31,20 @@ use App\Support\TenantSettings;
 final class IssueDetector
 {
     /**
+     * For this person: a confidential agent's approvals and reminders only
+     * for someone who may manage people (PeopleData).
+     *
      * @return list<array{area: string, severity: string, issue: string, link: string|null}>
      */
-    public function detect(): array
+    public function detect(?User $viewer): array
     {
+        $hidden = PeopleData::hiddenAgentIds($viewer);
         $issues = [];
         $add = function (string $area, string $severity, string $issue, ?string $link = null) use (&$issues): void {
             $issues[] = ['area' => $area, 'severity' => $severity, 'issue' => $issue, 'link' => $link];
         };
 
-        foreach (Approval::query()->where('status', ApprovalStatus::Pending)->where('created_at', '<', now()->subDay())->with('agent')->limit(20)->get() as $approval) {
+        foreach (PeopleData::withoutAgents(Approval::query(), $hidden)->where('status', ApprovalStatus::Pending)->where('created_at', '<', now()->subDay())->with('agent')->limit(20)->get() as $approval) {
             $add('Aprovações', 'alta', "Aprovação pendente há mais de 24 h: {$approval->action_summary} ({$approval->agent?->name})", '/approvals');
         }
 
@@ -60,7 +66,7 @@ final class IssueDetector
             $add('Concursos', 'alta', "Concurso a fechar em {$tender->deadline_at?->diffForHumans()} ainda sem decisão: {$tender->title}");
         }
 
-        foreach (FollowUp::query()->whereNull('done_at')->where('due_at', '<', now()->subDay())->limit(20)->get() as $followUp) {
+        foreach (PeopleData::withoutAgents(FollowUp::query(), $hidden)->whereNull('done_at')->where('due_at', '<', now()->subDay())->limit(20)->get() as $followUp) {
             $add('Seguimentos', 'média', "Seguimento em atraso: {$followUp->title}", '/inbox');
         }
 

@@ -2,13 +2,15 @@
 
 namespace App\Policies;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Enums\Permission;
 use App\Models\Approval;
 use App\Models\User;
 
 /**
  * Who decides on an agent's action (docs/DECISOES.md): owners and admins, the
- * person the agent reports to, and the people assigned to the agent.
+ * person the agent reports to, and the people assigned to the agent. A
+ * confidential agent's, only those of them who may manage people (PeopleData).
  */
 class ApprovalPolicy
 {
@@ -33,6 +35,11 @@ class ApprovalPolicy
     public function decide(User $actor, Approval $approval): bool
     {
         if ($actor->tenant_id !== $approval->tenant_id) {
+            return false;
+        }
+
+        // A confidential agent's approvals only people who may manage people decide (PeopleData).
+        if (PeopleData::closedTo($approval->agent, $actor)) {
             return false;
         }
 

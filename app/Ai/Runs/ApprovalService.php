@@ -146,7 +146,8 @@ final class ApprovalService
      */
     private function reviewerFor(Approval $approval): ?Agent
     {
-        if ($approval->ceiling_reason !== null || array_key_exists($approval->action_type, Approval::DECIDED_BY_PERMISSION)) {
+        // A confidential agent's actions go straight to people who may manage people (PeopleData).
+        if ($approval->ceiling_reason !== null || array_key_exists($approval->action_type, Approval::DECIDED_BY_PERMISSION) || PeopleData::agentHolds($approval->agent)) {
             return null;
         }
 
@@ -186,6 +187,11 @@ final class ApprovalService
             $agent->reports_to_user_id,
             ...$agent->assignees()->pluck('users.id')->all(),
         ])));
+
+        // A confidential agent's, only to people who may manage people (PeopleData).
+        if (PeopleData::agentHolds($agent)) {
+            $notify = User::query()->whereKey($notify)->get()->filter(fn (User $user) => PeopleData::mayRead($user))->map(fn (User $user) => $user->id)->values()->all();
+        }
 
         ApprovalRequested::live($approval, $notify);
 
@@ -406,6 +412,11 @@ final class ApprovalService
      */
     private function summarise(Capability $capability, array $arguments): string
     {
+        // Pay and personal data: the capability by name, never its arguments (they travel to notifications and overviews).
+        if (PeopleData::isPeopleData($capability->key)) {
+            return $capability->name;
+        }
+
         $local = $this->registry->find($capability->key);
 
         if ($local !== null) {

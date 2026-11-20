@@ -35,7 +35,7 @@ class DashboardController extends Controller
             'briefing' => ($briefing = Briefing::query()->where('for_user_id', $user->id)->latest('id')->first()) !== null
                 ? [...BriefingController::present($briefing), 'content' => $briefing->content]
                 : null,
-            'issues' => fn () => $user->isManager() ? $issues->detect() : [],
+            'issues' => fn () => $user->isManager() ? $issues->detect($user) : [],
             // Runs this person may open (AgentRunPolicy).
             'live' => AgentRun::query()->visibleTo($user)->with(['agent:id,name', 'requestedBy:id,name'])
                 ->whereIn('status', [RunStatus::Queued, RunStatus::Running, RunStatus::AwaitingApproval, RunStatus::AwaitingInput])

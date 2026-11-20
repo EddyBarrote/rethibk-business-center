@@ -201,6 +201,9 @@ class ApprovalController extends Controller
             $query->where(fn (Builder $q) => $q->visibleTo($user)->orWhere(fn (Builder $mine) => $mine->decidableBy($user)));
         }
 
+        // Nor, for whoever may not manage people, a confidential agent's.
+        Approval::withoutHidden($query, $user);
+
         return $query;
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Events\Concerns\BroadcastsLive;
 use App\Models\Approval;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -25,7 +26,8 @@ final class ApprovalRequested implements ShouldBroadcastNow
         $tenant = $this->approval->tenant_id;
 
         return [
-            new PrivateChannel("tenant.{$tenant}.approvals"),
+            // Everyone who decides every approval listens there; a confidential agent's go only to its deciders (PeopleData).
+            ...(PeopleData::agentHolds($this->approval->agent) ? [] : [new PrivateChannel("tenant.{$tenant}.approvals")]),
             ...array_map(fn (int $id) => new PrivateChannel("tenant.{$tenant}.user.{$id}"), $this->notifyUserIds),
         ];
     }

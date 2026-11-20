@@ -2,6 +2,7 @@
 
 namespace App\Ai\Capabilities\Local;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityResult;
@@ -60,6 +61,8 @@ final class OrganisationOverview extends LocalCapability
     {
         $since = now()->subHours((int) ($arguments['hours'] ?? 24));
         $runs = AgentRun::query()->where('created_at', '>=', $since);
+        // A confidential agent's approvals, reminders and documents only for someone who may manage people (PeopleData).
+        $hidden = PeopleData::hiddenAgentIds($context->run->requestedBy);
 
         return CapabilityResult::data([
             'since' => $since->toIso8601String(),
@@ -71,7 +74,7 @@ final class OrganisationOverview extends LocalCapability
                 'failed' => (clone $runs)->where('agent_id', $agent->id)->where('status', RunStatus::Failed)->count(),
                 'month_cost_usd' => round($this->budget->agentSpent($agent), 4),
             ])->all(),
-            'approvals_pending' => Approval::query()->where('status', ApprovalStatus::Pending)->with('agent')->oldest()->limit(15)->get()
+            'approvals_pending' => PeopleData::withoutAgents(Approval::query(), $hidden)->where('status', ApprovalStatus::Pending)->with('agent')->oldest()->limit(15)->get()
                 ->map(fn (Approval $a) => ['id' => $a->id, 'agent' => $a->agent?->name, 'action' => $a->action_summary, 'since' => $a->created_at->toIso8601String(), 'link' => '/approvals'])->all(),
             'inbox' => [
                 'received' => EmailMessage::query()->triage()->where('direction', 'inbound')->where('received_at', '>=', $since)->count(),
@@ -80,11 +83,11 @@ final class OrganisationOverview extends LocalCapability
                 'drafts_waiting' => EmailMessage::query()->triage()->where('status', 'draft')->count(),
             ],
             'tenders_open' => Tender::query()->whereIn('status', [TenderStatus::New, TenderStatus::Reviewing, TenderStatus::Bidding])->orderBy('deadline_at')->limit(10)->get(['id', 'title', 'entity', 'deadline_at', 'status'])->toArray(),
-            'follow_ups_due' => FollowUp::query()->whereNull('done_at')->where('due_at', '<=', now()->addDay())->orderBy('due_at')->limit(15)->get(['id', 'title', 'due_at'])->toArray(),
+            'follow_ups_due' => PeopleData::withoutAgents(FollowUp::query(), $hidden)->whereNull('done_at')->where('due_at', '<=', now()->addDay())->orderBy('due_at')->limit(15)->get(['id', 'title', 'due_at'])->toArray(),
             'purchase_requests' => PurchaseRequest::query()->whereNotIn('status', [PurchaseRequestStatus::Received, PurchaseRequestStatus::Cancelled])->get(['id', 'title', 'status', 'needed_by'])->toArray(),
             'contracts_ending_90_days' => Contract::query()->where('status', ContractStatus::Active)->whereBetween('ends_at', [today(), today()->addDays(90)])->get(['id', 'title', 'party_name', 'party_type', 'ends_at'])->toArray(),
             'bank_unreconciled' => BankTransaction::query()->where('status', BankTransactionStatus::Unmatched)->count(),
-            'reports_to_review' => Report::query()->where('status', 'draft')->latest()->limit(10)->get(['id', 'type', 'title', 'created_at'])->toArray(),
+            'reports_to_review' => PeopleData::withoutAgents(Report::query(), $hidden)->where('status', 'draft')->latest()->limit(10)->get(['id', 'type', 'title', 'created_at'])->toArray(),
             'recent_decisions' => KnowledgeItem::query()->where('type', KnowledgeType::Decision)->where('created_at', '>=', now()->subDays(14))->latest()->limit(10)->get(['id', 'title', 'summary', 'created_at'])->toArray(),
         ]);
     }
