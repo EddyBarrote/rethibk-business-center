@@ -2,10 +2,12 @@
 
 namespace App\Ai\Templates;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Capabilities\CapabilityCatalog;
 use App\Ai\Capabilities\CapabilityRegistry;
 use App\Enums\AgentStatus;
 use App\Enums\MailboxStatus;
+use App\Enums\Permission;
 use App\Enums\Role;
 use App\Erp\Exceptions\ErpException;
 use App\Erp\Perfex\PerfexToolMap;
@@ -33,14 +35,14 @@ final class TemplateInstaller
     public function __construct(private readonly CapabilityCatalog $catalog) {}
 
     /**
-     * @return array{agent: Agent, created: bool, missing_capabilities: list<string>, mailbox: string|null}
+     * @return array{agent: Agent, created: bool, missing_capabilities: list<string>, mailbox: string|null, chefia: string|null}
      */
     public function install(AgentTemplate $template, ?Model $actor = null, AgentStatus $status = AgentStatus::Active): array
     {
         $existing = $this->find($template);
 
         if ($existing !== null) {
-            return ['agent' => $existing, 'created' => false, 'missing_capabilities' => [], 'mailbox' => Mailbox::query()->where('agent_id', $existing->id)->value('address')];
+            return ['agent' => $existing, 'created' => false, 'missing_capabilities' => [], 'mailbox' => Mailbox::query()->where('agent_id', $existing->id)->value('address'), 'chefia' => null];
         }
 
         $this->ensureCapabilities($template);
@@ -72,6 +74,7 @@ final class TemplateInstaller
             $agent->capabilities()->sync(array_fill_keys($capabilities->values()->all(), ['enabled' => true]));
             // On a Perfex ERP the contract keys have no rows: the reads that do their job instead.
             $perfex = $this->catalog->grantPerfexReadsFor($agent, $template->capabilities);
+            $chefia = $this->confidentialChefia($agent);
 
             foreach ($template->routines as $routine) {
                 $agent->routines()->create([...$routine, 'is_active' => true]);
@@ -79,13 +82,14 @@ final class TemplateInstaller
 
             $address = $this->mailbox($agent, $template);
 
-            AuditLog::record($actor, 'agent.installed_from_template', ['template' => $template->key, 'capabilities' => [...$capabilities->keys()->all(), ...$perfex]], subject: $agent);
+            AuditLog::record($actor, 'agent.installed_from_template', array_filter(['template' => $template->key, 'capabilities' => [...$capabilities->keys()->all(), ...$perfex], 'chefia' => $chefia]), subject: $agent);
 
             return [
                 'agent' => $agent,
                 'created' => true,
                 'missing_capabilities' => $this->missing($template, [...$capabilities->keys()->all(), ...$perfex]),
                 'mailbox' => $address,
+                'chefia' => $chefia,
             ];
         });
     }
@@ -98,9 +102,11 @@ final class TemplateInstaller
      * matched by name. A routine keeps the on/off state the admin left it in;
      * a new one starts off when all the agent's routines are off; one the
      * template no longer has is switched off, not deleted. Department,
-     * autonomy, model, chefia and mailbox stay as they are.
+     * autonomy, model and mailbox stay as they are, and the chefia too unless
+     * the agent reads pay and personal data and its chefia may not
+     * (PeopleData): then the owner.
      *
-     * @return array{agent: Agent, capabilities_added: list<string>, routines_created: list<string>, routines_updated: list<string>, routines_deactivated: list<string>}|null null when no agent comes from the template
+     * @return array{agent: Agent, capabilities_added: list<string>, routines_created: list<string>, routines_updated: list<string>, routines_deactivated: list<string>, chefia: string|null, without_access: list<string>}|null null when no agent comes from the template
      */
     public function refresh(AgentTemplate $template, ?Model $actor = null): ?array
     {
@@ -130,31 +136,63 @@ final class TemplateInstaller
             $agent->capabilities()->syncWithoutDetaching(array_fill_keys($new->values()->all(), ['enabled' => true]));
             $added = [...$new->keys()->all(), ...$this->catalog->grantPerfexReadsFor($agent, $template->capabilities)];
 
-            $routines = $this->syncRoutines($agent, $template);
+            [$routines, $previousRoutines] = $this->syncRoutines($agent, $template);
+            $chefia = $this->confidentialChefia($agent);
+            // People given access before it read pay data: they no longer reach it (AgentPolicy::run).
+            $without = PeopleData::agentHolds($agent) ? $agent->assignees()->get()->reject(fn (User $person) => PeopleData::mayRead($person))->pluck('name')->values()->all() : [];
 
             $changed = array_keys(array_diff_assoc($agent->only(array_keys($before)), $before));
 
-            // The admin's own text, kept so it can be put back.
-            AuditLog::record($actor, 'agent.refreshed_from_template', [
+            // The admin's own text, and the routines as they were, kept so they can be put back.
+            AuditLog::record($actor, 'agent.refreshed_from_template', array_filter([
                 'template' => $template->key,
                 'changed' => $changed,
                 'previous' => array_intersect_key($before, array_flip($changed)),
                 'capabilities_added' => $added,
                 ...$routines,
-            ], subject: $agent);
+                'routines_previous' => $previousRoutines,
+                'chefia' => $chefia,
+                'without_access' => $without,
+            ], fn ($value) => $value !== null), subject: $agent);
 
-            return ['agent' => $agent->fresh() ?? $agent, 'capabilities_added' => $added, ...$routines];
+            return ['agent' => $agent->fresh() ?? $agent, 'capabilities_added' => $added, ...$routines, 'chefia' => $chefia, 'without_access' => $without];
         });
     }
 
     /**
-     * @return array{routines_created: list<string>, routines_updated: list<string>, routines_deactivated: list<string>}
+     * A confidential agent's chefia must be someone who may manage people
+     * (PeopleData): when the one it has may not, the owner. Says so, for the
+     * command's output and the audit; null when nothing changed.
+     */
+    private function confidentialChefia(Agent $agent): ?string
+    {
+        $current = $agent->reportsTo;
+
+        if (! PeopleData::agentHolds($agent) || ($current !== null && PeopleData::mayRead($current))) {
+            return null;
+        }
+
+        $owner = User::query()->where('role', Role::Owner)->where('is_active', true)->orderBy('id')->get()->first(fn (User $user) => PeopleData::mayRead($user));
+        $agent->forceFill(['reports_to_user_id' => $owner?->id])->save();
+        $agent->setRelation('reportsTo', $owner);
+        $who = $current !== null ? "{$current->name} não tem a permissão «".Permission::ManagePeople->label().'»' : 'não tinha chefia';
+
+        return $owner !== null
+            ? "Chefia: {$owner->name} (CEO), porque {$agent->name} lê salários e dados de pessoal e {$who}."
+            : "Sem chefia: {$agent->name} lê salários e dados de pessoal, {$who}, e nenhum dono activo tem a permissão. Escolha uma chefia que a tenha.";
+    }
+
+    /**
+     * The result, and the prompt and schedule each updated routine had.
+     *
+     * @return array{0: array{routines_created: list<string>, routines_updated: list<string>, routines_deactivated: list<string>}, 1: array<string, array{prompt: string|null, schedule: string}>}
      */
     private function syncRoutines(Agent $agent, AgentTemplate $template): array
     {
         $existing = $agent->routines()->whereNull('workflow_id')->get()->keyBy('name');
         $startOn = $existing->isNotEmpty() && $existing->contains('is_active', true);
         $result = ['routines_created' => [], 'routines_updated' => [], 'routines_deactivated' => []];
+        $previous = [];
 
         foreach ($template->routines as $routine) {
             $current = $existing->get($routine['name']);
@@ -166,11 +204,13 @@ final class TemplateInstaller
                 continue;
             }
 
+            $was = ['prompt' => $current->prompt, 'schedule' => $current->schedule];
             $current->fill(['prompt' => $routine['prompt'], 'schedule' => $routine['schedule']]);
 
             if ($current->isDirty()) {
                 $current->save();
                 $result['routines_updated'][] = $routine['name'];
+                $previous[$routine['name']] = $was;
             }
         }
 
@@ -185,7 +225,7 @@ final class TemplateInstaller
             }
         }
 
-        return $result;
+        return [$result, $previous];
     }
 
     /**

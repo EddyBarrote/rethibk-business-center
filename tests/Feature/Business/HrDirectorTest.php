@@ -19,6 +19,7 @@ use App\Models\AgentRun;
 use App\Models\Approval;
 use App\Models\AuditLog;
 use App\Models\Capability;
+use App\Models\Department;
 use App\Models\ErpConnection;
 use App\Models\Tenant;
 use App\Models\User;
@@ -100,6 +101,31 @@ describe('on the live Perfex ERP', function () {
         });
     });
 
+    it('gives back a read the ERP stopped listing and lists again, also one an admin took away (a known limit)', function () {
+        asTenant($this->tenant, function () {
+            $catalog = app(CapabilityCatalog::class);
+            $catalog->syncLocal();
+            $catalog->syncErp();
+            $agent = app(TemplateInstaller::class)->install(AgentTemplates::find('hr'))['agent'];
+            $holds = fn (string $key) => $agent->capabilities()->where('key', $key)->count();
+            $agent->capabilities()->detach(Capability::query()->where('key', 'erp.att_today')->value('id'));
+
+            // The token stops listing two reads: the agent keeps its row for one, the ERP has neither for now.
+            unset($this->tools['att_today'], $this->tools['pay_get_run']);
+            $catalog->syncErp();
+            expect(Capability::query()->whereIn('key', ['erp.att_today', 'erp.pay_get_run'])->pluck('is_available')->unique()->all())->toBe([false])
+                ->and($holds('erp.pay_get_run'))->toBe(1);
+
+            // Listed again: the one it kept stays once; the one the admin took away comes back with it.
+            $this->tools['att_today'] = true;
+            $this->tools['pay_get_run'] = true;
+            $catalog->syncErp();
+            expect($holds('erp.pay_get_run'))->toBe(1)
+                ->and($holds('erp.att_today'))->toBe(1)
+                ->and(AuditLog::query()->where('action', 'agent.capabilities_granted_by_sync')->latest('id')->first()->payload['capabilities'])->toBe(['erp.att_today']);
+        });
+    });
+
     it('never keeps a payslip link it could not attach, in the trace or the audit', function () {
         $this->results['pay_payslip_pdf'] = ['file_name' => 'recibo-2026-10.pdf', 'download_url' => 'https://erp.example.test/api/mcp/files/f_9', 'expires_at' => '2026-11-19T10:00:00+02:00'];
 
@@ -145,8 +171,10 @@ describe('on the live Perfex ERP', function () {
             app(CapabilityCatalog::class)->syncErp();
 
             // The agent as the old template made it, routines switched off, plus the admin's own additions.
+            // Its chefia and someone given access before it read pay data may not manage people.
             $agent = Agent::factory()->create(['key' => 'hr', 'name' => 'Agente de Recursos Humanos', 'instructions' => 'Prepara a folha com erp.hr.prepare_payroll_draft. Regra da casa: avisar a Dona Ana.',
-                'settings' => ['template' => 'hr'], 'autonomy_level' => AutonomyLevel::Suggest, 'status' => AgentStatus::Active]);
+                'settings' => ['template' => 'hr'], 'autonomy_level' => AutonomyLevel::Suggest, 'status' => AgentStatus::Active, 'reports_to_user_id' => $this->member->id]);
+            $agent->assignees()->attach($this->member->id, ['role' => 'chat']);
             $agent->capabilities()->attach(Capability::query()->where('key', 'erp.list_customers')->value('id'), ['enabled' => true]);
             foreach (['Assiduidade do mês' => '0 8 1 * *', 'Preparar folha de salários' => '0 8 25 * *', 'Férias pendentes' => '0 8 * * 1', 'Aniversários da equipa' => '0 9 * * *'] as $name => $schedule) {
                 $agent->routines()->create(['name' => $name, 'prompt' => 'Antiga.', 'schedule' => $schedule, 'is_active' => false]);
@@ -159,6 +187,8 @@ describe('on the live Perfex ERP', function () {
 
         $this->artisan('agents:install-templates', ['tenant' => 'rethink-test', '--refresh' => ['hr']])
             ->expectsOutputToContain('Director de Recursos Humanos actualizado a partir do modelo hr.')
+            ->expectsOutputToContain('Chefia: Edy Barrote (CEO), porque Director de Recursos Humanos lê salários e dados de pessoal e Nádia Tembe não tem a permissão «Gerir pessoas e papéis».')
+            ->expectsOutputToContain('Deixam de falar com Director de Recursos Humanos por não terem a permissão «Gerir pessoas e papéis»: Nádia Tembe.')
             ->assertSuccessful();
 
         asTenant($this->tenant, function () {
@@ -181,7 +211,12 @@ describe('on the live Perfex ERP', function () {
                 // What the admin had written can be put back from the audit.
                 ->and($audit->payload['previous'])->toMatchArray(['name' => 'Agente de Recursos Humanos', 'instructions' => 'Prepara a folha com erp.hr.prepare_payroll_draft. Regra da casa: avisar a Dona Ana.'])
                 ->and($audit->payload['routines_created'])->toHaveCount(4)
-                ->and($audit->payload['routines_updated'])->toBe(['Assiduidade do mês']);
+                ->and($audit->payload['routines_updated'])->toBe(['Assiduidade do mês'])
+                // And each updated routine as it was.
+                ->and($audit->payload['routines_previous'])->toBe(['Assiduidade do mês' => ['prompt' => 'Antiga.', 'schedule' => '0 8 1 * *']])
+                ->and($audit->payload['chefia'])->toContain('Chefia: Edy Barrote')
+                ->and($audit->payload['without_access'])->toBe(['Nádia Tembe'])
+                ->and($agent->reports_to_user_id)->toBe($this->owner->id);
         });
     });
 });
@@ -202,6 +237,32 @@ it('switches on new routines and off the retired ones when the agent\'s routines
                 'Preparar folha de salários' => false, 'Férias pendentes' => false, 'Datas de RH' => true, 'Conferir a folha de salários' => true,
             ])
             ->and(AgentRoutine::query()->count())->toBe(7);
+    });
+
+    @unlink($this->store);
+});
+
+it('installs the Director under the owner when the HR department\'s manager may not manage people, and says so', function () {
+    $this->store = freshFakeErp();
+
+    asTenant($this->tenant, function () {
+        ErpConnection::factory()->local()->create();
+        $department = Department::query()->create(['name' => 'Direcção de RH', 'slug' => 'direccao-de-rh']);
+        User::factory()->create(['role' => 'manager', 'name' => 'Abel Cossa', 'department_id' => $department->id]);
+    });
+
+    $this->artisan('agents:install-templates', ['tenant' => 'rethink-test', '--only' => ['hr']])
+        ->expectsOutputToContain('Chefia: Edy Barrote (CEO), porque Director de Recursos Humanos lê salários e dados de pessoal e Abel Cossa não tem a permissão')
+        ->assertSuccessful();
+
+    expect(asTenant($this->tenant, fn () => Agent::query()->where('key', 'hr')->sole()->reports_to_user_id))->toBe($this->owner->id);
+
+    // Another template's agent keeps the department's manager, as before.
+    asTenant($this->tenant, function () {
+        $finance = Department::query()->create(['name' => 'Direcção Financeira', 'slug' => 'direccao-financeira']);
+        $boss = User::factory()->create(['role' => 'manager', 'name' => 'Ana Muianga', 'department_id' => $finance->id]);
+        expect(app(TemplateInstaller::class)->install(AgentTemplates::find('finance')))->chefia->toBeNull()
+            ->agent->reports_to_user_id->toBe($boss->id);
     });
 
     @unlink($this->store);

@@ -29,6 +29,7 @@ class InstallTemplates extends Command
             $only = (array) $this->option('only');
             $status = $this->option('draft') ? AgentStatus::Draft : AgentStatus::Active;
             $rows = [];
+            $notes = [];
 
             foreach (AgentTemplates::all() as $key => $template) {
                 if ($only !== [] && ! in_array($key, $only, true)) {
@@ -43,9 +44,18 @@ class InstallTemplates extends Command
                     $result['mailbox'] ?? '—',
                     $result['missing_capabilities'] === [] ? '—' : implode(', ', $result['missing_capabilities']),
                 ];
+
+                // An agent that reads pay data answers to someone who may manage people (PeopleData).
+                if ($result['chefia'] !== null) {
+                    $notes[] = $result['chefia'];
+                }
             }
 
             $this->table(['Entrega', 'Agente', 'Estado', 'Caixa', 'Capacidades em falta'], $rows);
+
+            foreach ($notes as $note) {
+                $this->components->warn($note);
+            }
 
             // The example flows (docs/DECISOES.md, "Fluxos de trabalho"), for the agents that now exist.
             foreach ($workflows->install() as $workflow) {
@@ -92,6 +102,15 @@ class InstallTemplates extends Command
                     ['Rotinas actualizadas', $result['routines_updated'] === [] ? '—' : implode(', ', $result['routines_updated'])],
                     ['Rotinas desligadas', $result['routines_deactivated'] === [] ? '—' : implode(', ', $result['routines_deactivated'])],
                 ]);
+
+                // An agent that reads pay data answers to, and talks with, only people who may manage people (PeopleData).
+                if ($result['chefia'] !== null) {
+                    $this->components->warn($result['chefia']);
+                }
+
+                if ($result['without_access'] !== []) {
+                    $this->components->warn('Deixam de falar com '.$result['agent']->name.' por não terem a permissão «Gerir pessoas e papéis»: '.implode(', ', $result['without_access']).'. Tire-lhes o acesso no agente, ou dê-lhes a permissão.');
+                }
             }
 
             return $failed ? self::FAILURE : self::SUCCESS;

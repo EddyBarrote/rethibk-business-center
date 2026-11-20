@@ -50,14 +50,18 @@ class AgentController extends AdminController
         $templates = isset($data['template']) ? [AgentTemplates::all()[$data['template']]] : array_values(AgentTemplates::all());
         $created = 0;
         $missing = [];
+        $notes = [];
 
         foreach ($templates as $template) {
             $result = $installer->install($template, $this->admin($request));
             $created += $result['created'] ? 1 : 0;
             $missing = [...$missing, ...$result['missing_capabilities']];
+            $notes = [...$notes, ...array_filter([$result['chefia']])];
         }
 
-        return back()->with('success', ($created === 1 ? '1 agente criado' : "{$created} agentes criados").' a partir dos modelos.'.($missing !== [] ? ' Capacidades em falta (sincronize o ERP): '.implode(', ', array_unique($missing)).'.' : ''));
+        return back()->with('success', ($created === 1 ? '1 agente criado' : "{$created} agentes criados").' a partir dos modelos.'
+            .($missing !== [] ? ' Capacidades em falta (sincronize o ERP): '.implode(', ', array_unique($missing)).'.' : '')
+            .($notes !== [] ? ' '.implode(' ', $notes) : ''));
     }
 
     public function edit(Tenant $tenant, Agent $agent): Response
