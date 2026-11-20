@@ -14,6 +14,7 @@ use App\Erp\ErpGateway;
 use App\Erp\ErpTool;
 use App\Erp\Perfex\PerfexToolMap;
 use App\Models\Agent;
+use App\Models\AuditLog;
 use App\Models\Capability;
 use App\Models\Connector;
 use App\Models\PlatformConnector;
@@ -88,6 +89,7 @@ final class CapabilityCatalog
         $tools = $this->erp->tools();
         $dialect = $this->erp->dialect();
         $seen = [];
+        $listedNow = [];
 
         foreach ($tools as $tool) {
             $key = self::erpKey($tool->name);
@@ -95,6 +97,11 @@ final class CapabilityCatalog
 
             $capability = Capability::query()->firstOrNew(['key' => $key]);
             $isNew = ! $capability->exists;
+
+            // New in the catalogue, or back after the ERP stopped listing it.
+            if ($isNew || ! $capability->is_available) {
+                $listedNow[] = $key;
+            }
 
             $capability->fill([
                 'name' => $tool->title ?: $tool->name,
@@ -117,7 +124,7 @@ final class CapabilityCatalog
         Capability::query()->where('source', CapabilitySource::Mcp)->whereNotIn('key', $seen)->update(['is_available' => false]);
 
         if ($dialect === ErpDialect::Perfex) {
-            $this->grantPerfexReads();
+            $this->grantPerfexReads($listedNow);
         }
 
         return count($tools);
@@ -128,12 +135,22 @@ final class CapabilityCatalog
      * Perfex reads that do the same job ("erp.list_customers"): those of the
      * contract capabilities it holds (rows left unavailable since the switch to
      * Perfex) and, for a template agent, those of its template's contract keys,
-     * which a tenant that was always on Perfex never had as rows. Perfex writes
-     * change the live ERP, so an admin gives those to agents explicitly.
+     * which a tenant that was always on Perfex never had as rows.
+     *
+     * Only reads the ERP started listing in this sync are handed out: one an
+     * admin took from an agent stays taken at the next sync (docs/DECISOES.md,
+     * "Director de Recursos Humanos"). Perfex writes change the live ERP, so
+     * an admin gives those to agents explicitly. Each grant is audited.
+     *
+     * @param  list<string>  $listedNow
      */
-    private function grantPerfexReads(): void
+    private function grantPerfexReads(array $listedNow): void
     {
-        $reads = $this->perfexReads();
+        $reads = $this->perfexReads()->only($listedNow);
+
+        if ($reads->isEmpty()) {
+            return;
+        }
 
         Agent::query()->with('capabilities')->get()->each(function (Agent $agent) use ($reads): void {
             $contract = $agent->capabilities
@@ -141,7 +158,11 @@ final class CapabilityCatalog
                 ->pluck('key')
                 ->merge(AgentTemplates::find((string) ($agent->settings['template'] ?? ''))->capabilities ?? []);
 
-            $this->attachPerfexReads($agent, $contract->all(), $reads);
+            $granted = $this->attachPerfexReads($agent, $contract->all(), $reads);
+
+            if ($granted !== []) {
+                AuditLog::record(null, 'agent.capabilities_granted_by_sync', ['capabilities' => $granted, 'reason' => 'Leituras do ERP que fazem o trabalho das ferramentas do contrato do agente.'], subject: $agent);
+            }
         });
     }
 
@@ -171,8 +192,8 @@ final class CapabilityCatalog
     }
 
     /**
-     * Attaches what the agent does not have yet: one an admin switched off
-     * for the agent stays off.
+     * Attaches the reads the agent has no row for; one it has, switched on or
+     * off, stays as it is.
      *
      * @param  list<string>  $contractKeys
      * @param  Collection<string, int>  $reads

@@ -2,21 +2,16 @@
 
 use App\Ai\Agents\GenericAgent;
 use App\Ai\Agents\InstructionComposer;
-use App\Ai\Autonomy\PeopleData;
 use App\Ai\Autonomy\SensitiveData;
 use App\Ai\Capabilities\CapabilityCatalog;
-use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Runs\AgentRunner;
 use App\Ai\Runs\RoutineRunner;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
-use App\Ai\Tools\GatedTool;
 use App\Enums\AgentStatus;
-use App\Enums\AuditResult;
 use App\Enums\AutonomyLevel;
 use App\Enums\RunStatus;
 use App\Enums\StepType;
-use App\Enums\TriggerType;
 use App\Jobs\RunAgent;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
@@ -28,63 +23,14 @@ use App\Models\ErpConnection;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tasks\TaskThread;
-use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Ai\Responses\Data\ToolCall;
-use Laravel\Ai\Tools\Request;
 
 // The HR Director (docs/DECISOES.md, "Director de Recursos Humanos", 19.11.2026):
-// the hr template on a Perfex ERP, the guard on pay and personal data, bringing
-// an existing agent up to date, and a routine run against the fake ERP.
-
-/**
- * A Perfex MCP server on erp.example.test listing these tools (name => read
- * only). The list is read on every call, so a test can change it in between.
- *
- * @param  array<string, bool>  $tools
- */
-function perfexServer(array &$tools): void
-{
-    Http::fake(['erp.example.test/*' => function (HttpRequest $request) use (&$tools) {
-        $message = json_decode($request->body(), true);
-        $reply = fn (array $result) => Http::response(['jsonrpc' => '2.0', 'id' => $message['id'], 'result' => $result], 200, ['Content-Type' => 'application/json', 'Mcp-Session-Id' => 'perfex-test']);
-
-        return match ($message['method'] ?? null) {
-            'initialize' => $reply(['protocolVersion' => $message['params']['protocolVersion'], 'capabilities' => ['tools' => (object) []], 'serverInfo' => ['name' => 'perfex-mcp-server', 'version' => '1.4.0']]),
-            'tools/list' => $reply(['tools' => array_map(fn (string $name, bool $read) => [
-                'name' => $name, 'description' => $name, 'inputSchema' => ['type' => 'object', 'properties' => (object) []], 'annotations' => ['readOnlyHint' => $read],
-            ], array_keys($tools), $tools)]),
-            // A 2025-era server: newer handshakes are an unknown method, notifications are accepted.
-            default => isset($message['id'])
-                ? Http::response(['jsonrpc' => '2.0', 'id' => $message['id'], 'error' => ['code' => -32601, 'message' => 'Method not found']], 200, ['Content-Type' => 'application/json'])
-                : Http::response('', 202),
-        };
-    }]);
-}
-
-/** What the live ERP lists before and after the HR tools are ticked on its token (a sample). */
-const PERFEX_BASE_TOOLS = ['whoami' => true, 'list_customers' => true, 'list_staff' => true, 'list_departments' => true, 'create_lead' => false];
-
-const PERFEX_HR_TOOLS = [
-    'hr_list_employees' => true, 'hr_get_employee' => true, 'hr_upcoming' => true, 'hr_update_employee' => false,
-    'att_today' => true, 'att_who_is_out' => true, 'att_attendance_summary' => true, 'att_list_leave_requests' => true, 'att_decide_leave_request' => false,
-    'pay_list_runs' => true, 'pay_get_run' => true, 'pay_payslip_pdf' => true,
-];
-
-/** Call a capability through the gate as the model would, in a run made by $setup. */
-function hrGated(Agent $agent, string $key, array $arguments, ?Closure $setup = null): string
-{
-    $run = app(AgentRunner::class)->create($agent, 'teste', TriggerType::Manual);
-
-    if ($setup !== null) {
-        $setup($run);
-        $run->save();
-    }
-
-    return (new GatedTool(Capability::query()->where('key', $key)->sole(), new CapabilityContext($agent, $run->fresh())))->handle(new Request($arguments));
-}
+// the hr template on a Perfex ERP, bringing an existing agent up to date, and a
+// routine run against the fake ERP. The guard on pay and personal data is in
+// PeopleDataTest.
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['slug' => 'rethink-test']);
@@ -98,7 +44,8 @@ beforeEach(function () {
 describe('on the live Perfex ERP', function () {
     beforeEach(function () {
         $this->tools = PERFEX_BASE_TOOLS + PERFEX_HR_TOOLS;
-        perfexServer($this->tools);
+        $this->results = [];
+        perfexServer($this->tools, $this->results);
         asTenant($this->tenant, fn () => ErpConnection::factory()->create());
     });
 
@@ -122,7 +69,7 @@ describe('on the live Perfex ERP', function () {
             ->not->toContain('erp.hr_update_employee', 'erp.att_decide_leave_request', 'erp.list_customers', 'erp.create_lead');
     });
 
-    it('reaches an agent installed before the HR tools were ticked, at the next sync, and leaves off what an admin switched off', function () {
+    it('hands out at a sync only the reads the ERP started listing, never one an admin took away', function () {
         $this->tools = PERFEX_BASE_TOOLS;
 
         asTenant($this->tenant, function () {
@@ -130,17 +77,45 @@ describe('on the live Perfex ERP', function () {
             $catalog->syncLocal();
             $catalog->syncErp();
             $agent = app(TemplateInstaller::class)->install(AgentTemplates::find('hr'))['agent'];
+            $keys = fn () => $agent->capabilities()->pluck('key')->all();
 
-            expect($agent->capabilities()->pluck('key')->all())->toContain('erp.list_staff')->not->toContain('erp.att_today');
+            expect($keys())->toContain('erp.list_staff')->not->toContain('erp.att_today');
 
-            $agent->capabilities()->updateExistingPivot(Capability::query()->where('key', 'erp.list_staff')->value('id'), ['enabled' => false]);
-
+            // The HR tools are ticked on the token: the next sync hands their reads out, and says so.
             $this->tools = PERFEX_BASE_TOOLS + PERFEX_HR_TOOLS;
             $catalog->syncErp();
+            expect($keys())->toContain('erp.att_today', 'erp.pay_get_run')->not->toContain('erp.hr_update_employee')
+                ->and(AuditLog::query()->where('action', 'agent.capabilities_granted_by_sync')->sole()->payload['capabilities'])->toContain('erp.att_today');
 
-            $agent = $agent->fresh();
-            expect($agent->capabilities()->pluck('key')->all())->toContain('erp.att_today', 'erp.pay_get_run')->not->toContain('erp.hr_update_employee')
-                ->and($agent->capabilities()->where('key', 'erp.list_staff')->sole()->pivot->enabled)->toBeFalse();
+            // An admin takes one away in Agentes › Editar, which syncs the ones the form keeps (AgentEditor).
+            $agent->capabilities()->sync(array_fill_keys($agent->capabilities()->where('key', '!=', 'erp.att_today')->pluck('capabilities.id')->all(), ['enabled' => true]));
+            $catalog->syncErp();
+            expect($keys())->not->toContain('erp.att_today');
+
+            // A tool the ERP starts listing later still arrives.
+            $this->tools['att_month_status'] = true;
+            $catalog->syncErp();
+            expect($keys())->toContain('erp.att_month_status')->not->toContain('erp.att_today')
+                ->and(AuditLog::query()->where('action', 'agent.capabilities_granted_by_sync')->latest('id')->first()->payload['capabilities'])->toBe(['erp.att_month_status']);
+        });
+    });
+
+    it('never keeps a payslip link it could not attach, in the trace or the audit', function () {
+        $this->results['pay_payslip_pdf'] = ['file_name' => 'recibo-2026-10.pdf', 'download_url' => 'https://erp.example.test/api/mcp/files/f_9', 'expires_at' => '2026-11-19T10:00:00+02:00'];
+
+        asTenant($this->tenant, function () {
+            app(CapabilityCatalog::class)->syncLocal();
+            app(CapabilityCatalog::class)->syncErp();
+            $agent = app(TemplateInstaller::class)->install(AgentTemplates::find('hr'))['agent'];
+
+            // Asked by someone who manages people, but outside a conversation: nowhere to attach the PDF.
+            $result = throughGate($agent, 'erp.pay_payslip_pdf', ['period' => '2026-10', 'staff_id' => 4], fn (AgentRun $run) => $run->requested_by_user_id = $this->owner->id);
+            $trace = AgentRun::query()->latest('id')->first()->steps()->where('type', StepType::ToolResult)->sole()->payload['content'];
+            $audit = AuditLog::query()->where('action', 'erp.tool_call')->where('payload->tool', 'pay_payslip_pdf')->sole();
+
+            expect($result)->toContain('recibo-2026-10.pdf')->toContain('O PDF só se anexa numa conversa ou tarefa')->not->toContain('f_9')
+                ->and($trace)->not->toContain('f_9')
+                ->and(json_encode($audit->payload))->not->toContain('f_9')->toContain('dados de pessoal');
         });
     });
 
@@ -170,7 +145,7 @@ describe('on the live Perfex ERP', function () {
             app(CapabilityCatalog::class)->syncErp();
 
             // The agent as the old template made it, routines switched off, plus the admin's own additions.
-            $agent = Agent::factory()->create(['key' => 'hr', 'name' => 'Agente de Recursos Humanos', 'instructions' => 'Prepara a folha com erp.hr.prepare_payroll_draft.',
+            $agent = Agent::factory()->create(['key' => 'hr', 'name' => 'Agente de Recursos Humanos', 'instructions' => 'Prepara a folha com erp.hr.prepare_payroll_draft. Regra da casa: avisar a Dona Ana.',
                 'settings' => ['template' => 'hr'], 'autonomy_level' => AutonomyLevel::Suggest, 'status' => AgentStatus::Active]);
             $agent->capabilities()->attach(Capability::query()->where('key', 'erp.list_customers')->value('id'), ['enabled' => true]);
             foreach (['Assiduidade do mês' => '0 8 1 * *', 'Preparar folha de salários' => '0 8 25 * *', 'Férias pendentes' => '0 8 * * 1', 'Aniversários da equipa' => '0 9 * * *'] as $name => $schedule) {
@@ -203,6 +178,8 @@ describe('on the live Perfex ERP', function () {
 
             $audit = AuditLog::query()->where('action', 'agent.refreshed_from_template')->sole();
             expect($audit->payload['changed'])->toContain('name', 'instructions')
+                // What the admin had written can be put back from the audit.
+                ->and($audit->payload['previous'])->toMatchArray(['name' => 'Agente de Recursos Humanos', 'instructions' => 'Prepara a folha com erp.hr.prepare_payroll_draft. Regra da casa: avisar a Dona Ana.'])
                 ->and($audit->payload['routines_created'])->toHaveCount(4)
                 ->and($audit->payload['routines_updated'])->toBe(['Assiduidade do mês']);
         });
@@ -252,55 +229,12 @@ describe('with the fake ERP', function () {
 
     afterEach(fn () => @unlink($this->store));
 
-    it('keeps pay and personal data to its routines and to people who manage people', function () {
-        asTenant($this->tenant, function () {
-            $threads = app(TaskThread::class);
-            $as = fn (User $person) => function (AgentRun $run) use ($threads, $person) {
-                $run->task_id = $threads->conversation($person, $this->agent)->id;
-                $run->requested_by_user_id = $person->id;
-            };
-            $payslip = ['period' => '2026-10', 'employee_id' => 'EMP-0004'];
-
-            // A colleague without «Gerir pessoas»: refused, audited, and the attendance stays open to them.
-            $refused = hrGated($this->agent, 'erp.hr.get_payslip', $payslip, $as($this->member));
-            expect($refused)->toStartWith('Recusado:')->toContain('Nádia Tembe não tem a permissão «Gerir pessoas e papéis»')->not->toContain('"net"');
-
-            $audit = AuditLog::query()->where('action', 'erp.hr.get_payslip')->sole();
-            expect($audit->result)->toBe(AuditResult::Denied)->and($audit->payload['for_user_id'])->toBe($this->member->id);
-
-            expect(hrGated($this->agent, 'erp.hr.attendance_today', ['date' => '2026-11-19'], $as($this->member)))->toContain('"status":"absent"');
-            expect(hrGated($this->agent, 'erp.hr.get_employee', ['employee_id' => 'EMP-0004'], $as($this->member)))->toStartWith('Recusado:');
-
-            // The owner, and anyone given the permission, may.
-            expect(hrGated($this->agent, 'erp.hr.get_payslip', $payslip, $as($this->owner)))->toContain('"net"');
-            $this->member->forceFill(['permission_overrides' => ['people.manage' => true]])->save();
-            expect(hrGated($this->agent, 'erp.hr.get_employee', ['employee_id' => 'EMP-0004'], $as($this->member->fresh())))->toContain('"base_salary":32000');
-
-            // The agent's own routine may; another agent's routine, or a run for nobody, may not.
-            $routine = $this->agent->routines()->first();
-            expect(hrGated($this->agent, 'erp.hr.list_payroll_runs', ['period' => '2026-10'], fn (AgentRun $run) => $run->agent_routine_id = $routine->id))->toContain('"employer_cost"');
-
-            $other = AgentRoutine::factory()->create(['agent_id' => Agent::factory()->create()->id]);
-            expect(hrGated($this->agent, 'erp.hr.list_payroll_runs', [], fn (AgentRun $run) => $run->agent_routine_id = $other->id))->toStartWith('Recusado:');
-            expect(hrGated($this->agent, 'erp.hr.upcoming_dates', [], fn (AgentRun $run) => $run->trigger_type = TriggerType::Email))
-                ->toContain('esta execução não é a pedido de ninguém nem é uma rotina tua');
-        });
-    });
-
-    it('covers the payroll tools of the live ERP by family, and its contract and document tools by name', function () {
-        $guard = app(PeopleData::class);
-        $restricted = fn (string $key) => $guard->restricted(new Capability(['key' => $key]));
-
-        expect(collect(['erp.pay_list_runs', 'erp.pay_my_payslips', 'erp.pay_some_future_tool', 'erp.hr_get_contract_pdf', 'erp.hr_list_documents', 'erp.hr_list_disciplinary_cases', 'erp.hr_get_employee', 'erp.hr_people_indicators', 'erp.hr.get_employee', 'erp.hr.people_indicators'])->every($restricted))->toBeTrue()
-            ->and(collect(['erp.att_today', 'erp.att_list_leave_requests', 'erp.hr_list_employees', 'erp.hr.attendance_today', 'erp.hr.list_leave', 'erp.payments.create'])->contains($restricted))->toBeFalse();
-    });
-
     it('never updates an HR record without a person, whatever its level', function () {
         asTenant($this->tenant, function () {
             $this->agent->update(['autonomy_level' => AutonomyLevel::ExecuteAndReport]);
             $chat = app(TaskThread::class)->conversation($this->owner, $this->agent);
 
-            $held = hrGated($this->agent->fresh(), 'erp.hr.update_employee', ['employee_id' => 'EMP-0004', 'id_expiry_date' => '2036-11-26'], function (AgentRun $run) use ($chat) {
+            $held = throughGate($this->agent->fresh(), 'erp.hr.update_employee', ['employee_id' => 'EMP-0004', 'id_expiry_date' => '2036-11-26'], function (AgentRun $run) use ($chat) {
                 $run->task_id = $chat->id;
                 $run->requested_by_user_id = $this->owner->id;
             });
