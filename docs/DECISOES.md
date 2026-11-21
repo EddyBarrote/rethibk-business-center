@@ -1761,3 +1761,17 @@ Pedido do Barrote: «A Rethink ERP já tem módulo de assiduidade e de recursos 
 Para o tenant `rethink` (o agente de RH existe, com as rotinas desligadas): marcar as ferramentas `hr_*`, `att_*` e `pay_*` no token da plataforma no ERP, depois `php artisan migrate`, `php artisan capabilities:sync rethink` e `php artisan agents:install-templates rethink --refresh=hr`. A saída diz se a chefia passou para o dono e quem deixa de falar com o Director por não ter «Gerir pessoas e papéis» (tirar-lhes o acesso no agente, ou dar-lhes a permissão). As rotinas novas ficam desligadas; ligam-se em Definições › Rotinas, por quem tem «Gerir pessoas e papéis», com destinatário que também a tenha.
 
 Testes: `tests/Feature/Business/HrDirectorTest.php`, `tests/Feature/Business/PeopleDataTest.php`, `tests/Feature/Business/ConfidentialAgentTest.php`, `tests/Feature/Erp/PerfexErpTest.php`, `tests/Feature/Erp/FakeErpServerTest.php`, `tests/Feature/Business/AreasTest.php`, `tests/Feature/Agents/AgentConsoleTest.php`.
+
+## Seed do tenant Rethink (21.11.2026)
+
+Pedido do Barrote: a configuração da Rethink num seed, no `main`. A base de desenvolvimento (`micomoc_agents`) foi recriada vazia a 20.11.2026 e o tenant `rethink`, montado à mão a 15–17.10.2026, perdeu-se com ela. O seed refaz o que essas sessões gravaram (os scripts e os textos estão nas conversas «Empresa de teste Rethink» e «Produtos e serviços para cotações»).
+
+| Decisão | Onde |
+|---|---|
+| **`RethinkSeeder`**, chamado no fim do `DatabaseSeeder` (`php artisan db:seed` refaz a MICOMOC e a Rethink) ou sozinho (`--class=RethinkSeeder`). Pode correr outra vez: só acrescenta o que falta. | `database/seeders/RethinkSeeder.php` |
+| **O que refaz**: tenant `rethink` com a marca (#0052CC, Space Grotesk, rodapé, logótipo da skill rethink-docs), sem `mail_domain`; Edy Barrote (dono, CEO), Kleyton Macatange e Naira Sitoe (membros, palavra-passe aleatória, sem convite); só a Direcção-Geral; os seis agentes dos modelos a reportar ao CEO, cinco com as descrições e sugestões da Rethink; o de RH fica com o texto do Director de Recursos Humanos (20.11.2026) e as rotinas desligadas; os 22 factos aprovados da Memória da empresa; os dois artigos da Reactive em Geral › Produtos e serviços › Reactive. | `RethinkSeeder`, `database/seeders/rethink/` |
+| **Só leitura e sem email para fora**, como em Outubro: as ferramentas do ERP que escrevem e `comms.send_email` ficam desligadas a cada execução. | `RethinkSeeder::readOnly()` |
+| **Segredos fora do repositório** (o repositório é público): a ligação ao ERP Perfex só se faz com `RETHINK_ERP_URL` e `RETHINK_ERP_TOKEN`; sem eles o tenant fica sem ERP e o seed avisa. A palavra-passe do dono vem de `RETHINK_OWNER_PASSWORD`; sem ela é `password` em local e aleatória noutros ambientes. A caixa geral@ liga-se em Definições, com a palavra-passe IMAP; correr o seed depois dá-lhe o dono e os leitores (Triagem processa o novo, Chief of Staff lê). | `config/services.php` (`rethink`), `.env.example` |
+| **Não volta**: o histórico da caixa geral@ e os três PDFs da empresa que vieram por email (propostas ao MTC e ao FDC, «Documentos da empresa»). Os PDFs têm documentos pessoais e não entram num repositório público; carregam-se no repositório de ficheiros. | — |
+
+Testes: `tests/Feature/Tenancy/RethinkSeederTest.php`.

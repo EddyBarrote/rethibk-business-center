@@ -44,4 +44,11 @@ return [
         'redirect' => env('GOOGLE_CALENDAR_REDIRECT_URI'),
     ],
 
+    // Rethink Technologies tenant (database/seeders/RethinkSeeder.php): secrets only from the environment.
+    'rethink' => [
+        'erp_url' => env('RETHINK_ERP_URL'),
+        'erp_token' => env('RETHINK_ERP_TOKEN'),
+        'owner_password' => env('RETHINK_OWNER_PASSWORD'),
+    ],
+
 ];

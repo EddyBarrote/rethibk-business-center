@@ -100,5 +100,8 @@ class DatabaseSeeder extends Seeder
                 'auto_renews' => true, 'status' => ContractStatus::Active,
             ]);
         });
+
+        // The real company as a second tenant (docs/DECISOES.md, "Rethink Technologies como tenant de teste").
+        $this->call(RethinkSeeder::class);
     }
 }
