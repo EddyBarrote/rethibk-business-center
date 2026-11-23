@@ -257,6 +257,16 @@ return [
     'environments' => [
         'production' => [],
 
+        // The test server: same queues, fewer processes (docs/DEPLOY.md).
+        'staging' => [
+            'agents-high' => ['maxProcesses' => 2],
+            'agents' => ['maxProcesses' => 3],
+            'agents-low' => ['maxProcesses' => 1],
+            'email' => ['maxProcesses' => 2],
+            'embeddings' => ['maxProcesses' => 1],
+            'default' => ['maxProcesses' => 1],
+        ],
+
         'local' => [
             'agents-high' => ['maxProcesses' => 1],
             'agents' => ['maxProcesses' => 1],

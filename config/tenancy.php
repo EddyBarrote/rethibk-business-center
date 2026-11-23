@@ -16,6 +16,7 @@ return [
 
     'admin_domain' => env('TENANCY_ADMIN_DOMAIN') ?: 'admin.'.env('TENANCY_CENTRAL_DOMAIN', 'localhost'),
 
-    'reserved_slugs' => ['admin', 'www', 'api', 'app', 'mail', 'static'],
+    // "ws" is Reverb's host behind Nginx (docs/DEPLOY.md).
+    'reserved_slugs' => ['admin', 'www', 'api', 'app', 'mail', 'static', 'ws'],
 
 ];

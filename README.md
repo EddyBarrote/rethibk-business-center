@@ -7,15 +7,16 @@ MICOMOC é o primeiro tenant. Ref: RT-2026-MCM-01.
 - Estado das entregas: [`E00`](docs/E00-FUNDACAO.md), [`E01`](docs/E01-MCP.md), [`E02`](docs/E02-AGENTES.md), [`E03`](docs/E03-TRIAGEM.md), [`E04 a E08`](docs/E04-E08-AREAS.md)
 - **Como testar:** [`docs/TESTAR.md`](docs/TESTAR.md)
 - Decisões tomadas: [`docs/DECISOES.md`](docs/DECISOES.md)
+- **Instalar em produção:** [`docs/DEPLOY.md`](docs/DEPLOY.md) (scripts em [`deploy/`](deploy))
 - Contrato para a equipa do ERP: [`docs/ERP-MCP-CONTRACT.md`](docs/ERP-MCP-CONTRACT.md)
 
 ## Stack
 
-PHP 8.3 · Laravel 13 · `laravel/ai` 1.0 · `laravel/mcp` 1.0 · MySQL 8.4/9.x · Redis + Horizon · Reverb · Inertia 2 + React 19 + shadcn/ui + Tailwind 4 · Pest 4 · Pint · Larastan (nível 6).
+PHP 8.4 · Laravel 13 · `laravel/ai` 1.0 · `laravel/mcp` 1.0 · MariaDB 11.8 (MySQL 8.4/9.x também serve) · Redis + Horizon · Reverb · Inertia 2 + React 19 + shadcn/ui + Tailwind 4 · Pest 4 · Pint · Larastan (nível 6).
 
 ## Arrancar em local
 
-Requer PHP 8.3+, Composer, Node 22+, MySQL e Redis (`docker compose up -d` arranca estes dois). Em Windows, usar o WSL2. Passo a passo em [`docs/TESTAR.md`](docs/TESTAR.md).
+Requer PHP 8.4+ (o `composer.lock` traz Symfony 8), Composer, Node 22+, MySQL e Redis (`docker compose up -d` arranca estes dois). Em Windows, usar o WSL2. Passo a passo em [`docs/TESTAR.md`](docs/TESTAR.md).
 
 ```bash
 composer install

@@ -1,0 +1,11 @@
+# MICOMOC — registos dos scripts de deploy/ (os do Supervisor rodam sozinhos;
+# os da aplicação ficam em storage/logs, um por dia).
+@@LOG_DIR@@/backup.log @@LOG_DIR@@/deploy.log {
+    weekly
+    rotate 12
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+}

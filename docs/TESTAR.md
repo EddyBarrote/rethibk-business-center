@@ -4,10 +4,10 @@ Guia para o teste de aceitação das entregas E00 a E08. Tudo corre em local, co
 
 ## 1. Arrancar no computador local
 
-**Precisa de:** PHP 8.3+ (com `pdo_mysql`, `redis`, `pcntl`, `zip`, `intl`), Composer, Node 22+, MySQL e Redis.
+**Precisa de:** PHP 8.4+ (o `composer.lock` traz Symfony 8, que exige 8.4; com `pdo_mysql`, `redis`, `pcntl`, `zip`, `intl`), Composer, Node 22+, MySQL e Redis.
 
 - **macOS:** `brew install php composer node`, e depois `pecl install redis`. Para o MySQL e o Redis, usar o Docker Desktop com o `compose.yaml` do repositório.
-- **Windows:** usar o **WSL2 com Ubuntu**, porque o Horizon (as filas dos agentes) precisa de `pcntl`, que não existe no PHP de Windows. Dentro do Ubuntu 24.04, instalar o PHP com `sudo apt install php8.3-cli php8.3-{mysql,redis,xml,curl,mbstring,zip,intl,bcmath} composer unzip`. O Node do Ubuntu é antigo: instalar o Node 22 com o [nvm](https://github.com/nvm-sh/nvm) (`nvm install 22`). Para o MySQL e o Redis, usar o Docker Desktop (ligado ao WSL) ou `sudo apt install mysql-server redis-server`.
+- **Windows:** usar o **WSL2 com Ubuntu**, porque o Horizon (as filas dos agentes) precisa de `pcntl`, que não existe no PHP de Windows. Dentro do Ubuntu 24.04, que só traz o PHP 8.3, acrescentar o PPA `ondrej/php` (`sudo add-apt-repository ppa:ondrej/php`) e instalar `sudo apt install php8.4-cli php8.4-{mysql,redis,xml,curl,mbstring,zip,intl,bcmath,gd} unzip`, mais o Composer pelo [instalador oficial](https://getcomposer.org/download/). O Node do Ubuntu é antigo: instalar o Node 22 com o [nvm](https://github.com/nvm-sh/nvm) (`nvm install 22`). Para o MySQL e o Redis, usar o Docker Desktop (ligado ao WSL) ou `sudo apt install mysql-server redis-server`.
 - **Linux:** como no Windows, mas directamente.
 
 **MySQL e Redis com Docker:** na pasta do projecto, `docker compose up -d`. Fica com a base `micomoc_agents`, o utilizador `root` sem palavra-passe e o Redis na porta 6379, que é o que o `.env.example` espera.
