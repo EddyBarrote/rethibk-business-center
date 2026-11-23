@@ -1,9 +1,10 @@
 import { router, useForm } from '@inertiajs/react';
-import { CalendarClock, Mail, Plus, Trash2 } from 'lucide-react';
+import { CalendarClock, KeyRound, Mail, Plus, Trash2 } from 'lucide-react';
 import { type FormEvent } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import AgentDefinitionForm, { type AgentData, type AgentFormOptions } from '@/Components/agents/AgentDefinitionForm';
+import AgentErpIdentity, { type ErpIdentityData } from '@/Components/agents/AgentErpIdentity';
 import { FormSection, str } from '@/Components/agents/FormParts';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { ConfirmDialog } from '@/Components/Dialogs';
@@ -51,6 +52,7 @@ interface Props extends AgentFormOptions {
     agent: AgentData | null;
     routines?: Routine[];
     mailbox?: Mailbox | null;
+    erp_identity?: ErpIdentityData;
 }
 
 const mailboxStatus: Record<string, { label: string; tone: Tone }> = {
@@ -60,7 +62,7 @@ const mailboxStatus: Record<string, { label: string; tone: Tone }> = {
     disabled: { label: 'Desactivada', tone: 'idle' },
 };
 
-export default function AgentForm({ tenant, agent, routines = [], mailbox, ...options }: Props) {
+export default function AgentForm({ tenant, agent, routines = [], mailbox, erp_identity, ...options }: Props) {
     const base = `/tenants/${tenant.id}/agents`;
     const statusLabel = options.statuses.find((status) => status.value === agent?.status)?.label ?? agent?.status;
 
@@ -97,9 +99,11 @@ export default function AgentForm({ tenant, agent, routines = [], mailbox, ...op
                         ? [
                               { id: 'rotinas', label: 'Rotinas', icon: CalendarClock, count: routines.length },
                               { id: 'caixa', label: 'Caixa de correio', icon: Mail },
+                              { id: 'erp', label: 'Identidade no ERP', icon: KeyRound },
                           ]
                         : []
                 }
+                panels={agent && erp_identity ? { erp: <AgentErpIdentity identity={erp_identity} base={`${base}/${agent.id}`} /> } : undefined}
                 after={
                     agent && (
                         <>

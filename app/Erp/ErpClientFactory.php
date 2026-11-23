@@ -18,8 +18,10 @@ final class ErpClientFactory
      * The client for the current tenant. Without a configured connection the
      * .env defaults apply, outside production only: in production a tenant
      * must never fall back to credentials it does not own.
+     *
+     * @param  string|null  $token  an agent's own token, sent instead of the connection's
      */
-    public function forCurrentTenant(): Client
+    public function forCurrentTenant(?string $token = null): Client
     {
         $connection = ErpConnection::query()->currentTenant()->first();
 
@@ -27,10 +29,24 @@ final class ErpClientFactory
             throw new ErpNotConfiguredException;
         }
 
-        return $this->make($connection);
+        return $this->make($connection, $token);
     }
 
-    public function make(?ErpConnection $connection): Client
+    /**
+     * Whether the current tenant's ERP is reached over HTTP, where the token
+     * says who is calling. The local fake ERP has no identities.
+     */
+    public function sendsTokens(): bool
+    {
+        $connection = ErpConnection::query()->currentTenant()->first();
+
+        return ($connection->transport ?? ErpTransport::tryFrom((string) config('erp.transport'))) === ErpTransport::Web;
+    }
+
+    /**
+     * @param  string|null  $token  an agent's own token (docs/DECISOES.md, "Identidade própria de cada agente no ERP")
+     */
+    public function make(?ErpConnection $connection, ?string $token = null): Client
     {
         $transport = $connection->transport ?? ErpTransport::from((string) config('erp.transport'));
         $timeout = (float) config('erp.timeout', 30);
@@ -47,7 +63,7 @@ final class ErpClientFactory
             throw new ErpNotConfiguredException;
         }
 
-        $token = $connection === null ? config('erp.token') : $connection->decryptedToken();
+        $token ??= $connection === null ? config('erp.token') : $connection->decryptedToken();
         $client = Client::web($url)->withoutCache()->withTimeout($timeout);
 
         if (is_string($token) && $token !== '') {

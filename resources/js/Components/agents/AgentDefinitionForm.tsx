@@ -113,6 +113,7 @@ export default function AgentDefinitionForm({
     before,
     after,
     extraSections = [],
+    panels,
     navNote,
     skillsHref,
     capabilitiesHref,
@@ -128,6 +129,8 @@ export default function AgentDefinitionForm({
     before?: ReactNode;
     after?: ReactNode;
     extraSections?: SectionLink[];
+    /** What an extra section shows, by its id, only while its tab is open (outside the agent form). */
+    panels?: Record<string, ReactNode>;
     navNote?: string;
     skillsHref?: string;
     capabilitiesHref?: string;
@@ -744,6 +747,7 @@ export default function AgentDefinitionForm({
                     </div>
                 </form>
 
+                {panels?.[tab]}
                 {after}
             </div>
         </div>

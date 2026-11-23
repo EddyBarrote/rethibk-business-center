@@ -32,6 +32,17 @@ App\Mcp\Servers\FakeErpServer    servidor falso (stdio), estado em ERP_FAKE_STOR
 - **Auditoria:** acções `erp.tools_list`, `erp.tool_call`, `erp.connection_test` e `erp.connection_updated`, com actor (pessoa, agente ou sistema), argumentos, resultado (resumido acima de 8 KB), erro e duração. `AuditLog` recusa alterações e remoções.
 - Um teste de arquitectura impede o uso de `Laravel\Mcp\Client` fora de `App\Erp`. Na E02, as ferramentas do ERP chegam aos agentes através do gateway (e do `GatedTool`), não por `Mcp::client('rethink_erp')->tools()` directamente como no exemplo da secção 8.1, para que nenhuma chamada fuja à auditoria.
 
+## Identidade própria de cada agente (23.11.2026)
+
+Por omissão todos os agentes usam o token da ligação, e o ERP regista o que fazem em nome desse utilizador. Para cada agente agir no ERP como ele próprio, só com as suas ferramentas (decisão em [DECISOES.md](DECISOES.md), «Identidade própria de cada agente no ERP»):
+
+1. **No ERP**, criar um utilizador (staff) para o agente, por exemplo «Agente de Finanças (MICOMOC)», com as permissões do Perfex de que o trabalho dele precisa.
+2. Em **Setup → MCP Server**, criar um **token estático** para esse utilizador e marcar **só as ferramentas desse agente**: as das capacidades do ERP que ele tem ligadas (Agentes › Editar › Capacidades) e as leituras que as capacidades da plataforma fazem por trás, se ele as tiver: ficha de cliente `get_customer`, `list_projects`, `list_invoices`; margens dos projectos `list_projects`, `get_project`, `list_expenses`, `list_invoices`; contas a receber e reconciliação `list_invoices`; procurar leads `get_customer`, `list_leads`. O ERP mostra o token uma só vez.
+3. **Na plataforma**, em Agentes › *agente* › Editar › **Identidade no ERP** (ou na consola do super admin, no mesmo separador), colar o token e «Guardar token».
+4. **«Testar identidade no ERP»** mostra o utilizador do ERP com que o token age (pelo `whoami`), quantas ferramentas vê e quais das ferramentas do agente faltam. Marcar as que faltam no token, no ERP, e testar outra vez.
+
+O token da ligação continua a ser o do catálogo: a sincronização lista as ferramentas com ele, por isso tem de ter marcadas todas as ferramentas que algum agente usa. Uma ferramenta que falte no token do agente, ou um token revogado no ERP, é recusada com uma mensagem clara, sem passar para o token da ligação; a recusa fica na Actividade do ERP e no separador do agente. «Remover token» devolve o agente ao token da ligação (e o token continua válido no ERP até ser revogado lá). Só conta com o servidor MCP do ERP (transporte web); o ERP de demonstração local não tem identidades.
+
 ## Comandos
 
 | Comando | O que faz |
