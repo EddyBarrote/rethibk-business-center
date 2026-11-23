@@ -1,10 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
-import { Activity } from 'lucide-react';
+import { Activity, ScrollText } from 'lucide-react';
 
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
 import { Pagination } from '@/Components/Pagination';
 import { StatusBadge, type Tone } from '@/Components/Status';
+import { buttonVariants } from '@/Components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { ago, dateTime } from '@/lib/format';
@@ -59,6 +60,12 @@ export default function ErpActivity({ calls, filters: current }: Props) {
             <PageHeader
                 title="Actividade do ERP"
                 description="Todas as operações sobre o ERP, da auditoria: chamadas dos agentes e das pessoas, testes de ligação e alterações à configuração."
+                actions={
+                    <Link href="/settings/audit?action=erp." className={buttonVariants({ variant: 'outline' })}>
+                        <ScrollText />
+                        Pesquisar na auditoria
+                    </Link>
+                }
             />
 
             <nav className="flex flex-wrap gap-1" aria-label="Filtrar por resultado">

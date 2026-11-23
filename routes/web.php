@@ -37,6 +37,7 @@ use App\Http\Controllers\Settings\AgentMemoryController;
 use App\Http\Controllers\Settings\AiProviderController;
 use App\Http\Controllers\Settings\ApprovalRuleController;
 use App\Http\Controllers\Settings\AttachmentSettingsController;
+use App\Http\Controllers\Settings\AuditController;
 use App\Http\Controllers\Settings\BrandController;
 use App\Http\Controllers\Settings\CompanyMemoryController;
 use App\Http\Controllers\Settings\DepartmentController;
@@ -245,6 +246,9 @@ Route::middleware('auth')->group(function () {
         Route::get('attachments', [AttachmentSettingsController::class, 'show'])->name('settings.attachments.show');
         Route::put('attachments', [AttachmentSettingsController::class, 'update'])->name('settings.attachments.update');
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->names('settings.departments');
+        // Auditoria (docs/DECISOES.md, "Auditoria pesquisável e exportável")
+        Route::get('audit', [AuditController::class, 'index'])->name('settings.audit.index');
+        Route::get('audit/export', [AuditController::class, 'export'])->middleware('throttle:10,1')->name('settings.audit.export');
 
         // Pessoas e acessos
         Route::resource('users', UserController::class)->except(['show', 'destroy'])->names('settings.users');
