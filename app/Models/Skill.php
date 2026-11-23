@@ -101,6 +101,29 @@ class Skill extends Model
     }
 
     /**
+     * Every version of its content, newest first (docs/DECISOES.md, "Latência,
+     * taxa de erro e versões das skills"). An activated global skill has none:
+     * its versions are the platform skill's.
+     *
+     * @return HasMany<SkillVersion, $this>
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(SkillVersion::class)->orderByDesc('number');
+    }
+
+    /**
+     * The number of the version agents read now: the skill's own, or the
+     * global one's.
+     */
+    public function versionNumber(): ?int
+    {
+        $number = $this->platform_skill_id !== null ? $this->platformSkill?->versions()->reorder()->max('number') : $this->versions()->reorder()->max('number');
+
+        return $number === null ? null : (int) $number;
+    }
+
+    /**
      * @return BelongsToMany<Agent, $this, AgentSkill>
      */
     public function agents(): BelongsToMany

@@ -3,6 +3,7 @@
 namespace App\Ai\Agents;
 
 use App\Ai\Capabilities\CapabilityRegistry;
+use App\Ai\Skills\SkillVersions;
 use App\Enums\AgentStatus;
 use App\Enums\AuditResult;
 use App\Enums\AutonomyLevel;
@@ -29,7 +30,7 @@ final class NewColleagues
     /** A new agent starts low; its trust rises later with agents.set_trust_level. */
     public const MAX_START_LEVEL = AutonomyLevel::Suggest;
 
-    public function __construct(private readonly AgentEditor $editor) {}
+    public function __construct(private readonly AgentEditor $editor, private readonly SkillVersions $versions) {}
 
     /**
      * @param  array<string, mixed>  $arguments
@@ -197,6 +198,7 @@ final class NewColleagues
             $skill = new Skill([...array_intersect_key($data, array_flip(['key', 'name', 'description', 'instructions', 'all_agents'])), 'is_enabled' => true]);
             $skill->forceFill(['created_by_user_id' => $approver->id])->save();
             $skill->agents()->sync($data['agents']);
+            $this->versions->record($skill, $approver);
 
             return $skill;
         });

@@ -30,8 +30,7 @@ final class SkillFiles
     public function attach(Skill|PlatformSkill $skill, UploadedFile $file, ?string $filename = null): SkillFile|PlatformSkillFile
     {
         $filename = Str::limit($filename ?? $file->getClientOriginalName(), 200, '');
-        $folder = $skill instanceof PlatformSkill ? "skills/platform/{$skill->id}" : "skills/{$skill->tenant_id}/{$skill->id}";
-        $path = $file->storeAs($folder, Str::random(8).'-'.Str::slug(pathinfo($filename, PATHINFO_FILENAME)).'.'.Str::lower(pathinfo($filename, PATHINFO_EXTENSION)), self::DISK);
+        $path = $file->storeAs($this->folder($skill), Str::random(8).'-'.Str::slug(pathinfo($filename, PATHINFO_FILENAME)).'.'.Str::lower(pathinfo($filename, PATHINFO_EXTENSION)), self::DISK);
 
         $attributes = [
             'filename' => $filename,
@@ -51,9 +50,27 @@ final class SkillFiles
         return $skill->files()->create($attributes);
     }
 
+    /**
+     * The file leaves the skill. Its stored copy stays: the skill's earlier
+     * versions point at it, and restoring one brings it back (SkillVersions).
+     */
     public function detach(SkillFile|PlatformSkillFile $file): void
     {
-        Storage::disk(self::DISK)->delete($file->path);
         $file->delete();
+    }
+
+    /**
+     * The skill is deleted: every stored file of it goes, those of its
+     * earlier versions too.
+     */
+    public function purge(Skill|PlatformSkill $skill): void
+    {
+        $skill->files()->reorder()->delete();
+        Storage::disk(self::DISK)->deleteDirectory($this->folder($skill));
+    }
+
+    private function folder(Skill|PlatformSkill $skill): string
+    {
+        return $skill instanceof PlatformSkill ? "skills/platform/{$skill->id}" : "skills/{$skill->tenant_id}/{$skill->id}";
     }
 }

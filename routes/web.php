@@ -283,6 +283,8 @@ Route::middleware('auth')->group(function () {
         Route::put('skills/global/{platformSkill}', [SkillController::class, 'toggleGlobal'])->name('skills.global');
         Route::post('skills/{skill}/files', [SkillController::class, 'storeFile'])->name('skills.files.store');
         Route::delete('skills/{skill}/files/{file}', [SkillController::class, 'destroyFile'])->name('skills.files.destroy');
+        Route::get('skills/{skill}/versions/{number}', [SkillController::class, 'version'])->whereNumber('number')->name('skills.versions.show');
+        Route::post('skills/{skill}/versions/{number}/restore', [SkillController::class, 'restoreVersion'])->whereNumber('number')->name('skills.versions.restore');
         // Fluxos de trabalho, Rotinas e Execuções (docs/DECISOES.md, "Fluxos, Rotinas e Execuções nas Definições")
         Route::get('workflows', [WorkflowController::class, 'index'])->name('workflows.index');
         Route::get('workflows/new', [WorkflowController::class, 'create'])->name('workflows.create');

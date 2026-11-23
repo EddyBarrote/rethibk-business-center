@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Activity, MessagesSquare } from 'lucide-react';
+import { Activity, MessagesSquare, X } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { EntityRow, ListHeader, ListPanel } from '@/Components/Blocks';
@@ -23,13 +23,14 @@ const statuses = [
     ['failed', 'Falhadas'],
 ];
 
-/** Where a run came from. "Trabalho" is everything but conversations, which are grouped by conversation. */
+/** Where a run came from. "Trabalho" is everything but conversations, which are grouped by conversation; "Tudo" lists every run. */
 const origins = [
     ['', 'Trabalho'],
     ['rotina', 'Rotinas'],
     ['tarefa', 'Tarefas'],
     ['email', 'Email'],
     ['conversa', 'Conversas'],
+    ['todas', 'Tudo'],
 ] as const;
 
 interface ConversationGroup {
@@ -47,14 +48,17 @@ export default function RunsIndex({
     runs,
     conversations,
     filters,
+    agent,
 }: {
     runs: Paginated<RunSummary> | null;
     conversations: Paginated<ConversationGroup> | null;
-    filters: { status: string | null; origin: string | null };
+    filters: { status: string | null; origin: string | null; agent?: number | null };
+    /** One agent's run log, opened from its page or from Consumo de IA. */
+    agent?: { id: number; name: string } | null;
 }) {
     const toolNames = useToolNames();
-    const visit = (next: { status?: string | null; origin?: string | null }) => {
-        const params = { status: filters.status, origin: filters.origin, ...next };
+    const visit = (next: { status?: string | null; origin?: string | null; agent?: number | null }) => {
+        const params = { status: filters.status, origin: filters.origin, agent: filters.agent, ...next };
         router.get('/settings/runs', Object.fromEntries(Object.entries(params).filter(([, value]) => value)), { preserveState: true });
     };
 
@@ -76,6 +80,24 @@ export default function RunsIndex({
                         ))}
                     </TabsList>
                 </Tabs>
+                {agent && (
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">Só as de</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-md border bg-card py-0.5 pr-1 pl-1.5">
+                            <AgentAvatar name={agent.name} className="size-5 rounded text-[9px]" />
+                            {agent.name}
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-5"
+                                aria-label="Ver as de todos os agentes"
+                                onClick={() => visit({ agent: null })}
+                            >
+                                <X className="size-3" />
+                            </Button>
+                        </span>
+                    </div>
+                )}
                 <div className="scroll-fade flex gap-1 overflow-x-auto" role="group" aria-label="Origem">
                     {origins.map(([value, label]) => (
                         <Button

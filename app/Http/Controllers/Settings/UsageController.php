@@ -2,19 +2,25 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Ai\Autonomy\PeopleData;
 use App\Ai\Budget\BudgetGuard;
+use App\Ai\Runs\RunMetrics;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AiCharge;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * Consumo de IA: what the agents spent this month against the caps Rethink
- * sets for the organisation (Admin › Organização). Read only; raising a cap
+ * sets for the organisation (Admin › Organização), and per agent, for a
+ * chosen period, runs, failures, error rate, latency and cost (docs/DECISOES.md,
+ * "Latência, taxa de erro e versões das skills"). Read only; raising a cap
  * goes through a budget exception approval.
  */
 class UsageController extends Controller
@@ -24,32 +30,29 @@ class UsageController extends Controller
         'knowledge.view' => 'Agentes a ver o original de ficheiros',
     ];
 
-    public function __invoke(Request $request, BudgetGuard $guard): Response
+    /** The rolling period, besides the last six months. */
+    private const LAST_30_DAYS = '30d';
+
+    public function __invoke(Request $request, BudgetGuard $guard, RunMetrics $metrics): Response
     {
-        abort_unless($this->user($request)->hasPermission(Permission::ViewCosts), 403);
+        $user = $this->user($request);
+        abort_unless($user->hasPermission(Permission::ViewCosts), 403);
+
+        $months = collect(range(5, 0))->map(fn (int $back) => CarbonImmutable::now()->startOfMonth()->subMonthsNoOverflow($back));
+        $selected = $request->validate([
+            'period' => ['nullable', 'string', Rule::in([self::LAST_30_DAYS, ...$months->map->format('Y-m')->all()])],
+        ])['period'] ?? now()->format('Y-m');
+        $month = $months->first(fn (CarbonImmutable $month) => $month->format('Y-m') === $selected);
+        [$from, $to] = $month === null ? [CarbonImmutable::now()->subDays(30), null] : [$month, $month->addMonthNoOverflow()];
+        $isThisMonth = $selected === now()->format('Y-m');
 
         $budget = $guard->budget();
-        $start = now()->startOfMonth();
 
-        $perAgent = AgentRun::query()
-            ->where('created_at', '>=', $start)
-            ->selectRaw('agent_id, count(*) as runs, coalesce(sum(cost_usd), 0) as spent')
-            ->groupBy('agent_id')
-            ->get();
-        $agents = Agent::query()->whereIn('id', $perAgent->pluck('agent_id'))->get()->keyBy('id');
-
-        $months = collect(range(5, 0))->map(function (int $back) {
-            $from = now()->startOfMonth()->subMonths($back);
-            $row = AgentRun::query()
-                ->where('created_at', '>=', $from)
-                ->where('created_at', '<', $from->copy()->addMonth())
-                ->selectRaw('count(*) as runs, coalesce(sum(cost_usd), 0) as spent')
-                ->first();
-
-            $charges = (float) AiCharge::query()->where('created_at', '>=', $from)->where('created_at', '<', $from->copy()->addMonth())->sum('cost_usd');
-
-            return ['period' => $from->format('Y-m'), 'runs' => (int) $row?->getAttribute('runs'), 'spent' => round((float) $row?->getAttribute('spent') + $charges, 4)];
-        });
+        // A confidential agent exists only for people who may manage people (PeopleData):
+        // its row is left out, its cost stays in the organisation's totals.
+        $hidden = PeopleData::hiddenAgentIds($user);
+        $perAgent = $metrics->perAgent($from, $to);
+        $agents = Agent::query()->whereIn('id', $perAgent->keys())->get()->keyBy('id');
 
         return Inertia::render('Settings/Usage', [
             'period' => now()->format('Y-m'),
@@ -60,25 +63,47 @@ class UsageController extends Controller
             'extra' => $budget->tenantMonthly === null ? 0 : round($guard->tenantCap() - $budget->tenantMonthly, 2),
             'agent_cap' => $budget->agentMonthly,
             'run_cap' => $budget->perRun,
+            'selected' => $selected,
+            // The last six months, newest first, then the rolling 30 days.
+            'periods' => [...$months->reverse()->map(fn (CarbonImmutable $month) => $month->format('Y-m'))->values()->all(), self::LAST_30_DAYS],
             'agents' => $perAgent
-                ->map(function (AgentRun $row) use ($agents, $guard, $budget) {
-                    $agent = $agents->get($row->agent_id);
+                ->reject(fn (array $row) => in_array($row['agent_id'], $hidden, true))
+                ->map(function (array $row) use ($agents, $guard, $budget, $isThisMonth) {
+                    $agent = $agents->get($row['agent_id']);
 
                     return [
-                        'id' => $row->agent_id,
+                        'id' => $row['agent_id'],
                         'name' => $agent->name ?? 'Agente apagado',
                         'avatar_url' => $agent?->avatarUrl(),
-                        'runs' => (int) $row->getAttribute('runs'),
-                        'spent' => round((float) $row->getAttribute('spent'), 4),
-                        'cap' => $agent !== null && $budget->agentMonthly !== null ? round($guard->agentCap($agent), 2) : null,
+                        'runs' => $row['runs'],
+                        'failed' => $row['failed'],
+                        'finished' => $row['completed'] + $row['failed'],
+                        'error_rate' => $row['error_rate'],
+                        'p50_ms' => $row['p50_ms'],
+                        'p90_ms' => $row['p90_ms'],
+                        'spent' => $row['spent'],
+                        // The monthly cap only means something for the month it caps.
+                        'cap' => $isThisMonth && $agent !== null && $budget->agentMonthly !== null ? round($guard->agentCap($agent), 2) : null,
                     ];
                 })
                 ->sortByDesc('spent')
                 ->values(),
-            'months' => $months,
+            'hidden_spent' => round((float) $perAgent->filter(fn (array $row) => in_array($row['agent_id'], $hidden, true))->sum('spent'), 4),
+            'months' => $months->map(function (CarbonImmutable $from) {
+                $row = AgentRun::query()
+                    ->where('created_at', '>=', $from)
+                    ->where('created_at', '<', $from->addMonthNoOverflow())
+                    ->selectRaw('count(*) as runs, coalesce(sum(cost_usd), 0) as spent')
+                    ->first();
+
+                $charges = (float) AiCharge::query()->where('created_at', '>=', $from)->where('created_at', '<', $from->addMonthNoOverflow())->sum('cost_usd');
+
+                return ['period' => $from->format('Y-m'), 'runs' => (int) $row?->getAttribute('runs'), 'spent' => round((float) $row?->getAttribute('spent') + $charges, 4)];
+            })->values(),
             // Model calls outside agent runs (docs/DECISOES.md, 14.10.2026), also counted in "spent".
             'other' => AiCharge::query()
-                ->where('created_at', '>=', $start)
+                ->where('created_at', '>=', $from)
+                ->when($to !== null, fn ($query) => $query->where('created_at', '<', $to))
                 ->selectRaw('purpose, count(*) as calls, coalesce(sum(cost_usd), 0) as spent')
                 ->groupBy('purpose')
                 ->get()

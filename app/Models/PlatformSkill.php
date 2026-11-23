@@ -34,6 +34,16 @@ class PlatformSkill extends Model
         return $this->hasMany(PlatformSkillFile::class)->orderBy('filename');
     }
 
+    /**
+     * Every version of its content, newest first.
+     *
+     * @return HasMany<PlatformSkillVersion, $this>
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(PlatformSkillVersion::class)->orderByDesc('number');
+    }
+
     protected function casts(): array
     {
         return ['is_active' => 'boolean'];

@@ -52,6 +52,9 @@ export const duration = (ms: number | null | undefined) => {
 
     return `${minutes} min ${String(Math.round((ms % 60_000) / 1000)).padStart(2, '0')} s`;
 };
+const shareFormat = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 });
+/** An error rate (0 to 1) as "4,2%"; a dash when no run finished. */
+export const errorRate = (rate: number | null | undefined) => (rate === null || rate === undefined ? '—' : `${shareFormat.format(rate * 100)}%`);
 /** "1 agente", "3 agentes": plurals written out, never "agente(s)". */
 export const plural = (count: number, one: string, many: string) => `${numberFormat.format(count)} ${count === 1 ? one : many}`;
 export const mzn = (value: number | null | undefined) => (value === null || value === undefined ? '—' : mznFormat.format(value));
