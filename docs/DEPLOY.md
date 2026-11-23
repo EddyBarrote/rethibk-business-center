@@ -72,7 +72,7 @@ O Nginx (`deploy/nginx/micomoc.conf`) é o mesmo nas duas: `server_name .platafo
 
 ### Domínio próprio de um tenant
 
-Uma empresa pode ter o seu próprio endereço (`tenants.domain`, por exemplo `agentes.micomoc.co.mz`), definido em Super admin › Organizações › Perfil › Domínio próprio. Precisa de: um registo A desse nome para o servidor, um certificado próprio (`certbot certonly --webroot -w /var/www/letsencrypt --cert-name micomoc-dominio -d agentes.micomoc.co.mz`) e um `server` no Nginx igual ao da plataforma, com esse `server_name` e esse certificado (copiar o bloco de `micomoc.conf` para `/etc/nginx/sites-available/micomoc-dominios.conf`). O Reverb continua em `ws.<central>`; o login nesse domínio tem sessão própria.
+Uma empresa pode ter o seu próprio endereço (`tenants.domain`, por exemplo `agentes.micomoc.com`), definido em Super admin › Organizações › Perfil › Domínio próprio. Precisa de: um registo A desse nome para o servidor, um certificado próprio (`certbot certonly --webroot -w /var/www/letsencrypt --cert-name micomoc-dominio -d agentes.micomoc.com`) e um `server` no Nginx igual ao da plataforma, com esse `server_name` e esse certificado (copiar o bloco de `micomoc.conf` para `/etc/nginx/sites-available/micomoc-dominios.conf`). O Reverb continua em `ws.<central>`; o login nesse domínio tem sessão própria.
 
 ## 3. Instalar o servidor (`provision.sh`)
 
@@ -148,18 +148,20 @@ alias art='sudo -u micomoc php artisan'
 art admin:create ops@rethink.co.mz --name="Equipa Rethink"
 
 # A empresa e o seu proprietário (pede a palavra-passe, mínimo 8)
-art tenant:create "MICOMOC" micomoc --owner-name="Nome Apelido" --owner-email=direccao@micomoc.co.mz
+art tenant:create "MICOMOC" micomoc --owner-name="Nome Apelido" --owner-email=direccao@micomoc.com
 
-# Os seis agentes da proposta, em rascunho (não correm até serem activados um a um)
-art agents:install-templates micomoc --draft
+# O pacote da MICOMOC (docs/PACOTE-DA-EMPRESA.md), copiado à parte para o servidor, nunca pelo git:
+# marca e logótipo, departamentos, os seis agentes em rascunho no seu departamento, factos e catálogos
+art tenant:load-pack micomoc /home/micomoc/pacote --draft
+# (sem pacote: art agents:install-templates micomoc --draft)
 
 # Depois de ligar o ERP (secção 6): as ferramentas do ERP entram no catálogo de capacidades
 art capabilities:sync micomoc
 ```
 
-A empresa também se cria na consola (`https://admin.plataforma…` › Organizações › Nova). Lá se completa o perfil: denominação social, NUIT, contacto, **domínio das caixas** (por exemplo `agentes.micomoc.co.mz`), retenção do email bruto, **orçamento de IA** (secção 11) e regras de negócio (SLA, margem mínima, alerta de orçamento, pré-aviso de contratos). Os modelos de agentes também se instalam aí (Modelos de agentes).
+A empresa também se cria na consola (`https://admin.plataforma…` › Organizações › Nova). Lá se completa o perfil: denominação social, NUIT, contacto, **domínio das caixas** (por exemplo `agentes.micomoc.com`), retenção do email bruto, **orçamento de IA** (secção 11) e regras de negócio (SLA, margem mínima, alerta de orçamento, pré-aviso de contratos). Os modelos de agentes também se instalam aí (Modelos de agentes).
 
-Depois, como proprietário em `https://micomoc.plataforma…`: Definições › Departamentos, Utilizadores (cada pessoa com o papel certo e a quem reporta) e Papéis e acessos.
+Depois, como proprietário em `https://micomoc.plataforma…`: rever os factos pendentes em Memória da empresa; Definições › Utilizadores (cada pessoa com o papel certo e a quem reporta) e Papéis e acessos.
 
 Só num servidor que tenha o tenant de testes da Rethink (staging): `RETHINK_ERP_URL`, `RETHINK_ERP_TOKEN` e `RETHINK_OWNER_PASSWORD` no `.env` e `art db:seed --class=RethinkSeeder --force`. No servidor da MICOMOC, nunca.
 
@@ -322,6 +324,7 @@ Fica preenchida e assinada no registo de aceitação. Nada de valores inventados
 **Pessoas e papéis**
 - [ ] Super admins da Rethink criados (`admin:create`), um por pessoa.
 - [ ] Empresa MICOMOC com perfil completo (denominação, NUIT, contacto, domínio das caixas, retenção).
+- [ ] Pacote da empresa carregado (`tenant:load-pack micomoc … --draft`): marca e logótipo, os sete departamentos do organigrama, factos e catálogos; os factos pendentes (por exemplo o ano de início, 2014 ou 2015) decididos com a MICOMOC em Memória da empresa.
 - [ ] Pessoas reais, uma a uma, da lista entregue pela MICOMOC: departamento, cargo, papel (proprietário, administrador, chefia, membro) e a quem reporta; «Gerir pessoas e papéis» só para quem a MICOMOC indicar. Nenhuma conta de demonstração.
 
 **Agentes**

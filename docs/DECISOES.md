@@ -1885,3 +1885,22 @@ Pedido do Barrote: um nome e um logótipo melhores para o sistema. Das três pro
 | **Ícones**: `favicon.svg`, `favicon.ico` (16, 32 e 48 px, cantos transparentes) e `apple-touch-icon.png` (180 px, sem cantos, porque o iOS arredonda). | `public/`, `resources/views/app.blade.php` |
 | **Emails**: o email de nova palavra-passe assina «Rethink.OS». Os emails dos agentes e os documentos continuam com a marca de cada empresa. | `AppServiceProvider` |
 | **Por verificar**: não se fez pesquisa de marca registada nem de domínio; uma pesquisa na web não encontrou nenhum produto com este nome. O título dos separadores do browser vem de `PRODUCT_NAME` (`app.tsx`), para um `.env` antigo não manter o nome velho; o `APP_NAME` de cada `.env` (o título antes de a página carregar e o remetente dos emails) muda-se à mão em cada instalação. | `resources/js/app.tsx` |
+
+## Pacote da empresa e a MICOMOC real (23.11.2026)
+
+O Barrote entregou os documentos da MICOMOC: o perfil da empresa de 2025, três catálogos de EPI (protecção auditiva, protecção ocular e vestuário) e o papel timbrado. Pediu que a empresa ficasse configurada a partir deles.
+
+| Decisão | Onde |
+|---|---|
+| **Um pacote fora do repositório, não um seeder.** Os dados do cliente (logótipo, clientes, catálogos) não entram no git. O código é genérico (`tenant:load-pack`) e serve para a próxima empresa. O pacote da MICOMOC está em `business-center/micomoc-docs/pack/`, ao lado dos PDFs de onde saiu. | `App\Tenancy\TenantPack`, `docs/PACOTE-DA-EMPRESA.md` |
+| **O organigrama real:** Direcção-Geral, com Administração, Desenvolvimento de Negócio, Procurement, Operações, Engenharia e Eléctrica, e Logística. Os departamentos que os modelos criam (Direcção Comercial, Financeira, de Operações, de RH) saem quando ficam vazios. | `company.json` do pacote |
+| **Onde fica cada agente:** Triagem e Gestor de Clientes em Desenvolvimento de Negócio (a caixa comercial@ e os pedidos de cotação chegam aí); Chief of Staff na Direcção-Geral; Compras em Procurement; Finanças e o Director de RH na Administração, porque o organigrama não tem Finanças nem RH. Operações, Engenharia e Logística ficam sem agente por agora. | `company.json` |
+| **A chefia de cada agente** é a chefia do seu departamento ou, sem ela, o proprietário. O agente de RH só responde a quem pode ver dados de pessoal. | `TenantPack::chefia()` |
+| **A marca da MICOMOC:** carmim #8F1933 (o do logótipo no papel timbrado), dourado #D69E29 como cor de destaque, letra Montserrat. O logótipo foi recortado do papel timbrado, com fundo transparente. Um vectorial da MICOMOC fica melhor nos PDF. | `company.json`, `logo.png` |
+| **Factos:** doze publicados (o que a empresa diz de si no perfil, com a fonte) e três pendentes para a MICOMOC confirmar: as duas regras sobre preços e normas, e o ano de início (2015 no perfil, 2014 nos catálogos). | `facts.json` |
+| **Conhecimento:** um artigo por catálogo (produto, marca e código, nível de protecção, norma) e um com o perfil, os sectores, os serviços e os projectos, em Produtos e serviços e em Empresa. Os catálogos não têm preços: os preços vêm do ERP. | `knowledge/*.md` |
+| **O domínio de email da MICOMOC é `micomoc.com`** (comercial@micomoc.com no perfil e no papel timbrado), não `micomoc.co.mz` como supunha a especificação. Os exemplos do guia de instalação foram corrigidos; a SPEC fica como foi escrita. | `docs/DEPLOY.md` |
+| **Fica de fora:** as pessoas reais (a MICOMOC entrega a lista), o ERP, as caixas e as chaves. Também ficam de fora os contratos com clientes: o perfil cita projectos, mas sem cliente, valor nem datas certas, e nada se inventa. | `docs/PACOTE-DA-EMPRESA.md`, «O que o pacote não faz» |
+
+Testes: `tests/Feature/Tenancy/LoadTenantPackTest.php`, com um pacote fictício em `tests/Fixtures/tenant-pack/`.
+

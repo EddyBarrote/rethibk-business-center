@@ -8,6 +8,7 @@ MICOMOC é o primeiro tenant. Ref: RT-2026-MCM-01.
 - **Como testar:** [`docs/TESTAR.md`](docs/TESTAR.md)
 - Decisões tomadas: [`docs/DECISOES.md`](docs/DECISOES.md)
 - **Instalar em produção:** [`docs/DEPLOY.md`](docs/DEPLOY.md) (scripts em [`deploy/`](deploy))
+- Configurar uma empresa a partir dos seus documentos: [`docs/PACOTE-DA-EMPRESA.md`](docs/PACOTE-DA-EMPRESA.md)
 - Contrato para a equipa do ERP: [`docs/ERP-MCP-CONTRACT.md`](docs/ERP-MCP-CONTRACT.md)
 
 ## Stack

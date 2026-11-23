@@ -1,0 +1,5 @@
+[
+  { "section": "about", "content": "A Acme Industrial fornece EPI a petrolíferas e mineradoras. (Perfil de teste)" },
+  { "section": "clients", "content": "Clientes de referência: Mina Norte e Gás do Sul. (Perfil de teste)" },
+  { "section": "rules", "content": "Os preços vêm sempre do ERP.", "status": "pending" }
+]

@@ -369,7 +369,7 @@ export default function TenantsShow({ tenant, usage, agents, budgetEvents, templ
                                             id="mail_domain"
                                             label="Domínio das caixas"
                                             error={errors.mail_domain}
-                                            hint="Ex.: agentes.micomoc.co.mz"
+                                            hint="Ex.: agentes.micomoc.com"
                                         >
                                             <Input
                                                 id="mail_domain"

@@ -1,0 +1,27 @@
+{
+  "source": "Pacote de teste: uma empresa fictícia",
+  "brand": {
+    "color": "#8F1933",
+    "accent_color": "#D69E29",
+    "font": "Montserrat",
+    "footer": "Acme Industrial · Maputo",
+    "logo": "logo.png"
+  },
+  "owner_department": "Direcção-Geral",
+  "departments": [
+    { "name": "Direcção-Geral" },
+    { "name": "Administração", "parent": "Direcção-Geral" },
+    { "name": "Desenvolvimento de Negócio", "parent": "Direcção-Geral" },
+    { "name": "Procurement", "parent": "Direcção-Geral" },
+    { "name": "Logística", "parent": "Direcção-Geral" }
+  ],
+  "remove_empty_departments": true,
+  "agents": {
+    "triage": { "department": "Desenvolvimento de Negócio", "description": "Lê a caixa comercial e passa cada email a quem o trata.", "suggestions": ["O que entrou hoje?"] },
+    "chief_of_staff": { "department": "Direcção-Geral" },
+    "client_manager": { "department": "Desenvolvimento de Negócio" },
+    "procurement": { "department": "Procurement", "description": "Sourcing e compras para os pedidos dos clientes." },
+    "finance": { "department": "Administração" },
+    "hr": { "department": "Administração" }
+  }
+}
