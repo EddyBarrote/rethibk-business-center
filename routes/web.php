@@ -5,6 +5,7 @@ use App\Http\Controllers\AgentAvatarController;
 use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AgentDefinitionController;
 use App\Http\Controllers\AgentRunController;
+use App\Http\Controllers\AgentValueLimitController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
@@ -99,6 +100,7 @@ Route::middleware('auth')->group(function () {
     Route::post('agents/{agent}/runs', [AgentController::class, 'run'])->middleware('throttle:20,1')->name('agents.run');
     Route::put('agents/{agent}/status', [AgentController::class, 'updateStatus'])->name('agents.status');
     Route::put('agents/{agent}/assignees', [AgentController::class, 'updateAssignees'])->name('agents.assignees');
+    Route::put('agents/{agent}/value-limit', [AgentValueLimitController::class, 'update'])->name('agents.value-limit');
     Route::put('agents/{agent}/memories/{memory}', [AgentController::class, 'updateMemory'])->name('agents.memories.update');
     Route::delete('agents/{agent}/memories/{memory}', [AgentController::class, 'destroyMemory'])->name('agents.memories.destroy');
 

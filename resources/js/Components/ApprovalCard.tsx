@@ -1,5 +1,5 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { Check, CheckCheck, ChevronRight, Code2, Loader2, Lock, ShieldAlert, ShieldQuestion, Sparkles, X } from 'lucide-react';
+import { Banknote, Check, CheckCheck, ChevronRight, Code2, Loader2, Lock, ShieldAlert, ShieldQuestion, Sparkles, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
@@ -50,7 +50,7 @@ export function useCanAllowAlways(approval: { can_always?: boolean }) {
     return approval.can_always === true && permissions.includes('agents.manage');
 }
 
-/** Why a person has to decide: the absolute ceiling, a standing rule, or the agent's level below what the action needs. */
+/** Why a person has to decide: the absolute ceiling, the agent's value limit, a standing rule, or the agent's level below what the action needs. */
 export function Reason({ approval, short = false }: { approval: ApprovalSummary; short?: boolean }) {
     if (approval.ceiling_reason) {
         return short ? (
@@ -66,6 +66,22 @@ export function Reason({ approval, short = false }: { approval: ApprovalSummary;
                 <Lock className="mt-0.5 size-3.5 shrink-0" />
                 <span className="min-w-0 break-words">
                     <span className="font-medium">Tecto absoluto: decide sempre uma pessoa.</span> {approval.ceiling_reason}
+                </span>
+            </p>
+        );
+    }
+
+    if (approval.value_limit_reason) {
+        return short ? (
+            <span className="inline-flex min-w-0 items-center gap-1 text-warning-strong" title={approval.value_limit_reason}>
+                <Banknote className="size-3 shrink-0" />
+                <span className="truncate">Limite de valor</span>
+            </span>
+        ) : (
+            <p className="flex items-start gap-2 rounded-lg bg-status-warning/10 px-3 py-2 text-xs text-warning-strong">
+                <Banknote className="mt-0.5 size-3.5 shrink-0" />
+                <span className="min-w-0 break-words">
+                    <span className="font-medium">Limite de valor: decide uma pessoa.</span> {approval.value_limit_reason}.
                 </span>
             </p>
         );
@@ -190,7 +206,7 @@ export function ApprovalCard({
 
     const pending = approval.status === 'pending';
     const executed = approval.status === 'approved' && approval.execution_status !== 'not_executed';
-    // Selected to decide in bulk: rejecting covers everything, approving skips the absolute ceiling.
+    // Selected to decide in bulk: rejecting covers everything, approving skips the absolute ceiling and the value limit.
     const bulkable = approval.can_decide && pending;
 
     return (
@@ -209,7 +225,13 @@ export function ApprovalCard({
                         disabled={!bulkable}
                         onCheckedChange={(on) => onSelectedChange?.(on === true)}
                         aria-label={`Seleccionar: ${title}`}
-                        title={approval.ceiling_reason ? 'Tecto absoluto: em bloco só se rejeita; aprova-se à parte' : undefined}
+                        title={
+                            approval.ceiling_reason
+                                ? 'Tecto absoluto: em bloco só se rejeita; aprova-se à parte'
+                                : approval.value_limit_reason
+                                  ? 'Limite de valor: em bloco só se rejeita; aprova-se à parte'
+                                  : undefined
+                        }
                     />
                 )}
                 <AgentAvatar name={approval.agent.name} className="mt-0.5 size-7" />

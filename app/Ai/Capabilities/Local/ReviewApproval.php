@@ -65,7 +65,7 @@ final class ReviewApproval extends LocalCapability
 
         $decision = $data['decision'];
 
-        if ($decision === 'approve' && ($approval->ceiling_reason !== null || $agent->autonomy_level->value < $approval->required_level->value)) {
+        if ($decision === 'approve' && ($approval->ceiling_reason !== null || $approval->value_limit_reason !== null || $agent->autonomy_level->value < $approval->required_level->value)) {
             $decision = 'escalate';
             $data['note'] .= " (Acima do nível de {$agent->name}: decide uma pessoa.)";
         }

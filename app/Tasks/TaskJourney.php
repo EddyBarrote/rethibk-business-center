@@ -270,6 +270,7 @@ final class TaskJourney
 
         $chips = array_values(array_filter([
             $approval->ceiling_reason ? 'Tecto: '.Str::limit($approval->ceiling_reason, 120) : null,
+            $approval->value_limit_reason ? 'Limite: '.Str::limit($approval->value_limit_reason, 120) : null,
             $approval->decision_note ? 'Nota: '.Str::limit($approval->decision_note, 120) : null,
         ]));
 
@@ -277,8 +278,13 @@ final class TaskJourney
         $task = $run ? $this->tasks->get($run->task_id) : null;
 
         return $this->hop($approval->created_at, 'approval', $agent ? $this->actor($agent, $approval->created_at) : null, $to,
-            $approval->ceiling_reason ? 'ceiling' : 'level',
-            $approval->ceiling_reason ? 'Tecto absoluto' : ($byAgent ? 'Revalida o Chief of Staff' : 'Aprovação'),
+            $approval->ceiling_reason || $approval->value_limit_reason ? 'ceiling' : 'level',
+            match (true) {
+                $approval->ceiling_reason !== null => 'Tecto absoluto',
+                $approval->value_limit_reason !== null => 'Limite de valor',
+                $byAgent => 'Revalida o Chief of Staff',
+                default => 'Aprovação',
+            },
             $approval->action_summary,
             chips: $chips,
             seconds: (int) $approval->created_at->diffInSeconds($approval->decided_at ?? $this->now, true),

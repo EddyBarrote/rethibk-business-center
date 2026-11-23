@@ -104,9 +104,11 @@ export interface ApprovalSummary {
     required_level: number;
     agent_level: number;
     ceiling_reason: string | null;
+    /** Above the agent's value limit (docs/DECISOES.md, "Limite de valor por agente"): a person decides, one at a time. */
+    value_limit_reason?: string | null;
     /** The standing rule that asked for it (docs/DECISOES.md, "Regras de aprovação"). */
     rule_label: string | null;
-    /** Whether «Permitir sempre» may come out of it: not under the ceiling nor decided by a permission. */
+    /** Whether «Permitir sempre» may come out of it: not under the ceiling or the value limit, nor decided by a permission. */
     can_always: boolean;
     status: 'pending' | 'approved' | 'rejected' | 'expired';
     status_label: string;

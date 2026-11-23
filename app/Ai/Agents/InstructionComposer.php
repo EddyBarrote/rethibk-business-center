@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Autonomy\ValueLimits;
 use App\Ai\Memory\CompanyMemory;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Skills\AgentSkills;
@@ -48,7 +49,9 @@ final class InstructionComposer
             $this->chiefOfStaff($agent),
             // What the whole company knows, curated by people (12.10.2026).
             app(CompanyMemory::class)->forPrompt($agent),
-            "## Autonomia\nO teu nível é {$level->code()} ({$level->label()}). ".$this->autonomyRule($level),
+            "## Autonomia\nO teu nível é {$level->code()} ({$level->label()}). ".$this->autonomyRule($level)
+                // Its value limit, so it plans with it (docs/DECISOES.md, "Limite de valor por agente").
+                .(($limit = app(ValueLimits::class)->forPrompt($agent)) !== null ? "\n".$limit : ''),
             <<<'TXT'
             ## Regras da plataforma
             - Escreve em português (pt-MZ/pt-PT), de forma clara e curta.

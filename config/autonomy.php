@@ -92,6 +92,53 @@ return [
         'erp.hr_*',
     ],
 
+    /*
+    | Value limit per agent (docs/DECISOES.md, "Limite de valor por agente").
+    | The writes that commit value, by type: above the agent's limit (its own
+    | for the type, its own, or the company's, business.agent_value_limit_mzn),
+    | with no amount the platform can read, or in a currency without a rate,
+    | a person decides, whatever the level or a «Permitir sempre» rule.
+    | Payments, credit notes, contracts and issuing an invoice are not here:
+    | they are under the absolute ceiling, so a person always decides them.
+    | Supplier quotations, purchase requests and RFQs commit nothing.
+    */
+    'value_limit' => [
+        'purchases' => [
+            'erp.procurement.create_po_draft',
+            'erp.create_purchase_order',
+            'erp.update_purchase_order',
+            'erp.create_purchase_orders_from_request',
+        ],
+        'sales' => [
+            'erp.invoices.create_draft',
+            'erp.create_invoice',
+            'erp.update_invoice',
+            'erp.create_estimate',
+            'erp.update_estimate',
+            'erp.create_proposal',
+            'erp.update_proposal',
+        ],
+        'expenses' => [
+            'erp.expenses.create',
+            'erp.create_expense',
+            'erp.update_expense',
+        ],
+    ],
+
+    // Edits: only an edit that carries a value (lines, amount, total,
+    // discount, adjustment, shipping, currency) counts; a new date does not.
+    'value_limit_edits' => [
+        'erp.update_purchase_order',
+        'erp.update_invoice',
+        'erp.update_estimate',
+        'erp.update_proposal',
+        'erp.update_expense',
+    ],
+
+    // Fixed rates to MZN, by currency code ("USD" => 63.9) or the ERP's
+    // currency id ("2" => 63.9). Empty: another currency counts as above the limit.
+    'value_limit_rates' => [],
+
     // Rethink HR tools with no pay, contract, document or disciplinary data.
     // Assiduidade (erp.att_*), list_staff and list_departments are not on the list at all.
     'people_data_open' => [

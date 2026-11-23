@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Ai\Autonomy\ValueLimits;
 use App\Ai\Budget\AiBudget;
 use App\Ai\Budget\BudgetGuard;
 use App\Ai\Templates\AgentTemplate;
@@ -149,10 +150,12 @@ class TenantController extends AdminController
             'tender_sources.*.keywords' => ['nullable', 'string', 'max:1000'],
             'tender_sources.*.active' => ['boolean'],
             'business' => ['array'],
-            ...collect(array_keys((array) config('business')))->mapWithKeys(fn (string $key) => ["business.{$key}" => ['nullable', 'integer', 'between:0,100000']])->all(),
+            // The value limit is in meticais (docs/DECISOES.md, "Limite de valor por agente"); the rest are hours, days, percentages and sizes.
+            ...collect(array_keys((array) config('business')))->mapWithKeys(fn (string $key) => ["business.{$key}" => ['nullable', 'integer', 'between:0,'.($key === ValueLimits::SETTING ? ValueLimits::MAX : 100000)]])->all(),
         ]);
 
         $before = AiBudget::for($tenant)->toArray();
+        $businessBefore = (array) ($tenant->settings['business'] ?? []);
         $settings = $tenant->settings ?? [];
         $settings['profile'] = array_map(fn ($value) => $value === '' ? null : $value, $data['profile'] ?? []);
         $settings['ai_budget'] = AiBudget::fromArray($data['budget'] ?? [])->toArray();
@@ -173,10 +176,12 @@ class TenantController extends AdminController
             'settings' => $settings,
         ])->save();
 
-        $this->tenants->run($tenant, fn () => AuditLog::record($this->admin($request), 'tenant.updated', [
+        $this->tenants->run($tenant, fn () => AuditLog::record($this->admin($request), 'tenant.updated', array_filter([
             'status' => $tenant->status->value,
             'ai_budget' => ['before' => $before, 'after' => $settings['ai_budget']],
-        ], subject: $tenant));
+            // Business rules, among them the agents' value limit, when they changed.
+            'business' => $businessBefore != $settings['business'] ? ['before' => $businessBefore, 'after' => $settings['business']] : null,
+        ], fn ($value) => $value !== null), subject: $tenant));
 
         return back()->with('success', 'Perfil guardado.');
     }

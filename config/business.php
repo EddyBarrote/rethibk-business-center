@@ -40,4 +40,10 @@ return [
     // (docs/DECISOES.md, "Falhas de contexto"): about 15 000 tokens. Never
     // more than TaskThread::HISTORY_MESSAGES messages; the newest always goes.
     'history_chars' => 60000,
+
+    // MZN, before tax, per document: above it an agent's invoice, order,
+    // quote or expense waits for a person, whatever its level or a
+    // «Permitir sempre» rule (docs/DECISOES.md, "Limite de valor por agente").
+    // The company's default; each agent may have its own. 0 means no limit.
+    'agent_value_limit_mzn' => 0,
 ];

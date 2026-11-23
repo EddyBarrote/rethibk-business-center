@@ -85,7 +85,9 @@ final class SendEmail extends LocalCapability
     /**
      * Section 12.3: "envio de comunicação para fora da organização [...] a uma
      * entidade nova". New means no email from this tenant ever reached it.
-     * The amount threshold in the same line is not defined yet ([CONFIRMAR]).
+     * The amount in the same line: an email with a price proposal always goes
+     * to a person (below); the documents that commit value have the agent's
+     * value limit (docs/DECISOES.md, "Limite de valor por agente").
      */
     public function ceilingReason(array $arguments, CapabilityContext $context): ?string
     {

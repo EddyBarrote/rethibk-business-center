@@ -4,6 +4,8 @@ namespace App\Ai\Tools;
 
 use App\Ai\Autonomy\AutonomyGate;
 use App\Ai\Autonomy\PeopleData;
+use App\Ai\Autonomy\ValueAmount;
+use App\Ai\Autonomy\ValueLimits;
 use App\Ai\Capabilities\CapabilityContext;
 use App\Ai\Capabilities\CapabilityExecutor;
 use App\Ai\Capabilities\CapabilityRegistry;
@@ -61,9 +63,15 @@ final class GatedTool implements Tool
     {
         $description = $this->capability->description ?: $this->capability->name;
 
-        return $this->capability->is_mutating && $this->context->agent->autonomy_level->value < $this->capability->risk->value
-            ? $description.' (Precisa de aprovação humana: ao chamar, a acção fica pendente.)'
-            : $description;
+        if ($this->capability->is_mutating && $this->context->agent->autonomy_level->value < $this->capability->risk->value) {
+            return $description.' (Precisa de aprovação humana: ao chamar, a acção fica pendente.)';
+        }
+
+        // The agent's value limit (docs/DECISOES.md, "Limite de valor por agente").
+        $type = ValueLimits::typeOf($this->capability->key);
+        $limit = $type !== null ? app(ValueLimits::class)->limitFor($this->context->agent, $type)['amount'] : 0;
+
+        return $limit > 0 ? $description.' (Acima de '.ValueAmount::format($limit).' MZN sem impostos, ou sem valor indicado, precisa de aprovação humana.)' : $description;
     }
 
     public function schema(JsonSchema $schema): array

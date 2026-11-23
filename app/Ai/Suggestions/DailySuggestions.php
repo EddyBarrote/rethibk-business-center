@@ -51,7 +51,9 @@ class DailySuggestions
             return null;
         }
 
-        $agent->forceFill(['settings' => [...($agent->settings ?? []), 'daily_suggestions' => ['date' => now()->toDateString(), 'items' => $items]]])->saveQuietly();
+        // Read again after the model answered: an admin may have saved other settings (the value limit) meanwhile.
+        $settings = $agent->fresh()->settings ?? $agent->settings ?? [];
+        $agent->forceFill(['settings' => [...$settings, 'daily_suggestions' => ['date' => now()->toDateString(), 'items' => $items]]])->saveQuietly();
 
         return $items;
     }

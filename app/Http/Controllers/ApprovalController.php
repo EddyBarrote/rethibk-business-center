@@ -111,7 +111,8 @@ class ApprovalController extends Controller
 
     /**
      * Approves several pending actions at once, each under the same rule as one by one. Actions under the absolute
-     * ceiling (payments, external email, contracts…) are never approved in bulk: they are decided one at a time.
+     * ceiling (payments, external email, contracts…) or above the agent's value limit are never approved in bulk:
+     * they are decided one at a time.
      */
     public function approveMany(Request $request, ApprovalService $approvals): RedirectResponse
     {
@@ -119,7 +120,7 @@ class ApprovalController extends Controller
         $data = $request->validate(['ids' => ['required', 'array', 'max:50'], 'ids.*' => ['integer']]);
         $approved = 0;
 
-        foreach (Approval::query()->with('agent')->whereIn('id', $data['ids'])->pending()->whereNull('ceiling_reason')->get() as $approval) {
+        foreach (Approval::query()->with('agent')->whereIn('id', $data['ids'])->pending()->whereNull('ceiling_reason')->whereNull('value_limit_reason')->get() as $approval) {
             if (! $user->can('decide', $approval)) {
                 continue;
             }

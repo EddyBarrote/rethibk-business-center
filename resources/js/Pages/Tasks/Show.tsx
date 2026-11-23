@@ -123,6 +123,7 @@ interface PendingApproval {
     action_type: string;
     payload: Record<string, unknown> | null;
     ceiling_reason: string | null;
+    value_limit_reason?: string | null;
     rule_label: string | null;
     can_always: boolean;
     agent: string;
@@ -1067,6 +1068,8 @@ function ApprovalCard({ approval }: { approval: PendingApproval }) {
                 <p className="break-words text-muted-foreground">{approvalTitle(approval.action_type, approval.payload, approval.summary)}</p>
                 {approval.ceiling_reason ? (
                     <p className="text-xs text-muted-foreground">Decide sempre uma pessoa: {approval.ceiling_reason}</p>
+                ) : approval.value_limit_reason ? (
+                    <p className="text-xs text-muted-foreground">Limite de valor, decide uma pessoa: {approval.value_limit_reason}.</p>
                 ) : (
                     approval.rule_label && <p className="text-xs text-muted-foreground">Pedida pela regra: {approval.rule_label}</p>
                 )}

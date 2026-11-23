@@ -559,6 +559,7 @@ class TaskController extends Controller
                     'action_type' => $approval->action_type,
                     'payload' => $approval->payload,
                     'ceiling_reason' => $approval->ceiling_reason,
+                    'value_limit_reason' => $approval->value_limit_reason,
                     'rule_label' => $approval->rule_label,
                     'can_always' => ApprovalRules::canAllowAlways($approval),
                     'agent' => $approval->agent->name ?? '',

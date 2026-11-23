@@ -11,14 +11,20 @@ use App\Models\Capability;
 /**
  * The autonomy gate (section 12.2). A rule that refuses comes first; then the
  * absolute ceiling (section 12.3), which no level and no rule gets past; then
- * the standing rules (docs/DECISOES.md, "Regras de aprovação"): «Permitir
- * sempre» lets the action through, «Perguntar sempre» holds it. Without a
- * rule, read-only capabilities pass, and a mutating capability passes only
- * when the agent's level reaches the capability's risk.
+ * the agent's value limit (docs/DECISOES.md, "Limite de valor por agente"),
+ * which no level and no «Permitir sempre» gets past either; then the standing
+ * rules (docs/DECISOES.md, "Regras de aprovação"): «Permitir sempre» lets the
+ * action through, «Perguntar sempre» holds it. Without a rule, read-only
+ * capabilities pass, and a mutating capability passes only when the agent's
+ * level reaches the capability's risk.
  */
 final class AutonomyGate
 {
-    public function __construct(private readonly CapabilityRegistry $registry, private readonly ApprovalRules $rules) {}
+    public function __construct(
+        private readonly CapabilityRegistry $registry,
+        private readonly ApprovalRules $rules,
+        private readonly ValueLimits $valueLimits,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $arguments
@@ -35,6 +41,12 @@ final class AutonomyGate
 
         if ($ceiling !== null) {
             return new GateDecision(false, AutonomyLevel::ExecuteAndReport, $ceiling, $rule?->effect === RuleEffect::Ask ? $rule : null);
+        }
+
+        $overLimit = $this->valueLimits->reason($capability->key, $arguments, $context->agent);
+
+        if ($overLimit !== null) {
+            return new GateDecision(false, $capability->risk, rule: $rule?->effect === RuleEffect::Ask ? $rule : null, valueLimitReason: $overLimit);
         }
 
         if ($rule !== null) {
