@@ -15,6 +15,8 @@ final readonly class GateDecision
         public ?ApprovalRule $rule = null,
         /** Refused by a rule: not even a person is asked. */
         public bool $denied = false,
+        /** Above the agent's value limit (docs/DECISOES.md, "Limite de valor por agente"): a person decides. */
+        public ?string $valueLimitReason = null,
     ) {}
 
     public function reason(): string
@@ -25,6 +27,10 @@ final readonly class GateDecision
 
         if ($this->ceilingReason !== null) {
             return "Tecto absoluto: {$this->ceilingReason}.";
+        }
+
+        if ($this->valueLimitReason !== null) {
+            return "Limite de valor: {$this->valueLimitReason}.";
         }
 
         return $this->rule !== null

@@ -193,12 +193,12 @@ export default function ApprovalsIndex({ approvals, views, areas, agents, stats,
         show(next?.id ?? null);
     };
 
-    // Bulk decisions: reject covers all that may be decided; approve skips the absolute ceiling.
+    // Bulk decisions: reject covers all that may be decided; approve skips the absolute ceiling and the value limit.
     const selectable = rows.filter((row) => row.can_decide && row.status === 'pending');
     const [selected, setSelected] = useState<number[]>([]);
     useEffect(() => setSelected([]), [filters.vista, filters.area, filters.agente, filters.q, approvals.current_page]);
     const chosen = rows.filter((row) => selected.includes(row.id));
-    const approvable = chosen.filter((row) => !row.ceiling_reason).map((row) => row.id);
+    const approvable = chosen.filter((row) => !row.ceiling_reason && !row.value_limit_reason).map((row) => row.id);
     const [busy, setBusy] = useState(false);
     const [rejecting, setRejecting] = useState(false);
     const [reason, setReason] = useState('');
@@ -398,7 +398,11 @@ export default function ApprovalsIndex({ approvals, views, areas, agents, stats,
                                     {selected.length > 0 && approvable.length < selected.length && (
                                         <span className="hidden items-center gap-1 text-xs text-muted-foreground md:inline-flex">
                                             <Lock className="size-3" />
-                                            {plural(selected.length - approvable.length, 'no tecto absoluto: só se rejeita em bloco', 'no tecto absoluto: só se rejeitam em bloco')}
+                                            {plural(
+                                                selected.length - approvable.length,
+                                                'no tecto absoluto ou acima do limite de valor: só se rejeita em bloco',
+                                                'no tecto absoluto ou acima do limite de valor: só se rejeitam em bloco',
+                                            )}
                                         </span>
                                     )}
                                     {selected.length > 0 && (

@@ -60,6 +60,7 @@ final class ApprovalService
             'required_level' => $decision->requiredLevel,
             'agent_level' => $agent->autonomy_level,
             'ceiling_reason' => $decision->ceilingReason,
+            'value_limit_reason' => $decision->valueLimitReason !== null ? Str::limit($decision->valueLimitReason, 500) : null,
             'rule_id' => $decision->rule?->id,
             'rule_label' => $decision->rule?->describe(),
             'status' => ApprovalStatus::Pending,
@@ -142,12 +143,13 @@ final class ApprovalService
 
     /**
      * Who revalidates: the Chief of Staff, unless the action is under the
-     * absolute ceiling, is the Chief's own, or is decided by a permission.
+     * absolute ceiling or above the agent's value limit, is the Chief's own,
+     * or is decided by a permission.
      */
     private function reviewerFor(Approval $approval): ?Agent
     {
         // A confidential agent's actions go straight to people who may manage people (PeopleData).
-        if ($approval->ceiling_reason !== null || array_key_exists($approval->action_type, Approval::DECIDED_BY_PERMISSION) || PeopleData::agentHolds($approval->agent)) {
+        if ($approval->ceiling_reason !== null || $approval->value_limit_reason !== null || array_key_exists($approval->action_type, Approval::DECIDED_BY_PERMISSION) || PeopleData::agentHolds($approval->agent)) {
             return null;
         }
 

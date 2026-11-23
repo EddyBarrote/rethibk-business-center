@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Ai\Agents\AgentAvatars;
 use App\Ai\Agents\AgentDrafting;
 use App\Ai\Agents\AgentEditor;
+use App\Ai\Autonomy\ValueLimits;
 use App\Ai\Budget\BudgetExceeded;
 use App\Ai\Runs\MissingProviderKey;
 use App\Erp\AgentErpIdentities;
@@ -79,6 +80,7 @@ class AgentDefinitionController extends Controller
             'draft' => null,
             'can_generate_avatar' => AgentAvatars::canGenerate(),
             'erp_identity' => app(AgentErpIdentities::class)->present($agent),
+            'value_limits' => app(ValueLimits::class)->present($agent),
         ]);
     }
 

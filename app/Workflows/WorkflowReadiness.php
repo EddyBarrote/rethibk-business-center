@@ -2,6 +2,8 @@
 
 namespace App\Workflows;
 
+use App\Ai\Autonomy\ValueAmount;
+use App\Ai\Autonomy\ValueLimits;
 use App\Ai\Capabilities\CapabilityRegistry;
 use App\Ai\Capabilities\Local\SendEmail;
 use App\Ai\Runs\AgentDirectory;
@@ -15,7 +17,7 @@ use Illuminate\Support\Collection;
  * What each block of a flow will do with what the agents have today
  * (docs/DECISOES.md, "Fluxos de trabalho"): the capability given and
  * available, the skill attached, the agent's trust level against the
- * capability's risk, and the absolute ceiling. The same rules as the
+ * capability's risk, the absolute ceiling and the agent's value limit. The same rules as the
  * autonomy gate (AutonomyGate, ApprovalService::reviewerFor), applied ahead
  * of time:
  *
@@ -158,6 +160,14 @@ final class WorkflowReadiness
             }
 
             $reasons[] = 'Para uma entidade nova, decide uma pessoa.';
+        }
+
+        // The agent's value limit (docs/DECISOES.md, "Limite de valor por agente").
+        $type = ValueLimits::typeOf($capability->key);
+        $limit = $type !== null ? app(ValueLimits::class)->limitFor($agent, $type)['amount'] : 0;
+
+        if ($limit > 0) {
+            $reasons[] = 'Acima de '.ValueAmount::format($limit).' MZN (limite de valor do agente), decide uma pessoa.';
         }
 
         if (! $capability->is_mutating || $agent->autonomy_level->value >= $capability->risk->value) {

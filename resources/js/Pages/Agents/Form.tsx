@@ -6,6 +6,7 @@ import { AgentAvatar } from '@/Components/AgentAvatar';
 import AgentDefinitionForm, { type AgentData, type AgentDraft, type AgentFormOptions } from '@/Components/agents/AgentDefinitionForm';
 import AgentErpIdentity, { type ErpIdentityData } from '@/Components/agents/AgentErpIdentity';
 import { FormSection } from '@/Components/agents/FormParts';
+import AgentValueLimits from '@/Components/agents/AgentValueLimits';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { PageHeader } from '@/Components/PageHeader';
 import { agentTone, StatusBadge } from '@/Components/Status';
@@ -207,6 +208,7 @@ export default function AgentFormPage({ agent, draft, can_draft = false, can_gen
                     )
                 }
             />
+            {agent && <AgentValueLimits agentId={agent.id} />}
         </AppLayout>
     );
 }

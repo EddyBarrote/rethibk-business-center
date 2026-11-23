@@ -161,6 +161,7 @@ final class Present
             'required_level' => $approval->required_level->value,
             'agent_level' => $approval->agent_level->value,
             'ceiling_reason' => $approval->ceiling_reason,
+            'value_limit_reason' => $approval->value_limit_reason,
             // The standing rule that asked (docs/DECISOES.md, "Regras de aprovação"), and whether one may come out of it.
             'rule_label' => $approval->rule_label,
             'can_always' => ApprovalRules::canAllowAlways($approval),

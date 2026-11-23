@@ -11,7 +11,7 @@ use App\Models\User;
 /**
  * Standing rules on top of the autonomy levels (docs/DECISOES.md, "Regras de
  * aprovação"). The agent's own rule beats the rule for all agents. A rule
- * never lifts the absolute ceiling, and the actions a permission decides
+ * never lifts the absolute ceiling nor the agent's value limit, and the actions a permission decides
  * (budget, trust, new agents and skills) take no «Permitir sempre».
  */
 final class ApprovalRules
@@ -27,10 +27,13 @@ final class ApprovalRules
             ->first();
     }
 
-    /** Can a standing «Permitir sempre» come out of this approval? */
+    /**
+     * Can a standing «Permitir sempre» come out of this approval? Not above
+     * the value limit: the rule would never let that amount through.
+     */
     public static function canAllowAlways(Approval $approval): bool
     {
-        return $approval->ceiling_reason === null && ! array_key_exists($approval->action_type, Approval::DECIDED_BY_PERMISSION);
+        return $approval->ceiling_reason === null && $approval->value_limit_reason === null && ! array_key_exists($approval->action_type, Approval::DECIDED_BY_PERMISSION);
     }
 
     /**
