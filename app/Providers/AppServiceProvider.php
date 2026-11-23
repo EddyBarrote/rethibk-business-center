@@ -57,7 +57,7 @@ class AppServiceProvider extends ServiceProvider
             ->line('Recebemos um pedido para definir uma nova palavra-passe para a sua conta.')
             ->action('Definir palavra-passe', (string) call_user_func(ResetPassword::$createUrlCallback, $user, $token))
             ->line('O link é válido durante '.config('auth.passwords.users.expire').' minutos. Se não fez este pedido, ignore este email.')
-            ->salutation('Rethink Business Center'));
+            ->salutation('Rethink.OS'));
 
         RateLimiter::for('login', function (Request $request) {
             $email = strtolower((string) $request->input('email'));

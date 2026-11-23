@@ -828,7 +828,7 @@ Agentes testam-se com respostas de modelo em fixture, não com chamadas reais. R
 ## 17. Configuração
 
 ```dotenv
-APP_NAME="Plataforma de Agentes"
+APP_NAME="Rethink.OS"
 APP_URL=https://plataforma.rethink.co.mz
 
 DB_CONNECTION=mysql

@@ -4,6 +4,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { configureEcho } from '@laravel/echo-react';
 import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PRODUCT_NAME } from '@/Components/RethinkMark';
 
 // Single Echo connection for the whole app; components subscribe through a
 // shared hook (section 11.3 of docs/SPEC.md), never open their own. The values
@@ -24,7 +25,8 @@ if (reverbKey !== '' && !reverbKey.includes('${')) {
     });
 }
 
-const appName = import.meta.env.VITE_APP_NAME || 'Rethink Business Center';
+// The product name, not APP_NAME: a local .env from before the rename would keep the old one in every tab.
+const appName = PRODUCT_NAME;
 
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),

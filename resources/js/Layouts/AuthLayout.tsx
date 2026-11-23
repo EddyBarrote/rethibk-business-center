@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { PRODUCT_NAME, RethinkMark } from '@/Components/RethinkMark';
+import { RethinkMark, RethinkWordmark } from '@/Components/RethinkMark';
 import { Button } from '@/Components/ui/button';
 import { type Appearance, useAppearance } from '@/lib/appearance';
 
@@ -49,7 +49,7 @@ export function AuthLayout({
             <header className="relative flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                     <RethinkMark className="size-8 rounded-lg" />
-                    <span className="font-semibold tracking-tight">{PRODUCT_NAME}</span>
+                    <RethinkWordmark />
                 </div>
                 <AppearanceToggle />
             </header>

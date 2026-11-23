@@ -121,11 +121,11 @@ Pedido do Barrote: o login tem de parecer um produto a sério, com "Desenvolvido
 
 | Tema | Decisão | Onde está |
 |---|---|---|
-| Nome do produto | **Rethink Business Center**, com "Plataforma de Agentes" como descrição. O `APP_NAME` do `.env` não mudou. | `PRODUCT_NAME` em `Components/RethinkMark.tsx` |
+| Nome do produto | **Rethink Business Center**, com "Plataforma de Agentes" como descrição. O `APP_NAME` do `.env` não mudou. | `PRODUCT_NAME` em `Components/RethinkMark.tsx` *(substituído a 23.11.2026: ver «Nome e logótipo: Rethink.OS»)* |
 | Âmbito | Entrar, recuperar acesso, nova palavra-passe (tenant) e entrar do super admin partilham o mesmo `AuthLayout`: painel ilustrado à esquerda (só em ecrãs largos), formulário à direita, claro e escuro, botão de tema. | `Layouts/AuthLayout.tsx` |
 | Marca do tenant | O nome da empresa não aparece no login (pedido do Barrote, 05.10). Só o logótipo de Definições › Marca, se existir, servido sem sessão em `/login/logo`. | `Auth\LoginBrand`, `LoginController::logo` |
 | Recuperar palavra-passe | Para pessoas dos tenants e para super admins: link por email (60 min), resposta igual quer a conta exista ou não, só contas activas. Nos tenants a procura fica limitada ao tenant do endereço e usa `password_reset_tokens` (chave = email; se o mesmo email existir em dois tenants, o pedido mais recente substitui o anterior). Os super admins têm tokens próprios (`platform_admin_password_reset_tokens`) e o link aponta para o host de administração. Com `APP_ENV=local` e email em `log`, o link aparece também no ecrã, porque o email nunca chega a ninguém. | `Auth\ForgotPasswordController`, `Auth\ResetPasswordController` e as subclasses em `Admin\` |
-| Logótipo | Um fluxo de três passos ligados por um caminho, com a faísca da IA ao lado (o Barrote pediu algo sobre IA e workflows, não o "R"). Conceito gerado com nano banana e redesenhado à mão em SVG para ler bem a 24 px, na cor primária do tema; também é o favicon. | `RethinkMark`, `public/favicon.svg` |
+| Logótipo | Um fluxo de três passos ligados por um caminho, com a faísca da IA ao lado (o Barrote pediu algo sobre IA e workflows, não o "R"). Conceito gerado com nano banana e redesenhado à mão em SVG para ler bem a 24 px, na cor primária do tema; também é o favicon. | `RethinkMark`, `public/favicon.svg` *(substituído a 23.11.2026: ver «Nome e logótipo: Rethink.OS»)* |
 | Ilustração | ~~Gerada com nano banana, versão clara e escura em WebP.~~ Desde 26.10.2026 a entrada não usa imagens: ver «Página de entrada com animação». | `Layouts/AuthLayout.tsx` |
 
 ## Realinhamento: pessoas e agentes como colegas (05.10.2026)
@@ -1872,3 +1872,16 @@ Pedido do Barrote: o kit para instalar a plataforma num servidor esta semana, pa
 | **Entrada em produção da MICOMOC**: pessoas reais com papéis da lista da MICOMOC, agentes instalados em rascunho e todos em N2 nas primeiras duas semanas, tecto absoluto sem «Permitir sempre», orçamento de IA acordado (sugestão para arrancar: 150 USD/mês a organização, 40 por agente, 1 por execução), caixas e ERP testados, cópias ensaiadas, demo gravada e registo de aceitação assinado. | `DEPLOY.md` (18) |
 
 Testes: `tests/Feature/ProductionHardeningTest.php`. Os scripts passam `bash -n` e `shellcheck`; o `deploy.sh`, o `rollback.sh` e o `backup.sh` foram ensaiados no Mac com as ferramentas do servidor simuladas. Fica por provar num servidor real o que está em `DEPLOY.md`, secção 19.
+
+## Nome e logótipo: Rethink.OS (23.11.2026)
+
+Pedido do Barrote: um nome e um logótipo melhores para o sistema. Das três propostas (Rethink.OS, Leme e Ntirho), o Barrote escolheu **Rethink.OS**.
+
+| Decisão | Onde |
+|---|---|
+| **Nome**: Rethink.OS, o sistema operativo da empresa. Faz família com o Rethink.ERP. Substitui «Rethink Business Center» e a descrição «Plataforma de Agentes». | `PRODUCT_NAME` em `Components/RethinkMark.tsx`; `APP_NAME` em `.env.example` e `deploy/.env.production.example` |
+| **Logótipo**: uma grelha de quatro lugares, três ocupados por pessoas (círculos) e um por um agente (a faísca): pessoas e agentes a trabalhar lado a lado. Branco sobre o azul principal, desenhado à mão em SVG para ler a 16 px. | `RethinkMark` (cor de `bg-primary`), `public/favicon.svg` (#146FE3) |
+| **Marca nominativa**: «Rethink» na cor do texto e «.OS» no azul principal, como o «.ERP» do ERP. No login; nas barras laterais o nome aparece por baixo do da empresa (ou de «Administração»). | `RethinkWordmark`, `AuthLayout`, `AppLayout`, `AdminLayout` |
+| **Ícones**: `favicon.svg`, `favicon.ico` (16, 32 e 48 px, cantos transparentes) e `apple-touch-icon.png` (180 px, sem cantos, porque o iOS arredonda). | `public/`, `resources/views/app.blade.php` |
+| **Emails**: o email de nova palavra-passe assina «Rethink.OS». Os emails dos agentes e os documentos continuam com a marca de cada empresa. | `AppServiceProvider` |
+| **Por verificar**: não se fez pesquisa de marca registada nem de domínio; uma pesquisa na web não encontrou nenhum produto com este nome. O título dos separadores do browser vem de `PRODUCT_NAME` (`app.tsx`), para um `.env` antigo não manter o nome velho; o `APP_NAME` de cada `.env` (o título antes de a página carregar e o remetente dos emails) muda-se à mão em cada instalação. | `resources/js/app.tsx` |

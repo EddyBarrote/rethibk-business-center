@@ -33,7 +33,7 @@ import { toast } from 'sonner';
 import { PersonAvatar } from '@/Components/PersonAvatar';
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { NotificationBell } from '@/Components/notifications/NotificationBell';
-import { RethinkMark } from '@/Components/RethinkMark';
+import { PRODUCT_NAME, RethinkMark } from '@/Components/RethinkMark';
 import { StatusDot } from '@/Components/Status';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/Components/ui/breadcrumb';
 import {
@@ -469,7 +469,7 @@ export default function AppLayout({
                                         <RethinkMark className="size-8" />
                                         <div className="grid flex-1 text-left leading-tight">
                                             <span className="truncate text-sm font-semibold">{tenant?.name ?? 'Plataforma'}</span>
-                                            <span className="truncate text-xs text-muted-foreground">Plataforma de Agentes</span>
+                                            <span className="truncate text-xs text-muted-foreground">{PRODUCT_NAME}</span>
                                         </div>
                                     </Link>
                                 </SidebarMenuButton>

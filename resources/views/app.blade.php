@@ -13,6 +13,8 @@
             })();
         </script>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="icon" href="/favicon.ico" sizes="48x48">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
         <title inertia>{{ config('app.name') }}</title>
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx'])

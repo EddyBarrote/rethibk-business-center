@@ -1,4 +1,4 @@
-# MICOMOC — Plataforma de Agentes (Rethink)
+# Rethink.OS — o sistema operativo da empresa (projecto MICOMOC)
 
 Plataforma multi-tenant de gestão empresarial com agentes de IA, construída em Laravel 13 + `laravel/ai` + `laravel/mcp`.
 MICOMOC é o primeiro tenant. Ref: RT-2026-MCM-01.

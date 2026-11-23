@@ -26,6 +26,13 @@ it('emails a reset link to an active user of this tenant', function () {
     Notification::assertSentTo($this->user, ResetPassword::class);
 });
 
+it('signs the reset email with the product name', function () {
+    $mail = (new ResetPassword('token'))->toMail($this->user);
+
+    expect($mail->salutation)->toBe('Rethink.OS')
+        ->and($mail->subject)->toBe('Definir uma nova palavra-passe');
+});
+
 it('answers the same way for an unknown email and sends nothing', function () {
     Notification::fake();
 

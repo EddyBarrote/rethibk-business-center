@@ -18,7 +18,7 @@ import { Fragment, type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
 import { Monogram } from '@/Components/Blocks';
-import { RethinkMark } from '@/Components/RethinkMark';
+import { PRODUCT_NAME, RethinkMark } from '@/Components/RethinkMark';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/Components/ui/breadcrumb';
 import {
     DropdownMenu,
@@ -212,7 +212,7 @@ export default function AdminLayout({ title, children, breadcrumbs }: { title: s
                                         <RethinkMark className="size-8" />
                                         <div className="grid flex-1 text-left leading-tight">
                                             <span className="truncate text-sm font-semibold">Administração</span>
-                                            <span className="truncate text-xs text-muted-foreground">Plataforma de Agentes</span>
+                                            <span className="truncate text-xs text-muted-foreground">{PRODUCT_NAME}</span>
                                         </div>
                                     </Link>
                                 </SidebarMenuButton>
