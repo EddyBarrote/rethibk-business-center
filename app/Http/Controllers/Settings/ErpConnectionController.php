@@ -75,6 +75,8 @@ class ErpConnectionController extends Controller
                 'tool' => $log->payload['tool'] ?? ($names->has($log->action) ? substr($log->action, 4) : null),
                 'tool_name' => $names->get($names->has($log->action) ? $log->action : 'erp.'.($log->payload['tool'] ?? '')),
                 'actor_type' => $log->actor_type->value,
+                // The agent's own ERP token or the connection's (docs/DECISOES.md, "Identidade própria de cada agente no ERP").
+                'identity' => $log->payload['identity'] ?? null,
                 'result' => $log->result->value,
                 'duration_ms' => $log->payload['duration_ms'] ?? null,
                 'error' => $log->payload['error'] ?? null,

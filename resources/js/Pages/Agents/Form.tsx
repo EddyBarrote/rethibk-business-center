@@ -1,9 +1,10 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { ImageUp, Sparkles, Trash2, WandSparkles } from 'lucide-react';
+import { ImageUp, KeyRound, Sparkles, Trash2, WandSparkles } from 'lucide-react';
 import { type FormEvent, useRef } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import AgentDefinitionForm, { type AgentData, type AgentDraft, type AgentFormOptions } from '@/Components/agents/AgentDefinitionForm';
+import AgentErpIdentity, { type ErpIdentityData } from '@/Components/agents/AgentErpIdentity';
 import { FormSection } from '@/Components/agents/FormParts';
 import { AutonomyBadge } from '@/Components/AutonomyBadge';
 import { PageHeader } from '@/Components/PageHeader';
@@ -17,6 +18,7 @@ interface Props extends AgentFormOptions {
     draft: AgentDraft | null;
     can_draft?: boolean;
     can_generate_avatar: boolean;
+    erp_identity?: ErpIdentityData;
 }
 
 const examples = [
@@ -143,7 +145,7 @@ function AvatarPanel({ agent, canGenerate }: { agent: AgentData; canGenerate: bo
     );
 }
 
-export default function AgentFormPage({ agent, draft, can_draft = false, can_generate_avatar, ...options }: Props) {
+export default function AgentFormPage({ agent, draft, can_draft = false, can_generate_avatar, erp_identity, ...options }: Props) {
     const title = agent ? `Editar ${agent.name}` : 'Novo agente';
     const statusLabel = options.statuses.find((status) => status.value === agent?.status)?.label ?? agent?.status;
 
@@ -181,7 +183,14 @@ export default function AgentFormPage({ agent, draft, can_draft = false, can_gen
                 cancelHref={agent ? `/agents/${agent.id}` : '/agents'}
                 skillsHref="/settings/skills"
                 capabilitiesHref="/settings/capabilities"
-                extraSections={agent ? [] : [{ id: 'assistente', label: 'Assistente', icon: Sparkles }]}
+                extraSections={
+                    agent ? [{ id: 'erp', label: 'Identidade no ERP', icon: KeyRound }] : [{ id: 'assistente', label: 'Assistente', icon: Sparkles }]
+                }
+                panels={
+                    agent && erp_identity
+                        ? { erp: <AgentErpIdentity identity={erp_identity} base={`/agents/${agent.id}`} runHref={(id) => `/runs/${id}`} /> }
+                        : undefined
+                }
                 navNote={agent ? undefined : 'A foto fica disponível depois de criar o agente.'}
                 before={!agent && <Assistant brief={draft?.brief} available={can_draft} />}
                 identityAside={agent && <AvatarPanel agent={agent} canGenerate={can_generate_avatar} />}

@@ -7,6 +7,7 @@ use App\Ai\Agents\AgentEditor;
 use App\Ai\Templates\AgentTemplates;
 use App\Ai\Templates\TemplateInstaller;
 use App\Enums\MailboxStatus;
+use App\Erp\AgentErpIdentities;
 use App\Models\Agent;
 use App\Models\AgentRoutine;
 use App\Models\AuditLog;
@@ -71,6 +72,7 @@ class AgentController extends AdminController
         return Inertia::render('Admin/Agents/Form', [
             ...$this->formOptions($tenant, $agent),
             'agent' => app(AgentEditor::class)->present($agent, $agent->avatar_path ? route('admin.tenants.agents.avatar', [$tenant, $agent], false) : null),
+            'erp_identity' => app(AgentErpIdentities::class)->present($agent),
             'routines' => $agent->routines()->orderBy('name')->get()->map(fn (AgentRoutine $routine) => [
                 ...$routine->only(['id', 'name', 'prompt', 'schedule', 'is_active']),
                 'last_run_at' => $routine->last_run_at?->toIso8601String(),

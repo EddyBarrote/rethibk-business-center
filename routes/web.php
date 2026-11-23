@@ -4,6 +4,7 @@ use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AgentAvatarController;
 use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AgentDefinitionController;
+use App\Http\Controllers\AgentErpIdentityController;
 use App\Http\Controllers\AgentRunController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\AttachmentController;
@@ -95,6 +96,9 @@ Route::middleware('auth')->group(function () {
     Route::post('agents/{agent}/avatar', [AgentAvatarController::class, 'store'])->name('agents.avatar.store');
     Route::post('agents/{agent}/avatar/generate', [AgentAvatarController::class, 'generate'])->middleware('throttle:6,1')->name('agents.avatar.generate');
     Route::delete('agents/{agent}/avatar', [AgentAvatarController::class, 'destroy'])->name('agents.avatar.destroy');
+    Route::put('agents/{agent}/erp-identity', [AgentErpIdentityController::class, 'update'])->name('agents.erp-identity.update');
+    Route::delete('agents/{agent}/erp-identity', [AgentErpIdentityController::class, 'destroy'])->name('agents.erp-identity.destroy');
+    Route::post('agents/{agent}/erp-identity/test', [AgentErpIdentityController::class, 'test'])->middleware('throttle:10,1')->name('agents.erp-identity.test');
     Route::get('people/{user}/avatar', [UserAvatarController::class, 'show'])->name('people.avatar');
     Route::post('agents/{agent}/runs', [AgentController::class, 'run'])->middleware('throttle:20,1')->name('agents.run');
     Route::put('agents/{agent}/status', [AgentController::class, 'updateStatus'])->name('agents.status');

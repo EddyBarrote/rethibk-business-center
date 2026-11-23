@@ -7,6 +7,7 @@ use App\Ai\Agents\AgentDrafting;
 use App\Ai\Agents\AgentEditor;
 use App\Ai\Budget\BudgetExceeded;
 use App\Ai\Runs\MissingProviderKey;
+use App\Erp\AgentErpIdentities;
 use App\Models\Agent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,6 +78,7 @@ class AgentDefinitionController extends Controller
             'agent' => $this->editor->present($agent),
             'draft' => null,
             'can_generate_avatar' => AgentAvatars::canGenerate(),
+            'erp_identity' => app(AgentErpIdentities::class)->present($agent),
         ]);
     }
 

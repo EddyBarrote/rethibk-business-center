@@ -18,7 +18,9 @@ interface Call {
     action: string;
     tool: string | null;
     tool_name: string | null;
-    actor_type: 'user' | 'agent' | 'system';
+    actor_type: 'user' | 'agent' | 'system' | 'platform_admin';
+    /** Which token the call went with: the agent's own or the connection's. */
+    identity?: 'agent' | 'tenant' | null;
     result: Result;
     duration_ms: number | null;
     error: string | null;
@@ -39,9 +41,11 @@ const actionLabel: Record<string, string> = {
     'erp.connection_test': 'Teste de ligação',
     'erp.connection_updated': 'Configuração alterada',
     'erp.approval_requested': 'Pedido de aprovação',
+    'erp.identity_test': 'Teste da identidade de um agente',
+    'erp.identity_updated': 'Identidade de um agente alterada',
 };
 
-const actorLabel: Record<Call['actor_type'], string> = { user: 'Utilizador', agent: 'Agente', system: 'Sistema' };
+const actorLabel: Record<Call['actor_type'], string> = { user: 'Utilizador', agent: 'Agente', system: 'Sistema', platform_admin: 'Super admin' };
 
 const filters: { value: Result | null; label: string }[] = [
     { value: null, label: 'Todas' },
@@ -117,6 +121,7 @@ export default function ErpActivity({ calls, filters: current }: Props) {
                                     </TableCell>
                                     <TableCell data-label="Origem" className="px-4 py-2 text-muted-foreground">
                                         {actorLabel[call.actor_type]}
+                                        {call.identity === 'agent' && <span className="block text-xs">com identidade própria</span>}
                                     </TableCell>
                                     <TableCell data-label="Resultado" className="px-4 py-2">
                                         <StatusBadge tone={resultTone[call.result]} title={call.error ?? undefined}>

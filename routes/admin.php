@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AgentController;
+use App\Http\Controllers\Admin\AgentErpIdentityController;
 use App\Http\Controllers\Admin\AgentRoutineController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CapabilityController;
@@ -44,6 +45,9 @@ Route::middleware('auth:admin')->group(function () {
         Route::resource('agents', AgentController::class)->only(['create', 'store', 'edit', 'update']);
         Route::get('agents/{agent}/avatar', [AgentController::class, 'avatar'])->name('agents.avatar');
         Route::put('agents/{agent}/mailbox', [AgentController::class, 'updateMailbox'])->name('agents.mailbox');
+        Route::put('agents/{agent}/erp-identity', [AgentErpIdentityController::class, 'update'])->name('agents.erp-identity.update');
+        Route::delete('agents/{agent}/erp-identity', [AgentErpIdentityController::class, 'destroy'])->name('agents.erp-identity.destroy');
+        Route::post('agents/{agent}/erp-identity/test', [AgentErpIdentityController::class, 'test'])->middleware('throttle:10,1')->name('agents.erp-identity.test');
         Route::resource('agents.routines', AgentRoutineController::class)->only(['store', 'update', 'destroy']);
 
         Route::get('capabilities', [CapabilityController::class, 'index'])->name('capabilities.index');
