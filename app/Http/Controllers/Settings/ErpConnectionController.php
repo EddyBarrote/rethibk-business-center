@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Audit\ConfidentialEntries;
 use App\Enums\AuditResult;
 use App\Enums\ErpConnectionStatus;
 use App\Enums\ErpTransport;
@@ -62,24 +63,29 @@ class ErpConnectionController extends Controller
         // Calls name the tool as Capacidades does; the key stays in a tooltip.
         $names = Capability::query()->where('key', 'like', 'erp.%')->pluck('name', 'key');
 
-        $calls = AuditLog::query()
+        $page = AuditLog::query()
             ->where('action', 'like', 'erp.%')
             ->when($result !== null, fn ($query) => $query->where('result', $result))
             ->latest('id')
             ->paginate(30)
-            ->withQueryString()
-            ->through(fn (AuditLog $log) => [
-                'id' => $log->id,
-                // An approval request is audited under the capability key ("erp.expenses.classify").
-                'action' => $names->has($log->action) ? 'erp.approval_requested' : $log->action,
-                'tool' => $log->payload['tool'] ?? ($names->has($log->action) ? substr($log->action, 4) : null),
-                'tool_name' => $names->get($names->has($log->action) ? $log->action : 'erp.'.($log->payload['tool'] ?? '')),
-                'actor_type' => $log->actor_type->value,
-                'result' => $log->result->value,
-                'duration_ms' => $log->payload['duration_ms'] ?? null,
-                'error' => $log->payload['error'] ?? null,
-                'created_at' => $log->created_at->toIso8601String(),
-            ]);
+            ->withQueryString();
+
+        // An error of a call with pay and personal data may quote it (docs/DECISOES.md, "Auditoria pesquisável e exportável").
+        $hidden = ConfidentialEntries::readBy($this->user($request)) ? []
+            : ConfidentialEntries::forCurrentTenant()->among($page->getCollection()->map(fn (AuditLog $log) => $log->id)->values()->all());
+
+        $calls = $page->through(fn (AuditLog $log) => [
+            'id' => $log->id,
+            // An approval request is audited under the capability key ("erp.expenses.classify").
+            'action' => $names->has($log->action) ? 'erp.approval_requested' : $log->action,
+            'tool' => $log->payload['tool'] ?? ($names->has($log->action) ? substr($log->action, 4) : null),
+            'tool_name' => $names->get($names->has($log->action) ? $log->action : 'erp.'.($log->payload['tool'] ?? '')),
+            'actor_type' => $log->actor_type->value,
+            'result' => $log->result->value,
+            'duration_ms' => $log->payload['duration_ms'] ?? null,
+            'error' => isset($hidden[$log->id]) ? null : ($log->payload['error'] ?? null),
+            'created_at' => $log->created_at->toIso8601String(),
+        ]);
 
         return Inertia::render('Settings/ErpActivity', [
             'calls' => $calls,

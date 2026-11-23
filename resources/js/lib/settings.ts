@@ -16,6 +16,7 @@ import {
     PlugZap,
     Puzzle,
     Route,
+    ScrollText,
     ShieldCheck,
     ShieldQuestion,
     Stethoscope,
@@ -62,6 +63,13 @@ export const settingsGroups: SettingsGroup[] = [
                 href: '/settings/health',
                 icon: Stethoscope,
                 description: 'Se o modelo de IA, a internet, as caixas, o ERP e a fila estão a funcionar.',
+                permissions: ['company.manage'],
+            },
+            {
+                label: 'Auditoria',
+                href: '/settings/audit',
+                icon: ScrollText,
+                description: 'Quem fez o quê, quando e com que resultado: pesquisar e exportar.',
                 permissions: ['company.manage'],
             },
             {
