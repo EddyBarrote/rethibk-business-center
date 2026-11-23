@@ -20,7 +20,7 @@ final class SkillImports
 {
     private const DISK = 'local';
 
-    public function __construct(private readonly SkillPackageReader $reader, private readonly SkillFiles $files) {}
+    public function __construct(private readonly SkillPackageReader $reader, private readonly SkillFiles $files, private readonly SkillVersions $versions) {}
 
     /**
      * Read the uploads and keep them aside until the person confirms.
@@ -122,6 +122,9 @@ final class SkillImports
                 $mime = MimeTypes::getDefault()->getMimeTypes($extension)[0] ?? 'application/octet-stream';
                 $this->files->attach($skill, new UploadedFile($path, basename($file['filename']), $mime, null, true), $file['filename']);
             }
+
+            // One version for the import, with every file that came in.
+            $this->versions->record($skill, $user);
 
             AuditLog::record($user, 'skill.imported', [
                 'key' => $skill->key,

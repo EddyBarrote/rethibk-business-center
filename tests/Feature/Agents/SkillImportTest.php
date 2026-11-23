@@ -149,7 +149,11 @@ it('shows the import before saving, then creates the skill with its files and no
             ->and($skill->files->pluck('filename')->all())->toBe(['assets/reactive_logo.png', 'references/precos.md'])
             ->and($skill->files->firstWhere('filename', 'references/precos.md')->content)->toBe('# Preços')
             ->and(DocumentType::fromSkill($skill)->images)->toHaveKey('reactive-logo')
-            ->and(AuditLog::query()->where('action', 'skill.imported')->sole()->payload['left_out'])->toBe(['scripts/generate_fecho.py']);
+            ->and(AuditLog::query()->where('action', 'skill.imported')->sole()->payload['left_out'])->toBe(['scripts/generate_fecho.py'])
+            // One version for the import, with every file that came in, by whoever imported it.
+            ->and($skill->versions()->count())->toBe(1)
+            ->and($skill->versions()->sole()->created_by_user_id)->toBe($this->owner->id)
+            ->and(collect($skill->versions()->sole()->files)->pluck('filename')->all())->toBe(['assets/reactive_logo.png', 'references/precos.md']);
     });
 
     // The staged upload is gone once used.

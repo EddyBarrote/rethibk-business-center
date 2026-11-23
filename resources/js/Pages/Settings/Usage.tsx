@@ -1,12 +1,13 @@
-import { Head, Link } from '@inertiajs/react';
-import { ChartColumn, FileSearch } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ChartColumn, FileSearch, Lock } from 'lucide-react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { EntityRow, ListHeader, ListPanel, Property, Section } from '@/Components/Blocks';
 import { EmptyState } from '@/Components/EmptyState';
 import { PageHeader } from '@/Components/PageHeader';
+import { NativeSelect } from '@/Components/ui/native-select';
 import SettingsLayout from '@/Layouts/SettingsLayout';
-import { period as periodLabel, plural, usd } from '@/lib/format';
+import { duration, errorRate, period as periodLabel, plural, usd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 interface AgentUsage {
@@ -14,7 +15,16 @@ interface AgentUsage {
     name: string;
     avatar_url: string | null;
     runs: number;
+    /** Failed runs, and the ones with an outcome (completed or failed) the error rate is out of. */
+    failed: number;
+    finished: number;
+    /** failed ÷ finished, 0 to 1; null when nothing finished. */
+    error_rate: number | null;
+    /** Median and 90th percentile of how long finished runs took. */
+    p50_ms: number | null;
+    p90_ms: number | null;
     spent: number;
+    /** Only for the current month, the one the cap applies to. */
     cap: number | null;
 }
 
@@ -27,7 +37,12 @@ interface Props {
     extra: number;
     agent_cap: number | null;
     run_cap: number | null;
+    /** The period of the per-agent table: a month (2026-11) or the last 30 days ("30d"). */
+    selected: string;
+    periods: string[];
     agents: AgentUsage[];
+    /** Spent by agents this person may not see (confidential ones), counted in the totals. */
+    hidden_spent: number;
     months: { period: string; runs: number; spent: number }[];
     other: { purpose: string; label: string; calls: number; spent: number }[];
 }
@@ -54,11 +69,36 @@ function Meter({ value, cap, className }: { value: number; cap: number; classNam
 
 const percent = (value: number, cap: number) => `${Math.round((value / cap) * 100)}%`;
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const periodName = (value: string) => (value === '30d' ? 'últimos 30 dias' : periodLabel(value));
+/** The agent's run log, every origin, as its page opens it. */
+const runLog = (agentId: number) => `/settings/runs?agent=${agentId}&origin=todas`;
 
 /** Definições › Consumo de IA: this month's spend against the caps Rethink sets, per agent and over six months. */
-export default function Usage({ period, day, days, spent, cap, extra, agent_cap, run_cap, agents, months, other }: Props) {
+export default function Usage({
+    period,
+    day,
+    days,
+    spent,
+    cap,
+    extra,
+    agent_cap,
+    run_cap,
+    selected,
+    periods,
+    agents,
+    hidden_spent,
+    months,
+    other,
+}: Props) {
     const projected = day > 0 ? (spent / day) * days : spent;
     const busiest = Math.max(...months.map((month) => month.spent), 0);
+    const showCap = agent_cap !== null && selected === period;
+    const choose = (value: string) =>
+        router.get('/settings/usage', value === period ? {} : { period: value }, {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['selected', 'agents', 'hidden_spent', 'other'],
+        });
 
     return (
         <SettingsLayout>
@@ -114,24 +154,75 @@ export default function Usage({ period, day, days, spent, cap, extra, agent_cap,
                 </div>
             </div>
 
-            <Section title="Por agente, este mês">
+            <Section
+                title={selected === period ? 'Por agente, este mês' : `Por agente, ${periodName(selected)}`}
+                action={
+                    <NativeSelect aria-label="Período" className="w-48" value={selected} onChange={(event) => choose(event.target.value)}>
+                        {periods.map((value) => (
+                            <option key={value} value={value}>
+                                {value === period ? 'Este mês' : capitalised(periodName(value))}
+                            </option>
+                        ))}
+                    </NativeSelect>
+                }
+            >
                 {agents.length === 0 && other.length === 0 ? (
-                    <EmptyState icon={ChartColumn} title="Sem gastos este mês" description="Quando um agente trabalhar, o que gastou aparece aqui." />
+                    <EmptyState
+                        icon={ChartColumn}
+                        title={selected === period ? 'Sem gastos este mês' : 'Sem execuções neste período'}
+                        description="Quando um agente trabalhar, o que fez e gastou aparece aqui."
+                    />
                 ) : (
                     <ListPanel>
                         <ListHeader
                             leading={<span className="w-7" />}
                             title="Agente"
-                            meta={<span className="w-24 text-right">Execuções</span>}
-                            trailing={<span className="w-44 text-right">Gasto{agent_cap !== null ? ' e tecto' : ''}</span>}
+                            meta={
+                                <>
+                                    <span className="w-20 text-right">Execuções</span>
+                                    <span className="w-24 text-right" title="Execuções que falharam, em percentagem das que terminaram">
+                                        Taxa de erro
+                                    </span>
+                                    <span
+                                        className="hidden w-32 text-right lg:block"
+                                        title="Quanto demorou a execução típica (mediana) e 9 em cada 10 (p90)"
+                                    >
+                                        Duração · p90
+                                    </span>
+                                </>
+                            }
+                            trailing={<span className="w-44 text-right">Gasto{showCap ? ' e tecto' : ''}</span>}
                         />
                         {agents.map((agent) => (
                             <EntityRow
                                 key={agent.id}
+                                href={runLog(agent.id)}
                                 leading={<AgentAvatar name={agent.name} url={agent.avatar_url} className="size-7 rounded-lg text-[10px]" />}
                                 title={agent.name}
-                                subtitle={<span className="sm:hidden">{plural(agent.runs, 'execução', 'execuções')}</span>}
-                                meta={<span className="w-24 text-right tabular-nums">{agent.runs}</span>}
+                                subtitle={
+                                    <>
+                                        <span className="sm:hidden">
+                                            {plural(agent.runs, 'execução', 'execuções')} · {errorRate(agent.error_rate)} de erro ·{' '}
+                                        </span>
+                                        <span className="lg:hidden">
+                                            {duration(agent.p50_ms)} típica, p90 {duration(agent.p90_ms)}
+                                        </span>
+                                    </>
+                                }
+                                meta={
+                                    <>
+                                        <span className="w-20 text-right tabular-nums">{agent.runs}</span>
+                                        <span
+                                            className={cn('w-24 text-right tabular-nums', agent.failed > 0 && 'text-status-danger')}
+                                            title={`${plural(agent.failed, 'falhou', 'falharam')} de ${plural(agent.finished, 'terminada', 'terminadas')}`}
+                                        >
+                                            {errorRate(agent.error_rate)}
+                                        </span>
+                                        <span className="hidden w-32 text-right tabular-nums lg:block">
+                                            {duration(agent.p50_ms)} · {duration(agent.p90_ms)}
+                                        </span>
+                                    </>
+                                }
                                 trailing={
                                     <div className="flex w-28 flex-col items-end gap-1 sm:w-44">
                                         <span className="text-sm tabular-nums">
@@ -155,11 +246,28 @@ export default function Usage({ period, day, days, spent, cap, extra, agent_cap,
                                 }
                                 title={row.label}
                                 subtitle={<span className="sm:hidden">{plural(row.calls, 'pedido', 'pedidos')}</span>}
-                                meta={<span className="w-24 text-right tabular-nums">{row.calls}</span>}
+                                meta={
+                                    <>
+                                        <span className="w-20 text-right tabular-nums">{row.calls}</span>
+                                        <span className="w-24" />
+                                        <span className="hidden w-32 lg:block" />
+                                    </>
+                                }
                                 trailing={<span className="w-28 text-right text-sm tabular-nums sm:w-44">{usd(row.spent)}</span>}
                             />
                         ))}
                     </ListPanel>
+                )}
+                <p className="text-xs text-muted-foreground">
+                    A taxa de erro conta as execuções que falharam entre as que terminaram. A duração é o tempo em que o agente esteve a trabalhar,
+                    sem contar a espera por aprovações ou respostas: a típica (mediana) e a de 9 em cada 10 (p90). Cada agente abre o seu registo de
+                    execuções.
+                </p>
+                {hidden_spent > 0 && (
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Lock className="size-3.5" />
+                        Inclui {usd(hidden_spent)} de agentes que só aparecem a quem tem «Gerir pessoas e papéis».
+                    </p>
                 )}
             </Section>
 
@@ -173,6 +281,7 @@ export default function Usage({ period, day, days, spent, cap, extra, agent_cap,
                     {[...months].reverse().map((month) => (
                         <EntityRow
                             key={month.period}
+                            href={month.period === period ? '/settings/usage' : `/settings/usage?period=${month.period}`}
                             title={capitalised(periodLabel(month.period))}
                             subtitle={<span className="sm:hidden">{plural(month.runs, 'execução', 'execuções')}</span>}
                             meta={<span className="w-24 text-right tabular-nums">{month.runs}</span>}

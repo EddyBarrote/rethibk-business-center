@@ -4,6 +4,7 @@ import { type FormEvent, useRef } from 'react';
 
 import { AgentAvatar } from '@/Components/AgentAvatar';
 import { FormSection } from '@/Components/agents/FormParts';
+import { SkillVersionList, type SkillVersionRow } from '@/Components/catalog/SkillVersions';
 import { ConfirmDialog } from '@/Components/Dialogs';
 import { Field } from '@/Components/Field';
 import { Markdown } from '@/Components/Markdown';
@@ -64,10 +65,13 @@ export function SkillEditor({
     cancelHref,
     switchField,
     agentOptions,
+    versions,
 }: {
     base: string;
     skill: SkillData | null;
     files: SkillFileRow[];
+    /** The skill's history, newest first («Versões»). */
+    versions?: SkillVersionRow[];
     cancelHref: string;
     /** "is_enabled" for a company's skill, "is_active" for a global one. */
     switchField: 'is_enabled' | 'is_active';
@@ -226,6 +230,8 @@ export function SkillEditor({
             </form>
 
             <aside className="flex flex-col gap-4">
+                {skill && versions && <SkillVersionList base={base} skillId={skill.id} versions={versions} />}
+
                 <div className="rounded-xl border bg-card p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Ficheiros</h2>

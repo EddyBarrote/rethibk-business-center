@@ -34,6 +34,8 @@ Route::middleware('auth:admin')->group(function () {
     Route::resource('skills', PlatformSkillController::class)->except(['show']);
     Route::post('skills/{skill}/files', [PlatformSkillController::class, 'storeFile'])->name('skills.files.store');
     Route::delete('skills/{skill}/files/{file}', [PlatformSkillController::class, 'destroyFile'])->name('skills.files.destroy');
+    Route::get('skills/{skill}/versions/{number}', [PlatformSkillController::class, 'version'])->whereNumber('number')->name('skills.versions.show');
+    Route::post('skills/{skill}/versions/{number}/restore', [PlatformSkillController::class, 'restoreVersion'])->whereNumber('number')->name('skills.versions.restore');
     Route::get('connectors', [PlatformConnectorController::class, 'index'])->name('connectors.index');
     Route::post('connectors', [PlatformConnectorController::class, 'store'])->name('connectors.store');
     Route::put('connectors/{connector}', [PlatformConnectorController::class, 'update'])->name('connectors.update');

@@ -6,6 +6,7 @@ use App\Ai\Autonomy\PeopleData;
 use App\Enums\TaskKind;
 use App\Enums\TriggerType;
 use App\Http\Presenters\Present;
+use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AgentRunStep;
 use App\Models\Approval;
@@ -31,10 +32,13 @@ class AgentRunController extends Controller
     {
         $filters = $request->validate([
             'status' => ['nullable', 'string', 'max:30'],
-            'origin' => ['nullable', 'in:rotina,tarefa,email,conversa'],
+            'origin' => ['nullable', 'in:rotina,tarefa,email,conversa,todas'],
+            'agent' => ['nullable', 'integer'],
         ]);
         $origin = $filters['origin'] ?? null;
         $status = $filters['status'] ?? null;
+        // One agent's run log, from its page and from Consumo de IA (docs/DECISOES.md, "Latência, taxa de erro e versões das skills").
+        $agent = isset($filters['agent']) ? Agent::query()->find($filters['agent'], ['id', 'name']) : null;
         $chat = fn (Builder $task) => $task->where('kind', TaskKind::Chat);
         $user = $this->user($request);
 
@@ -42,6 +46,7 @@ class AgentRunController extends Controller
         $runs = AgentRun::query()
             ->visibleTo($user)
             ->when($status, fn (Builder $query, string $status) => $query->where('status', $status))
+            ->when(isset($filters['agent']), fn (Builder $query) => $query->where('agent_id', $agent->id ?? 0))
             ->when($origin === null, fn (Builder $query) => $query->whereDoesntHave('task', $chat))
             ->when($origin === 'rotina', fn (Builder $query) => $query->where('trigger_type', TriggerType::Schedule)->whereNull('task_id'))
             ->when($origin === 'tarefa', fn (Builder $query) => $query->whereHas('task', fn (Builder $task) => $task->where('kind', TaskKind::Task)))
@@ -70,7 +75,8 @@ class AgentRunController extends Controller
                     'last_status_label' => $last->get($group->getAttribute('last_id'))?->status->label(),
                     'last_at' => $last->get($group->getAttribute('last_id'))?->created_at->toIso8601String(),
                 ]),
-                'filters' => ['status' => $status, 'origin' => $origin],
+                'filters' => ['status' => $status, 'origin' => $origin, 'agent' => $agent?->id],
+                'agent' => $agent?->only(['id', 'name']),
             ]);
         }
 
@@ -79,7 +85,8 @@ class AgentRunController extends Controller
         return Inertia::render('Runs/Index', [
             'runs' => $runs->through(fn (AgentRun $run) => Present::run($run)),
             'conversations' => null,
-            'filters' => ['status' => $status, 'origin' => $origin],
+            'filters' => ['status' => $status, 'origin' => $origin, 'agent' => $agent?->id],
+            'agent' => $agent?->only(['id', 'name']),
             // Requests written for agents name tools by key; the list shows their names.
             'tool_names' => Capability::query()->pluck('name', 'key'),
         ]);

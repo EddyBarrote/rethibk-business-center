@@ -35,7 +35,8 @@ import { Textarea } from '@/Components/ui/textarea';
 import { useLive } from '@/hooks/useLive';
 import { useToolNames } from '@/hooks/useToolNames';
 import AppLayout from '@/Layouts/AppLayout';
-import { ago, dateTime, runTitle, usd } from '@/lib/format';
+import { ago, dateTime, duration, errorRate, runTitle, usd } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { TaskRow, type TaskSummary } from '@/Pages/Tasks/Index';
 import type { AgentSummary, RunSummary, SharedProps } from '@/types';
 
@@ -58,6 +59,20 @@ interface Props {
     /** Other people's conversations with the agent, read-only, for whoever may read them all. */
     conversations: TeamConversation[] | null;
     now: { active: NowRun[]; last: NowRun | null };
+    /** The last 30 days in numbers; null for whoever neither sees AI costs nor configures agents. */
+    metrics: AgentMetrics | null;
+}
+
+interface AgentMetrics {
+    days: number;
+    runs: number;
+    failed: number;
+    finished: number;
+    error_rate: number | null;
+    p50_ms: number | null;
+    p90_ms: number | null;
+    /** Only for whoever sees AI costs. */
+    spent: number | null;
 }
 
 interface TeamConversation {
@@ -69,7 +84,20 @@ interface TeamConversation {
     last_activity_at: string | null;
 }
 
-export default function AgentShow({ agent, capabilities, skills, routines, runs, users, memory_count, tasks, conversations, can, now }: Props) {
+export default function AgentShow({
+    agent,
+    capabilities,
+    skills,
+    routines,
+    runs,
+    users,
+    memory_count,
+    tasks,
+    conversations,
+    can,
+    now,
+    metrics,
+}: Props) {
     const { tenant, auth } = usePage<SharedProps>().props;
     const form = useForm({ message: '', mode: 'message' as 'message' | 'action' });
     const [reason, setReason] = useState('');
@@ -219,10 +247,12 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                             </Section>
                         )}
 
+                        {metrics && <Performance agentId={agent.id} metrics={metrics} />}
+
                         <Section
                             title="Execuções recentes"
                             action={
-                                <Link href="/settings/runs" className="text-muted-foreground hover:text-foreground">
+                                <Link href={`/settings/runs?agent=${agent.id}&origin=todas`} className="text-muted-foreground hover:text-foreground">
                                     Ver todas
                                 </Link>
                             }
@@ -522,6 +552,64 @@ export default function AgentShow({ agent, capabilities, skills, routines, runs,
                 </Properties>
             </div>
         </AppLayout>
+    );
+}
+
+/**
+ * Runs, failures, latency and cost over the last 30 days, with the way into
+ * the agent's run log, where each run shows step by step what it decided.
+ */
+function Performance({ agentId, metrics }: { agentId: number; metrics: AgentMetrics }) {
+    const log = `/settings/runs?agent=${agentId}&origin=todas`;
+    const tiles: { label: string; value: string; hint?: string; href?: string; danger?: boolean }[] = [
+        { label: 'Execuções', value: String(metrics.runs), href: log },
+        {
+            label: 'Taxa de erro',
+            value: errorRate(metrics.error_rate),
+            hint: metrics.finished > 0 ? `${metrics.failed} de ${metrics.finished} falharam` : 'Nenhuma terminou',
+            href: metrics.failed > 0 ? `${log}&status=failed` : undefined,
+            danger: metrics.failed > 0,
+        },
+        { label: 'Duração típica', value: duration(metrics.p50_ms), hint: 'Mediana' },
+        { label: '9 em cada 10', value: duration(metrics.p90_ms), hint: 'p90' },
+        ...(metrics.spent !== null ? [{ label: 'Gasto', value: usd(metrics.spent) }] : []),
+    ];
+
+    return (
+        <Section
+            title={`Últimos ${metrics.days} dias`}
+            action={
+                <Link href={log} className="text-muted-foreground hover:text-foreground">
+                    Registo de execuções
+                </Link>
+            }
+        >
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3 lg:grid-cols-5">
+                {tiles.map((tile) => {
+                    const body = (
+                        <>
+                            <span className="text-xs text-muted-foreground">{tile.label}</span>
+                            <span className={cn('text-lg font-semibold tabular-nums', tile.danger && 'text-status-danger')}>{tile.value}</span>
+                            {tile.hint && <span className="text-[11px] text-muted-foreground">{tile.hint}</span>}
+                        </>
+                    );
+
+                    return tile.href ? (
+                        <Link
+                            key={tile.label}
+                            href={tile.href}
+                            className="flex flex-col gap-0.5 bg-card px-4 py-3 transition-colors hover:bg-accent/50"
+                        >
+                            {body}
+                        </Link>
+                    ) : (
+                        <div key={tile.label} className="flex flex-col gap-0.5 bg-card px-4 py-3">
+                            {body}
+                        </div>
+                    );
+                })}
+            </div>
+        </Section>
     );
 }
 

@@ -133,7 +133,10 @@ it('prepares a skill for the agents named and creates it once the catalogue mana
 
         expect($skill->key)->toBe('cobrancas')
             ->and($skill->is_enabled)->toBeTrue()
-            ->and($skill->agents()->pluck('agents.id')->all())->toBe([$this->finance->id]);
+            ->and($skill->agents()->pluck('agents.id')->all())->toBe([$this->finance->id])
+            // Version 1, by the person who confirmed it.
+            ->and($skill->versions()->sole()->number)->toBe(1)
+            ->and($skill->versions()->sole()->created_by_user_id)->toBe($this->ceo->id);
     });
 });
 

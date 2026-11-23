@@ -52,6 +52,10 @@ Ao carregar, `skills.load` troca `{{marca.nome}}`, `{{marca.cor}}`, `{{marca.cor
 
 Ficheiros aceites: md, txt, csv, json, xml, html, pdf, docx, xlsx (até 10 MB). O texto é extraído no upload com `TextExtractor`; um ficheiro sem texto legível fica guardado mas o agente não o consegue ler (o ecrã avisa).
 
+## Versões das skills
+
+Cada alteração ao que o agente lê numa skill (nome, «quando usar», instruções, ficheiros) guarda uma versão imutável com autor e data (`skill_versions` e `platform_skill_versions`). Quem escreve um caminho novo que cria ou muda uma skill chama `SkillVersions::baseline()` antes e `SkillVersions::record()` depois. Os agentes usam sempre a versão actual; `skills.load` diz qual é. Remover um ficheiro não apaga a cópia guardada (as versões apontam para ela); só apagar a skill a apaga. Ver docs/DECISOES.md, «Latência, taxa de erro e versões das skills».
+
 ## Tipos de documento
 
 Um tipo de documento (proposta comercial, relatório mensal, carta de cobrança…) é uma **skill**: as instruções dizem o que leva e em que tom; umas linhas no topo dizem como fica (`App\Documents\DocumentType`):

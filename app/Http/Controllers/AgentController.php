@@ -8,6 +8,7 @@ use App\Ai\Budget\BudgetGuard;
 use App\Ai\Memory\MemoryConsolidator;
 use App\Ai\Runs\AgentNow;
 use App\Ai\Runs\AgentRunner;
+use App\Ai\Runs\RunMetrics;
 use App\Enums\AgentStatus;
 use App\Enums\Permission;
 use App\Enums\TaskStatus;
@@ -111,6 +112,8 @@ class AgentController extends Controller
             'runs' => $agent->runs()->visibleTo($user)->with(['agent:id,name', 'requestedBy:id,name'])->latest('id')->limit(25)->get()->map(fn (AgentRun $run) => Present::run($run)),
             // What the agent is doing right now, at the top of its page (docs/DECISOES.md, "Agente: o que está a fazer").
             'now' => fn () => app(AgentNow::class)->for($agent, $user),
+            // Runs, failures, latency and cost over 30 days (docs/DECISOES.md, "Latência, taxa de erro e versões das skills").
+            'metrics' => fn () => $this->metrics($agent, $user),
             // The memory itself lives in Definições › Memória dos agentes (12.10.2026).
             'memory_count' => $user->can('viewMemory', $agent) ? AgentMemory::query()->where('agent_id', $agent->id)->count() : null,
             // The tasks between this person and the agent, inside the agent's page (09.10.2026).
@@ -128,6 +131,35 @@ class AgentController extends Controller
                 'view_memory' => $user->can('viewMemory', $agent),
             ],
         ]);
+    }
+
+    /**
+     * The last 30 days in numbers, for whoever sees AI costs or configures
+     * agents; the cost only for the first. A confidential agent's, only for
+     * people who may manage people (PeopleData).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function metrics(Agent $agent, User $user): ?array
+    {
+        $costs = $user->hasPermission(Permission::ViewCosts);
+
+        if (PeopleData::closedTo($agent, $user) || ! ($costs || $user->can('manage', $agent))) {
+            return null;
+        }
+
+        $row = app(RunMetrics::class)->forAgent($agent->id, now()->subDays(30));
+
+        return [
+            'days' => 30,
+            'runs' => $row['runs'],
+            'failed' => $row['failed'],
+            'finished' => $row['completed'] + $row['failed'],
+            'error_rate' => $row['error_rate'],
+            'p50_ms' => $row['p50_ms'],
+            'p90_ms' => $row['p90_ms'],
+            'spent' => $costs ? $row['spent'] : null,
+        ];
     }
 
     public function run(Request $request, Agent $agent, AgentRunner $runner): RedirectResponse

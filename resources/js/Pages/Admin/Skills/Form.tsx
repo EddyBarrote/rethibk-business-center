@@ -1,8 +1,17 @@
 import { type SkillData, SkillEditor, type SkillFileRow } from '@/Components/catalog/SkillEditor';
+import { type SkillVersionRow } from '@/Components/catalog/SkillVersions';
 import { PageHeader } from '@/Components/PageHeader';
 import AdminLayout from '@/Layouts/AdminLayout';
 
-export default function PlatformSkillForm({ skill, files }: { skill: SkillData | null; files: SkillFileRow[] }) {
+export default function PlatformSkillForm({
+    skill,
+    files,
+    versions,
+}: {
+    skill: SkillData | null;
+    files: SkillFileRow[];
+    versions?: SkillVersionRow[];
+}) {
     return (
         <AdminLayout
             title={skill ? skill.name : 'Nova skill global'}
@@ -12,7 +21,7 @@ export default function PlatformSkillForm({ skill, files }: { skill: SkillData |
                 title={skill ? skill.name : 'Nova skill global'}
                 description="Oferecida a todas as organizações; cada uma activa as que quer. Uma alteração chega a todas de imediato."
             />
-            <SkillEditor base="/skills" skill={skill} files={files} cancelHref="/skills" switchField="is_active" />
+            <SkillEditor base="/skills" skill={skill} files={files} cancelHref="/skills" switchField="is_active" versions={versions} />
         </AdminLayout>
     );
 }

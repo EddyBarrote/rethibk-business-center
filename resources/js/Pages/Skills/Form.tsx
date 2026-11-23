@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 
 import { type SkillAgentOption, type SkillData, SkillEditor, type SkillFileRow } from '@/Components/catalog/SkillEditor';
+import { type SkillVersionRow } from '@/Components/catalog/SkillVersions';
 import { PageHeader } from '@/Components/PageHeader';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 
@@ -8,10 +9,12 @@ export default function SkillForm({
     skill,
     files,
     agentOptions,
+    versions,
 }: {
     skill: SkillData | null;
     files: SkillFileRow[];
     agentOptions?: SkillAgentOption[];
+    versions?: SkillVersionRow[];
 }) {
     return (
         <SettingsLayout crumbs={[{ label: skill ? skill.name : 'Nova skill' }]}>
@@ -27,6 +30,7 @@ export default function SkillForm({
                 cancelHref="/settings/skills"
                 switchField="is_enabled"
                 agentOptions={agentOptions}
+                versions={versions}
             />
         </SettingsLayout>
     );
