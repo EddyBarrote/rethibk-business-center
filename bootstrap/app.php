@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\GoogleCalendarController;
+use App\Http\Controllers\UptimeController;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTenantFromRoute;
 use App\Http\Middleware\TrackLastSeen;
@@ -24,7 +25,8 @@ $isAdminHost = fn (Request $request): bool => strtolower($request->getHost()) ==
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         using: function () {
-            Route::get('/up', fn () => response('ok'))->name('health');
+            // Uptime checks: answers 503 when the database or Redis is down (docs/DEPLOY.md).
+            Route::get('/up', UptimeController::class)->name('health');
 
             // The super admin console is registered first so its host never
             // reaches IdentifyTenant, which would answer 404.

@@ -16,6 +16,7 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::shouldBeStrict(! $this->app->isProduction());
+
+        $this->configureUrls();
 
         // The tenant's catalogue of capabilities, connectors and skills (docs/CAPACIDADES.md).
         Gate::define('manage-catalog', fn (User $user): bool => $user->hasPermission(Permission::ManageCatalog));
@@ -64,5 +67,14 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(20)->by($request->ip()),
             ];
         });
+    }
+
+    /**
+     * Links made outside a request (emails, notifications, queued work) and behind a
+     * TLS-terminating proxy keep https when the platform is served over it.
+     */
+    public function configureUrls(): void
+    {
+        URL::forceHttps(str_starts_with((string) config('app.url'), 'https://'));
     }
 }

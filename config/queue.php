@@ -68,7 +68,9 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Longer than the longest job (SyncErpSales, 900 s): a job still running past
+            // retry_after is handed to a second worker (docs/DEPLOY.md).
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 930),
             'block_for' => null,
             'after_commit' => false,
         ],

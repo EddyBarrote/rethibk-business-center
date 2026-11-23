@@ -1,0 +1,7 @@
+# MICOMOC — tarefas do sistema (escrito por deploy/provision.sh).
+# O agendador da aplicação (schedule:work) corre no Supervisor, não aqui.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Cópia de segurança diária: base de dados, storage/app e .env (01:00 UTC = 03:00 em Maputo).
+0 1 * * * root [ -x @@APP_ROOT@@/current/deploy/backup.sh ] && @@APP_ROOT@@/current/deploy/backup.sh >> @@LOG_DIR@@/backup.log 2>&1

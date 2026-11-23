@@ -25,11 +25,11 @@ As restantes classes da secção 6.1 (`RemembersConversations`, `HasConversation
 
 ## Checklist
 
-- [x] Repositório, Laravel 13, PHP 8.3, Pint, Larastan, Pest, CI
+- [x] Repositório, Laravel 13, PHP 8.3 (hoje 8.4: o `composer.lock` passou a ter Symfony 8), Pint, Larastan, Pest, CI
 - [x] Tenancy completa (secção 4) + teste de isolamento a passar
 - [x] Auth, utilizadores, departamentos, papéis
 - [x] Layout Inertia + shadcn com o tema Rethink
-- [ ] Horizon, Redis, Reverb a correr em local e em staging — **local verificado; staging depende da questão 21.6**
+- [ ] Horizon, Redis, Reverb a correr em local e em staging — **local verificado; staging: receita pronta em [DEPLOY.md](DEPLOY.md), falta o servidor**
 
 ## O que foi construído
 
@@ -78,6 +78,6 @@ Respostas já dadas pela direcção: ver [DECISOES.md](DECISOES.md).
 
 | # | Questão | Provisório | Onde mudar |
 |---|---|---|---|
-| 6 | Alojamento e deploy | nenhum; só local e CI | — |
+| 6 | Alojamento e deploy | Um VPS Ubuntu 24.04 por ambiente (produção e staging), com Nginx, PHP-FPM 8.4, MariaDB 11.8, Redis, Supervisor e Let's Encrypt; instalação, deploy, cópias e reposição em [DEPLOY.md](DEPLOY.md) (23.11.2026). Falta escolher o fornecedor e instalar. | `deploy/`, [DEPLOY.md](DEPLOY.md) |
 | 7 | Autenticação | email e palavra-passe | `LoginController` |
 | 8 | Idioma da interface | só português (`APP_LOCALE=pt`) | textos nas páginas e `lang/pt` |
